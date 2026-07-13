@@ -1,6 +1,12 @@
-# Phase 2 Design Brief
+# Phase 1 Design Recap (Project Abaddon)
 
 Verified against code state: `a4c6825`
+
+> **Note:** This document is legacy Project Abaddon (Phase 1) material. Every
+> reference to "Phase 2" below is Project Abaddon's own internal next-iteration
+> plan (deepening the existing TS/React Rogue loop) — it is **not** Project
+> Bane's Phase 2. See `docs/DPS_Engine_Phase2_Context.md` and
+> `docs/Phase_2_Milestones.md` for Project Bane's actual Phase 2 scope.
 
 ## Purpose
 
