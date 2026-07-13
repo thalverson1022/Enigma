@@ -13,7 +13,7 @@ e.g. `P2:M1:T2:S3`.
 
 ## Relationship To Project Abaddon Docs
 
-`Phase_2_Design_Brief.md`, `Current_Mechanics_Reference.md`,
+`Phase_1_Design_Recap.md`, `Current_Mechanics_Reference.md`,
 `Content_Library_Reference.md`, and `Balance_Baseline_Report.md` describe the
 earlier TypeScript/React MVP, codenamed **Project Abaddon** (Phase 1,
 complete). They are **reference-only** for Project Bane: firewalled from this
@@ -56,20 +56,22 @@ save/load beyond P2:M6's basic run-state persistence.
 
 ## Milestone List
 
-| ID | Milestone | Objective | Exit Criteria |
-|---|---|---|---|
-| P2:M0 | Project Foundation | Stand up the project shell | Empty Godot project runs, under git, folder/naming convention documented |
-| P2:M1 | Data Architecture | Resource schema for Skills/Gear/Talents/Monsters | New skill or gear item addable via data file, zero code changes |
-| P2:M2 | Core Combat Resolution | Port the DPS window/rotation engine | Scripted rotation vs. dummy monster produces hand-verifiable DPS numbers, no UI |
-| P2:M3 | Build Planning UI | Class/subclass/talent/rotation screens | Player can assemble and lock a build through UI only |
-| P2:M4 | Economy & Gear Loop | Affix-based gear gen, shop, gold | Gold from a fight buys gear that measurably changes P2:M2's output |
-| P2:M5 | Full Loop Integration | Wire it all into one playable loop | Complete run playable start-to-finish through UI, one class/tree/boss |
-| P2:M6 | Save/Load | Persist run state | Quit mid-run, relaunch, resume correctly |
-| P2:M7 | Playtest-Ready Build | Bug pass, minimal legibility, export | A non-developer plays unassisted and gives useful feedback |
+Status legend: ⬜ Not started · 🔄 In progress · ✅ Complete
+
+| ID | Milestone | Objective | Exit Criteria | Status |
+|---|---|---|---|---|
+| P2:M0 | Project Foundation | Stand up the project shell | Empty Godot project runs, under git, folder/naming convention documented | ✅ Complete |
+| P2:M1 | Data Architecture | Resource schema for Skills/Gear/Talents/Monsters | New skill or gear item addable via data file, zero code changes | ⬜ Not started |
+| P2:M2 | Core Combat Resolution | Port the DPS window/rotation engine | Scripted rotation vs. dummy monster produces hand-verifiable DPS numbers, no UI | ⬜ Not started |
+| P2:M3 | Build Planning UI | Class/subclass/talent/rotation screens | Player can assemble and lock a build through UI only | ⬜ Not started |
+| P2:M4 | Economy & Gear Loop | Affix-based gear gen, shop, gold | Gold from a fight buys gear that measurably changes P2:M2's output | ⬜ Not started |
+| P2:M5 | Full Loop Integration | Wire it all into one playable loop | Complete run playable start-to-finish through UI, one class/tree/boss | ⬜ Not started |
+| P2:M6 | Save/Load | Persist run state | Quit mid-run, relaunch, resume correctly | ⬜ Not started |
+| P2:M7 | Playtest-Ready Build | Bug pass, minimal legibility, export | A non-developer plays unassisted and gives useful feedback | ⬜ Not started |
 
 ## Task Outline (high level — Steps drafted milestone by milestone)
 
-### P2:M0 — Project Foundation — Complete
+### P2:M0 — Project Foundation
 - T1: Git repo init at `Project-Bane/` root; scaffold `docs/`, `phase3_ideas.md`, `project/`
 - T2: Godot 4.x project init (`project.godot`, `.gitignore`, empty runnable scene)
 - T3: Document folder/naming convention (`docs/Conventions.md`)
@@ -116,11 +118,18 @@ save/load beyond P2:M6's basic run-state persistence.
 - T3: Exported build (Windows desktop min., web bonus)
 - T4: External playtest feedback loop
 
-## Status
+## Notes
 
-P2:M0 is complete except for one exit criterion that needs manual
-confirmation once Godot is installed: opening `project/project.godot` and
-confirming it runs with no errors.
+Protocol for this file: the `Status` column in the Milestone List is the
+single source of truth for whether a milestone is done. It's updated in the
+same commit that satisfies a milestone's last exit criterion — not as a
+separate later pass. Exceptions or caveats worth remembering go here as dated
+notes; this section is not a running restatement of overall progress.
+
+- P2:M0: the "empty Godot project runs" exit criterion required manual
+  confirmation after Godot 4.7 was installed (this machine had no Godot
+  install during the milestone's initial file scaffolding). Confirmed via the
+  editor successfully opening and resaving `project/project.godot`.
 
 Task-level breakdown above is a first pass for all milestones — not yet
 Step-level detail. P2:M1 onward may shift once P2:M0/P2:M1 reveal real Godot
