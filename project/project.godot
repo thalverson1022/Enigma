@@ -11,5 +11,14 @@ config_version=5
 [application]
 
 config/name="Project Bane"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/game_root.tscn"
 config/features=PackedStringArray("4.7")
+
+[autoload]
+
+BuildState="*res://scripts/autoload/build_state.gd"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900

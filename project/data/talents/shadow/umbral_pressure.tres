@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="Talent" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/talent.gd" id="1_talent"]
+[ext_resource type="Script" path="res://scripts/resources/prerequisite_group.gd" id="2_group"]
+[ext_resource type="Resource" path="res://data/talents/shadow/nightblade_rhythm.tres" id="3_nightblade"]
+[ext_resource type="Resource" path="res://data/skills/death_strike.tres" id="4_skill"]
+
+[sub_resource type="Resource" id="Resource_umbral_group"]
+script = ExtResource("2_group")
+options = Array[Talent]([ExtResource("3_nightblade")])
+
+[resource]
+script = ExtResource("1_talent")
+id = "talent.umbral_pressure"
+display_name = "Umbral Pressure"
+cost = 3
+prerequisites = Array[PrerequisiteGroup]([SubResource("Resource_umbral_group")])
+stat_modifiers = Array[StatModifier]([])
+unlocked_skills = Array[Skill]([ExtResource("4_skill")])

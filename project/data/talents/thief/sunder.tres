@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="Talent" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/talent.gd" id="1_talent"]
+[ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_modifier"]
+[ext_resource type="Script" path="res://scripts/resources/prerequisite_group.gd" id="3_group"]
+[ext_resource type="Resource" path="res://data/talents/thief/opportunity_strikes.tres" id="4_opportunity_strikes"]
+
+[sub_resource type="Resource" id="Resource_sunder_mod"]
+script = ExtResource("2_modifier")
+stat = 6
+operation = 0
+value = 20.0
+
+[sub_resource type="Resource" id="Resource_sunder_group"]
+script = ExtResource("3_group")
+options = Array[Talent]([ExtResource("4_opportunity_strikes")])
+
+[resource]
+script = ExtResource("1_talent")
+id = "talent.sunder"
+display_name = "Sunder"
+cost = 3
+prerequisites = Array[PrerequisiteGroup]([SubResource("Resource_sunder_group")])
+stat_modifiers = Array[StatModifier]([SubResource("Resource_sunder_mod")])
+unlocked_skills = Array[Skill]([])

@@ -1,0 +1,107 @@
+extends SceneTree
+## Focused P2:R4:T7 UI check for generated route rewards and Knives'
+## Legendary choice panel.
+
+
+func _initialize() -> void:
+	var build_state = root.get_node("BuildState")
+	build_state.reset()
+
+	var combat_scene: PackedScene = load("res://scenes/combat/combat_screen.tscn")
+	var combat_screen = combat_scene.instantiate()
+	root.add_child(combat_screen)
+	await process_frame
+
+	var rogue: ClassDef = load("res://data/classes/rogue.tres")
+	var contract: ContractDef = load("res://data/contracts/the_gilded_serpent.tres")
+	var portly_cook := _find_route_node(contract.offer_node, "route.gilded_serpent.portly_cook")
+	var knives := _find_route_node(contract.offer_node, "route.gilded_serpent.knives")
+	_require(rogue != null, "Expected Rogue class data.")
+	_require(contract != null, "Expected Gilded Serpent contract data.")
+	_require(portly_cook != null, "Expected Portly Cook route node.")
+	_require(knives != null, "Expected Knives route node.")
+
+	build_state.set_class(rogue)
+	build_state.select_tree(rogue.trees[1])
+	build_state.active_contract = contract
+	build_state.current_route_node = portly_cook
+	build_state.run_phase = BuildState.RunPhase.RESULT
+	build_state.last_fight_won = true
+	build_state.run_state_changed.emit()
+
+	combat_screen._on_continue_pressed()
+	await process_frame
+	_require(combat_screen._reward_choice_overlay.visible, "Expected generated reward choice overlay.")
+	_require(build_state.has_pending_reward_choice(), "Expected generated reward choices pending.")
+	_require(build_state.pending_reward_choices.size() == 2, "Expected two generated reward choices.")
+	_require(build_state.pending_reward_choices[0].slot == GearItem.SlotType.WEAPON, "Expected first generated reward to be weapon.")
+	_require(build_state.pending_reward_choices[1].slot == GearItem.SlotType.CHARM, "Expected second generated reward to be charm.")
+	_require(combat_screen._reward_choice_options.get_child_count() == 2, "Expected two generated reward buttons.")
+
+	var generated_choice_button: Button = combat_screen._reward_choice_options.get_child(0)
+	_require(generated_choice_button.tooltip_text.contains("Basic"), "Expected Basic generated reward tooltip.")
+	var fill_rng := RandomNumberGenerator.new()
+	fill_rng.seed = 570
+	while build_state.inventory.size() < build_state.INVENTORY_CAPACITY:
+		_require(build_state.add_inventory_item(GearGenerator.generate(GearItem.Tier.BASIC, GearItem.SlotType.CHARM, fill_rng)), "Expected inventory filler item.")
+	generated_choice_button.pressed.emit()
+	await process_frame
+	_require(not combat_screen._reward_choice_overlay.visible, "Expected generated reward overlay hidden after choice.")
+	_require(build_state.equipped_weapon != null, "Expected generated reward to auto-equip when inventory is full.")
+	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected route choice phase after generated reward.")
+	_require(combat_screen._map_overlay.visible, "Expected route map after generated reward.")
+
+	build_state.pending_reward_choices.clear()
+	build_state.inventory.clear()
+	build_state.equipped_weapon = null
+	build_state.claimed_route_reward_ids.clear()
+	build_state.current_route_node = knives
+	build_state.run_phase = BuildState.RunPhase.RESULT
+	build_state.last_fight_won = true
+	build_state.run_state_changed.emit()
+
+	combat_screen._on_continue_pressed()
+	await process_frame
+	_require(combat_screen._reward_choice_overlay.visible, "Expected Legendary reward choice overlay.")
+	_require(build_state.pending_reward_choices.size() == 2, "Expected two Legendary choices.")
+	_require(combat_screen._reward_choice_options.get_child_count() == 2, "Expected two Legendary reward buttons.")
+	var wyvern_button: Button = combat_screen._reward_choice_options.get_child(0)
+	var mithril_button: Button = combat_screen._reward_choice_options.get_child(1)
+	_require(wyvern_button.tooltip_text.contains("Wyvern Kriss"), "Expected Wyvern Kriss tooltip.")
+	_require(wyvern_button.tooltip_text.contains("Poison Tick Interval"), "Expected Wyvern poison cadence tooltip.")
+	_require(mithril_button.tooltip_text.contains("Mithril Karambit"), "Expected Mithril Karambit tooltip.")
+	_require(mithril_button.tooltip_text.contains("trigger Stab"), "Expected Mithril trigger tooltip.")
+
+	mithril_button.pressed.emit()
+	await process_frame
+	_require(not combat_screen._reward_choice_overlay.visible, "Expected Legendary reward overlay hidden after choice.")
+	_require(build_state.equipped_weapon != null, "Expected Legendary weapon equipped.")
+	_require(build_state.equipped_weapon.id == "gear.legendary.mithril_karambit", "Expected Mithril Karambit equipped.")
+	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected route choice phase after Legendary reward.")
+	_require(combat_screen._map_overlay.visible, "Expected route map after Legendary reward.")
+	_require(combat_screen._map_node_buttons.size() == 8, "Expected full route schematic after Legendary reward.")
+	_require(not combat_screen._map_node_buttons[7].disabled, "Expected Vyra selectable after Knives.")
+	_require(combat_screen._map_node_buttons[7].text.contains("Vyra"), "Expected Vyra node after Knives.")
+
+	print("Route reward choice UI check: OK")
+	quit()
+
+
+func _find_route_node(node: ContractRouteNode, id: String, visited: Array[String] = []) -> ContractRouteNode:
+	if node == null or visited.has(node.id):
+		return null
+	if node.id == id:
+		return node
+	visited.append(node.id)
+	for child in node.next_nodes:
+		var found := _find_route_node(child, id, visited)
+		if found != null:
+			return found
+	return null
+
+
+func _require(condition: bool, message: String) -> void:
+	if condition:
+		return
+	push_error(message)
+	quit(1)

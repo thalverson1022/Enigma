@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="Skill" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/skill.gd" id="1_skill"]
+[ext_resource type="Script" path="res://scripts/resources/physical_damage_effect.gd" id="2_physical"]
+[ext_resource type="Script" path="res://scripts/resources/poison_resistance_reduction_effect.gd" id="3_resist"]
+
+[sub_resource type="Resource" id="Resource_beguiling_physical"]
+script = ExtResource("2_physical")
+amount = 4.0
+
+[sub_resource type="Resource" id="Resource_beguiling_resist"]
+script = ExtResource("3_resist")
+reduction_fraction = 0.5
+
+[resource]
+script = ExtResource("1_skill")
+id = "skill.toxic_flurry"
+display_name = "Beguiling Strike"
+icon_letter = "B"
+base_execution_ms = 1700
+min_execution_ms = 650
+effects = Array[SkillEffect]([SubResource("Resource_beguiling_physical"), SubResource("Resource_beguiling_resist")])

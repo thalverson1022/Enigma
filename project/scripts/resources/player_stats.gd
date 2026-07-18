@@ -1,0 +1,12 @@
+class_name PlayerStats
+extends Resource
+
+@export var attack_speed: float = 0.0
+@export var crit_chance: float = 0.0
+@export var crit_multiplier: float = 2.0
+@export var poison_damage_per_tick: float = 0.0
+@export var physical_damage_multiplier: float = 1.0
+@export var bonus_poison_stacks: int = 0
+@export var bonus_armor_reduction: int = 0
+@export var poison_tick_interval_multiplier: float = 1.0
+@export var triggered_skill_effects: Array[TriggeredSkillEffect] = []

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ContractRouteNode" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/contract_route_node.gd" id="1_node"]
+[ext_resource type="Resource" path="res://data/contract_routes/gilded_serpent/door_guard.tres" id="2_door"]
+[ext_resource type="Resource" path="res://data/contract_routes/gilded_serpent/portly_cook.tres" id="3_cook"]
+
+[resource]
+script = ExtResource("1_node")
+id = "route.gilded_serpent.secondary_rogue_tree"
+display_name = "Choose a Second Rogue Tree"
+node_type = 1
+next_nodes = Array[ContractRouteNode]([ExtResource("2_door"), ExtResource("3_cook")])
+difficulty_label = "Run Milestone"
+reward_quality_label = "Build Pivot"
+summary_text = "The Tavern work is done. Choose a second Rogue tree before entering The Gilded Serpent route."
+reward_summary = "No immediate reward. Unlocks the second-tree route choice moment."

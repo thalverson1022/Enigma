@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Encounter" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/encounter.gd" id="1_encounter"]
+[ext_resource type="Resource" path="res://data/monsters/mouthy_drunk.tres" id="2_monster"]
+[ext_resource type="Script" path="res://scripts/resources/encounter_reward.gd" id="3_reward_script"]
+
+[sub_resource type="Resource" id="Resource_mouthy_drunk_reward"]
+script = ExtResource("3_reward_script")
+gold_amount = 12
+talent_points = 1
+
+[resource]
+script = ExtResource("1_encounter")
+monster = ExtResource("2_monster")
+duration_ms = 12000
+reward = SubResource("Resource_mouthy_drunk_reward")
+is_boss = false

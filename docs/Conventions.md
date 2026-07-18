@@ -20,7 +20,8 @@ Project-Bane/
     │   ├── skills/
     │   ├── gear/
     │   ├── talents/
-    │   └── monsters/
+    │   ├── monsters/
+    │   └── player/          starter combatant stats (attack speed, crit, poison/tick)
     ├── scripts/
     │   ├── resources/      custom Resource class_name defs (skill.gd, gear_item.gd, ...)
     │   ├── systems/         combat/build-resolution logic
@@ -52,3 +53,17 @@ placeholder skill, one placeholder gear item, one placeholder talent, and one
 placeholder monster through P2:M2. Real content volume from the Project
 Abaddon reference docs is out of scope until P2:M1/P2:M2 placeholders prove
 the architecture (see `docs/DPS_Engine_Phase2_Context.md`).
+
+## UI architecture principle (P2:M3 onward)
+
+As of the 2026-07-15 Phase 2 scope revision, a more game-like UI is part of
+Phase 2. That means clearer screen flow, dashboard presentation, readable
+combat/reward feedback, and interaction patterns that feel like a game rather
+than a debug tool. Full custom art production, elaborate combat animation,
+and a broad polish/marketing pass remain later work unless explicitly scoped.
+
+Screens must keep game state/logic out of `Control` scripts and communicate
+via signals/return values (following the pattern already set by
+`CombatResolver.resolve()`, which returns a timestamped event log rather
+than only a final number) so the presentation layer can keep improving
+without touching the underlying systems.

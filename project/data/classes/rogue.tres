@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ClassDef" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/class_def.gd" id="1_class"]
+[ext_resource type="Resource" path="res://data/skills/stab.tres" id="2_stab"]
+[ext_resource type="Resource" path="res://data/skills/heavy_slash.tres" id="4_heavy_slash"]
+[ext_resource type="Resource" path="res://data/player/rogue_starter.tres" id="5_stats"]
+[ext_resource type="Resource" path="res://data/subclass_trees/assassin.tres" id="6_assassin"]
+[ext_resource type="Resource" path="res://data/subclass_trees/thief.tres" id="7_thief"]
+[ext_resource type="Resource" path="res://data/subclass_trees/shadow.tres" id="8_shadow"]
+
+[resource]
+script = ExtResource("1_class")
+id = "class.rogue"
+display_name = "Rogue"
+base_skills = Array[Skill]([ExtResource("2_stab"), ExtResource("4_heavy_slash")])
+base_stats = ExtResource("5_stats")
+trees = Array[SubclassTree]([ExtResource("6_assassin"), ExtResource("7_thief"), ExtResource("8_shadow")])

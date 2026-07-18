@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="Talent" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/talent.gd" id="1_talent"]
+[ext_resource type="Script" path="res://scripts/resources/prerequisite_group.gd" id="2_group"]
+[ext_resource type="Resource" path="res://data/talents/thief/practiced_rhythm.tres" id="3_practiced_rhythm"]
+[ext_resource type="Script" path="res://scripts/resources/triggered_skill_effect.gd" id="4_trigger"]
+[ext_resource type="Resource" path="res://data/skills/rending_slash.tres" id="5_rending_slash"]
+
+[sub_resource type="Resource" id="Resource_opportunity_strikes_group"]
+script = ExtResource("2_group")
+options = Array[Talent]([ExtResource("3_practiced_rhythm")])
+
+[sub_resource type="Resource" id="Resource_opportunity_strikes_trigger"]
+script = ExtResource("4_trigger")
+skill = ExtResource("5_rending_slash")
+chance = 0.2
+source_skill_ids = PackedStringArray("skill.quick_cut")
+
+[resource]
+script = ExtResource("1_talent")
+id = "talent.opportunity_strikes"
+display_name = "Opportunity Strikes"
+cost = 2
+prerequisites = Array[PrerequisiteGroup]([SubResource("Resource_opportunity_strikes_group")])
+stat_modifiers = Array[StatModifier]([])
+unlocked_skills = Array[Skill]([])
+triggered_skill_effects = Array[TriggeredSkillEffect]([SubResource("Resource_opportunity_strikes_trigger")])

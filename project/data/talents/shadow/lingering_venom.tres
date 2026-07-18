@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="Talent" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/talent.gd" id="1_talent"]
+[ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_modifier"]
+
+[sub_resource type="Resource" id="Resource_lingering_venom_mod"]
+script = ExtResource("2_modifier")
+stat = 3
+operation = 0
+value = 2.0
+
+[resource]
+script = ExtResource("1_talent")
+id = "talent.lingering_venom"
+display_name = "Lingering Venom"
+cost = 1
+prerequisites = Array[PrerequisiteGroup]([])
+stat_modifiers = Array[StatModifier]([SubResource("Resource_lingering_venom_mod")])
+unlocked_skills = Array[Skill]([])

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="GearItem" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/gear_item.gd" id="1_gear"]
+[ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_affix"]
+
+[sub_resource type="Resource" id="Resource_lucky_coin_crit"]
+script = ExtResource("2_affix")
+stat = 1
+operation = 0
+value = 0.05
+
+[resource]
+script = ExtResource("1_gear")
+id = "gear.lucky_coin"
+display_name = "Lucky Coin"
+slot = 1
+tier = 0
+affixes = Array[StatModifier]([SubResource("Resource_lucky_coin_crit")])

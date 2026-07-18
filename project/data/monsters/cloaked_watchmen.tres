@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="Monster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/monster.gd" id="1_monster"]
+
+[resource]
+script = ExtResource("1_monster")
+id = "monster.contract.cloaked_watchmen"
+display_name = "Cloaked Watchmen"
+hp = 525
+armor = 160
+poison_resistance = 0.4

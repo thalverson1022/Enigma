@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SubclassTree" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/subclass_tree.gd" id="1_tree"]
+[ext_resource type="Resource" path="res://data/talents/assassin/venom_edge.tres" id="2_venom_edge"]
+[ext_resource type="Resource" path="res://data/talents/assassin/precise_cuts.tres" id="3_precise_cuts"]
+[ext_resource type="Resource" path="res://data/talents/assassin/lethal_intent.tres" id="4_lethal_intent"]
+[ext_resource type="Resource" path="res://data/talents/assassin/toxic_technique.tres" id="5_toxic_technique"]
+[ext_resource type="Resource" path="res://data/talents/assassin/perfect_toxin.tres" id="6_perfect_toxin"]
+
+[resource]
+script = ExtResource("1_tree")
+id = "tree.assassin"
+display_name = "Assassin"
+intrinsic_text = ""
+talents = Array[Talent]([ExtResource("2_venom_edge"), ExtResource("3_precise_cuts"), ExtResource("4_lethal_intent"), ExtResource("5_toxic_technique"), ExtResource("6_perfect_toxin")])
+innate_modifiers = Array[StatModifier]([])

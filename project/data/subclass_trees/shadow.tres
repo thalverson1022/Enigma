@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="SubclassTree" load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/subclass_tree.gd" id="1_tree"]
+[ext_resource type="Script" path="res://scripts/resources/skill_augment.gd" id="2_augment"]
+[ext_resource type="Script" path="res://scripts/resources/poison_damage_effect.gd" id="3_poison"]
+[ext_resource type="Resource" path="res://data/talents/shadow/lingering_venom.tres" id="4_lingering"]
+[ext_resource type="Resource" path="res://data/talents/shadow/exposed_weakness.tres" id="5_exposed"]
+[ext_resource type="Resource" path="res://data/talents/shadow/black_lotus.tres" id="6_black_lotus"]
+[ext_resource type="Resource" path="res://data/talents/shadow/nightblade_rhythm.tres" id="7_nightblade"]
+[ext_resource type="Resource" path="res://data/talents/shadow/umbral_pressure.tres" id="8_umbral"]
+
+[sub_resource type="Resource" id="Resource_shadow_poison_effect"]
+script = ExtResource("3_poison")
+stacks_applied = 1
+
+[sub_resource type="Resource" id="Resource_shadow_stab_augment"]
+script = ExtResource("2_augment")
+target_skill_ids = PackedStringArray("skill.stab")
+extra_effects = Array[SkillEffect]([SubResource("Resource_shadow_poison_effect")])
+
+[sub_resource type="Resource" id="Resource_shadow_heavy_augment"]
+script = ExtResource("2_augment")
+target_skill_ids = PackedStringArray("skill.heavy_slash")
+extra_effects = Array[SkillEffect]([SubResource("Resource_shadow_poison_effect")])
+
+[resource]
+script = ExtResource("1_tree")
+id = "tree.shadow"
+display_name = "Shadow"
+intrinsic_text = "Stab & Heavy Slash now apply +1 poison stacks"
+talents = Array[Talent]([ExtResource("4_lingering"), ExtResource("5_exposed"), ExtResource("6_black_lotus"), ExtResource("7_nightblade"), ExtResource("8_umbral")])
+innate_modifiers = Array[StatModifier]([])
+unlocked_skills = Array[Skill]([])
+skill_augments = Array[SkillAugment]([SubResource("Resource_shadow_stab_augment"), SubResource("Resource_shadow_heavy_augment")])

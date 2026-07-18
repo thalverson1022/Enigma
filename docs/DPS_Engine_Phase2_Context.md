@@ -14,6 +14,13 @@ Phase 2 deliberately does not reference Phase 1 implementation details — it
 defines the target architecture and scope fresh, so the agent is not
 anchored to prior compromises.
 
+**2026-07-15 scope revision:** the architecture-first isolation from Phase 1
+has served its purpose. The Godot Resource architecture and core combat loop
+have been proven, and the Phase 2 target has been expanded from a light
+vertical slice to **Phase 1 Rogue adventure parity in Godot, plus a more
+game-like UI**. Future work should use the Phase 1 docs as the design/content
+reference while continuing to avoid React-specific implementation patterns.
+
 ---
 
 ## 1. Game Vision (Design Context)
@@ -101,6 +108,21 @@ Choose Class
 
 ## 2. Phase 2 Definition
 
+**Current Phase 2 goal (revised 2026-07-15):** Rebuild the validated Phase 1
+Rogue adventure loop in Godot 4.x on a data-driven architecture, while
+replacing the React prototype's utilitarian presentation with a more
+game-like UI and interaction flow.
+
+The revised target is **parity with the first proven Rogue adventure**, not
+only a thin proof-of-engine slice. This includes the Tavern-to-contract run
+shape, build editing between fights, rewards, shop/gear decisions,
+deterministic run behavior, failure/retry rules, and the first contract
+climax where those systems are part of the Phase 1 experience.
+
+The original lightweight vertical-slice wording below is preserved as
+historical context for M0-M5, but forward work should follow the revised
+roadmap in `docs/Phase_2_Milestones.md`.
+
 **Phase 2 goal:** Port the validated core loop into a real game engine and
 production-quality codebase, producing a genuine **vertical slice** — one
 class, one full subclass-tree pair, one boss, played start to finish with no
@@ -112,6 +134,11 @@ game's content volume without rework.
 - A polish or marketing phase.
 - A meta-progression / map / contract-run phase (that is Phase 3).
 - A multiplayer, mobile, or platform-port phase.
+
+Revision note: the Phase 1 first contract route is now part of Phase 2 parity
+because it was part of the validated prototype. The out-of-scope item above
+means a larger procedural route/map/meta-progression layer, additional
+contracts, or expanded campaign structure.
 
 **Definition of done for Phase 2:** A stranger can download a build, play a
 complete run from character creation to a single boss fight, and give
@@ -150,6 +177,12 @@ implementing it.
 ---
 
 ## 4. Milestone Breakdown
+
+Revision note (2026-07-15): this breakdown records the original
+architecture-first plan. It remains useful history for M0-M5, but current
+forward planning lives in `docs/Phase_2_Milestones.md` under "Revised Forward
+Roadmap." Real Phase 1 content and run-flow parity are now appropriate Phase
+2 work where they serve the first Rogue adventure.
 
 Each milestone should be treated as a checkpoint: do not begin the next
 milestone until the current one's exit criteria are met. Placeholder/dummy
@@ -241,13 +274,18 @@ Terms the agent should treat as fixed vocabulary, not free to reinterpret:
 - **Basic / Master / Cursed / Legendary Gear** — gear tiers, defined by
   number and nature of affixes (see Section 1 design doc references for
   exact rules when implementing M2.4).
-- **Contract Run** — the Phase 3 meta-structure (route nodes, minions,
-  elites, boss) — referenced here for context only; not in scope for
-  Phase 2.
+- **Contract Run** — ambiguous after the 2026-07-15 scope revision. The
+  Phase 1 first-contract route shape is in scope for Phase 2 parity; a larger
+  procedural/meta-progression contract system remains Phase 3+.
 
 ---
 
 ## 6. Working Agreements for the Agent
+
+Revision note (2026-07-15): the placeholder-only architecture-proving phase
+is complete. Forward agents should still respect milestone boundaries and
+avoid hardcoded content, but Phase 1 Rogue adventure parity is now the active
+Phase 2 scope rather than scope creep.
 
 1. **Respect milestone boundaries.** Do not implement content or systems
    from a later milestone while working on an earlier one, even if it

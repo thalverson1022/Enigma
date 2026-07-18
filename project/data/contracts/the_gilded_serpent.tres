@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ContractDef" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/contract_def.gd" id="1_contract"]
+[ext_resource type="Resource" path="res://data/monsters/vyra.tres" id="2_vyra"]
+[ext_resource type="Resource" path="res://data/contract_routes/gilded_serpent/offer.tres" id="3_offer"]
+
+[resource]
+script = ExtResource("1_contract")
+id = "contract.gilded_serpent"
+display_name = "The Gilded Serpent Contract"
+target_display_name = "Vyra"
+target_monster = ExtResource("2_vyra")
+offer_text = "The Tavern trail has a name: Vyra. Take The Gilded Serpent contract, choose a second Rogue tree, and cut through her route before she can vanish."
+offer_node = ExtResource("3_offer")

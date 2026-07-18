@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="Encounter" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/encounter.gd" id="1_encounter"]
+[ext_resource type="Resource" path="res://data/monsters/drunk_buddy.tres" id="2_monster"]
+[ext_resource type="Script" path="res://scripts/resources/encounter_reward.gd" id="3_reward_script"]
+[ext_resource type="Resource" path="res://data/gear/lucky_coin.tres" id="4_lucky_coin"]
+
+[sub_resource type="Resource" id="Resource_drunk_buddy_reward"]
+script = ExtResource("3_reward_script")
+gold_amount = 18
+fixed_gear_rewards = Array[GearItem]([ExtResource("4_lucky_coin")])
+unlocks_shop = true
+
+[resource]
+script = ExtResource("1_encounter")
+monster = ExtResource("2_monster")
+duration_ms = 18000
+reward = SubResource("Resource_drunk_buddy_reward")
+is_boss = false
