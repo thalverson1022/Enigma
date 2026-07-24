@@ -46,6 +46,12 @@ var shop_round_pending: bool = false
 var shop_reroll_used: bool = false
 var shop_round_index: int = 0
 var shop_offers: Array[GearItem] = []
+const SHOP_OFFER_COUNT := 6
+const CONTRACT_SHOP_BASIC_WEIGHT := 64
+const CONTRACT_SHOP_MASTER_WEIGHT := 25
+const CONTRACT_SHOP_CURSED_WEIGHT := 10
+const CONTRACT_SHOP_LEGENDARY_WEIGHT := 1
+const SHOP_UNIQUE_ROLL_ATTEMPTS := 80
 var pending_reward_choices: Array[GearItem] = []
 var equipped_weapon: GearItem = null
 var equipped_trinket: GearItem = null
@@ -248,6 +254,7 @@ func choose_secondary_tree(tree: SubclassTree) -> bool:
 	if not PassiveAllocator.can_select_tree(selected_trees, tree):
 		return false
 	selected_trees.append(tree)
+	_prune_rotation_to_unlocked()
 	build_changed.emit()
 	run_state_changed.emit()
 	return true
@@ -289,15 +296,29 @@ func finish_fight(won: bool) -> void:
 	else:
 		var key := _current_fight_key()
 		encounter_failure_counts[key] = failure_count_for_current_encounter() + 1
-		if is_contract_fight_active():
-			run_outcome = RunOutcome.CONTRACT_FAILED
-			run_phase = RunPhase.RUN_ENDED
-			set_locked(false)
+		if is_unlimited_retry_encounter():
+			# Project Bane revision to the R5/Phase 1 baseline rule (combat-
+			# playback adjustment round 2 + retry bug, 2026-07-19, corrected
+			# 2026-07-19; see docs/Phase_2_R5_Run_Rules_And_Determinism.md's
+			# revision note): every other fight gets exactly one do-over
+			# before a losing contract/Adventure forces a restart, but the
+			# very first Tavern encounter (Mouthy Drunk, encounter index 0)
+			# gets unlimited
+			# retries instead, so a new player isn't forced back to class
+			# selection while still getting comfortable at the very start of
+			# the Adventure. A loss on the first encounter always resolves to
+			# FIGHT_LOSS_RETRY, never ADVENTURE_RESTART_REQUIRED, regardless
+			# of how many times it's already been attempted
+			# (encounter_failure_counts is still incremented above for
+			# bookkeeping/telemetry, it's just never consulted to force a
+			# restart for that specific encounter).
+			run_outcome = RunOutcome.FIGHT_LOSS_RETRY
+			run_phase = RunPhase.RESULT
 		elif failure_count_for_current_encounter() <= 1:
 			run_outcome = RunOutcome.FIGHT_LOSS_RETRY
 			run_phase = RunPhase.RESULT
 		else:
-			run_outcome = RunOutcome.ADVENTURE_RESTART_REQUIRED
+			run_outcome = RunOutcome.CONTRACT_FAILED if is_contract_fight_active() else RunOutcome.ADVENTURE_RESTART_REQUIRED
 			run_phase = RunPhase.RUN_ENDED
 			set_locked(false)
 	run_state_changed.emit()
@@ -305,6 +326,16 @@ func finish_fight(won: bool) -> void:
 
 func failure_count_for_current_encounter() -> int:
 	return int(encounter_failure_counts.get(_current_fight_key(), 0))
+
+
+## The very first Tavern encounter (Mouthy Drunk, encounter index 0 in
+## RunFlow.ENCOUNTER_PATHS) -- see docs/Phase_2_R5_Run_Rules_And_Determinism.md
+## for the unlimited-retry exception this identifies. Must be an actual
+## Tavern encounter (not a contract route node -- route nodes never reuse
+## current_encounter_index) so a contract fight can never accidentally match
+## on a stale index 0.
+func is_unlimited_retry_encounter() -> bool:
+	return not is_contract_fight_active() and current_encounter_index == 0
 
 
 func can_retry_current_encounter() -> bool:
@@ -321,6 +352,12 @@ func retry_current_encounter() -> bool:
 	run_phase = RunPhase.PLANNING
 	run_outcome = RunOutcome.NONE
 	last_fight_won = false
+	# RETRY BUG FIX (combat-playback adjustment round 2 + retry bug,
+	# 2026-07-19): Tavern retries must make the same encounter fightable
+	# again without forcing a redundant map click. Contract retries do not
+	# use tavern_map_choice_made, but setting it true here is harmless and
+	# keeps the retry path uniform.
+	tavern_map_choice_made = true
 	set_locked(false)
 	run_state_changed.emit()
 	return true
@@ -379,6 +416,15 @@ func should_open_shop_after_current_reward() -> bool:
 	if is_contract_fight_active():
 		return shop_unlocked and current_route_node != null and not current_route_node.next_nodes.is_empty()
 	return shop_unlocked and current_encounter_index + 1 < RunFlow.encounter_count()
+
+
+## True right when claiming the current reward is what starts the Contract
+## Offer -- the P2:R7 story pass's "skip the shop, head straight into the
+## contract story" transition hooks off this. Mirrors continue_after_win()'s
+## own "last tavern encounter" check exactly, evaluated before that call
+## changes current_encounter_index, so the two stay in lockstep.
+func is_last_tavern_reward() -> bool:
+	return not is_contract_fight_active() and current_encounter_index + 1 >= RunFlow.tavern_encounter_count()
 
 
 func open_shop_round() -> bool:
@@ -470,16 +516,101 @@ func _generate_tavern_shop_offers(round_index: int, is_reroll: bool) -> Array[Ge
 		[shop_context, round_index, "reroll" if is_reroll else "initial"]
 	)
 	var offers: Array[GearItem] = []
-	for i in 4:
-		var slot: GearItem.SlotType = GearGenerator.ALL_SLOTS[rng.randi_range(0, GearGenerator.ALL_SLOTS.size() - 1)]
+	var seen_signatures := {}
+	for i in SHOP_OFFER_COUNT:
 		var stable_id := RunRngSystem.id_for_context(
 			"gear.generated.shop",
 			adventure_seed,
 			RunRngSystem.CONTEXT_SHOP_OFFER,
-			[shop_context, round_index, "reroll" if is_reroll else "initial", i, slot]
+			[shop_context, round_index, "reroll" if is_reroll else "initial", i]
 		)
-		offers.append(GearGenerator.generate(GearItem.Tier.BASIC, slot, rng, stable_id))
+		offers.append(_generate_unique_shop_offer(rng, stable_id, seen_signatures))
 	return offers
+
+
+func _generate_unique_shop_offer(rng: RandomNumberGenerator, stable_id: String, seen_signatures: Dictionary) -> GearItem:
+	var fallback_offer: GearItem = null
+	var fallback_signature := ""
+	for attempt in SHOP_UNIQUE_ROLL_ATTEMPTS:
+		var slot: GearItem.SlotType = GearGenerator.ALL_SLOTS[rng.randi_range(0, GearGenerator.ALL_SLOTS.size() - 1)]
+		var tier := _shop_tier_for_current_phase(rng)
+		var offer := _shop_offer_for_tier(tier, slot, rng, stable_id)
+		var signature := _shop_offer_signature(offer)
+		if fallback_offer == null:
+			fallback_offer = offer
+			fallback_signature = signature
+		if not seen_signatures.has(signature):
+			seen_signatures[signature] = true
+			return offer
+	# The visible item space is much larger than SHOP_OFFER_COUNT, so this is
+	# a deterministic guardrail rather than an expected path.
+	seen_signatures[fallback_signature] = true
+	return fallback_offer
+
+
+func _shop_tier_for_current_phase(rng: RandomNumberGenerator) -> GearItem.Tier:
+	if active_contract == null:
+		return GearItem.Tier.BASIC
+	var total_weight := (
+		CONTRACT_SHOP_BASIC_WEIGHT
+		+ CONTRACT_SHOP_MASTER_WEIGHT
+		+ CONTRACT_SHOP_CURSED_WEIGHT
+		+ CONTRACT_SHOP_LEGENDARY_WEIGHT
+	)
+	var roll := rng.randi_range(1, total_weight)
+	if roll <= CONTRACT_SHOP_BASIC_WEIGHT:
+		return GearItem.Tier.BASIC
+	if roll <= CONTRACT_SHOP_BASIC_WEIGHT + CONTRACT_SHOP_MASTER_WEIGHT:
+		return GearItem.Tier.MASTER
+	if roll <= CONTRACT_SHOP_BASIC_WEIGHT + CONTRACT_SHOP_MASTER_WEIGHT + CONTRACT_SHOP_CURSED_WEIGHT:
+		return GearItem.Tier.CURSED
+	return GearItem.Tier.LEGENDARY
+
+
+func _shop_offer_for_tier(tier: GearItem.Tier, slot: GearItem.SlotType, rng: RandomNumberGenerator, stable_id: String) -> GearItem:
+	if tier != GearItem.Tier.LEGENDARY:
+		return GearGenerator.generate(tier, slot, rng, stable_id)
+	var available_paths := _unowned_shop_legendary_paths()
+	if available_paths.is_empty():
+		# Every Legendary is already owned -- fall back to the next-lower
+		# tier rather than offering a duplicate the player can't use.
+		return GearGenerator.generate(GearItem.Tier.CURSED, slot, rng, stable_id)
+	var path := available_paths[rng.randi_range(0, available_paths.size() - 1)]
+	var offer: GearItem = load(path)
+	return offer
+
+
+## Excludes Legendaries already owned (inventory or equipped) from the
+## shop's Legendary roll (P2:R9:T6) -- compares by `.id` rather than object
+## identity, consistent with `_shop_offer_signature()`'s property-based
+## comparison.
+## The full Legendary path list, sourced from `LegendaryCatalog` (P2:R9/R10's
+## single shared source) rather than a duplicated literal here.
+func shop_legendary_paths() -> Array[String]:
+	return LegendaryCatalog.all_paths()
+
+
+func _unowned_shop_legendary_paths() -> Array[String]:
+	var owned_ids := {}
+	for gear in inventory:
+		if gear != null:
+			owned_ids[gear.id] = true
+	for gear in equipped_gear():
+		if gear != null:
+			owned_ids[gear.id] = true
+	var available: Array[String] = []
+	for path in shop_legendary_paths():
+		var candidate: GearItem = load(path)
+		if not owned_ids.has(candidate.id):
+			available.append(path)
+	return available
+
+
+func _shop_offer_signature(offer: GearItem) -> String:
+	var affix_parts: PackedStringArray = []
+	for affix in offer.affixes:
+		affix_parts.append("%d:%d:%.4f" % [affix.stat, affix.operation, affix.value])
+	return "%d|%d|%s" % [offer.tier, offer.slot, ",".join(affix_parts)]
 
 
 func _gear_choices_for_reward(reward: EncounterReward) -> Array[GearItem]:
@@ -487,9 +618,16 @@ func _gear_choices_for_reward(reward: EncounterReward) -> Array[GearItem]:
 	for gear in reward.gear_choice_rewards:
 		if gear != null:
 			choices.append(gear)
+	var reward_context := _current_reward_context_key()
+	if reward.legendary_choice_count > 0 and not reward.legendary_choice_pool.is_empty():
+		var legendary_rng := RunRngSystem.rng_for_context(
+			adventure_seed,
+			RunRngSystem.CONTEXT_REWARD_CHOICE,
+			[reward_context, "legendary", reward.legendary_choice_count]
+		)
+		choices.append_array(_sample_distinct_gear(reward.legendary_choice_pool, reward.legendary_choice_count, legendary_rng))
 	if reward.generated_gear_choice_count <= 0:
 		return choices
-	var reward_context := _current_reward_context_key()
 	var rng := RunRngSystem.rng_for_context(
 		adventure_seed,
 		RunRngSystem.CONTEXT_REWARD_CHOICE,
@@ -510,6 +648,20 @@ func _gear_choices_for_reward(reward: EncounterReward) -> Array[GearItem]:
 		)
 		choices.append(GearGenerator.generate(reward.generated_gear_tier, slot, rng, stable_id))
 	return choices
+
+
+## Picks `count` distinct entries from `pool` using seeded `rng`, without
+## replacement. Used for Knives' randomized Legendary choice (P2:R9:T5) so
+## the same Adventure seed always produces the same 2-of-5 result.
+func _sample_distinct_gear(pool: Array[GearItem], count: int, rng: RandomNumberGenerator) -> Array[GearItem]:
+	var remaining: Array[GearItem] = pool.duplicate()
+	var picked: Array[GearItem] = []
+	var take := mini(count, remaining.size())
+	for i in take:
+		var index := rng.randi_range(0, remaining.size() - 1)
+		picked.append(remaining[index])
+		remaining.remove_at(index)
+	return picked
 
 
 func _current_reward_context_key() -> String:
@@ -745,6 +897,7 @@ func select_talent(talent: Talent) -> bool:
 	if not PassiveAllocator.can_select_talent(selected_trees, selected_talents, talent, earned_talent_points):
 		return false
 	selected_talents.append(talent)
+	_prune_rotation_to_unlocked()
 	build_changed.emit()
 	return true
 
@@ -759,17 +912,15 @@ func deselect_talent(talent: Talent) -> bool:
 
 
 func set_rotation(skills: Array[Skill]) -> void:
-	rotation = skills
+	rotation = BuildResolver.resolve_rotation(skills, unlocked_skills())
 	build_changed.emit()
 
 
 func unlocked_skills() -> Array[Skill]:
-	return BuildResolver.resolve_unlocked_skills(selected_class, selected_trees, selected_talents)
+	return BuildResolver.resolve_unlocked_skills(selected_class, selected_trees, selected_talents, equipped_gear())
 
 
 func _prune_rotation_to_unlocked() -> void:
 	var unlocked := unlocked_skills()
 	var pruned := BuildResolver.resolve_rotation(rotation, unlocked)
-	if pruned.size() == rotation.size():
-		return
 	rotation = pruned

@@ -63,20 +63,33 @@ func _initialize() -> void:
 	combat_screen._on_continue_pressed()
 	await process_frame
 	_require(combat_screen._reward_choice_overlay.visible, "Expected Legendary reward choice overlay.")
+	# P2:R9:T5 -- Knives now offers a seeded random choice of 2 of 5
+	# Legendaries instead of a fixed Wyvern Kriss/Mithril Karambit pair, so
+	# this no longer asserts which 2 specifically -- only that the choice
+	# is well-formed (2 distinct Legendary items, each tooltip naming
+	# itself) and that choosing one equips exactly that one.
 	_require(build_state.pending_reward_choices.size() == 2, "Expected two Legendary choices.")
+	_require(
+		build_state.pending_reward_choices[0].id != build_state.pending_reward_choices[1].id,
+		"Expected two distinct Legendary choices."
+	)
+	_require(
+		build_state.pending_reward_choices.all(func(gear): return gear.tier == GearItem.Tier.LEGENDARY),
+		"Expected both Legendary choices to be Legendary tier."
+	)
 	_require(combat_screen._reward_choice_options.get_child_count() == 2, "Expected two Legendary reward buttons.")
-	var wyvern_button: Button = combat_screen._reward_choice_options.get_child(0)
-	var mithril_button: Button = combat_screen._reward_choice_options.get_child(1)
-	_require(wyvern_button.tooltip_text.contains("Wyvern Kriss"), "Expected Wyvern Kriss tooltip.")
-	_require(wyvern_button.tooltip_text.contains("Poison Tick Interval"), "Expected Wyvern poison cadence tooltip.")
-	_require(mithril_button.tooltip_text.contains("Mithril Karambit"), "Expected Mithril Karambit tooltip.")
-	_require(mithril_button.tooltip_text.contains("trigger Stab"), "Expected Mithril trigger tooltip.")
+	var first_button: Button = combat_screen._reward_choice_options.get_child(0)
+	var second_button: Button = combat_screen._reward_choice_options.get_child(1)
+	var first_choice: GearItem = build_state.pending_reward_choices[0]
+	var second_choice: GearItem = build_state.pending_reward_choices[1]
+	_require(first_button.tooltip_text.contains(first_choice.display_name), "Expected first choice's own name in its tooltip.")
+	_require(second_button.tooltip_text.contains(second_choice.display_name), "Expected second choice's own name in its tooltip.")
 
-	mithril_button.pressed.emit()
+	first_button.pressed.emit()
 	await process_frame
 	_require(not combat_screen._reward_choice_overlay.visible, "Expected Legendary reward overlay hidden after choice.")
 	_require(build_state.equipped_weapon != null, "Expected Legendary weapon equipped.")
-	_require(build_state.equipped_weapon.id == "gear.legendary.mithril_karambit", "Expected Mithril Karambit equipped.")
+	_require(build_state.equipped_weapon.id == first_choice.id, "Expected the chosen Legendary to be equipped.")
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected route choice phase after Legendary reward.")
 	_require(combat_screen._map_overlay.visible, "Expected route map after Legendary reward.")
 	_require(combat_screen._map_node_buttons.size() == 8, "Expected full route schematic after Legendary reward.")

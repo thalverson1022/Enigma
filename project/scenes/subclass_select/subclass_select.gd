@@ -11,11 +11,7 @@ extends Control
 signal advanced
 signal back_pressed
 
-const CARD_WIDTH := 280
-
 const INSTRUCTION_FONT_SIZE := 40
-const CARD_TITLE_FONT_SIZE := 24
-const FLAVOR_FONT_SIZE := 15
 
 const FLAVOR_TEXT := {
 	"Assassin": "Poison, poison, and more poison.",
@@ -39,6 +35,7 @@ func _ready() -> void:
 	var label := Label.new()
 	label.text = "Choose Your Subclass"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.theme_type_variation = &"PanelHeader"
 	label.add_theme_font_size_override("font_size", INSTRUCTION_FONT_SIZE)
 	vbox.add_child(label)
 
@@ -66,30 +63,11 @@ func _populate_trees() -> void:
 		_card_box.add_child(_build_card(tree.display_name, select_button))
 
 
+## Card layout now lives in CardStyle.make_selection_card() (shared with
+## combat_screen.gd's secondary Rogue tree chooser -- P2:R7 second
+## playtest-feedback pass, item 5); only the flavor-text lookup stays here.
 func _build_card(tree_name_text: String, select_button: Button) -> PanelContainer:
-	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(CARD_WIDTH, 0)
-	card.add_theme_stylebox_override("panel", CardStyle.make_stylebox())
-
-	var card_vbox := VBoxContainer.new()
-	card_vbox.add_theme_constant_override("separation", 10)
-	card.add_child(card_vbox)
-
-	var title_label := Label.new()
-	title_label.text = tree_name_text
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	card_vbox.add_child(title_label)
-
-	var flavor_label := Label.new()
-	flavor_label.text = FLAVOR_TEXT.get(tree_name_text, "")
-	flavor_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	flavor_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	flavor_label.add_theme_font_size_override("font_size", FLAVOR_FONT_SIZE)
-	card_vbox.add_child(flavor_label)
-
-	card_vbox.add_child(select_button)
-	return card
+	return CardStyle.make_selection_card(tree_name_text, FLAVOR_TEXT.get(tree_name_text, ""), select_button)
 
 
 func _on_tree_selected(tree: SubclassTree) -> void:

@@ -43,11 +43,13 @@ func _initialize() -> void:
 	print("cursed has downside affix (expect true): %s" % has_negative)
 	assert(has_negative)
 
-	print("prices: basic=%d master=%d cursed=%d" % [
+	print("prices: basic=%d master=%d cursed=%d legendary=%d" % [
 		GearGenerator.price_for_tier(GearItem.Tier.BASIC),
 		GearGenerator.price_for_tier(GearItem.Tier.MASTER),
 		GearGenerator.price_for_tier(GearItem.Tier.CURSED),
+		GearGenerator.price_for_tier(GearItem.Tier.LEGENDARY),
 	])
+	assert(GearGenerator.price_for_tier(GearItem.Tier.LEGENDARY) > GearGenerator.price_for_tier(GearItem.Tier.CURSED))
 
 	var offers := GearGenerator.generate_offers(3, 42)
 	print("seeded offers=%d (expect 3)" % offers.size())

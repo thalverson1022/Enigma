@@ -4,12 +4,18 @@ extends PanelContainer
 ## Q=Quick Cut, etc. -- Skill.icon_letter, a stand-in until skills get real
 ## icons). Clicking a box removes that slot from the macro; the full skill
 ## name is on the tooltip. Adding happens in available_skills_panel.gd;
-## both strips sync purely through BuildState.rotation.
+## both strips sync purely through state.rotation.
 
 const CARD_TITLE_FONT_SIZE := 20
 const SLOT_SIZE := Vector2(48, 48)
 const SLOT_FONT_SIZE := 22
 const PANEL_MIN_HEIGHT := 132
+const ORDER_BADGE_FONT_SIZE := 10
+const REMOVE_BADGE_FONT_SIZE := 13
+
+## P2:R10: see talent_panel.gd's `state` comment -- same pattern, same
+## default, same untyped declaration reason.
+var state = BuildState
 
 var _slots_box: HBoxContainer
 var _lock_button: Button
@@ -26,6 +32,7 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "Skill Build"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.theme_type_variation = &"PanelHeader"
 	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
 	content.add_child(title)
 
@@ -39,48 +46,78 @@ func _ready() -> void:
 	_lock_button.pressed.connect(_on_lock_pressed)
 	content.add_child(_lock_button)
 
-	BuildState.build_changed.connect(_refresh)
-	BuildState.lock_changed.connect(_refresh)
+	state.build_changed.connect(_refresh)
+	state.lock_changed.connect(_refresh)
 	_refresh()
 
 
 func _on_lock_pressed() -> void:
-	BuildState.set_locked(not BuildState.build_locked)
+	state.set_locked(not state.build_locked)
 
 
 func _update_lock_button() -> void:
-	_lock_button.text = "UNLOCK" if BuildState.build_locked else "LOCK"
+	_lock_button.text = "UNLOCK" if state.build_locked else "LOCK"
 	# Can't ready an empty macro -- fighting with no skills is a guaranteed
 	# zero-damage loss.
-	_lock_button.disabled = BuildState.rotation.is_empty() and not BuildState.build_locked
+	_lock_button.disabled = state.rotation.is_empty() and not state.build_locked
 
 
 func _refresh() -> void:
 	_update_lock_button()
 	for child in _slots_box.get_children():
 		if child is Button:
-			child.disabled = BuildState.build_locked
+			child.disabled = state.build_locked
 		child.queue_free()
 
-	if BuildState.rotation.is_empty():
+	if state.rotation.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "No skills slotted -- click a skill above to add it."
 		_slots_box.add_child(empty_label)
 		return
 
-	for i in BuildState.rotation.size():
-		var skill: Skill = BuildState.rotation[i]
+	for i in state.rotation.size():
+		var skill: Skill = state.rotation[i]
 		var slot := Button.new()
 		slot.text = _glyph_for(skill)
 		slot.custom_minimum_size = SLOT_SIZE
 		slot.add_theme_font_size_override("font_size", SLOT_FONT_SIZE)
 		slot.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
-		slot.disabled = BuildState.build_locked
-		slot.tooltip_text = "%s (%s)" % [
+		slot.disabled = state.build_locked
+		slot.tooltip_text = "%s -- cast position %d of %d (%s)" % [
 			skill.display_name,
-			"unlock to edit" if BuildState.build_locked else "click to remove",
+			i + 1,
+			state.rotation.size(),
+			"unlock to edit" if state.build_locked else "click the slot or the x to remove",
 		]
 		slot.pressed.connect(_on_slot_pressed.bind(i))
+
+		# Cast-order number, top-left corner -- makes the left-to-right
+		# rotation order explicit rather than only implied by position.
+		# mouse_filter=IGNORE (same overlay pattern as available_skills_panel
+		# and talent_panel) so the badge doesn't steal the slot's click.
+		var order_badge := Label.new()
+		order_badge.text = str(i + 1)
+		order_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		order_badge.add_theme_font_size_override("font_size", ORDER_BADGE_FONT_SIZE)
+		order_badge.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
+		order_badge.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		order_badge.position = Vector2(3, 1)
+		slot.add_child(order_badge)
+
+		# Explicit remove affordance, top-right corner -- the whole slot
+		# already removes on click, but the task calls for an obvious,
+		# discoverable remove control rather than only implicit behavior.
+		# Hidden while locked, since clicking does nothing then.
+		if not state.build_locked:
+			var remove_badge := Label.new()
+			remove_badge.text = "x"
+			remove_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			remove_badge.add_theme_font_size_override("font_size", REMOVE_BADGE_FONT_SIZE)
+			remove_badge.add_theme_color_override("font_color", UIColors.TEXT_WARNING)
+			remove_badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+			remove_badge.position = Vector2(-13, 1)
+			slot.add_child(remove_badge)
+
 		_slots_box.add_child(slot)
 
 
@@ -92,8 +129,8 @@ func _glyph_for(skill: Skill) -> String:
 
 
 func _on_slot_pressed(index: int) -> void:
-	if BuildState.build_locked:
+	if state.build_locked:
 		return
-	var rotation: Array[Skill] = BuildState.rotation.duplicate()
+	var rotation: Array[Skill] = state.rotation.duplicate()
 	rotation.remove_at(index)
-	BuildState.set_rotation(rotation)
+	state.set_rotation(rotation)

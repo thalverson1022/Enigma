@@ -57,8 +57,21 @@ func _initialize() -> void:
 	subclass_select.advanced.emit()
 	await process_frame
 
-	# -- Combat dashboard: Adventure starts with 0 talent points. --
+	# -- Story pass: the intro story overlay gates the very first Tavern
+	# choice, before the map ever appears. --
 	var combat_screen = game_root._current_screen
+	print("story overlay visible right after subclass select (expect true): %s" % combat_screen._story_overlay.visible)
+	assert(combat_screen._story_overlay.visible)
+	assert(not combat_screen._map_overlay.visible)
+	assert(combat_screen._story_label.text == combat_screen.INTRO_STORY_TEXT)
+	var story_proceed_button: Button = combat_screen._story_overlay.find_child("StoryProceedButton", true, false)
+	assert(story_proceed_button != null)
+	story_proceed_button.pressed.emit()
+	await process_frame
+	assert(not combat_screen._story_overlay.visible)
+	assert(combat_screen._map_overlay.visible)
+
+	# -- Combat dashboard: Adventure starts with 0 talent points. --
 	var talent_panel = combat_screen.find_child("TalentPanel", true, false)
 	var available_skills_panel = combat_screen.find_child("AvailableSkillsPanel", true, false)
 	var skill_build_panel = combat_screen.find_child("SkillBuildPanel", true, false)
@@ -78,7 +91,27 @@ func _initialize() -> void:
 	assert(combat_screen._map_node_buttons[1].text == "Unknown")
 	assert(combat_screen._map_node_buttons[1].disabled)
 	assert(not combat_screen._map_close_button.visible)
+
+	# -- Clicking a node only previews its flavor text; Proceed commits it.
+	# The current node isn't highlighted until clicked, and Proceed is
+	# always visible while a choice is pending, just disabled until then --
+	# both deliberately mirror the Contract Window's own
+	# select-then-Proceed pattern, to teach the player that structure early. --
+	assert(combat_screen._map_proceed_button.visible)
+	assert(combat_screen._map_proceed_button.disabled)
+	var mouthy_drunk_style_before: StyleBoxFlat = combat_screen._map_node_buttons[0].get_theme_stylebox("normal")
+	assert(mouthy_drunk_style_before.border_color != CardStyle.ACCENT_COLOR)
 	combat_screen._map_node_buttons[0].pressed.emit()
+	await process_frame
+	assert(combat_screen._map_overlay.visible)
+	assert(not build_state.tavern_map_choice_made)
+	assert(combat_screen._map_proceed_button.visible)
+	assert(not combat_screen._map_proceed_button.disabled)
+	var mouthy_drunk_style_after: StyleBoxFlat = combat_screen._map_node_buttons[0].get_theme_stylebox("normal")
+	assert(mouthy_drunk_style_after.border_color == CardStyle.ACCENT_COLOR)
+	print("previewed flavor text (expect Mouthy Drunk's): %s" % combat_screen._map_story_label.text)
+	assert(combat_screen._map_story_label.text == "A red-faced patron decides your quiet corner is somehow his business.")
+	combat_screen._map_proceed_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay.visible)
 	assert(build_state.tavern_map_choice_made)
@@ -127,10 +160,10 @@ func _initialize() -> void:
 	print("assassin intrinsic (expect None): %s" % talent_panel._intrinsic_description(rogue.trees[0]))
 	assert(talent_panel._intrinsic_description(rogue.trees[0]) == "None")
 
-	# -- Points footer: "x/y" format, no "Points" label text anymore --
-	# Points count DOWN from the full budget as talents are taken.
-	print("points label (expect 0/0): %s" % talent_panel._points_label.text)
-	assert(talent_panel._points_label.text == "0/0")
+	# -- Points footer: "Points Spent: spent/earned" budget readout (P2:R7:T4)
+	# -- counts UP as talents are taken, against the earned total. --
+	print("points label (expect Points Spent: 0/0): %s" % talent_panel._points_label.text)
+	assert(talent_panel._points_label.text == "Points Spent: 0/0")
 
 	# -- Tree structure: base tier has the two no-prereq talents side by
 	# side; deeper talents (Sunder) start disabled/dimmed until their
@@ -209,12 +242,14 @@ func _initialize() -> void:
 
 	# -- Character stats panel should reflect Piercing Blades' physical
 	# damage multiplier, displayed as bonus above a 0% baseline (x1.08 ->
-	# "+8%"), with crit multiplier as a percentage. --
+	# "8%", no leading "+" since it's a multiplicative modifier, not an
+	# additive bonus -- P2:R7 playtest-feedback fix, 2026-07-19), with crit
+	# multiplier as a percentage. --
 	var stats_text: String = character_stats_panel._stats_label.text
 	print("")
 	print("-- Character stats panel text --")
 	print(stats_text)
-	assert(stats_text.contains("Physical Damage: +0%"))
+	assert(stats_text.contains("Physical Damage: 0%"))
 	assert(stats_text.contains("Crit Multiplier: 200%"))
 	assert(stats_text.contains("Bonus Poison Stacks: +0"))
 	assert(stats_text.contains("Poison Damage: 8.0/tick"))
@@ -223,8 +258,15 @@ func _initialize() -> void:
 	var enemy_panel = combat_screen.find_child("EnemyPanel", true, false)
 	print("-- Initial enemy panel --")
 	print(enemy_panel._info_label.text)
-	assert(enemy_panel._info_label.text.contains("Encounter: 1/4"))
-	assert(enemy_panel._info_label.text.contains("Target: Mouthy Drunk"))
+	assert(enemy_panel._title_label.text == "Mouthy Drunk")
+	assert(not enemy_panel._info_label.text.contains("Encounter:"))
+	assert(not enemy_panel._info_label.text.contains("Target:"))
+	# P2:R7:T5: 150 HP over a 12s window is a 12.5 required DPS, and Mouthy
+	# Drunk's authored reward (12g, 1 talent point) is visible before the
+	# fight, not only after via the post-fight claim UI.
+	assert(enemy_panel._info_label.text.contains("Required DPS: 12.5"))
+	assert(enemy_panel._info_label.text.contains("Reward: 12g, 1 talent point"))
+	assert(enemy_panel._info_label.text.contains("Pressure: No notable defensive pressure."))
 	print("fight button disabled before lock (expect true): %s" % enemy_panel._fight_button.disabled)
 	assert(enemy_panel._fight_button.disabled)
 
@@ -237,6 +279,9 @@ func _initialize() -> void:
 	print("build locked (expect true): %s" % build_state.build_locked)
 	assert(build_state.build_locked)
 	assert(not enemy_panel._fight_button.disabled)
+	# Each available-skills child is a bare Button again (P2:R7 playtest-
+	# feedback pass removed T4's always-visible effect-summary caption, so
+	# there's no longer a wrapping VBoxContainer around it).
 	for child in available_skills_panel._skills_box.get_children():
 		assert(child.disabled)
 	for child in skill_build_panel._slots_box.get_children():
@@ -269,6 +314,7 @@ func _initialize() -> void:
 	print("")
 	print("-- Combat log text --")
 	print(combat_screen._log_label.text)
+	assert(not combat_screen._log_label.text.contains("[DIAG"))
 	assert(combat_screen._log_label.text == expected_log)
 	assert(combat_screen._log_label.text.contains("VICTORY!"))
 	assert(combat_screen._log_label.text.contains("DPS"))
@@ -281,7 +327,11 @@ func _initialize() -> void:
 	# split is exactly 100/0. --
 	print("victory overlay visible after win (expect true): %s" % combat_screen._victory_overlay.visible)
 	assert(combat_screen._victory_overlay.visible)
-	var victory_stack = combat_screen._victory_overlay.get_child(0)
+	# Bug fix: _victory_overlay is now a true full-rect overlay (backdrop +
+	# centered stack), not a plain flow child whose first child was the
+	# content stack -- find it by name instead of assuming child index 0.
+	var victory_stack = combat_screen._victory_overlay.find_child("VictoryStack", true, false)
+	assert(victory_stack != null)
 	assert(victory_stack.get_child_count() == 2)
 	assert(combat_screen._view_log_button.visible)
 	assert(build_state.run_phase == BuildState.RunPhase.RESULT)
@@ -289,11 +339,14 @@ func _initialize() -> void:
 	var recap_text: String = combat_screen._victory_recap_label.text
 	print("-- Victory recap --")
 	print(recap_text)
+	var expected_required_dps := float(expected_monster.hp) / (float(expected_duration_ms) / 1000.0)
 	assert(recap_text.contains("Total Damage:"))
+	assert(recap_text.contains("(needed %d)" % expected_monster.hp))
 	assert(recap_text.contains("DPS:"))
+	assert(recap_text.contains("(needed %.1f)" % expected_required_dps))
 	assert(recap_text.contains("Biggest Hit:"))
-	assert(recap_text.contains("Physical Damage: 100%"))
-	assert(recap_text.contains("Poison Damage: 0%"))
+	assert(recap_text.contains("(100%) / Poison: 0 (0%)"))
+	assert(recap_text.contains("Crits:"))
 	print("reward after first win: %s" % combat_screen._reward_label.text)
 	assert(combat_screen._reward_label.text.contains("Rewards: 12g"))
 	assert(combat_screen._reward_label.text.contains("1 talent point"))
@@ -362,15 +415,24 @@ func _initialize() -> void:
 	assert(not combat_screen._map_node_buttons[1].disabled)
 	print("-- Enemy panel after Continue --")
 	print(enemy_panel._info_label.text)
-	assert(enemy_panel._info_label.text.contains("Target: NONE"))
-	assert(enemy_panel._info_label.text.contains("HP: NONE"))
+	assert(enemy_panel._title_label.text == "Choose Encounter")
+	assert(enemy_panel._info_label.text.contains("Choose the current Tavern encounter on the map."))
 	assert(enemy_panel._fight_button.disabled)
+	# -- Returning to the map after a win shows that encounter's Victory
+	# Text, not the intro line again, until the next node is previewed. --
+	print("map story text after Mouthy Drunk win (expect his Victory Text): %s" % combat_screen._map_story_label.text)
+	assert(combat_screen._map_story_label.text == "You easily dispatch him with a few well-placed strikes. He falls into a heap on the floor. However, this has caused quite the commotion.")
 	combat_screen._map_node_buttons[1].pressed.emit()
+	await process_frame
+	print("previewed flavor text (expect Drunk Buddy's): %s" % combat_screen._map_story_label.text)
+	assert(combat_screen._map_story_label.text == "Leaping to his fallen companion's aid, another drunk patron wants to try his hand.")
+	combat_screen._map_proceed_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay.visible)
 	assert(build_state.tavern_map_choice_made)
-	assert(enemy_panel._info_label.text.contains("Encounter: 2/4"))
-	assert(enemy_panel._info_label.text.contains("Target: Drunk Buddy"))
+	assert(enemy_panel._title_label.text == "Drunk Buddy")
+	assert(not enemy_panel._info_label.text.contains("Encounter:"))
+	assert(not enemy_panel._info_label.text.contains("Target:"))
 	var planning_map_button = null
 	for child in combat_screen.find_children("*", "Button", true, false):
 		if child.text == "Map":
@@ -391,7 +453,7 @@ func _initialize() -> void:
 	talent_panel._on_node_pressed(piercing_blades)
 	await process_frame
 	assert(build_state.selected_talents.size() == 1)
-	assert(talent_panel._points_label.text == "0/1")
+	assert(talent_panel._points_label.text == "Points Spent: 1/1")
 	unlocked = build_state.unlocked_skills()
 	assert(unlocked.size() == 4)
 	for skill in unlocked:
@@ -412,7 +474,9 @@ func _initialize() -> void:
 			available_skills_panel._on_skill_pressed(skill)
 	assert(build_state.rotation.size() == 4)
 	stats_text = character_stats_panel._stats_label.text
-	assert(stats_text.contains("Physical Damage: +8%"))
+	# No leading "+" -- Physical Damage is multiplicative (x1.08), not
+	# additive (P2:R7 playtest-feedback fix, 2026-07-19).
+	assert(stats_text.contains("Physical Damage: 8%"))
 
 	# Relock and resolve a second, different encounter from the same active
 	# dashboard. This is the core P2:R2 reconnection contract.
@@ -451,11 +515,11 @@ func _initialize() -> void:
 	assert(combat_screen._shop_overlay.visible)
 	assert(not combat_screen._status_label.visible)
 	assert(not combat_screen._view_log_button.visible)
-	assert(build_state.shop_offers.size() == 4)
+	assert(build_state.shop_offers.size() == 6)
 	for offer in build_state.shop_offers:
 		assert(offer.tier == GearItem.Tier.BASIC)
 	assert(combat_screen._shop_offers_box.columns == 2)
-	assert(combat_screen._shop_offers_box.get_child_count() == 4)
+	assert(combat_screen._shop_offers_box.get_child_count() == 6)
 
 	var first_offer: GearItem = build_state.shop_offers[0]
 	var first_offer_id := first_offer.id
@@ -556,13 +620,19 @@ func _initialize() -> void:
 	assert(build_state.shop_round_index == 1)
 	assert(build_state.current_encounter_index == 2)
 	assert(build_state.run_phase == BuildState.RunPhase.PLANNING)
-	assert(enemy_panel._info_label.text.contains("Target: NONE"))
+	assert(enemy_panel._title_label.text == "Choose Encounter")
 	assert(combat_screen._map_overlay.visible)
 	assert(combat_screen._map_node_buttons[2].text == "Tavern Bouncer")
+	print("map story text after Drunk Buddy win (expect his Victory Text): %s" % combat_screen._map_story_label.text)
+	assert(combat_screen._map_story_label.text == "He lands with a thud atop the fallen body of his companion, but now the tavern is abuzz with action. You have made your pressence known; however you are not sure that was the best idea.")
 	combat_screen._map_node_buttons[2].pressed.emit()
 	await process_frame
+	print("previewed flavor text (expect Tavern Bouncer's): %s" % combat_screen._map_story_label.text)
+	assert(combat_screen._map_story_label.text == "The burley bouncer grabs you to politely show you the door.")
+	combat_screen._map_proceed_button.pressed.emit()
+	await process_frame
 	assert(build_state.tavern_map_choice_made)
-	assert(enemy_panel._info_label.text.contains("Target: Tavern Bouncer"))
+	assert(enemy_panel._title_label.text == "Tavern Bouncer")
 
 	# -- Earned inventory equip: Lucky Coin came from the Drunk Buddy reward,
 	# not a free reroll, and equipping it from the panel is a build change. --
@@ -577,8 +647,9 @@ func _initialize() -> void:
 	assert(not build_state.build_locked)
 	assert(enemy_panel._fight_button.disabled)
 
-	# -- Contract offer transition: R4 replaces the old direct Tavern-to-Vyra
-	# step with The Gilded Serpent offer after Hired Goon.
+	# -- Contract offer transition: after Hired Goon, the shop is skipped and
+	# Ghit Gudd's Contract Window introduces The Gilded Serpent contract
+	# instead of the old single-click "Map"-styled offer (P2:R7 story pass).
 	build_state.current_encounter_index = RunFlow.tavern_encounter_count() - 1
 	build_state.run_phase = BuildState.RunPhase.RESULT
 	build_state.last_fight_won = true
@@ -591,27 +662,61 @@ func _initialize() -> void:
 	assert(build_state.active_contract != null)
 	assert(build_state.active_contract.display_name == "The Gilded Serpent Contract")
 	assert(build_state.current_route_node.id == "route.gilded_serpent.offer")
-	assert(combat_screen._map_overlay.visible)
-	assert(combat_screen._map_phase_label.text == "Contract")
-	assert(combat_screen._map_story_label.text.contains("Vyra"))
-	assert(combat_screen._map_node_buttons.size() == 1)
-	assert(combat_screen._map_node_buttons[0].text == "The Gilded Serpent Contract")
-	assert(enemy_panel._info_label.text.contains("Target: NONE"))
-	assert(enemy_panel._info_label.text.contains("HP: NONE"))
+	assert(not combat_screen._shop_overlay.visible)
+	assert(combat_screen._contract_overlay.visible)
+	assert(combat_screen._contract_body_label.text == combat_screen.CONTRACT_GREETING_TEXT)
+	assert(combat_screen._contract_action_button.text == "Hear Him Out")
+	assert(enemy_panel._title_label.text == "Contract Offer")
 
-	combat_screen._map_node_buttons[0].pressed.emit()
+	combat_screen._contract_action_button.pressed.emit()
+	await process_frame
+	assert(combat_screen._contract_body_label.text == combat_screen.CONTRACT_PITCH_TEXT)
+	assert(combat_screen._contract_action_button.text == "Accept Contract Work")
+
+	combat_screen._contract_action_button.pressed.emit()
 	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE)
 	assert(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree")
+	assert(not combat_screen._contract_overlay.visible)
 	assert(combat_screen._secondary_subclass_overlay.visible)
+	assert(combat_screen._secondary_subclass_body.text == combat_screen.CONTRACT_SUBCLASS_PROMPT_TEXT)
 	assert(combat_screen._secondary_subclass_options.get_child_count() == 2)
-	assert(combat_screen._secondary_subclass_options.get_child(0).text.contains("Assassin"))
-	assert(combat_screen._secondary_subclass_options.get_child(1).text.contains("Shadow"))
-	assert(combat_screen._secondary_subclass_options.get_child(1).text.contains("Stab & Heavy Slash now apply +1 poison stacks"))
-	combat_screen._secondary_subclass_options.get_child(0).pressed.emit()
+	# Each option is now a selection card matching the primary subclass
+	# select screen (P2:R7 second playtest-feedback pass, item 5):
+	# card -> vbox -> [title Label, intrinsic Label, Choose Button].
+	var secondary_card_0_vbox: VBoxContainer = combat_screen._secondary_subclass_options.get_child(0).get_child(0)
+	var secondary_card_1_vbox: VBoxContainer = combat_screen._secondary_subclass_options.get_child(1).get_child(0)
+	assert(secondary_card_0_vbox.get_child(0).text.contains("Assassin"))
+	assert(secondary_card_1_vbox.get_child(0).text.contains("Shadow"))
+	assert(secondary_card_1_vbox.get_child(1).text.contains("ticks for poison damage"))
+	assert(secondary_card_0_vbox.get_child(2) is Button)
+	assert(secondary_card_0_vbox.get_child(2).text == "Choose")
+	secondary_card_0_vbox.get_child(2).pressed.emit()
 	await process_frame
 	assert(build_state.selected_trees.size() == 2)
 	assert(not combat_screen._secondary_subclass_overlay.visible)
+
+	# -- Contract Window reopens as a hub with a single contract card for
+	# now (Vyra) -- a larger toggleable rectangle naming the contract and its
+	# gold reward, not a plain button. Selecting it only enables Proceed;
+	# Proceed then previews her, and her own Accept finally reveals the
+	# (unchanged) interactive route schematic. --
+	assert(combat_screen._contract_overlay.visible)
+	assert(combat_screen._contract_options_box.get_child_count() == 1)
+	var vyra_button: Button = combat_screen._contract_options_box.get_child(0)
+	assert(vyra_button.text.contains(combat_screen.CONTRACT_VYRA_NAME))
+	assert(vyra_button.text.contains("Reward: 120g"))
+	assert(combat_screen._contract_action_button.disabled)
+	vyra_button.button_pressed = true
+	await process_frame
+	assert(not combat_screen._contract_action_button.disabled)
+	combat_screen._contract_action_button.pressed.emit()
+	await process_frame
+	assert(combat_screen._contract_body_label.text == combat_screen.CONTRACT_VYRA_DETAIL_TEXT)
+	assert(combat_screen._contract_action_button.text == "Accept")
+	combat_screen._contract_action_button.pressed.emit()
+	await process_frame
+	assert(not combat_screen._contract_overlay.visible)
 	assert(combat_screen._map_overlay.visible)
 	assert(combat_screen._map_node_buttons.size() == 8)
 	assert(combat_screen._map_node_buttons[0].text.contains("Door Guard"))
@@ -629,18 +734,22 @@ func _initialize() -> void:
 	assert(combat_screen._map_node_buttons[6].text.contains("Knives"))
 	assert(combat_screen._map_node_buttons[7].text.contains("Vyra"))
 	assert(combat_screen._map_node_buttons[2].disabled)
-	assert(enemy_panel._info_label.text.contains("Target: NONE"))
-	assert(enemy_panel._info_label.text.contains("Window: NONE"))
+	assert(enemy_panel._title_label.text == "Choose Route")
+	assert(enemy_panel._info_label.text.contains("Choose the next contract route on the map."))
 
 	combat_screen._map_node_buttons[1].pressed.emit()
 	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.PLANNING)
 	assert(build_state.current_route_node.id == "route.gilded_serpent.portly_cook")
-	assert(enemy_panel._info_label.text.contains("Target: Portly Cook"))
+	assert(enemy_panel._title_label.text == "Portly Cook")
 	assert(enemy_panel._info_label.text.contains("Window: 20s"))
 	assert(not enemy_panel._info_label.text.contains("Contract:"))
-	assert(not enemy_panel._info_label.text.contains("Pressure:"))
-	assert(not enemy_panel._info_label.text.contains("Reward:"))
+	# P2:R7:T5: Portly Cook is a 0-armor/0-poison-resist target, so its
+	# preview shows the "no notable pressure" line and its authored Basic
+	# Gear reward, both derived from real Monster/EncounterReward data.
+	assert(enemy_panel._info_label.text.contains("Required DPS: 18.0"))
+	assert(enemy_panel._info_label.text.contains("Pressure: No notable defensive pressure."))
+	assert(enemy_panel._info_label.text.contains("Reward: 26g, Basic Gear"))
 	assert(enemy_panel._fight_button.disabled)
 	build_state.set_locked(true)
 	await process_frame

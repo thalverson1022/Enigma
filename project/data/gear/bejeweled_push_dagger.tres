@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="GearItem" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/gear_item.gd" id="1_gear"]
+[ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_affix"]
+
+[sub_resource type="Resource" id="Resource_bejeweled_physical"]
+script = ExtResource("2_affix")
+stat = 4
+operation = 1
+value = 1.2
+
+[sub_resource type="Resource" id="Resource_bejeweled_crit"]
+script = ExtResource("2_affix")
+stat = 1
+operation = 0
+value = 0.4
+
+[resource]
+script = ExtResource("1_gear")
+id = "gear.legendary.bejeweled_push_dagger"
+display_name = "Bejeweled Push Dagger"
+slot = 0
+tier = 3
+affixes = Array[StatModifier]([SubResource("Resource_bejeweled_physical"), SubResource("Resource_bejeweled_crit")])
+min_cast_time_proc_chance = 0.2

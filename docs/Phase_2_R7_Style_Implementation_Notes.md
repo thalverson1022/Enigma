@@ -13,6 +13,14 @@ icons and UI spritesheets from the purchased pack at
 `F:\Data\Junk\DPS Game\Rpg Icon Pack` - permissive license, commercial use
 allowed, no redistribution), which is a separate, larger R7 task if scoped.
 
+**2026-07-24 update:** gear icon integration did happen
+(`docs/Phase_2_R12_Gear_Icon_Art_Integration.md`, complete), but using
+different art than this section anticipated -- the user supplied
+hand-authored, Rogue-specific 32x32 art directly
+(`project/assets/Items/Rogue/`), not the generic purchased pack named above.
+The purchased pack remains unused/unintegrated; it may still be relevant for
+future skill icons or UI spritesheet needs beyond gear.
+
 ## Source Material
 
 - `F:\Data\Junk\DPS Game\The_Road_to_Peak_Deeps_Master_Palette.md` - the
@@ -25,18 +33,20 @@ allowed, no redistribution), which is a separate, larger R7 task if scoped.
 - The Rogue/Mage/Crusader/Nature/Dungeon/Magic Effects sections of the
   master palette constrain future sprite/tile art, not this UI pass.
 
-## Open Decision: Palette Fork
+## Open Decision: Palette Fork -- RESOLVED (2026-07-17)
 
-The two references disagree on the UI base colors:
+The two references disagreed on the UI base colors:
 
 - Master palette doc: warm browns (background `#221811`, panel `#5B3A25`).
 - Style guide mockup: darker and cooler (near-black backgrounds, blue-grey
   panels, separate gold/red/green/blue accents).
 
-**Resolve this before any hex value goes into code.** Everything downstream
-inherits the choice. Until revised, treat the master palette doc as source
-of truth (it is the file the project owns; the mockup's values are only
-readable off an image).
+**Resolved during `P2:R7:T2`: the master palette (warm browns) is adopted.**
+The user rejected the darker/cooler style-guide-mockup alternative after a
+side-by-side comparison. The palette now lives at
+`docs/The_Road_to_Peak_Deeps_Master_Palette.md` (copied into the repo so it
+owns its own source of truth) and is implemented as named constants in
+`project/scripts/ui/ui_colors.gd`.
 
 ## UI Palette (from the master palette doc)
 
@@ -171,6 +181,18 @@ the `CardStyle`/theme cascade. Phase 2: another half-to-full day, mostly
 `combat_screen.gd` cleanup. No combat/build/system code is touched at any
 point; this is presentation-layer work consistent with the UI architecture
 principle in `docs/Conventions.md`.
+
+### Status (2026-07-17): Phases 0-3 complete
+
+All four phases above are implemented as part of `P2:R7:T2`. See
+`docs/Phase_2_R7_Game_Like_UI_Pass.md`'s `P2:R7:T2` Implementation Notes
+and Verification Notes entries (dated 2026-07-17) for the specifics of what
+was built, what was deliberately deferred (mid-sentence semantic coloring
+inside composite strings that existing tests assert on as one contiguous
+substring, e.g. `_reward_text()`), and the exact test commands run. Nothing
+from this plan remains outstanding for `P2:R7:T2`; the only unverified
+piece is a manual rendered click-through, which this sandboxed environment
+cannot perform (documented limitation, not a gap in the implementation).
 
 ## Relationship To Other Milestones
 

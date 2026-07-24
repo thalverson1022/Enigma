@@ -9,3 +9,5 @@ extends Resource
 @export var generated_gear_choice_count: int = 0
 @export var generated_gear_tier: GearItem.Tier = GearItem.Tier.BASIC
 @export var generated_gear_slots: Array[int] = []
+@export var legendary_choice_pool: Array[GearItem] = []
+@export var legendary_choice_count: int = 0

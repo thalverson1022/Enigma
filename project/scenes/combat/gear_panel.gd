@@ -23,13 +23,13 @@ const WEAPON_SLOT_SIZE := Vector2(88, 88)
 const SMALL_SLOT_SIZE := Vector2(60, 60)
 const INVENTORY_SLOT_SIZE := Vector2(88, 88)
 
-const EMPTY_SLOT_COLOR := Color(0.32, 0.32, 0.36)
-const SLOT_BORDER_COLOR := Color(0.15, 0.15, 0.17)
+const EMPTY_SLOT_COLOR := UIColors.SLOT_EMPTY
+const SLOT_BORDER_COLOR := UIColors.SLOT_BORDER
 const TIER_COLORS := {
-	GearItem.Tier.BASIC: Color(0.35, 0.75, 0.35),
-	GearItem.Tier.MASTER: Color(0.3, 0.55, 0.9),
-	GearItem.Tier.CURSED: Color(0.65, 0.4, 0.85),
-	GearItem.Tier.LEGENDARY: Color(0.95, 0.55, 0.18),
+	GearItem.Tier.BASIC: UIColors.TIER_BASIC,
+	GearItem.Tier.MASTER: UIColors.TIER_MASTER,
+	GearItem.Tier.CURSED: UIColors.TIER_CURSED,
+	GearItem.Tier.LEGENDARY: UIColors.TIER_LEGENDARY,
 }
 
 var _helm_slot: Panel
@@ -55,11 +55,13 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "Gear"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.theme_type_variation = &"PanelHeader"
 	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
 	content.add_child(title)
 
 	_gold_label = Label.new()
 	_gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_gold_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
 	content.add_child(_gold_label)
 
 	var equipment_label := Label.new()
@@ -82,7 +84,7 @@ func _ready() -> void:
 	inventory.custom_minimum_size = Vector2(0, 120)
 	inventory.tooltip_text = "Inventory -- three slots for unequipped gear"
 	var inventory_style := CardStyle.make_stylebox(8)
-	inventory_style.bg_color = Color(0.12, 0.12, 0.14)
+	inventory_style.bg_color = UIColors.PANEL_DEEP
 	inventory.add_theme_stylebox_override("panel", inventory_style)
 	content.add_child(inventory)
 
@@ -140,6 +142,17 @@ func _make_slot(slot_size: Vector2) -> Panel:
 	var slot := Panel.new()
 	slot.custom_minimum_size = slot_size
 	slot.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var icon := TextureRect.new()
+	icon.name = "Icon"
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Nearest-neighbor keeps the 32x32 pixel art crisp when scaled up to fill
+	# the slot, instead of blurring like the project's photographic
+	# backgrounds (which use the default linear filter).
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot.add_child(icon)
 	return slot
 
 
@@ -173,6 +186,11 @@ func _make_inventory_slot(gear: GearItem) -> Button:
 		slot.disabled = true
 		slot.tooltip_text = "Empty inventory slot"
 	else:
+		# Icon + slot/tier caption, same box content the shop item boxes
+		# carry (shared via CardStyle rather than duplicated -- P2:R7 second
+		# playtest-feedback pass, item 2; art added in the P2:R7 gear-art
+		# pass).
+		CardStyle.build_gear_box_content(slot, gear)
 		slot.tooltip_text = _inventory_tooltip(gear)
 		slot.pressed.connect(_on_inventory_slot_pressed.bind(gear))
 	return slot
@@ -219,19 +237,25 @@ func _on_sell_confirmed() -> void:
 	_sell_dialog.hide()
 
 
+## Equipped slots use a thicker accent-colored border (vs. the neutral
+## SLOT_BORDER_COLOR on empty slots and inventory items) so "this is worn"
+## reads as visually distinct from "this is in the bag," per the task's
+## equipped-vs-inventory clarity requirement -- inventory slots keep the
+## plain border via _style_box_button() below.
 func _update_slot(slot: Panel, slot_name: String, gear: GearItem) -> void:
 	var fill: Color = EMPTY_SLOT_COLOR if gear == null else TIER_COLORS[gear.tier]
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill
-	style.border_color = SLOT_BORDER_COLOR
-	style.set_border_width_all(2)
+	style.border_color = CardStyle.ACCENT_COLOR if gear != null else SLOT_BORDER_COLOR
+	style.set_border_width_all(3 if gear != null else 2)
 	style.set_corner_radius_all(6)
 	slot.add_theme_stylebox_override("panel", style)
+	(slot.get_node("Icon") as TextureRect).texture = GearIcons.icon_for(gear)
 
 	if gear == null:
 		slot.tooltip_text = "%s: Empty" % slot_name
 		return
-	slot.tooltip_text = _gear_tooltip(gear)
+	slot.tooltip_text = _equipped_tooltip(gear)
 	if slot == _weapon_slot:
 		_connect_equipped_slot_click(slot, GearItem.SlotType.WEAPON)
 	elif slot == _trinket_slot:
@@ -246,11 +270,20 @@ func _connect_equipped_slot_click(slot: Panel, gear_slot: GearItem.SlotType) -> 
 		slot.set_meta("sell_click_connected", true)
 
 
+## During a shop round, clicking an equipped slot offers to sell it (matches
+## the existing sell-inventory-item flow). Outside a shop round, it offers
+## to unequip it back to the inventory tray instead -- previously the only
+## way to bench an equipped item was to equip a replacement over it, which
+## silently displaced it; this makes "send it back to the bag" an explicit,
+## discoverable action of its own, unambiguous from equipping. No-op while
+## the build is locked or the inventory is already full.
 func _on_equipped_slot_gui_input(event: InputEvent, gear_slot: GearItem.SlotType) -> void:
-	if not BuildState.shop_round_pending:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
 		return
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	if BuildState.shop_round_pending:
 		_confirm_sell_equipped_item(gear_slot)
+	elif not BuildState.build_locked and BuildState.can_add_inventory_item():
+		BuildState.unequip(gear_slot)
 
 
 func _style_box_button(button: Button, gear: GearItem) -> void:
@@ -266,7 +299,20 @@ func _style_box_button(button: Button, gear: GearItem) -> void:
 
 func _inventory_tooltip(gear: GearItem) -> String:
 	var action := "Sell for %dg" % BuildState.sell_value_for(gear) if BuildState.shop_round_pending else "Equip"
-	return "%s\n%s" % [_gear_tooltip(gear), action]
+	return "%s\nIn inventory -- %s" % [_gear_tooltip(gear), action]
+
+
+func _equipped_tooltip(gear: GearItem) -> String:
+	var action: String
+	if BuildState.shop_round_pending:
+		action = "Sell for %dg" % BuildState.sell_value_for(gear)
+	elif BuildState.build_locked:
+		action = "Unlock build to change"
+	elif not BuildState.can_add_inventory_item():
+		action = "Inventory full -- can't unequip"
+	else:
+		action = "Unequip to inventory"
+	return "%s\nEquipped -- %s" % [_gear_tooltip(gear), action]
 
 
 func _gear_tooltip(gear: GearItem) -> String:

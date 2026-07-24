@@ -45,6 +45,7 @@ func _ready() -> void:
 	var label := Label.new()
 	label.text = "Choose Your Class"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.theme_type_variation = &"PanelHeader"
 	label.add_theme_font_size_override("font_size", INSTRUCTION_FONT_SIZE)
 	vbox.add_child(label)
 
@@ -70,11 +71,23 @@ func _scan_resources(dir_path: String) -> Array[Resource]:
 	dir.list_dir_begin()
 	var file_name := dir.get_next()
 	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			found.append(load("%s/%s" % [dir_path, file_name]))
+		if not dir.current_is_dir():
+			if _is_resource_dir_entry(file_name):
+				var resource_file_name := _resource_file_name_from_dir_entry(file_name)
+				found.append(load("%s/%s" % [dir_path, resource_file_name]))
 		file_name = dir.get_next()
 	dir.list_dir_end()
 	return found
+
+
+func _resource_file_name_from_dir_entry(file_name: String) -> String:
+	if file_name.ends_with(".remap"):
+		return file_name.trim_suffix(".remap")
+	return file_name
+
+
+func _is_resource_dir_entry(file_name: String) -> bool:
+	return _resource_file_name_from_dir_entry(file_name).ends_with(".tres")
 
 
 func _populate_classes() -> void:
@@ -105,6 +118,7 @@ func _build_card(class_name_text: String, select_button: Button) -> PanelContain
 	var title_label := Label.new()
 	title_label.text = class_name_text
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.theme_type_variation = &"PanelHeader"
 	title_label.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
 	card_vbox.add_child(title_label)
 

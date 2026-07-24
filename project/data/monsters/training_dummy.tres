@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="Monster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/monster.gd" id="1_monster"]
+
+[resource]
+script = ExtResource("1_monster")
+id = "monster.training_dummy"
+display_name = "Training Dummy"
+hp = 150
+armor = 0
+poison_resistance = 0.0

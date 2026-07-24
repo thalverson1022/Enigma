@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="GearItem" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/gear_item.gd" id="1_gear"]
+[ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_affix"]
+[ext_resource type="Resource" path="res://data/skills/death_strike.tres" id="3_death_strike"]
+
+[sub_resource type="Resource" id="Resource_umbral_crit_chance"]
+script = ExtResource("2_affix")
+stat = 1
+operation = 0
+value = 0.1
+
+[sub_resource type="Resource" id="Resource_umbral_crit_multiplier"]
+script = ExtResource("2_affix")
+stat = 2
+operation = 0
+value = 1.0
+
+[resource]
+script = ExtResource("1_gear")
+id = "gear.legendary.umbral_stiletto"
+display_name = "Umbral Stiletto"
+slot = 0
+tier = 3
+affixes = Array[StatModifier]([SubResource("Resource_umbral_crit_chance"), SubResource("Resource_umbral_crit_multiplier")])
+unlocked_skills = Array[Skill]([ExtResource("3_death_strike")])

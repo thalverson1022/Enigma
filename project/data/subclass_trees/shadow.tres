@@ -17,17 +17,19 @@ stacks_applied = 1
 script = ExtResource("2_augment")
 target_skill_ids = PackedStringArray("skill.stab")
 extra_effects = Array[SkillEffect]([SubResource("Resource_shadow_poison_effect")])
+poison_stacks_applied = 1
 
 [sub_resource type="Resource" id="Resource_shadow_heavy_augment"]
 script = ExtResource("2_augment")
 target_skill_ids = PackedStringArray("skill.heavy_slash")
 extra_effects = Array[SkillEffect]([SubResource("Resource_shadow_poison_effect")])
+poison_stacks_applied = 1
 
 [resource]
 script = ExtResource("1_tree")
 id = "tree.shadow"
 display_name = "Shadow"
-intrinsic_text = "Stab & Heavy Slash now apply +1 poison stacks"
+intrinsic_text = "Stab & Heavy Slash apply +1 poison stack that ticks for poison damage"
 talents = Array[Talent]([ExtResource("4_lingering"), ExtResource("5_exposed"), ExtResource("6_black_lotus"), ExtResource("7_nightblade"), ExtResource("8_umbral")])
 innate_modifiers = Array[StatModifier]([])
 unlocked_skills = Array[Skill]([])

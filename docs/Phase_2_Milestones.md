@@ -129,8 +129,12 @@ roadmap unless the scope is revised again.
 | P2:R4 | Contract Route Parity | Port the first contract route shape from Phase 1 without expanding into a broader procedural map | Player reaches route choices, elite pressure, and Vyra through UI alone | Complete |
 | P2:R5 | Run Rules And Determinism | Add Shadow/proc parity, seed handling, failure/retry rules, and run-state transitions | Shadow and Opportunity Strikes are implemented; replaying the same seed/build path is reproducible; failure behavior matches the intended Phase 1 baseline or a documented revision | Complete |
 | P2:R6 | Save/Load Persistence | Persist current run state across sessions | Quit mid-run, relaunch, and resume the same run/build/route state correctly | Complete |
-| P2:R7 | Game-Like UI Pass | Make the current dashboard clear, coherent, and playtestable as a game screen | A new player can understand class, subclass, talents, skills, enemy, gear, rewards, and next action without explanation | Not started |
-| P2:R8 | Playtest Build | Export and bug-fix the revised vertical slice, with optional Training Room Lite if low-risk | A non-developer can play the Rogue adventure unassisted and provide useful feedback; Training Room Lite is present only if it does not delay the Adventure build | Not started |
+| P2:R7 | Game-Like UI Pass | Make the current dashboard clear, coherent, and playtestable as a game screen | A new player can understand class, subclass, talents, skills, enemy, gear, rewards, and next action without explanation | Complete |
+| P2:R8 | Playtest Build | Export and bug-fix the revised vertical slice, with optional Training Room Lite if low-risk | A non-developer can play the Rogue adventure unassisted and provide useful feedback; Training Room Lite is present only if it does not delay the Adventure build | Complete |
+| P2:R9 | Full Legendary Item Parity | Implement all 5 Phase 1 Rogue Legendaries, randomize Knives' choice, and widen the shop's Legendary pool | All 5 Legendaries exist with correct effects; Knives offers a seeded 2-of-5 choice; the shop can roll any of the 5 (deduped against ownership); every new mechanic they need is tested | Complete |
+| P2:R10 | Full Training Room Parity | Build the full Phase 1 Training Room (not the Lite version): freeform trees/passives/rotation/gear/target/duration/seed/practice-gold | A player can freely configure and fight a practice build, including a raw affix editor and all 5 Legendaries, without touching real Adventure/save state | Complete |
+| P2:R11 | Training Room UI Polish | Bring Training Room's look/feel up to Adventure-dashboard parity and fix bugs found along the way | Layout/controls match Adventure conventions (dropdowns, 3-column layout, animated combat view, rarity-first gear editor); poison-tick, Mithril Karambit, and overlay-reflow bugs fixed; full suite green | Complete |
+| P2:R12 | Gear Icon Art Integration | Integrate user-supplied gear art into shop/reward/inventory/equipment boxes | Every gear box shows the correct named or generic icon over its tier-colored background at all four render locations; redundant caption text removed; full suite green | Complete |
 
 Tracking docs:
 
@@ -144,6 +148,10 @@ Tracking docs:
   (style/palette/font planning detail:
   `docs/Phase_2_R7_Style_Implementation_Notes.md`)
 - `docs/Phase_2_R8_Playtest_Build.md`
+- `docs/Phase_2_R9_Full_Legendary_Item_Parity.md`
+- `docs/Phase_2_R10_Full_Training_Room_Parity.md`
+- `docs/Phase_2_R11_Training_Room_UI_Polish.md`
+- `docs/Phase_2_R12_Gear_Icon_Art_Integration.md`
 
 ### Revised Phase 2 Boundary
 
@@ -153,21 +161,156 @@ was part of the validated prototype experience. A larger meta-progression
 structure, additional contracts, additional classes, a procedural map layer,
 and broad content expansion remain Phase 3+.
 
+**2026-07-21 addendum:** two items previously placed on that Phase 3+ side of
+the boundary (the 3 Legendaries beyond the Knives pair, and full Training
+Room mode) were deliberately moved back into Phase 2 scope as `P2:R9` and
+`P2:R10`, after `P2:R8:T6` smoke-test feedback. See those docs' "Purpose"
+sections for the full reasoning. The boundary itself (additional classes,
+additional contracts, broader procedural meta-progression, full art/
+animation production, additional export platforms) is unchanged.
+
 ### Immediate Next Step
 
-`P2:R6` is complete. The next implementation milestone is
-`P2:R7 - Game-Like UI Pass`, tracked in
-`docs/Phase_2_R7_Game_Like_UI_Pass.md`.
+`P2:R8` is fully complete (`T1`-`T8` done, `T9` superseded by `P2:R10`,
+`T10` closed out). The user ran the full hands-on Smoke Test Protocol
+against the 2026-07-19 Windows build
+(`project/export/windows/ProjectBane.exe`) on seed `123456` and found no
+blockers across launch, title/class/subclass select, build panels, both
+Tavern retry-rule tiers, shop, save/quit/resume, the full Gilded Serpent
+route through Knives and Vyra, and both loss-path states.
 
-Run state now persists across sessions: `SaveSystem` (JSON at
+The one observation from that pass (only two Legendaries ever appearing)
+led to a deliberate second scope revision rather than a bug fix: the user
+chose to implement all 5 Phase 1 Legendaries and build the full Training
+Room instead of stopping at the Knives pair and an optional Lite version.
+
+`P2:R9 - Full Legendary Item Parity`
+(`docs/Phase_2_R9_Full_Legendary_Item_Parity.md`) is now complete
+(`P2:R9:T1`-`T8`). All 5 Legendaries exist with hand-verified effects,
+Knives offers a seeded random 2-of-5 choice, and the shop's existing
+low-chance Legendary roll draws from all 5 with an ownership dedupe. The
+full 30-file regression suite passed clean after every change. Note: the
+exported Windows build at `project/export/windows/ProjectBane.exe` predates
+this work and still reflects the old 2-item behavior; re-export and
+re-smoke-test before sharing a build that should include `P2:R9`.
+
+`P2:R10 - Full Training Room Parity`
+(`docs/Phase_2_R10_Full_Training_Room_Parity.md`) is now complete,
+following `P2:R9`, whose full Legendary set its Legendary-selection control
+needed. All 8 tasks are done:
+
+- `T1`/`T2`: 3 practice-target Monsters (Training Dummy, Armored Guard,
+  Venom-Resistant Slime), the title-screen button enabled, and a real
+  `scenes/training_room/` scene, fully isolated from `BuildState`. Along
+  the way the regression suite caught a genuine pre-existing
+  `save_load_ui_test.gd` regression (it hardcoded the button as disabled
+  with a "Coming soon" tooltip), now fixed.
+- `T3`/`T4`: freeform tree/passive/rotation/Legendary controls and a raw
+  per-slot affix editor. `T3` required parameterizing 4 shared dashboard
+  panels (`talent_panel.gd`, `available_skills_panel.gd`,
+  `skill_build_panel.gd`, `character_stats_panel.gd`) to accept an injected
+  state object instead of hardcoding the `BuildState` autoload -- literal
+  unmodified reuse would have let Training Room mutations leak into a real
+  Adventure run. A new `TrainingRoomState` (never an autoload) supplies
+  that state. `T4` added a genuinely new raw affix editor (add/edit/remove
+  per slot) with a Custom/Legendary toggle on the weapon slot.
+- `T5`: target/duration/seed/practice-gold fight-setup controls. Writing
+  its test surfaced a real, standing gap unrelated to this effort's own
+  prior work: `character_stats_panel.gd` was never updated when
+  `P2:R9:T2`/`T3` added `bonus_physical_damage`/`min_cast_time_proc_chance`
+  to `PlayerStats`, so Bandit Blade's gold-scaling effect and Bejeweled
+  Push Dagger's proc chance had never been visible anywhere -- in Training
+  Room *or* the real Adventure dashboard -- despite working correctly
+  under the hood. Fixed by adding both stat lines to the shared panel,
+  benefiting both screens.
+- `T6`: a Fight button that runs a real `CombatResolver.resolve()` against
+  the practice build/target/duration/seed, with the result shown via the
+  reused `CombatResultFormatter`/`CombatRecap` presentation logic (the same
+  pure, headless-testable classes the real Adventure recap uses) --
+  deliberately not the `P2:R7` animated popup/HUD playback, since that
+  rendering lives directly in `combat_screen.gd`, not as a separable
+  component.
+- `T7`/`T8`: 5 dedicated Training Room test files were added across
+  `T2`-`T6` (entry/isolation, build controls, gear editor, fight setup,
+  and fight execution), each including an explicit assertion that nothing
+  in Training Room ever mutates real `BuildState`/save data. The full
+  regression suite (36 files) passed clean throughout, and every task's
+  own tests caught and fixed real bugs before landing (see
+  `docs/Phase_2_R10_Full_Training_Room_Parity.md` for the full account:
+  a weapon-column display bug, the `save_load_ui_test.gd`/
+  `character_stats_panel.gd` gaps above, and several test-authoring
+  mistakes along the way).
+
+See `docs/Phase_2_R10_Full_Training_Room_Parity.md` for full detail on all
+8 tasks. With `P2:R9` and `P2:R10` both complete, the revised Phase 2
+roadmap (`P2:R0`-`P2:R10`) was fully closed out as of 2026-07-21.
+
+**2026-07-23/24 addendum:** two further UI/polish milestones were added on
+top of the closed `P2:R0`-`P2:R10` roadmap, both complete:
+
+`P2:R11 - Training Room UI Polish`
+(`docs/Phase_2_R11_Training_Room_UI_Polish.md`) is a follow-on pass on the
+Training Room `P2:R10` had just finished, done via hands-on comparison
+against the real Adventure dashboard rather than a pre-written spec. Global
+canvas scaling was fixed (`project.godot`'s `[display]` stretch mode, so the
+whole UI now scales uniformly with the window instead of reflowing
+non-uniformly); Training Room's tree selection moved to Primary/Secondary
+dropdowns; a dedicated target stats card and a real animated combat-playback
+view (built on the existing reusable `CombatPlayback` class) replaced the
+bare target dropdown and static-text-only recap; the raw affix editor was
+reworked into a rarity-first flow (`None`/Basic/Master/Cursed/Legendary per
+slot); the screen was restructured into a 3-column (1:2:1) layout matching
+Adventure, with a Combat Log overlay, a rotation cap of 10 shared with
+Adventure, and a Legendary hover tooltip. Several real bugs were found and
+fixed along the way: poison ticks dealing a misleading 0-damage popup at 0
+stacks, a rarity dropdown that got stuck disabled after equipping a
+Legendary, Mithril Karambit's two triggers bleeding into each other instead
+of each firing only from its own skill, and an Adventure-dashboard bug
+(found while comparing overlay patterns, not a Training Room issue) where
+the shop and reward-choice overlays grew their parent container instead of
+rendering as true full-rect overlays, pushing sibling panels off-screen.
+
+`P2:R12 - Gear Icon Art Integration`
+(`docs/Phase_2_R12_Gear_Icon_Art_Integration.md`) integrates a folder of
+user-supplied 32x32 transparent-background art
+(`project/assets/Items/Rogue/`) into every gear box in the Adventure
+dashboard (shop offers, reward-choice cards, inventory slots, equipped
+Equipment-doll slots), replacing plain tier-colored squares with a real icon
+layered on top of the existing tier-colored background -- named art for the
+5 Legendaries and Lucky Coin, a shared generic icon per slot/tier for
+everything else. This is the "icon-pack integration" `docs/
+Phase_2_R7_Game_Like_UI_Pass.md` explicitly deferred. Once the icon art was
+live and visually confirmed (via both headless tests and a real hands-on
+playthrough), the redundant two-line slot/tier caption every box used to
+show below the icon was removed as duplicate information -- the icon's art
+and the background's tier color already communicate both, and full detail
+remains available via each box's existing hover tooltip.
+
+The full `project/tests/*.gd` regression suite (38 files as of `P2:R12`)
+passed clean after both milestones. Remaining open items are non-blocking:
+re-exporting the Windows build to include `P2:R9` through `P2:R12` (the
+current export at `project/export/windows/ProjectBane.exe` predates all
+four) and a re-smoke-test of that fresh export.
+
+Run state persists across sessions: `SaveSystem` (JSON at
 `user://save.json`) round-trips class/trees/talents/rotation/gold/inventory/
 equipment/seed/route/failure/outcome state, Resume/New Game/Save & Quit/
 Abandon Run are all reachable from Title/dashboard, and autosave fires after
 every meaningful state transition (build choices, encounter/route/reward/shop
 decisions, fight results, retries) so a crash or unexpected quit loses at
-most an in-progress build edit. Keep the full game-like UI pass scoped to
-`P2:R7`. Training Room Lite remains an optional `P2:R8` playtest-support
-task, not required Phase 1 Rogue Adventure parity.
+most an in-progress build edit.
+
+The dashboard now applies the full "Road to Peak Deeps" palette/font/Theme
+system, an always-visible header (phase/seed/gold/build lock/next action),
+clearer build panels, enemy pressure/reward previews, reward/shop/route
+UI with gear comparison, a combat recap for both win and loss, polished
+navigation/confirmations, a real-time combat-HUD, and a real-time combat
+playback system with comic-book skill popups -- see
+`docs/Phase_2_R7_Game_Like_UI_Pass.md` for full detail, including a
+consolidated list of outstanding visual-judgment-call items awaiting the
+next real editor session (nothing there blocks `P2:R8`). Training Room Lite
+as an optional `P2:R8` stretch task is superseded by the full Training Room
+now scoped as `P2:R10`.
 
 ## Milestone List
 
@@ -416,12 +559,187 @@ notes; this section is not a running restatement of overall progress.
   wording already fixed at `P2:R6:T4`. `P2:R6:T9` closed out this document's
   checklist. The next revised milestone is `P2:R7 - Game-Like UI Pass`.
 
+- P2:R7 (2026-07-19): Game-Like UI Pass is complete. `P2:R7:T2`-`T8` applied
+  the "Road to Peak Deeps" palette/four-font system through a project-wide
+  Theme resource (`UIColors`/`CardStyle`/`ui_theme.tres`, no hardcoded ad hoc
+  colors left in screen scripts), an always-visible dashboard header (phase,
+  seed, gold, build lock, next action), clearer build panels (talent lock
+  reasons, skill effect summaries, rotation cast-order/remove badges, stat
+  deltas, equipped-vs-inventory clarity), enemy pressure/required-DPS/reward
+  previews, reward/shop/route UI with gear-comparison tooltips and route
+  tradeoff text, a combat recap for both win and loss (damage/DPS vs.
+  required, biggest hit, physical/poison split, crit count, armor/poison
+  summaries), and a navigation/confirmations audit (fixing a real
+  restart-without-deleting-the-old-save bug). Beyond the numbered tasks, the
+  user requested and approved two significant in-scope additions during the
+  pass: a real-time enemy status HUD in the Combat panel, and a full
+  real-time combat playback system (skill-name/damage popups, HP bar
+  animation, speed/skip controls) that replays each fight's already-resolved
+  `CombatResolver` timeline rather than changing how combat resolves. Five
+  rounds of real playtest feedback followed initial delivery (button
+  contrast, a genuine Retry-button regression bug, a Vyra-vs-first-encounter
+  unlimited-retry correction, tooltip/wording fixes, and a gear-rarity
+  investigation that confirmed existing behavior already matched intent),
+  each documented in `docs/Phase_2_R7_Game_Like_UI_Pass.md`. `P2:R7:T9`'s
+  closeout pass ran the full 27-file `project/tests/` suite clean (catching
+  and fixing two stale test assertions left behind by the retry-exception
+  correction), reasoned through all 16 `P2:R7:T1` reference states against
+  the accumulated UI, and found `combat_screen.gd` free of dead code/TODOs
+  despite nine-plus passes of edits. All R7 Exit Criteria are met except
+  manual click-through, which no `P2:R7` pass could perform in this sandbox;
+  a consolidated list of outstanding visual-judgment-call items (mostly
+  playback/HUD feel and layout-fit-at-1600x900 questions) is recorded in the
+  R7 doc for the next real editor session. The next revised milestone is
+  `P2:R8 - Playtest Build`.
+
 - P2:R8 planning note (2026-07-17): Training Room Lite is added as an optional
   late playtest-support task. Phase 1 included a full Training Room, but it is
   not required for revised Phase 2 Rogue Adventure parity. Full freeform
   Training Room parity remains Phase 3+; the P2:R8 version should only be
   attempted if the exported Adventure build is already stable and the scope
   stays compact.
+
+- P2:R8 (2026-07-19): `P2:R8:T2 - Run Full Regression Pass` is complete. The
+  full current headless suite, 27 scripts under `project/tests/`, passed
+  serially with unique `user://logs/r8_t2_<test>.log` paths after rerunning
+  outside the sandbox to avoid the known local Godot startup/log crash.
+  Coverage includes Tavern/dashboard flow, contract route data to Knives and
+  Vyra, Legendary reward choice, failure/retry/contract-victory states, and
+  save/load UI hooks. No blocking production bug was found, so `P2:R8:T3` is
+  complete for this pass. Native rendered editor/player click-through is
+  still unverified in this sandbox; the next active task is export settings.
+
+- P2:R8 (2026-07-19): `P2:R8:T4 - Prepare Export Settings` is complete.
+  Added a tracked Windows Desktop export preset named `Project Bane Windows
+  Playtest` at `project/export_presets.cfg`, targeting
+  `project/export/windows/ProjectBane.exe`. `project/.gitignore` keeps
+  generated `export/` artifacts ignored while allowing the preset to be
+  tracked. Godot 4.7 recognizes the preset, but `P2:R8:T5 - Export Build`
+  needs the matching Windows export templates installed under
+  `C:/Users/tommh/AppData/Roaming/Godot/export_templates/4.7.stable/`.
+
+- P2:R8 (2026-07-19): `P2:R8:T5 - Export Build` is complete. Installed the
+  official Godot 4.7 stable Windows x86_64 export templates, exported the
+  `Project Bane Windows Playtest` preset to
+  `project/export/windows/ProjectBane.exe`, produced the separate
+  `ProjectBane.pck`, and confirmed the exported executable launched outside
+  the editor. The next revised task is `P2:R8:T6 - Smoke Test Export`.
+
+- P2:R8 (2026-07-19): exported-build smoke testing found and fixed the Rogue
+  class-select remap blocker, added title-screen seed entry, clarified Shadow
+  poison tick copy, corrected retry rules to first-fight unlimited plus one
+  retry for every other Tavern/contract fight, verified Cloaked Watchmen enemy
+  panel data, verified post-Tavern Master/Cursed/Legendary route reward access,
+  removed redundant enemy-panel target/encounter lines, and rebuilt the
+  Windows export.
+
+- P2:R8 (2026-07-21): `P2:R8:T7 - Prepare Playtest Notes` and `P2:R8:T8 -
+  Record Known Issues` are complete, added to `docs/Phase_2_R8_Playtest_Build.md`.
+  `P2:R8:T6 - Smoke Test Export` was completed in the same day: the user ran
+  the full hands-on Smoke Test Protocol against the 2026-07-19 export on seed
+  `123456` and found no blockers. The one observation raised (only two
+  Legendaries -- Wyvern Kriss, Mithril Karambit -- ever appearing, always as
+  the fixed Knives choice) was investigated and confirmed as intended
+  `P2:R5`-scoped behavior, not an RNG gap: `knives.tres` hardcodes that exact
+  pair and `gear_generator.gd` has no Legendary-tier generation at all. All
+  of `P2:R8:T1`-`T8` are now complete; only optional Training Room Lite
+  (`T9`) and doc closeout (`T10`) remain.
+
+- P2:R8/R9/R10 scope revision (2026-07-21): after weighing the "only two
+  Legendaries" observation, the user chose to deliberately re-expand Phase 2
+  scope rather than accept it as permanent intended behavior. Two items
+  previously deferred to Phase 3+ (or optional-only) move back into Phase 2:
+  full Legendary parity (`P2:R9`) and full Training Room mode (`P2:R10`),
+  superseding `P2:R8:T9`'s optional Training Room Lite. Investigation before
+  scoping found two of the three asks were smaller than expected: the shop
+  already has a working low-chance Legendary drop (`build_state.gd`'s
+  `CONTRACT_SHOP_LEGENDARY_WEIGHT`) and the reward-choice system already has
+  seeded-sampling infrastructure (`_gear_choices_for_reward()`'s
+  `generated_gear_choice_count` handling) that a "random 2 of 5 at Knives"
+  choice can reuse -- only three small new mechanics are genuinely new
+  (gear-granted skill unlocks, gold-scaling physical damage, a
+  minimum-cast-time proc), one per missing Legendary. `P2:R8:T10` closed out
+  `P2:R8`'s own docs; `docs/Phase_2_R9_Full_Legendary_Item_Parity.md` and
+  `docs/Phase_2_R10_Full_Training_Room_Parity.md` carry the new milestones'
+  task breakdowns. `phase3_ideas.md`'s Training Room entries were updated to
+  record the move. `P2:R9` is next, then `P2:R10` (it depends on `P2:R9` for
+  a complete 5-item Legendary set to expose in its selection control).
+
+- P2:R9 (2026-07-21): `P2:R9:T1`-`T3`, the three new engine mechanics each
+  missing Legendary needs, are complete: `GearItem.unlocked_skills` (gear-
+  granted skill unlocks, for Umbral Stiletto), `GearItem.physical_damage_per_gold`
+  plus `PlayerStats.bonus_physical_damage` (gold-scaling flat physical damage,
+  for Bandit Blade), and `GearItem.min_cast_time_proc_chance` (a seeded
+  per-cast proc that substitutes a skill's minimum cast time, for Bejeweled
+  Push Dagger). All three are additive, opt-in changes -- every existing call
+  site and test either passes the new parameters' defaults or is otherwise
+  untouched, and the full 30-file regression suite (29 pre-existing plus a
+  new `legendary_mechanics_test.gd`) passed clean. See
+  `docs/Phase_2_R9_Full_Legendary_Item_Parity.md` for full detail. Remaining
+  `P2:R9` work: `T4` (author the 3 new Legendary `.tres` files using these
+  fields), `T5` (randomize Knives to a 2-of-5 choice), `T6` (extend the
+  shop's existing Legendary pool to 5 with an ownership dedupe check), and
+  closing out `T7`/`T8`.
+
+- P2:R9 (2026-07-21, continued): `P2:R9:T4 - Author The 3 New Legendaries`
+  is complete. `bandit_blade.tres`, `umbral_stiletto.tres`, and
+  `bejeweled_push_dagger.tres` exist with their exact Phase 1 effects,
+  hand-verified against Rogue's real base stats in an extended
+  `legendary_reward_test.gd` (all assertions passed first try). The
+  existing fixed-pair Knives-choice assertions in that same test file are
+  deliberately untouched -- `P2:R9:T5` will update them when it randomizes
+  Knives to a 2-of-5 choice. Full 30-file regression suite passed clean.
+  Remaining `P2:R9` work: `T5` (randomize Knives), `T6` (extend shop pool +
+  dedupe), and closing out `T7`/`T8`.
+
+- P2:R9 (2026-07-21, continued): `P2:R9 - Full Legendary Item Parity` is
+  complete. `P2:R9:T5` replaced Knives' hardcoded 2-item reward with a
+  seeded random choice of 2 of the 5 Legendaries
+  (`EncounterReward.legendary_choice_pool`/`legendary_choice_count`, sampled
+  in `BuildState._gear_choices_for_reward()` via the same
+  `CONTEXT_REWARD_CHOICE` seeding discipline already used for generated
+  gear choices). `P2:R9:T6` extended the shop's existing low-chance
+  Legendary roll (`SHOP_LEGENDARY_PATHS`) to all 5 and added an ownership
+  dedupe (`_unowned_shop_legendary_paths()`) so the shop never offers a
+  Legendary the player already has, falling back to `CURSED` tier if every
+  Legendary is owned. `P2:R9:T7` updated 4 existing tests for the new data
+  shape (`contract_route_data_test`, `route_reward_choice_ui_test`,
+  `legendary_reward_test`, `run_rng_context_test`) rather than adding
+  parallel coverage -- all passed on the first attempt, and the full
+  30-file regression suite passed clean throughout. `P2:R9:T8` closed out
+  this milestone's docs, `docs/Phase_2_R8_Playtest_Build.md`'s known-issues
+  note, and this entry. The exported Windows build predates this milestone
+  and needs a re-export/re-smoke-test before it reflects `P2:R9`'s changes.
+  The next milestone is `P2:R10 - Full Training Room Parity`.
+
+- P2:R11 (2026-07-23): Training Room UI Polish is complete. A follow-on pass
+  on the just-finished `P2:R10` Training Room, done via hands-on comparison
+  against the real Adventure dashboard: global canvas scaling fixed
+  (`project.godot`), tree selection moved to Primary/Secondary dropdowns, a
+  dedicated target stats card and a real animated combat-playback view
+  (reusing the existing `CombatPlayback` class) replaced the bare target
+  dropdown and static-only recap, the raw affix editor became a rarity-first
+  flow, and the screen was restructured to a 3-column (1:2:1) layout with a
+  Combat Log overlay, a shared 10-skill rotation cap, and a Legendary hover
+  tooltip. Fixed several real bugs found along the way, including one in
+  Adventure itself (shop/reward-choice overlays growing their parent
+  container instead of rendering full-rect, pushing sibling panels
+  off-screen) rather than Training Room. See
+  `docs/Phase_2_R11_Training_Room_UI_Polish.md` for full detail. The full
+  regression suite passed clean throughout.
+
+- P2:R12 (2026-07-24): Gear Icon Art Integration is complete. Integrated a
+  folder of user-supplied 32x32 transparent gear art
+  (`project/assets/Items/Rogue/`) into every gear box in the Adventure
+  dashboard (shop, reward-choice, inventory, equipped Equipment-doll slots),
+  replacing plain tier-colored squares with real icon art layered on the
+  existing tier-colored background -- the "icon-pack integration" `P2:R7`
+  explicitly deferred. Once live and visually confirmed, the redundant
+  slot/tier caption text every box used to show below the icon was removed,
+  since the icon art and background color already convey both and full
+  detail remains available via hover tooltip. See
+  `docs/Phase_2_R12_Gear_Icon_Art_Integration.md` for full detail. The full
+  38-file regression suite passed clean throughout.
 
 - P2:M0: the "empty Godot project runs" exit criterion required manual
   confirmation after Godot 4.7 was installed (this machine had no Godot

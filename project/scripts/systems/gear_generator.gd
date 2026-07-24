@@ -80,7 +80,7 @@ const PRICE_BY_TIER := {
 	GearItem.Tier.BASIC: 18,
 	GearItem.Tier.MASTER: 32,
 	GearItem.Tier.CURSED: 40,
-	GearItem.Tier.LEGENDARY: 0,
+	GearItem.Tier.LEGENDARY: 80,
 }
 
 const TIER_NAMES := {

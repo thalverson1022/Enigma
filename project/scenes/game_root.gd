@@ -8,6 +8,7 @@ const TITLE_SCENE := preload("res://scenes/title/title.tscn")
 const CLASS_SELECT_SCENE := preload("res://scenes/class_select/class_select.tscn")
 const SUBCLASS_SELECT_SCENE := preload("res://scenes/subclass_select/subclass_select.tscn")
 const COMBAT_SCREEN_SCENE := preload("res://scenes/combat/combat_screen.tscn")
+const TRAINING_ROOM_SCENE := preload("res://scenes/training_room/training_room.tscn")
 
 var _current_screen: Node = null
 
@@ -26,15 +27,28 @@ func _clear_current() -> void:
 func _show_title() -> void:
 	_clear_current()
 	var screen = TITLE_SCENE.instantiate()
-	screen.adventure_pressed.connect(_on_new_game_pressed)
+	screen.adventure_pressed.connect(func(): _on_new_game_pressed(screen.selected_seed()))
 	screen.continue_pressed.connect(_on_continue_pressed)
+	screen.training_room_pressed.connect(_show_training_room)
 	add_child(screen)
 	_current_screen = screen
 
 
-func _on_new_game_pressed() -> void:
+## Training Room is a separate practice mode (P2:R10) -- it deliberately
+## never touches BuildState/save data, unlike every other screen swap here,
+## so entering or leaving it can never affect a real Adventure run.
+func _show_training_room() -> void:
+	_clear_current()
+	var screen = TRAINING_ROOM_SCENE.instantiate()
+	screen.back_pressed.connect(_show_title)
+	add_child(screen)
+	_current_screen = screen
+
+
+func _on_new_game_pressed(seed: int = BuildState.DEFAULT_ADVENTURE_SEED) -> void:
 	SaveSystem.delete_save()
 	BuildState.reset()
+	BuildState.set_adventure_seed(seed)
 	_show_class_select()
 
 
@@ -87,7 +101,16 @@ func _on_main_menu_pressed() -> void:
 	_show_title()
 
 
+## P2:R7:T8: the prior save (autosaved at the just-ended terminal RUN_ENDED
+## state -- contract failed/adventure-over/contract-victory/run-complete)
+## must be cleared here, the same as _on_new_game_pressed() clears it for a
+## fresh start from Title. Without this, a player who restarts/starts a new
+## Adventure from combat_screen's terminal-state button and then quits
+## before the next autosave point (class/subclass select) would see
+## "Continue Adventure" on Title offer to resume the OLD, already-ended run
+## instead of the new one they just chose to start.
 func _on_adventure_restart_pressed() -> void:
+	SaveSystem.delete_save()
 	BuildState.reset(true)
 	_show_class_select()
 

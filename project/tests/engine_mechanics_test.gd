@@ -126,6 +126,18 @@ func _initialize() -> void:
 	print("bonus_poison_stacks event stacks=%d (expect 3)" % poison_result.cast_events[0].poison_stacks_applied)
 	assert(poison_result.cast_events[0].poison_stacks_applied == 3)
 
+	var primitive_poison_skill := _make_physical_skill(1.0)
+	primitive_poison_skill.poison_stacks_applied = 1
+	var primitive_poison_stats := _make_stats()
+	primitive_poison_stats.poison_damage_per_tick = 10.0
+	var primitive_poison_result: CombatResolver.CombatResult = CombatResolver.resolve([primitive_poison_skill], primitive_poison_stats, flat_monster, 2000)
+	print("primitive poison stacks=%d ticks=%d (expect 1, >0)" % [
+		primitive_poison_result.cast_events[0].poison_stacks_applied,
+		primitive_poison_result.tick_events.filter(func(tick): return tick.damage > 0.0).size(),
+	])
+	assert(primitive_poison_result.cast_events[0].poison_stacks_applied == 1)
+	assert(primitive_poison_result.tick_events.any(func(tick): return tick.damage > 0.0))
+
 	# -- poison tick interval modifier --
 	var cadence_stats := _make_stats()
 	cadence_stats.poison_damage_per_tick = 10.0

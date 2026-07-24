@@ -10,3 +10,5 @@ extends Resource
 @export var bonus_armor_reduction: int = 0
 @export var poison_tick_interval_multiplier: float = 1.0
 @export var triggered_skill_effects: Array[TriggeredSkillEffect] = []
+@export var bonus_physical_damage: float = 0.0
+@export var min_cast_time_proc_chance: float = 0.0

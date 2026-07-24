@@ -20,3 +20,6 @@ enum Tier {
 @export var tier: Tier = Tier.BASIC
 @export var affixes: Array[StatModifier] = []
 @export var triggered_skill_effects: Array[TriggeredSkillEffect] = []
+@export var unlocked_skills: Array[Skill] = []
+@export var physical_damage_per_gold: float = 0.0
+@export var min_cast_time_proc_chance: float = 0.0

@@ -88,6 +88,31 @@ Confirmed 2026-07-17:
   again restarts Adventure from class selection while preserving the seed,
   contract route failure marks the contract failed, and Vyra victory marks
   contract victory.
+
+**Revised 2026-07-19 (combat-playback adjustment round 2 + retry bug pass) --
+the first Tavern encounter gets unlimited retries:** the Phase 1/R5 baseline
+above now applies to every other fight, including contract route nodes: every
+other Tavern encounter and every contract fight gets exactly one do-over. A
+second loss on a Tavern encounter forces an Adventure restart from class
+selection with the seed preserved; a second loss on a contract route node
+(Vyra included) resolves to `RunOutcome.CONTRACT_FAILED`. The very first
+Tavern encounter (Mouthy Drunk, encounter index 0) is exempted from the
+one-do-over limit: a loss there always resolves to
+`RunOutcome.FIGHT_LOSS_RETRY` (never `ADVENTURE_RESTART_REQUIRED`), no matter
+how many times it's already been attempted, so the player can keep retrying it
+indefinitely without being forced back to class selection. Reason: it's the
+very first fight of the Adventure, and giving new players extra leeway to
+learn the combat/build loop right at the start -- rather than at the endgame
+Vyra boss fight -- is where that leeway is actually useful. Implemented in
+`BuildState.finish_fight()`/`is_unlimited_retry_encounter()` (checks
+`current_encounter_index == 0` and that the fight is a genuine Tavern
+encounter, not a contract route node). `encounter_failure_counts` is still
+incremented for the first encounter on every loss for bookkeeping/telemetry
+-- it's just never consulted to force a restart for that specific encounter.
+This was revised during the R8 exported-build smoke pass after playtesting
+confirmed that contract route fights should use the same one-retry allowance
+as non-initial Tavern fights, with contract failure only on the second loss.
+See `docs/Phase_2_R8_Playtest_Build.md` for the export smoke verification.
 - R5 keeps the Phase 1 seed baseline: Adventure has a visible run seed, combat
   rolls and proc rolls derive from deterministic run context, and generated
   shop/reward gear derives from stable run/contract/route/slot/tier/option
@@ -347,9 +372,10 @@ When complete:
   to build editing through the existing retry action.
 - Failing the same Tavern encounter a second time sets an explicit
   seed-preserving Adventure restart outcome and clears the build lock.
-- Contract route failure no longer uses the Tavern do-over rule. It sets an
-  explicit contract-failed outcome while preserving the failed contract/node
-  context for feedback.
+- Contract route fights now use the same one-retry allowance as non-initial
+  Tavern encounters. The first loss returns to build editing through the retry
+  action; the second loss sets an explicit contract-failed outcome while
+  preserving the failed contract/node context for feedback.
 - `P2:R5:T7` is complete at the state-model level. `BuildState` now has a
   `RunOutcome` enum for fight win, fight loss with retry, Adventure restart
   required, contract failed, and contract victory. Vyra victory routes through

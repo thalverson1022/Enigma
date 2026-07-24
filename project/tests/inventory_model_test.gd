@@ -16,7 +16,7 @@ func _initialize() -> void:
 	assert(build_state.equipped_gear().is_empty())
 	assert(build_state.earned_talent_points == 0)
 
-	print("one retry is available after the first encounter failure")
+	print("retries are available after the first encounter failure")
 	build_state.finish_fight(false)
 	assert(build_state.failure_count_for_current_encounter() == 1)
 	assert(build_state.can_retry_current_encounter())
@@ -24,7 +24,14 @@ func _initialize() -> void:
 	assert(build_state.run_phase == build_state.RunPhase.PLANNING)
 	build_state.finish_fight(false)
 	assert(build_state.failure_count_for_current_encounter() == 2)
-	assert(not build_state.can_retry_current_encounter())
+	# current_encounter_index is 0 here (fresh reset default), which is the
+	# unlimited-retry encounter per BuildState.is_unlimited_retry_encounter()
+	# (docs/Phase_2_R5_Run_Rules_And_Determinism.md's 2026-07-19 retry-exception
+	# correction) -- a second loss on the very first Tavern encounter still
+	# grants a retry rather than requiring an Adventure restart.
+	assert(build_state.can_retry_current_encounter())
+	assert(build_state.retry_current_encounter())
+	assert(build_state.run_phase == build_state.RunPhase.PLANNING)
 	build_state.reset()
 
 	build_state.add_talent_points(1)

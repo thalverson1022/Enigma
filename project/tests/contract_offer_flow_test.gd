@@ -1,7 +1,9 @@
 extends SceneTree
-## Focused P2:R4:T3 check: after the Tavern sequence's final reward, the
-## dashboard shows The Gilded Serpent in the map, selecting it opens the
-## secondary subclass modal, and picking the second tree reveals the contract
+## Focused P2:R4:T3 check (updated for the P2:R7 story pass): after the
+## Tavern sequence's final reward, Ghit Gudd's Contract Window introduces
+## The Gilded Serpent contract (no shop in between), accepting it opens the
+## secondary subclass modal, and picking the second tree reveals a
+## single-contract hub (Vyra) whose Accept finally reveals the contract
 ## route choices in the map.
 
 
@@ -36,33 +38,68 @@ func _initialize() -> void:
 	_require(build_state.active_contract != null, "Expected active contract.")
 	_require(build_state.active_contract.display_name == "The Gilded Serpent Contract", "Expected Gilded Serpent contract.")
 	_require(build_state.current_route_node.id == "route.gilded_serpent.offer", "Expected offer route node.")
-	_require(combat_screen._map_overlay.visible, "Expected map overlay to show contract offer.")
-	_require(combat_screen._map_phase_label.text == "Contract", "Expected contract map phase.")
-	_require(combat_screen._map_story_label.text.contains("Vyra"), "Expected contract story to name Vyra.")
-	_require(combat_screen._map_node_buttons.size() == 1, "Expected one contract node.")
-	_require(combat_screen._map_node_buttons[0].text == "The Gilded Serpent Contract", "Expected contract node label.")
+	_require(not combat_screen._shop_overlay.visible, "Expected the shop to be skipped after Hired Goon (P2:R7 story pass).")
+	_require(combat_screen._contract_overlay.visible, "Expected Ghit Gudd's Contract Window to introduce the contract.")
+	_require(combat_screen._contract_body_label.text == combat_screen.CONTRACT_GREETING_TEXT, "Expected Ghit Gudd's greeting line.")
+	_require(combat_screen._contract_action_button.text == "Hear Him Out", "Expected the greeting's action button.")
 
-	combat_screen._map_node_buttons[0].pressed.emit()
+	combat_screen._contract_action_button.pressed.emit()
+	await process_frame
+	_require(combat_screen._contract_body_label.text == combat_screen.CONTRACT_PITCH_TEXT, "Expected Ghit Gudd's pitch line.")
+	_require(combat_screen._contract_action_button.text == "Accept Contract Work", "Expected the pitch's action button.")
+
+	combat_screen._contract_action_button.pressed.emit()
 	await process_frame
 
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected contract route phase after accept.")
 	_require(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree", "Expected secondary-tree route node after accept.")
+	_require(not combat_screen._contract_overlay.visible, "Expected the Contract Window hidden once the subclass modal takes over.")
 	_require(combat_screen._secondary_subclass_overlay.visible, "Expected secondary subclass modal after contract select.")
+	_require(combat_screen._secondary_subclass_body.text == combat_screen.CONTRACT_SUBCLASS_PROMPT_TEXT, "Expected the contract-flavored subclass prompt.")
 	_require(combat_screen._secondary_subclass_options.get_child_count() == 2, "Expected two available second trees after Thief start.")
-	_require(combat_screen._secondary_subclass_options.get_child(1).text.contains("Shadow"), "Expected Shadow second-tree choice.")
+	# Each option is now a selection card matching the primary subclass select
+	# screen (P2:R7 second playtest-feedback pass, item 5):
+	# card -> vbox -> [title Label, intrinsic Label, Choose Button].
+	var tree_card_0_vbox: VBoxContainer = combat_screen._secondary_subclass_options.get_child(0).get_child(0)
+	var tree_card_1_vbox: VBoxContainer = combat_screen._secondary_subclass_options.get_child(1).get_child(0)
+	_require(tree_card_1_vbox.get_child(0).text.contains("Shadow"), "Expected Shadow second-tree choice.")
 	_require(
-		combat_screen._secondary_subclass_options.get_child(1).text.contains("Stab & Heavy Slash now apply +1 poison stacks"),
+		tree_card_1_vbox.get_child(1).text.contains("ticks for poison damage"),
 		"Expected Shadow intrinsic in second-tree choice."
 	)
 
-	var second_tree_button: Button = combat_screen._secondary_subclass_options.get_child(0)
-	_require(second_tree_button.text.contains("Assassin"), "Expected Assassin second-tree choice.")
-	second_tree_button.pressed.emit()
+	_require(tree_card_0_vbox.get_child(0).text.contains("Assassin"), "Expected Assassin second-tree choice.")
+	var choose_button: Button = tree_card_0_vbox.get_child(2)
+	_require(choose_button.text == "Choose", "Expected a Choose button on the second-tree card.")
+	choose_button.pressed.emit()
 	await process_frame
 
 	_require(build_state.selected_trees.size() == 2, "Expected two selected trees.")
 	_require(not combat_screen._secondary_subclass_overlay.visible, "Expected subclass modal hidden after choice.")
-	_require(combat_screen._map_overlay.visible, "Expected contract route map after second-tree choice.")
+
+	# -- Contract Window reopens as a hub with a single contract card for now
+	# (Vyra) -- a larger toggleable rectangle naming the contract and its
+	# gold reward, not a plain button. Selecting it only enables Proceed;
+	# Proceed then previews her, and her own Accept finally reveals the
+	# (unchanged) interactive route schematic. --
+	_require(combat_screen._contract_overlay.visible, "Expected the Contract Window hub after the second-tree choice.")
+	_require(combat_screen._contract_options_box.get_child_count() == 1, "Expected one contract option (Vyra).")
+	var vyra_button: Button = combat_screen._contract_options_box.get_child(0)
+	_require(vyra_button.text.contains(combat_screen.CONTRACT_VYRA_NAME), "Expected Vyra's contract card label.")
+	_require(vyra_button.text.contains("Reward: 120g"), "Expected Vyra's authored gold reward on her contract card.")
+	_require(combat_screen._contract_action_button.disabled, "Expected Proceed disabled before a contract is selected.")
+	vyra_button.button_pressed = true
+	await process_frame
+	_require(not combat_screen._contract_action_button.disabled, "Expected Proceed enabled after selecting Vyra's card.")
+	combat_screen._contract_action_button.pressed.emit()
+	await process_frame
+	_require(combat_screen._contract_body_label.text == combat_screen.CONTRACT_VYRA_DETAIL_TEXT, "Expected Vyra's contract detail text.")
+	_require(combat_screen._contract_action_button.text == "Accept", "Expected the Vyra detail's Accept button.")
+	combat_screen._contract_action_button.pressed.emit()
+	await process_frame
+
+	_require(not combat_screen._contract_overlay.visible, "Expected the Contract Window hidden once the route map takes over.")
+	_require(combat_screen._map_overlay.visible, "Expected contract route map after accepting Vyra's contract.")
 	_require(combat_screen._map_node_buttons.size() == 8, "Expected full Gilded Serpent schematic.")
 	_require(combat_screen._map_node_buttons[0].text.contains("Door Guard"), "Expected Door Guard route label.")
 	_require(combat_screen._map_node_buttons[0].text.contains("Master Gear"), "Expected Door Guard item rarity reward.")
@@ -86,11 +123,17 @@ func _initialize() -> void:
 	_require(build_state.run_phase == BuildState.RunPhase.PLANNING, "Expected selected route node to enter planning.")
 	_require(build_state.current_route_node.id == "route.gilded_serpent.portly_cook", "Expected Portly Cook as current route node.")
 	_require(not combat_screen._map_overlay.visible, "Expected route map hidden after route selection.")
-	_require(combat_screen._enemy_panel._info_label.text.contains("Target: Portly Cook"), "Expected enemy panel to show selected route target.")
+	_require(combat_screen._enemy_panel._title_label.text == "Portly Cook", "Expected enemy panel title to show selected route target.")
+	_require(not combat_screen._enemy_panel._info_label.text.contains("Target:"), "Expected enemy panel body to omit redundant target label.")
 	_require(combat_screen._enemy_panel._info_label.text.contains("Window: 20s"), "Expected enemy panel to show route window.")
 	_require(not combat_screen._enemy_panel._info_label.text.contains("Contract:"), "Expected enemy panel to omit contract context.")
-	_require(not combat_screen._enemy_panel._info_label.text.contains("Pressure:"), "Expected enemy panel to omit pressure label.")
-	_require(not combat_screen._enemy_panel._info_label.text.contains("Reward:"), "Expected enemy panel to omit reward label.")
+	# P2:R7:T5 (already shipped, predates this test's last update) added
+	# always-visible Required DPS/Reward/Pressure lines to every enemy panel
+	# state, including route targets -- these were stale assertions against
+	# the pre-T5 panel; updated to match Portly Cook's real authored data,
+	# same values combat_screen_test.gd's Portly Cook check already asserts.
+	_require(combat_screen._enemy_panel._info_label.text.contains("Pressure: No notable defensive pressure."), "Expected enemy panel's real pressure label for Portly Cook (0 armor/0%% resist).")
+	_require(combat_screen._enemy_panel._info_label.text.contains("Reward: 26g, Basic Gear"), "Expected enemy panel's real reward preview for Portly Cook.")
 	_require(combat_screen._enemy_panel._fight_button.disabled, "Expected route fight blocked until build lock.")
 
 	build_state.set_locked(true)

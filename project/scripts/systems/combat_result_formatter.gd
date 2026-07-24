@@ -34,6 +34,32 @@ static func format(result: CombatResolver.CombatResult, monster: Monster) -> Str
 	return "\n".join(lines)
 
 
+## Training Room's own result narrative -- same timeline/summary shape as
+## format() above, but with no HP/win-loss framing at all: Training Room only
+## measures damage dealt against a target's Armor/Poison Resist in a fixed
+## window, it never checks whether the target is "defeated" (post-R10
+## UI-feedback pass removed the HP concept from Training Room entirely).
+static func format_practice(result: CombatResolver.CombatResult, monster: Monster) -> String:
+	var lines: PackedStringArray = []
+	lines.append("%s  --  %d Armor, %.0f%% Poison Resist" % [
+		monster.display_name, monster.armor, monster.poison_resistance * 100.0
+	])
+	lines.append("Combat window: %.0fs" % (result.duration_ms / 1000.0))
+	lines.append("")
+
+	var timeline := _timeline(result)
+	if timeline.is_empty():
+		lines.append("Nothing happened -- no skills were cast.")
+	else:
+		lines.append_array(timeline)
+
+	lines.append("")
+	lines.append("Dealt %.1f damage in %.0fs -- %.1f DPS." % [
+		result.total_damage, result.duration_ms / 1000.0, result.dps
+	])
+	return "\n".join(lines)
+
+
 ## Merges cast and tick events into one time-ordered list of prose lines.
 ## Both source arrays are already time-sorted (the resolver appends
 ## chronologically); ties go to the tick, matching how the resolver processes
@@ -56,6 +82,10 @@ static func _timeline(result: CombatResolver.CombatResult) -> PackedStringArray:
 	return lines
 
 
+## `>>> ` prefixes any line where a Legendary effect actually fired
+## (Bejeweled Push Dagger's minimum-cast-time proc, or a triggered skill
+## like Mithril Karambit's) -- user-requested, so these are easy to spot
+## while scanning the log instead of reading identically to an ordinary hit.
 static func _cast_line(event: CombatResolver.CastEvent) -> String:
 	var clauses: PackedStringArray = []
 	if event.physical_damage > 0.0:
@@ -68,12 +98,16 @@ static func _cast_line(event: CombatResolver.CastEvent) -> String:
 		clauses.append("shreds %d armor" % event.armor_reduction_applied)
 	if event.poison_resistance_reduction_applied > 0.0:
 		clauses.append("reduces poison resistance by %d%%" % roundi(event.poison_resistance_reduction_applied * 100.0))
+	if event.min_cast_time_proc_applied:
+		clauses.append("procs at minimum cast speed")
 	if not event.triggered_skill_names.is_empty():
 		clauses.append("triggers %s" % ", ".join(event.triggered_skill_names))
 	if clauses.is_empty():
 		clauses.append("connects, to no effect")
 	var ending := "!" if event.is_crit else ""
-	return "[%.1fs] %s %s%s" % [event.time_ms / 1000.0, event.skill.display_name, _join_clauses(clauses), ending]
+	var is_legendary_proc := event.min_cast_time_proc_applied or not event.triggered_skill_names.is_empty()
+	var marker := ">>> " if is_legendary_proc else ""
+	return "%s[%.1fs] %s %s%s" % [marker, event.time_ms / 1000.0, event.skill.display_name, _join_clauses(clauses), ending]
 
 
 ## "a" / "a and b" / "a, b and c" -- reads as prose instead of a

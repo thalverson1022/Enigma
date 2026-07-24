@@ -4,4 +4,6 @@
 
 # Export artifacts
 export/
-export_presets.cfg
+
+# Ad hoc headless test-run logs (project/tests/run_tests.sh output)
+user_logs_tmp/

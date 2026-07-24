@@ -9,8 +9,14 @@ extends RefCounted
 ## combat stat) per Current_Mechanics_Reference.md, and no seeded content
 ## uses it in combat.
 
+## Rotation/macro slot cap (user-requested), enforced once here since both
+## BuildState.set_rotation() (real Adventure) and TrainingRoomState.
+## set_rotation() already route every rotation edit through
+## resolve_rotation() -- a single chokepoint covers both screens.
+const MAX_ROTATION_SIZE := 10
 
-static func resolve_stats(class_def: ClassDef, selected_trees: Array[SubclassTree], selected_talents: Array[Talent], equipped_gear: Array[GearItem] = []) -> PlayerStats:
+
+static func resolve_stats(class_def: ClassDef, selected_trees: Array[SubclassTree], selected_talents: Array[Talent], equipped_gear: Array[GearItem] = [], current_gold: int = 0) -> PlayerStats:
 	var stats := PlayerStats.new()
 	stats.attack_speed = class_def.base_stats.attack_speed
 	stats.crit_chance = class_def.base_stats.crit_chance
@@ -37,11 +43,13 @@ static func resolve_stats(class_def: ClassDef, selected_trees: Array[SubclassTre
 		for trigger in gear.triggered_skill_effects:
 			if trigger != null:
 				stats.triggered_skill_effects.append(trigger)
+		stats.bonus_physical_damage += gear.physical_damage_per_gold * float(current_gold)
+		stats.min_cast_time_proc_chance += gear.min_cast_time_proc_chance
 
 	return stats
 
 
-static func resolve_unlocked_skills(class_def: ClassDef, selected_trees: Array[SubclassTree], selected_talents: Array[Talent]) -> Array[Skill]:
+static func resolve_unlocked_skills(class_def: ClassDef, selected_trees: Array[SubclassTree], selected_talents: Array[Talent], equipped_gear: Array[GearItem] = []) -> Array[Skill]:
 	var skills: Array[Skill] = []
 	if class_def != null:
 		for skill in class_def.base_skills:
@@ -52,6 +60,9 @@ static func resolve_unlocked_skills(class_def: ClassDef, selected_trees: Array[S
 	for talent in selected_talents:
 		for skill in talent.unlocked_skills:
 			_append_skill_clone(skills, skill)
+	for gear in equipped_gear:
+		for skill in gear.unlocked_skills:
+			_append_skill_clone(skills, skill)
 	for tree in selected_trees:
 		for augment in tree.skill_augments:
 			_apply_skill_augment(skills, augment)
@@ -61,6 +72,8 @@ static func resolve_unlocked_skills(class_def: ClassDef, selected_trees: Array[S
 static func resolve_rotation(rotation: Array[Skill], unlocked_skills: Array[Skill]) -> Array[Skill]:
 	var filtered: Array[Skill] = []
 	for skill in rotation:
+		if filtered.size() >= MAX_ROTATION_SIZE:
+			break
 		var resolved_skill := _find_skill_by_id(unlocked_skills, skill.id)
 		if resolved_skill != null:
 			filtered.append(resolved_skill)
@@ -87,9 +100,18 @@ static func _apply_skill_augment(skills: Array[Skill], augment: SkillAugment) ->
 		var skill := _find_skill_by_id(skills, target_id)
 		if skill == null:
 			continue
+		var applied_poison_from_extra := false
 		for effect in augment.extra_effects:
 			if effect != null:
 				skill.effects.append(effect.duplicate(true))
+				if effect is PoisonDamageEffect:
+					applied_poison_from_extra = true
+		if augment.poison_stacks_applied > 0:
+			skill.poison_stacks_applied += augment.poison_stacks_applied
+		if augment.poison_stacks_applied > 0 and not applied_poison_from_extra:
+			var poison_effect := PoisonDamageEffect.new()
+			poison_effect.stacks_applied = augment.poison_stacks_applied
+			skill.effects.append(poison_effect)
 
 
 static func _apply_modifier(stats: PlayerStats, modifier: StatModifier) -> void:

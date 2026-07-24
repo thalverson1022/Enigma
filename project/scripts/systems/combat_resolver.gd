@@ -14,6 +14,7 @@ class CastEvent:
 	var armor_reduction_applied: int = 0
 	var poison_resistance_reduction_applied: float = 0.0
 	var triggered_skill_names: PackedStringArray = []
+	var min_cast_time_proc_applied: bool = false
 
 
 class TickEvent:
@@ -57,7 +58,8 @@ static func resolve(rotation: Array[Skill], player: PlayerStats, monster: Monste
 	var rotation_index: int = 0
 	while true:
 		var skill: Skill = rotation[rotation_index % rotation.size()]
-		var exec_ms: int = CombatTiming.execution_time_ms(skill, player.attack_speed)
+		var used_min_cast_time: bool = player.min_cast_time_proc_chance > 0.0 and rng.randf() <= player.min_cast_time_proc_chance
+		var exec_ms: int = skill.min_execution_ms if used_min_cast_time else CombatTiming.execution_time_ms(skill, player.attack_speed)
 		var cast_end_ms: int = cast_time_ms + exec_ms
 		if cast_end_ms > duration_ms:
 			break
@@ -68,6 +70,7 @@ static func resolve(rotation: Array[Skill], player: PlayerStats, monster: Monste
 		var event := CastEvent.new()
 		event.time_ms = cast_end_ms
 		event.skill = skill
+		event.min_cast_time_proc_applied = used_min_cast_time
 		var state := _apply_skill_effects(skill, event, player, current_armor, current_poison_resistance, active_stacks, rng)
 		current_armor = state["armor"]
 		current_poison_resistance = state["poison_resistance"]
@@ -118,11 +121,12 @@ static func _resolve_poison_tick(result: CombatResult, tick_time_ms: int, active
 
 
 static func _apply_skill_effects(skill: Skill, event: CastEvent, player: PlayerStats, current_armor: int, current_poison_resistance: float, active_poison_stacks: int, rng: RandomNumberGenerator) -> Dictionary:
+	var effect_poison_stacks := 0
 	for effect in skill.effects:
 		if effect is PhysicalDamageEffect:
 			var physical_effect: PhysicalDamageEffect = effect
 			var hit := DamageCalculator.resolve_physical_hit(
-				physical_effect.amount, current_armor, player.crit_chance, player.crit_multiplier, rng, player.physical_damage_multiplier
+				physical_effect.amount + player.bonus_physical_damage, current_armor, player.crit_chance, player.crit_multiplier, rng, player.physical_damage_multiplier
 			)
 			event.physical_damage += hit.amount
 			event.is_crit = event.is_crit or hit.is_crit
@@ -130,13 +134,13 @@ static func _apply_skill_effects(skill: Skill, event: CastEvent, player: PlayerS
 			var stack_effect: StackScalingPhysicalDamageEffect = effect
 			if active_poison_stacks > 0:
 				var hit := DamageCalculator.resolve_physical_hit(
-					stack_effect.damage_per_stack * float(active_poison_stacks), current_armor, player.crit_chance, player.crit_multiplier, rng, player.physical_damage_multiplier
+					stack_effect.damage_per_stack * float(active_poison_stacks) + player.bonus_physical_damage, current_armor, player.crit_chance, player.crit_multiplier, rng, player.physical_damage_multiplier
 				)
 				event.physical_damage += hit.amount
 				event.is_crit = event.is_crit or hit.is_crit
 		elif effect is PoisonDamageEffect:
 			var poison_effect: PoisonDamageEffect = effect
-			event.poison_stacks_applied += poison_effect.stacks_applied + player.bonus_poison_stacks
+			effect_poison_stacks += poison_effect.stacks_applied
 		elif effect is ArmorReductionEffect:
 			var armor_effect: ArmorReductionEffect = effect
 			var reduction: int = armor_effect.amount + player.bonus_armor_reduction
@@ -147,6 +151,9 @@ static func _apply_skill_effects(skill: Skill, event: CastEvent, player: PlayerS
 			var reduction_fraction: float = clampf(resistance_effect.reduction_fraction, 0.0, 1.0)
 			current_poison_resistance *= 1.0 - reduction_fraction
 			event.poison_resistance_reduction_applied += reduction_fraction
+	var poison_stacks := effect_poison_stacks if effect_poison_stacks > 0 else skill.poison_stacks_applied
+	if poison_stacks > 0:
+		event.poison_stacks_applied += poison_stacks + player.bonus_poison_stacks
 	return {
 		"armor": current_armor,
 		"poison_resistance": current_poison_resistance,

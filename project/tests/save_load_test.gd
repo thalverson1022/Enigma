@@ -50,7 +50,7 @@ func _initialize() -> void:
 	build_state.shop_unlocked = true
 	build_state.open_shop_round()
 	_require(build_state.shop_round_pending, "Expected an open shop round before saving.")
-	_require(build_state.shop_offers.size() == 4, "Expected generated shop offers before saving.")
+	_require(build_state.shop_offers.size() == 6, "Expected generated shop offers before saving.")
 
 	var pre_save_signature := _state_signature(build_state)
 

@@ -7,4 +7,5 @@ extends Resource
 @export var icon_letter: String = ""
 @export var base_execution_ms: int = 0
 @export var min_execution_ms: int = 0
+@export var poison_stacks_applied: int = 0
 @export var effects: Array[SkillEffect] = []

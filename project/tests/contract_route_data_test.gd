@@ -56,6 +56,15 @@ func _initialize() -> void:
 	var hard_knives := _only_next(cloaked_watchmen)
 	_assert_knives_to_vyra(hard_knives)
 
+	var post_tavern_tiers := [
+		door_guard.reward.generated_gear_tier,
+		cloaked_watchmen.reward.generated_gear_tier,
+		hard_knives.reward.legendary_choice_pool[0].tier,
+	]
+	assert(post_tavern_tiers.has(GearItem.Tier.MASTER))
+	assert(post_tavern_tiers.has(GearItem.Tier.CURSED))
+	assert(post_tavern_tiers.has(GearItem.Tier.LEGENDARY))
+
 	print("")
 	print("Contract route data check: OK")
 	quit()
@@ -78,12 +87,22 @@ func _assert_knives_to_vyra(knives: ContractRouteNode) -> void:
 	_assert_node_stats(knives, "monster.contract.knives_right_hand", 540, 160, 0.3, 28000)
 	assert(knives.node_type == ContractRouteNode.NodeType.ELITE)
 	assert(knives.reward.gold_amount == 42)
-	assert(knives.reward.gear_choice_rewards.size() == 2)
-	assert(knives.reward.gear_choice_rewards[0].id == "gear.legendary.wyvern_kriss")
-	assert(knives.reward.gear_choice_rewards[1].id == "gear.legendary.mithril_karambit")
+	# P2:R9:T5 -- Knives now offers a seeded random choice of 2 of a 5-item
+	# Legendary pool instead of a fixed pair; the pool itself is still
+	# authored data, so its full membership is still assertable here.
+	assert(knives.reward.legendary_choice_count == 2)
+	assert(knives.reward.legendary_choice_pool.size() == 5)
+	var legendary_ids: Array[String] = []
+	for gear in knives.reward.legendary_choice_pool:
+		legendary_ids.append(gear.id)
+	assert(legendary_ids.has("gear.legendary.wyvern_kriss"))
+	assert(legendary_ids.has("gear.legendary.mithril_karambit"))
+	assert(legendary_ids.has("gear.legendary.bandit_blade"))
+	assert(legendary_ids.has("gear.legendary.umbral_stiletto"))
+	assert(legendary_ids.has("gear.legendary.bejeweled_push_dagger"))
+	assert(knives.reward.legendary_choice_pool.all(func(gear): return gear.tier == GearItem.Tier.LEGENDARY))
 	assert(knives.reward_quality_label == "Legendary Weapon")
-	assert(knives.reward_summary.contains("Wyvern Kriss"))
-	assert(knives.reward_summary.contains("Mithril Karambit"))
+	assert(knives.reward_summary.contains("2 of 5"))
 
 	var vyra := _only_next(knives)
 	_assert_node_stats(vyra, "monster.contract.vyra", 600, 160, 0.35, 30000)
