@@ -171,8 +171,9 @@ func _initialize() -> void:
 	var reward_text: String = combat_screen._reward_choice_text(wyvern)
 	print(reward_text)
 	_require(reward_text.begins_with("Weapon - Wyvern Kriss"), "Expected the slot tag and item name, got: %s" % reward_text)
-	_require(reward_text.contains("Legendary"), "Expected the Legendary tier label, got: %s" % reward_text)
 	_require(reward_text.contains("Poison"), "Expected an affix line, got: %s" % reward_text)
+	_require(reward_text.contains("Poison ticks twice as fast"), "Expected Wyvern Kriss Legendary flavor text, got: %s" % reward_text)
+	_require(not reward_text.contains("Poison Tick Interval"), "Expected Wyvern's tick-rate mechanic to be flavor text, not a raw interval affix, got: %s" % reward_text)
 	_require(not reward_text.contains("Upgrade --"), "Expected no upgrade-comparison line anymore (removed in the P2:R7 second playtest-feedback pass), got: %s" % reward_text)
 	_require(reward_text.contains("Click to choose."), "Expected an explicit choose hint, got: %s" % reward_text)
 

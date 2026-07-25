@@ -16,7 +16,7 @@ const UMBRAL_STILETTO_ICON := preload("res://assets/Items/Rogue/Umbral_Stiletto.
 const WYVERN_KRISS_ICON := preload("res://assets/Items/Rogue/Wyvern_Kriss.png")
 const LUCKY_COIN_ICON := preload("res://assets/Items/Rogue/Lucky_Coin.png")
 
-const BASIC_WEAPON_ICON := preload("res://assets/Items/Rogue/Basic Weapon.png")
+const BASIC_WEAPON_ICON := preload("res://assets/Items/Rogue/Basic_Weapon.png")
 const MASTER_WEAPON_ICON := preload("res://assets/Items/Rogue/Master_Weapon.png")
 const CURSED_WEAPON_ICON := preload("res://assets/Items/Rogue/Cursed_Weapon.png")
 const BASIC_TRINKET_ICON := preload("res://assets/Items/Rogue/Basic_Trinket.png")

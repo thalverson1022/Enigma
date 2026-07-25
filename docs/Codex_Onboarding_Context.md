@@ -56,6 +56,7 @@ Read these docs before implementing anything substantial:
    - `docs/Phase_2_R10_Full_Training_Room_Parity.md`
    - `docs/Phase_2_R11_Training_Room_UI_Polish.md`
    - `docs/Phase_2_R12_Gear_Icon_Art_Integration.md`
+   - `docs/Balance_Lab.md`
 
 4. `docs/DPS_Engine_Phase2_Context.md`
    - Game vision, combat philosophy, technical principles, and working
@@ -175,12 +176,19 @@ icon per slot/tier for everything else, layered over the existing
 tier-colored backgrounds. The redundant slot/tier caption text every box
 used to show below the icon was then removed as duplicate information.
 
-The full `project/tests/*.gd` regression suite (38 files as of `P2:R12`)
-passed clean after both milestones. The only remaining open item is
-non-blocking: the exported Windows build at
-`project/export/windows/ProjectBane.exe` predates `P2:R9` through `P2:R12`
-and needs a re-export plus a re-smoke-test before being shared as a build
-that includes them.
+The full `project/tests/*.gd` regression suite (39 files as of 2026-07-25,
+including `balance_lab_test.gd`) passed clean after the latest tooling pass.
+The exported Windows build at `project/export/windows/ProjectBane.exe` was
+refreshed on 2026-07-25 after the post-`P2:R12` fixes; any future code or
+asset change still needs the normal re-export plus smoke test before sharing
+a new build.
+
+`docs/Balance_Lab.md` documents the new headless statistical checking system.
+Run `res://scripts/tools/run_balance_suite.gd` to generate
+`project/reports/balance/latest/results.json`,
+`project/reports/balance/latest/scenario_summary.csv`, and the static
+dashboard at `project/reports/balance/latest/index.html`. As of 2026-07-25,
+the current Balance Lab report is `19 pass, 0 warn, 0 fail`.
 
 Use `docs/Phase_2_R9_Full_Legendary_Item_Parity.md` through
 `docs/Phase_2_R12_Gear_Icon_Art_Integration.md` (and
@@ -327,8 +335,9 @@ Revised roadmap closeout:
   caption text once the icon art made it unnecessary. See
   `docs/Phase_2_R12_Gear_Icon_Art_Integration.md`.
 - No active milestone remains in the revised `P2:R0`-`P2:R12` roadmap. The
-  only open item is a non-blocking Windows re-export/re-smoke-test to
-  include `P2:R9` through `P2:R12` (the current export predates all four).
+  Windows export was refreshed on 2026-07-25 after the post-`P2:R12` fixes;
+  future implementation changes should still be followed by a re-export and
+  smoke test when the user wants a current playable build.
 - Remaining Phase 3+ deferrals are recorded in `phase3_ideas.md`.
 
 ## Test Commands
@@ -354,6 +363,18 @@ Known passing tests from the last reconnaissance pass:
 
 These tests may print Godot cleanup warnings about leaked ObjectDB/resource
 instances even when assertions pass and exit code is `0`.
+
+Balance Lab command:
+
+```powershell
+& 'F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe' --headless --path 'F:\Data\Claude Projects\Project-Bane\project' -s 'res://scripts/tools/run_balance_suite.gd'
+```
+
+Balance Lab test:
+
+```powershell
+& 'F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe' --headless --path 'F:\Data\Claude Projects\Project-Bane\project' -s 'res://tests/balance_lab_test.gd'
+```
 
 ## Important Scope Boundaries
 
@@ -385,11 +406,9 @@ In revised Phase 2:
 6. Inspect the current Godot project shape if implementation work is being
    requested.
 7. The revised `P2:R0`-`P2:R12` roadmap is fully complete. If the user asks
-   what's next, the only outstanding item is a non-blocking Windows
-   re-export/re-smoke-test to include `P2:R9` through `P2:R12` -- otherwise,
-   any new work is a fresh scope decision, not a continuation of an existing
-   milestone; classify it explicitly (Phase 2 addendum vs. Phase 3+) rather
-   than silently building it, per the note below.
+   what's next, treat new work as a fresh scope decision, not a continuation
+   of an existing milestone; classify it explicitly (Phase 2 addendum vs.
+   Phase 3+) rather than silently building it, per the note below.
 
 ## Notes For Future Codex
 

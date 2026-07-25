@@ -416,17 +416,7 @@ func _on_weapon_legendary_selected(index: int) -> void:
 ## the only way to see a Legendary's stats here now that equipping one hides
 ## the affix rows entirely in favor of this dropdown (user-reported gap).
 func _legendary_tooltip(item: GearItem) -> String:
-	var lines: PackedStringArray = ["%s - %s" % [GearGenerator.SLOT_TAGS[item.slot], item.display_name]]
-	for affix in item.affixes:
-		# The tick-rate affix itself IS the legendary effect for Wyvern
-		# Kriss -- shown below as flavor text instead of here as a raw stat.
-		if affix.stat == StatModifier.StatType.POISON_TICK_INTERVAL:
-			continue
-		lines.append("  %s" % StatModifierFormatter.format(affix))
-	var effect_text := _legendary_effect_text(item)
-	if effect_text != "":
-		lines.append("  %s" % effect_text)
-	return "\n".join(lines)
+	return "\n".join(LegendaryCatalog.tooltip_lines(item))
 
 
 ## Human flavor text for each Legendary's special mechanic -- never a raw
@@ -437,29 +427,7 @@ func _legendary_tooltip(item: GearItem) -> String:
 ## read off the item's real fields rather than hardcoded, so this can't
 ## silently drift out of sync if a Legendary's numbers are ever retuned.
 func _legendary_effect_text(item: GearItem) -> String:
-	match item.id:
-		"gear.legendary.wyvern_kriss":
-			for affix in item.affixes:
-				if affix.stat == StatModifier.StatType.POISON_TICK_INTERVAL and affix.value > 0.0:
-					return "Poison ticks %.0fx as fast" % (1.0 / affix.value)
-			return ""
-		"gear.legendary.mithril_karambit":
-			var parts: PackedStringArray = []
-			for trigger in item.triggered_skill_effects:
-				parts.append("%d%% chance to trigger an extra %s" % [
-					roundi(trigger.chance * 100.0), trigger.skill.display_name
-				])
-			return "\n  ".join(parts)
-		"gear.legendary.bandit_blade":
-			return "Deals bonus physical damage that scales with your current gold"
-		"gear.legendary.umbral_stiletto":
-			var names: PackedStringArray = []
-			for skill in item.unlocked_skills:
-				names.append(skill.display_name)
-			return "Unlocks %s" % ", ".join(names)
-		"gear.legendary.bejeweled_push_dagger":
-			return "%d%% chance for a cast to trigger at its minimum cast time" % roundi(item.min_cast_time_proc_chance * 100.0)
-	return ""
+	return LegendaryCatalog.effect_text(item)
 
 
 func _refresh_affix_columns() -> void:

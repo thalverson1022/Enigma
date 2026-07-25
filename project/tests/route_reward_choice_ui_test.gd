@@ -84,6 +84,16 @@ func _initialize() -> void:
 	var second_choice: GearItem = build_state.pending_reward_choices[1]
 	_require(first_button.tooltip_text.contains(first_choice.display_name), "Expected first choice's own name in its tooltip.")
 	_require(second_button.tooltip_text.contains(second_choice.display_name), "Expected second choice's own name in its tooltip.")
+	for i in build_state.pending_reward_choices.size():
+		var choice: GearItem = build_state.pending_reward_choices[i]
+		var button: Button = combat_screen._reward_choice_options.get_child(i)
+		var expected_effect := LegendaryCatalog.effect_text(choice)
+		_require(expected_effect != "", "Expected a Legendary flavor line for %s." % choice.display_name)
+		_require(button.tooltip_text.contains(expected_effect), "Expected %s reward tooltip to include '%s', got: %s" % [choice.display_name, expected_effect, button.tooltip_text])
+
+	var bandit_blade: GearItem = load("res://data/gear/bandit_blade.tres")
+	var bandit_text: String = combat_screen._reward_choice_text(bandit_blade)
+	_require(bandit_text.contains("+1 physical damage per 10 gold in stash"), "Expected Bandit Blade reward tooltip to include its Legendary flavor text, got: %s" % bandit_text)
 
 	first_button.pressed.emit()
 	await process_frame

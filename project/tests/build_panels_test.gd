@@ -196,6 +196,11 @@ func _initialize() -> void:
 	_require(gear_panel._weapon_slot.tooltip_text.contains("Equipped -- Unequip to inventory"), "Expected the equipped-slot tooltip to explain the unequip action, got: %s" % gear_panel._weapon_slot.tooltip_text)
 	_require(inventory_slot.tooltip_text.contains("In inventory -- Equip"), "Expected the inventory-slot tooltip to explain the equip action, got: %s" % inventory_slot.tooltip_text)
 
+	var bandit_blade: GearItem = load("res://data/gear/bandit_blade.tres")
+	build_state.equip(bandit_blade)
+	await process_frame
+	_require(gear_panel._weapon_slot.tooltip_text.contains("+1 physical damage per 10 gold in stash"), "Expected equipped Bandit Blade tooltip to include Legendary flavor text, got: %s" % gear_panel._weapon_slot.tooltip_text)
+
 	# Clicking the equipped weapon slot outside a shop round now unequips it
 	# to inventory (previously a no-op unless swapping in a replacement).
 	var click_event := InputEventMouseButton.new()

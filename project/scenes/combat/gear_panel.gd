@@ -316,6 +316,8 @@ func _equipped_tooltip(gear: GearItem) -> String:
 
 
 func _gear_tooltip(gear: GearItem) -> String:
+	if gear.tier == GearItem.Tier.LEGENDARY:
+		return "\n".join(LegendaryCatalog.tooltip_lines(gear))
 	var lines: PackedStringArray = []
 	lines.append("%s - %s" % [GearGenerator.SLOT_TAGS[gear.slot], gear.display_name])
 	for affix in gear.affixes:

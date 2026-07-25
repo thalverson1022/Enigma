@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bclqsk1memp08"
-path="res://.godot/imported/Basic Weapon.png-43aa1470616a43c3a41e32b57a3c374d.ctex"
+uid="uid://bbqugnwffe3be"
+path="res://.godot/imported/Basic_Weapon.png-655083ddb6218756fbb55f1ff72a0924.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Items/Rogue/Basic Weapon.png"
-dest_files=["res://.godot/imported/Basic Weapon.png-43aa1470616a43c3a41e32b57a3c374d.ctex"]
+source_file="res://assets/Items/Rogue/Basic_Weapon.png"
+dest_files=["res://.godot/imported/Basic_Weapon.png-655083ddb6218756fbb55f1ff72a0924.ctex"]
 
 [params]
 

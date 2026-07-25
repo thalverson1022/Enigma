@@ -2510,6 +2510,8 @@ func _shop_offer_footer_lines(offer: GearItem) -> PackedStringArray:
 ## _reward_choice_text(), and _build_gear_compare_tooltip()'s "Equipped"
 ## box so the three can't drift apart.
 func _gear_tooltip_lines(gear: GearItem) -> PackedStringArray:
+	if gear != null and gear.tier == GearItem.Tier.LEGENDARY:
+		return LegendaryCatalog.tooltip_lines(gear)
 	var lines: PackedStringArray = []
 	lines.append("%s - %s" % [GearGenerator.SLOT_TAGS[gear.slot], gear.display_name])
 	lines.append(GearGenerator.TIER_NAMES[gear.tier])
