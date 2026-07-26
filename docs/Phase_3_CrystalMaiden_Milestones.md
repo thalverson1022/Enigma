@@ -51,11 +51,16 @@ Completed:
 - Phase 3 milestone plan approved as the working structure.
 - Phase 3 current-state audit checklist created.
 - Phase 3 planning docs copied into the Godot repository on the Phase 3 branch.
+- `Project-CrystalMaiden` set up as the clean Phase 3 local clone.
+- Phase 3 docs cleaned to the handoff and planning set.
+- Current-state audit checklist completed for Milestone 0.
+- Focused playback, HUD, recap, Training Room combat view, and Balance Lab
+  baseline checks passed.
+- Milestone 1 Task 0 planning document created.
 
 Remaining:
 
-- Complete the current-state audit checklist.
-- Use the audit findings to shape Milestone 1 Task 0.
+- None.
 
 ## Milestone Status Tracking
 
@@ -76,8 +81,8 @@ Status values:
 
 | Milestone | Name | Status | Notes |
 |---:|---|---|---|
-| 0 | Planning And Phase Setup | In Progress | Git setup, plan approval, and audit checklist created. Current-state audit remains. |
-| 1 | Combat Playback Juice | Not Started | Recommended first implementation milestone. |
+| 0 | Planning And Phase Setup | Complete | Git setup, plan approval, clean clone, audit, baseline checks, and Milestone 1 Task 0 are done. |
+| 1 | Combat Playback Juice | In Progress | Task 0 planning document created. Implementation tasks are not started yet. |
 | 2 | Combat Recap And Failure Clarity | Not Started | May stay separate from Milestone 1 or merge after review. |
 | 3 | Build Screen And Rotation UX Polish | Not Started |  |
 | 4 | Gear, Rewards, Shop, And Legendary Presentation | Not Started |  |
