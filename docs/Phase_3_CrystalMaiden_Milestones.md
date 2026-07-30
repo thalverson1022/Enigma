@@ -31,7 +31,7 @@ Approved decisions:
   Milestone 1 for now.
 - Milestone 7, Testing Suite And Balance Lab Hardening, is included in Phase 3.
 - Each implementation milestone should begin with a Task 0 planning pass that
-  creates the milestone-specific task list and documentation.
+  establishes or updates that milestone's single tasking document.
 
 Open decisions:
 
@@ -49,14 +49,14 @@ Completed:
 - Phase 3 branch created in the Godot repository:
   `phase-3-crystalmaiden`.
 - Phase 3 milestone plan approved as the working structure.
-- Phase 3 current-state audit checklist created.
+- Milestone 0 planning and audit document created.
 - Phase 3 planning docs copied into the Godot repository on the Phase 3 branch.
 - `Project-CrystalMaiden` set up as the clean Phase 3 local clone.
 - Phase 3 docs cleaned to the handoff and planning set.
-- Current-state audit checklist completed for Milestone 0.
+- Current-state audit completed for Milestone 0.
 - Focused playback, HUD, recap, Training Room combat view, and Balance Lab
   baseline checks passed.
-- Milestone 1 Task 0 planning document created.
+- Milestone 1 tasking document created.
 
 Remaining:
 
@@ -81,8 +81,8 @@ Status values:
 
 | Milestone | Name | Status | Notes |
 |---:|---|---|---|
-| 0 | Planning And Phase Setup | Complete | Git setup, plan approval, clean clone, audit, baseline checks, and Milestone 1 Task 0 are done. |
-| 1 | Combat Playback Juice | In Progress | Task 0 planning document created. Implementation tasks are not started yet. |
+| 0 | Planning And Phase Setup | Complete | Git setup, plan approval, clean clone, audit, baseline checks, and Milestone 1 tasking setup are done. |
+| 1 | Combat Playback Juice | In Progress | M1:T0 through M1:T12 complete; M1:T13 has partial progress. Rogue animation, Tavern enemy sprite mappings, Rogue skill icon mapping, cast language, timing, cast windup/macro-fill alignment, start-of-fight readability, hit/crit contact feedback, poison stack/tick feedback, combat-window current defense values plus poison/Shred/Decay iconography, proc/min-cast readability, Legendary feedback, victory/defeat reveal timing, integrated combat-window victory transition, macro highlight/fill playback, and focused playback/HUD/Training Room checks are covered in the Milestone 1 document. |
 | 2 | Combat Recap And Failure Clarity | Not Started | May stay separate from Milestone 1 or merge after review. |
 | 3 | Build Screen And Rotation UX Polish | Not Started |  |
 | 4 | Gear, Rewards, Shop, And Legendary Presentation | Not Started |  |

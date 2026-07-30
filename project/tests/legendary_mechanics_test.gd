@@ -198,13 +198,19 @@ func _initialize() -> void:
 	print("Mithril Karambit: %d Stab casts, %d Heavy Slash casts" % [stab_events.size(), heavy_events.size()])
 	assert(not stab_events.is_empty())
 	assert(not heavy_events.is_empty())
+	for i in mithril_result.cast_events.size():
+		var event: CombatResolver.CastEvent = mithril_result.cast_events[i]
+		var expected_skill := stab_skill if i % 2 == 0 else heavy_skill
+		var expected_rotation_index := i % 2
+		assert(event.skill == expected_skill)
+		assert(event.rotation_index == expected_rotation_index)
 	for event in stab_events:
 		assert(event.triggered_skill_names.has("Stab"))
 		assert(not event.triggered_skill_names.has("Heavy Slash"))
 	for event in heavy_events:
 		assert(event.triggered_skill_names.has("Heavy Slash"))
 		assert(not event.triggered_skill_names.has("Stab"))
-	print("Stab casts only trigger Stab, Heavy Slash casts only trigger Heavy Slash: OK")
+	print("Stab/Heavy macro order still alternates while each cast retriggers itself: OK")
 
 	print("")
 	print("P2:R9:T1-T3 legendary mechanics check: OK")

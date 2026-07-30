@@ -1,0 +1,68 @@
+{
+  "format": "crystalmaiden-rogue-animations",
+  "version": 2,
+  "source_root": "F:\\Data\\Junk\\DPS Game\\Rogue Animations",
+  "notes": "Uniform 48x48 Sprite Lab export used directly as player default animations.",
+  "animations": {
+    "idle": {
+      "path": "assets/placeholder_combat_sprites/rogue_bandit/animations/idle",
+      "frame_count": 5,
+      "unique_png_count": 4,
+      "frame_size": {
+        "w": 48,
+        "h": 48
+      },
+      "pivot": {
+        "x": 24,
+        "y": 24
+      },
+      "fps": 6,
+      "loop": true
+    },
+    "walk": {
+      "path": "assets/placeholder_combat_sprites/rogue_bandit/animations/walk",
+      "frame_count": 8,
+      "unique_png_count": 8,
+      "frame_size": {
+        "w": 48,
+        "h": 48
+      },
+      "pivot": {
+        "x": 24,
+        "y": 24
+      },
+      "fps": 8,
+      "loop": true
+    },
+    "attack1": {
+      "path": "assets/placeholder_combat_sprites/rogue_bandit/animations/attack1",
+      "frame_count": 6,
+      "unique_png_count": 6,
+      "frame_size": {
+        "w": 48,
+        "h": 48
+      },
+      "pivot": {
+        "x": 24,
+        "y": 24
+      },
+      "fps": 8,
+      "loop": false
+    },
+    "attack2": {
+      "path": "assets/placeholder_combat_sprites/rogue_bandit/animations/attack2",
+      "frame_count": 12,
+      "unique_png_count": 12,
+      "frame_size": {
+        "w": 48,
+        "h": 48
+      },
+      "pivot": {
+        "x": 24,
+        "y": 24
+      },
+      "fps": 8,
+      "loop": false
+    }
+  }
+}

@@ -27,9 +27,25 @@ signal finished
 ## animations, with Available Skills/Skill Build simply pushed further down
 ## the center column below it.
 const PANEL_MIN_HEIGHT := 420
-const POPUP_LIFETIME_SEC := 0.9
-const POPUP_RISE_PX := 40.0
+const POPUP_FONT := preload("res://assets/fonts/PirataOne-Regular.ttf")
+const POPUP_LIFETIME_SEC := 1.35
+const POPUP_RISE_PX := 60.0
+const POPUP_RISE_SEC := 1.05
+const POPUP_TICK_RISE_SEC := 1.5
+const POPUP_FADE_DELAY_SEC := 0.45
+const POPUP_JITTER_X_FRACTION := 0.36
+const POPUP_JITTER_Y_PX := 28.0
+const POPUP_FONT_SIZE := 36
+const POPUP_CRIT_FONT_SIZE := 48
+const POPUP_TICK_FONT_SIZE := 18
+const POPUP_WYVERN_TICK_FONT_SIZE := 14
+const POPUP_PROC_FONT_SIZE := 40
+const POPUP_CRIT_PUNCH_SCALE := 1.25
+const POPUP_CRIT_PUNCH_SEC := 0.12
+const POPUP_POISON_TICK_JITTER_X_PX := 28.0
+const POPUP_POISON_TICK_JITTER_Y_PX := 12.0
 const SPEED_OPTIONS := [1.0, 2.0, 4.0]
+const OUTCOME_REVEAL_HOLD_SEC := 0.35
 
 ## User-supplied background art, replacing the earlier black placeholder.
 ## Same TextureRect+tint approach as combat_screen.gd's tavern background
@@ -38,11 +54,22 @@ const SPEED_OPTIONS := [1.0, 2.0, 4.0]
 ## readable over whatever the art looks like).
 const BACKGROUND_TEXTURE := preload("res://assets/backgrounds/Training_Room_background.jpg")
 const BACKGROUND_TINT := Color(0, 0, 0, 0.42)
+const COMBAT_STAGE_SCRIPT := preload("res://scripts/ui/combat_stage.gd")
+const COMBAT_STATUS_ICONS := preload("res://scripts/ui/combat_status_icons.gd")
+const COMBAT_STATUS_ICON_SIZE := Vector2(22, 22)
+const COMBAT_STATUS_FONT_SIZE := 24
+const HUD_ARMOR_ICON := preload("res://assets/combat_ui_icons/enemy_armor.png")
+const HUD_RESISTANCE_ICON := preload("res://assets/combat_ui_icons/resistance.png")
+const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
+const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
+const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
 
 ## Same headless-detection instant-mode pattern combat_screen.gd uses so
 ## headless tests don't have to wait out a real-time animation.
 var _instant_playback: bool = DisplayServer.get_name() == "headless"
 var _playback: CombatPlayback = null
+var _playback_intro_remaining_sec := 0.0
+var _playback_intro_duration_sec := 0.0
 ## Running damage total for the current fight (post-R10 UI-feedback pass:
 ## Training Room only measures damage dealt in a fixed window, it never
 ## tracks the target's remaining HP -- there's no "killing" it here at all).
@@ -57,19 +84,27 @@ var _damage_dealt := 0.0
 var _monster: Monster = null
 var _armor := 0
 var _armor_reduced := 0
+var _shred_stacks := 0
+var _decay_stacks := 0
 var _resist := 0.0
 var _stacks := 0
 
 var _name_label: Label
 var _damage_label: Label
 var _info_label: Label
+var _resist_label: Label
 var _status_row: HBoxContainer
+var _combat_stage
 var _popup_layer: Control
 var _controls_row: HBoxContainer
 var _time_label: Label
 var _speed_buttons: Array[Button] = []
 var _skip_button: Button
 var _last_speed: float = SPEED_OPTIONS[0]
+var _popup_generation := 0
+var _wyvern_kriss_effect_active := false
+var _playback_skipping := false
+var skill_build_panel = null
 
 
 func _ready() -> void:
@@ -99,6 +134,14 @@ func _ready() -> void:
 	background_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(background_tint)
 
+	_combat_stage = COMBAT_STAGE_SCRIPT.new()
+	_combat_stage.name = "CombatStage"
+	_combat_stage.safe_top_px = 92.0
+	_combat_stage.safe_bottom_px = 34.0
+	add_child(_combat_stage)
+	_combat_stage.configure("Rogue", "Practice Target")
+	_combat_stage.reset_state()
+
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 6)
 	add_child(content)
@@ -108,7 +151,7 @@ func _ready() -> void:
 
 	_name_label = Label.new()
 	_name_label.name = "NameLabel"
-	_name_label.text = "No Target"
+	_name_label.text = "Practice Target"
 	_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hud_row.add_child(_name_label)
 
@@ -116,9 +159,38 @@ func _ready() -> void:
 	_damage_label.name = "DamageLabel"
 	hud_row.add_child(_damage_label)
 
+	var info_row := HBoxContainer.new()
+	info_row.name = "InfoRow"
+	info_row.add_theme_constant_override("separation", 14)
+	content.add_child(info_row)
+
+	var armor_icon := TextureRect.new()
+	armor_icon.name = "ArmorIcon"
+	armor_icon.texture = HUD_ARMOR_ICON
+	armor_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
+	armor_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	armor_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	armor_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info_row.add_child(armor_icon)
+
 	_info_label = Label.new()
 	_info_label.name = "InfoLabel"
-	content.add_child(_info_label)
+	_info_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
+	info_row.add_child(_info_label)
+
+	var poison_resist_icon := TextureRect.new()
+	poison_resist_icon.name = "PoisonResistIcon"
+	poison_resist_icon.texture = HUD_RESISTANCE_ICON
+	poison_resist_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
+	poison_resist_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	poison_resist_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	poison_resist_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info_row.add_child(poison_resist_icon)
+
+	_resist_label = Label.new()
+	_resist_label.name = "ResistText"
+	_resist_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
+	info_row.add_child(_resist_label)
 
 	_status_row = HBoxContainer.new()
 	_status_row.name = "StatusRow"
@@ -165,26 +237,40 @@ func _ready() -> void:
 ## never re-resolves combat, only re-plays its recorded timeline. Emits
 ## `finished` when the animation (or, in headless/instant mode, the
 ## immediate skip) completes.
-func play(result: CombatResolver.CombatResult, monster: Monster) -> void:
+func play(result: CombatResolver.CombatResult, monster: Monster, equipped_gear: Array[GearItem] = []) -> void:
 	_monster = monster
 	_damage_dealt = 0.0
+	_popup_generation += 1
+	_playback_skipping = false
 	_name_label.text = monster.display_name
 	_update_damage_label()
 	_armor = monster.armor
 	_armor_reduced = 0
+	_shred_stacks = 0
+	_decay_stacks = 0
 	_resist = monster.poison_resistance
 	_stacks = 0
+	_wyvern_kriss_effect_active = _gear_has_id(equipped_gear, "gear.legendary.wyvern_kriss")
 	_update_status_readout()
+	_combat_stage.configure("Rogue", monster.display_name)
+	_combat_stage.set_bandit_blade_effect_active(_gear_has_id(equipped_gear, _combat_stage.BANDIT_BLADE_ID))
+	_combat_stage.reset_state()
+	if skill_build_panel != null and skill_build_panel.has_method("clear_combat_highlight"):
+		skill_build_panel.clear_combat_highlight()
 	for child in _popup_layer.get_children():
 		child.queue_free()
 
 	_playback = CombatPlayback.new()
 	_playback.event_callback = _on_playback_event
+	_playback.cast_start_callback = _on_playback_cast_start
 	_playback.finished_callback = _on_playback_finished
 	_playback.start(result)
+	_playback_intro_duration_sec = _combat_stage.play_fight_intro(not _instant_playback) if _combat_stage != null else 0.0
+	_playback_intro_remaining_sec = _playback_intro_duration_sec
 
 	if _instant_playback:
 		_controls_row.visible = false
+		_playback_intro_remaining_sec = 0.0
 		_playback.skip()
 		return
 
@@ -197,7 +283,23 @@ func play(result: CombatResolver.CombatResult, monster: Monster) -> void:
 func _process(delta: float) -> void:
 	if _playback == null:
 		return
+	if _playback_intro_remaining_sec > 0.0:
+		var playback_speed := maxf(_playback.speed, 0.0)
+		var intro_advance := delta * playback_speed
+		if intro_advance < _playback_intro_remaining_sec:
+			_playback_intro_remaining_sec -= intro_advance
+			_update_time_label()
+			return
+		var overflow_delta := 0.0
+		if playback_speed > 0.0:
+			overflow_delta = (intro_advance - _playback_intro_remaining_sec) / playback_speed
+		_playback_intro_remaining_sec = 0.0
+		if overflow_delta <= 0.0:
+			_update_time_label()
+			return
+		delta = overflow_delta
 	_playback.advance(delta)
+	_update_macro_cast_progress()
 	if _playback != null:
 		_update_time_label()
 
@@ -213,6 +315,7 @@ func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
 		# gap here where stacks previously only ever increased from casts
 		# and never reflected a tick consuming one.
 		_stacks = event.tick.stacks_remaining
+		_combat_stage.set_poison_stacks(_stacks, not _instant_playback)
 		_update_status_readout()
 		# A cadence beat with no active stacks still fires (fixed 1000ms
 		# cadence independent of stacks, per CombatResolver.resolve()) but
@@ -220,48 +323,83 @@ func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
 		# "noise" and skips them in the text log; the popup should too,
 		# instead of showing a "Poison 0.0" popup with nothing happening.
 		if event.damage > 0.0:
+			_combat_stage.play_poison_tick_pulse(not _instant_playback)
 			_spawn_popup(event)
 		return
 	var cast := event.cast
+	var popup_delay: float = _combat_stage.play_cast_impact(cast, not _instant_playback)
+	if not cast.triggered_skill_names.is_empty() and skill_build_panel != null and skill_build_panel.has_method("highlight_rotation_index"):
+		skill_build_panel.highlight_rotation_index(cast.rotation_index, true)
 	_armor_reduced += cast.armor_reduction_applied
+	if cast.armor_reduction_applied > 0:
+		_shred_stacks += 1
 	if cast.poison_resistance_reduction_applied > 0.0:
 		_resist *= 1.0 - clampf(cast.poison_resistance_reduction_applied, 0.0, 1.0)
+		_decay_stacks += 1
 	_stacks = mini(_stacks + cast.poison_stacks_applied, CombatResolver.MAX_POISON_STACKS)
+	if cast.poison_stacks_applied > 0:
+		_combat_stage.set_poison_stacks(_stacks, not _instant_playback)
 	_update_status_readout()
-	_spawn_popup(event)
+	_schedule_cast_popup(event, popup_delay)
+
+
+func _on_playback_cast_start(cast: CombatResolver.CastEvent) -> void:
+	if _playback_skipping:
+		return
+	if _combat_stage != null:
+		_combat_stage.play_cast_windup(cast, _playback.speed if _playback != null else _last_speed, not _instant_playback)
+	if skill_build_panel != null and skill_build_panel.has_method("set_cast_progress"):
+		skill_build_panel.set_cast_progress(cast.rotation_index, 0.0, cast.min_cast_time_proc_applied)
+
+
+func _update_macro_cast_progress() -> void:
+	if _playback == null or skill_build_panel == null or not skill_build_panel.has_method("set_cast_progress"):
+		return
+	var cast := _playback.active_cast()
+	if cast == null:
+		return
+	skill_build_panel.set_cast_progress(cast.rotation_index, _playback.active_cast_progress(), cast.min_cast_time_proc_applied)
 
 
 func _on_playback_finished() -> void:
 	set_process(false)
 	_controls_row.visible = false
+	var was_skipping := _playback_skipping
+	if _combat_stage != null and _playback != null and _monster != null and _monster.hp > 0:
+		_combat_stage.play_outcome_pose(_playback.damage_dealt() >= float(_monster.hp), not _instant_playback)
 	_playback = null
+	_playback_intro_remaining_sec = 0.0
+	_playback_intro_duration_sec = 0.0
+	if skill_build_panel != null and skill_build_panel.has_method("clear_combat_highlight"):
+		skill_build_panel.clear_combat_highlight()
+	if not _instant_playback and not was_skipping:
+		await get_tree().create_timer(OUTCOME_REVEAL_HOLD_SEC).timeout
 	finished.emit()
 
 
-## Base armor (never reduced in the readout itself, matching
-## combat_screen.gd's own _hud_info_label -- only the reduction is shown,
-## as a separate chip) alongside the live poison-resist percentage, plus
-## status chips for whichever of poison stacks/armor shred/resist reduction
-## currently apply. Mirrors combat_screen.gd's
-## _update_playback_hud_readout()/_add_hud_status_chip() exactly.
+## Current armor and poison resistance stay in the defense readout; poison,
+## Shred, and Decay application counts stay in the debuff row. Mirrors
+## combat_screen.gd's _update_playback_hud_readout()/_add_hud_status_chip().
 func _update_status_readout() -> void:
-	_info_label.text = "Armor: %d | Resist: %.0f%%" % [_armor, _resist * 100.0]
+	_info_label.text = "%d" % (_armor - _armor_reduced)
+	_resist_label.text = "%.0f%%" % (_resist * 100.0)
 	for child in _status_row.get_children():
 		_status_row.remove_child(child)
 		child.queue_free()
-	if _stacks > 0:
-		_add_status_chip("Poison x%d" % _stacks, UIColors.TEXT_POISON)
-	if _armor_reduced > 0:
-		_add_status_chip("Armor -%d" % _armor_reduced, UIColors.TEXT_WARNING)
-	var resist_reduced: float = _monster.poison_resistance - _resist
-	if resist_reduced > 0.001:
-		_add_status_chip("Resist -%.0f%%" % (resist_reduced * 100.0), UIColors.TEXT_WARNING)
+	_add_status_chip("x%d" % _stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
+	_add_status_chip("x%d" % _shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+	_add_status_chip("x%d" % _decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 
 
-func _add_status_chip(text: String, color: Color) -> void:
+func _add_status_chip(text: String, color: Color, icon: Texture2D = null) -> void:
+	if icon != null:
+		COMBAT_STATUS_ICONS.add_icon_label(_status_row, icon, text, color, "StatusChip")
+		return
 	var chip := Label.new()
+	chip.name = "StatusChip"
 	chip.text = text
 	chip.add_theme_color_override("font_color", color)
+	chip.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	_status_row.add_child(chip)
 
 
@@ -275,7 +413,22 @@ func _set_speed(speed: float) -> void:
 
 func _skip() -> void:
 	if _playback != null:
+		_popup_generation += 1
+		_playback_intro_remaining_sec = 0.0
+		_playback_skipping = true
 		_playback.skip()
+		_playback_skipping = false
+
+
+func _schedule_cast_popup(event: CombatPlayback.PlaybackEvent, delay_sec: float) -> void:
+	var generation := _popup_generation
+	if delay_sec <= 0.0 or _instant_playback:
+		_spawn_popup(event)
+		return
+	await get_tree().create_timer(delay_sec).timeout
+	if generation != _popup_generation:
+		return
+	_spawn_popup(event)
 
 
 func _update_damage_label() -> void:
@@ -288,44 +441,87 @@ func _update_time_label() -> void:
 	_time_label.text = "%.1fs / %.1fs" % [_playback.elapsed_ms() / 1000.0, _playback.timeline_end_ms() / 1000.0]
 
 
-## Ticks always use TEXT_POISON; casts use TEXT_MAGIC (matching
-## combat_screen.gd's POPUP_PROC_COLOR) whenever a legendary effect actually
-## fired on that cast (Bejeweled Push Dagger's minimum-cast-time proc), so
-## it reads visually distinct from an ordinary hit -- user-requested, since
-## these were otherwise impossible to notice in the moment. Any triggered
-## skill (Mithril Karambit) gets its own separate magic-colored popup,
-## mirroring combat_screen.gd's per-trigger popup exactly.
+func _gear_has_id(equipped_gear: Array[GearItem], gear_id: String) -> bool:
+	for gear in equipped_gear:
+		if gear != null and gear.id == gear_id:
+			return true
+	return false
+
+
+## Ticks always use TEXT_POISON; crit casts use the same TEXT_GOLD language
+## as Adventure; casts use TEXT_MAGIC whenever a legendary effect actually
+## fired on that cast (Bejeweled Push Dagger's minimum-cast-time proc), so it
+## reads visually distinct from an ordinary hit. Any triggered skill
+## (Mithril Karambit) gets its own separate magic-colored popup, mirroring
+## combat_screen.gd's per-trigger popup exactly.
 func _spawn_popup(event: CombatPlayback.PlaybackEvent) -> void:
 	if event.is_tick:
-		_spawn_text_popup(_popup_text(event), UIColors.TEXT_POISON)
+		_spawn_text_popup(_popup_text(event), UIColors.TEXT_POISON, _poison_tick_font_size(), false, POPUP_TICK_RISE_SEC, true)
 		return
 	var cast := event.cast
-	var color := UIColors.TEXT_MAGIC if cast.min_cast_time_proc_applied else UIColors.TEXT_NORMAL
-	_spawn_text_popup(_popup_text(event), color)
+	var color := UIColors.TEXT_NORMAL
+	var font_size := POPUP_FONT_SIZE
+	var punch := false
+	if cast.is_crit:
+		color = UIColors.TEXT_GOLD
+		font_size = POPUP_CRIT_FONT_SIZE
+		punch = true
+	elif cast.min_cast_time_proc_applied:
+		color = UIColors.TEXT_MAGIC
+		font_size = POPUP_PROC_FONT_SIZE
+	_spawn_text_popup(_popup_text(event), color, font_size, punch)
 	for triggered_name in cast.triggered_skill_names:
-		_spawn_text_popup(String(triggered_name), UIColors.TEXT_MAGIC)
+		_spawn_text_popup(String(triggered_name), UIColors.TEXT_MAGIC, POPUP_PROC_FONT_SIZE, false)
 
 
-func _spawn_text_popup(text: String, color: Color) -> void:
+func _spawn_text_popup(text: String, color: Color, font_size: int = POPUP_FONT_SIZE, punch: bool = false, rise_sec: float = POPUP_RISE_SEC, is_poison_tick: bool = false) -> void:
 	var label := Label.new()
 	label.text = text
+	label.add_theme_font_override("font", POPUP_FONT)
 	label.add_theme_color_override("font_color", color)
-	var area_size := _popup_layer.size
-	var start_x: float = randf_range(area_size.x * 0.2, area_size.x * 0.8) if area_size.x > 0.0 else 0.0
-	var start_y := area_size.y * 0.5
-	label.position = Vector2(start_x, start_y)
+	label.add_theme_font_size_override("font_size", font_size)
 	_popup_layer.add_child(label)
+	label.reset_size()
+	var area_size := _popup_layer.size
+	var start_position := _popup_start_position(is_poison_tick, area_size, label.size)
+	label.position = start_position
+	if punch:
+		label.scale = Vector2.ONE * POPUP_CRIT_PUNCH_SCALE
+	else:
+		label.scale = Vector2.ONE * 0.92
 
-	var tween := create_tween()
-	tween.tween_property(label, "position:y", start_y - POPUP_RISE_PX, POPUP_LIFETIME_SEC)
-	tween.parallel().tween_property(label, "modulate:a", 0.0, POPUP_LIFETIME_SEC)
-	tween.tween_callback(label.queue_free)
+	var tween := label.create_tween()
+	tween.set_parallel(true)
+	if punch:
+		tween.tween_property(label, "scale", Vector2.ONE, POPUP_CRIT_PUNCH_SEC)
+	else:
+		tween.tween_property(label, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "position:y", start_position.y - POPUP_RISE_PX, rise_sec).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "modulate:a", 0.0, POPUP_LIFETIME_SEC - POPUP_FADE_DELAY_SEC).set_delay(POPUP_FADE_DELAY_SEC)
+	tween.finished.connect(label.queue_free)
+
+
+func _popup_start_position(is_poison_tick: bool, area_size: Vector2, label_size: Vector2) -> Vector2:
+	if is_poison_tick and _combat_stage != null:
+		var enemy_local: Vector2 = _popup_layer.get_global_transform().affine_inverse() * _combat_stage.enemy_popup_global_position()
+		return Vector2(
+			enemy_local.x - label_size.x * 0.5 + randf_range(-POPUP_POISON_TICK_JITTER_X_PX, POPUP_POISON_TICK_JITTER_X_PX),
+			enemy_local.y - label_size.y * 0.5 + randf_range(-POPUP_POISON_TICK_JITTER_Y_PX, POPUP_POISON_TICK_JITTER_Y_PX)
+		)
+	var jitter_x := area_size.x * POPUP_JITTER_X_FRACTION
+	var start_x: float = area_size.x * 0.5 + randf_range(-jitter_x, jitter_x) if area_size.x > 0.0 else 0.0
+	var start_y := area_size.y * 0.5 + randf_range(-POPUP_JITTER_Y_PX, POPUP_JITTER_Y_PX)
+	return Vector2(start_x, start_y)
+
+
+func _poison_tick_font_size() -> int:
+	return POPUP_WYVERN_TICK_FONT_SIZE if _wyvern_kriss_effect_active else POPUP_TICK_FONT_SIZE
 
 
 func _popup_text(event: CombatPlayback.PlaybackEvent) -> String:
 	if event.is_tick:
 		return "Poison %.1f" % event.damage
 	var cast := event.cast
-	var crit_suffix := " CRIT" if cast.is_crit else ""
+	var crit_suffix := "!" if cast.is_crit else ""
 	var proc_suffix := " PROC!" if cast.min_cast_time_proc_applied else ""
 	return "%s %.1f%s%s" % [cast.skill.display_name, cast.physical_damage, crit_suffix, proc_suffix]

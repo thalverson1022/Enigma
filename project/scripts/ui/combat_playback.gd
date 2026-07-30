@@ -36,12 +36,18 @@ var speed: float = 1.0
 ## Called as event_callback.call(event: PlaybackEvent) for each fired event,
 ## in timeline order.
 var event_callback: Callable = Callable()
+## Called as cast_start_callback.call(cast: CombatResolver.CastEvent) when a
+## cast begins. This is presentation-only timing for macro highlights; damage
+## and HUD changes still use event_callback at the resolved event timestamp.
+var cast_start_callback: Callable = Callable()
 ## Called exactly once, with no arguments, when the timeline completes
 ## (either by advancing past the end or via skip()).
 var finished_callback: Callable = Callable()
 
 var _events: Array = []
+var _cast_starts: Array[CombatResolver.CastEvent] = []
 var _next_index: int = 0
+var _next_cast_start_index: int = 0
 var _elapsed_ms: float = 0.0
 var _timeline_end_ms: int = 0
 var _window_ms: int = 0
@@ -58,9 +64,11 @@ var _damage_dealt: float = 0.0
 ## the HUD's HP bar clamping at 0 rather than the timeline stopping early).
 func start(result: CombatResolver.CombatResult) -> void:
 	_events = _merge_events(result)
+	_cast_starts = result.cast_events.duplicate()
 	_window_ms = result.duration_ms
 	_timeline_end_ms = result.duration_ms
 	_next_index = 0
+	_next_cast_start_index = 0
 	_elapsed_ms = 0.0
 	_damage_dealt = 0.0
 	_started = true
@@ -125,13 +133,40 @@ func is_finished() -> bool:
 	return _finished
 
 
+func active_cast() -> CombatResolver.CastEvent:
+	if _next_cast_start_index <= 0 or _next_cast_start_index > _cast_starts.size():
+		return null
+	var cast: CombatResolver.CastEvent = _cast_starts[_next_cast_start_index - 1]
+	if _elapsed_ms > float(cast.time_ms):
+		return null
+	return cast
+
+
+func active_cast_progress() -> float:
+	var cast := active_cast()
+	if cast == null:
+		return 0.0
+	var duration_ms := maxi(cast.time_ms - cast.cast_start_ms, 1)
+	return clampf((_elapsed_ms - float(cast.cast_start_ms)) / float(duration_ms), 0.0, 1.0)
+
+
 func _fire_due_events() -> void:
-	while _next_index < _events.size() and float(_events[_next_index].time_ms) <= _elapsed_ms:
-		var event: PlaybackEvent = _events[_next_index]
+	while true:
+		var next_event = _events[_next_index] if _next_index < _events.size() else null
+		var next_start: CombatResolver.CastEvent = _cast_starts[_next_cast_start_index] if _next_cast_start_index < _cast_starts.size() else null
+		var event_due := next_event != null and float(next_event.time_ms) <= _elapsed_ms
+		var start_due := next_start != null and float(next_start.cast_start_ms) <= _elapsed_ms
+		if not event_due and not start_due:
+			return
+		if start_due and (not event_due or next_start.cast_start_ms < next_event.time_ms):
+			_next_cast_start_index += 1
+			if cast_start_callback.is_valid():
+				cast_start_callback.call(next_start)
+			continue
 		_next_index += 1
-		_damage_dealt += event.damage
+		_damage_dealt += next_event.damage
 		if event_callback.is_valid():
-			event_callback.call(event)
+			event_callback.call(next_event)
 
 
 func _finish() -> void:

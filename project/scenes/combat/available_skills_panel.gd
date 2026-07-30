@@ -5,11 +5,12 @@ extends PanelContainer
 ## combined skill_macro_panel to match the mockup's two separate
 ## "Available Skills" / "Skill Build" strips.
 ##
-## Each button's first letter is colored (CardStyle.ACCENT_COLOR) to match
-## the letter shown on that skill's slot in skill_build_panel.gd, and hover
-## shows a tooltip with the skill's flavor speed label and effects (the
-## exact cast-time number is intentionally not shown, see
-## SPEED_LABEL_BY_SKILL_ID below).
+## Each button shows assigned skill art when available, then the skill name.
+## Skills without assigned art still color the first letter
+## (CardStyle.ACCENT_COLOR) to match the fallback glyph shown on that skill's
+## slot in skill_build_panel.gd. Hover shows a tooltip with the skill's flavor
+## speed label and effects (the exact cast-time number is intentionally not
+## shown, see SPEED_LABEL_BY_SKILL_ID below).
 ##
 ## P2:R7 playtest-feedback pass (2026-07-18, revises T4): T4 originally also
 ## rendered the skill's effect summary as an always-visible caption Label
@@ -21,6 +22,7 @@ extends PanelContainer
 ## helper itself is unchanged and still feeds the tooltip.
 
 const CARD_TITLE_FONT_SIZE := 20
+const SKILL_ICON_SIZE := Vector2(28, 28)
 
 ## Flavor speed labels shown in the skill tooltip instead of the exact
 ## base_execution_ms/min_execution_ms numbers (P2:R7 playtest-feedback,
@@ -108,15 +110,26 @@ func _build_button(skill: Skill, at_cap: bool = false) -> Button:
 	var label_row := HBoxContainer.new()
 	label_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	label_row.add_theme_constant_override("separation", 6)
 
-	var first_letter := Label.new()
-	first_letter.text = skill.display_name.substr(0, 1)
-	first_letter.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	first_letter.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
-	label_row.add_child(first_letter)
+	if skill.icon != null:
+		var icon := TextureRect.new()
+		icon.name = "SkillIcon"
+		icon.texture = skill.icon
+		icon.custom_minimum_size = SKILL_ICON_SIZE
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		label_row.add_child(icon)
+	else:
+		var first_letter := Label.new()
+		first_letter.text = skill.display_name.substr(0, 1)
+		first_letter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		first_letter.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
+		label_row.add_child(first_letter)
 
 	var rest := Label.new()
-	rest.text = skill.display_name.substr(1)
+	rest.text = skill.display_name if skill.icon != null else skill.display_name.substr(1)
 	rest.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label_row.add_child(rest)
 

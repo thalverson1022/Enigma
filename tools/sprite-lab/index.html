@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sprite Lab</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Sprite Lab</h1>
+          <p>Cut sprite sheets, tune frame origins, test animations, and export Godot-ready files.</p>
+        </div>
+        <label class="import-button">
+          <input id="sheetInput" type="file" accept="image/png,image/webp,image/jpeg">
+          Import Sheet
+        </label>
+      </header>
+
+      <section class="workspace">
+        <aside class="panel settings-panel" aria-label="Sprite sheet tools">
+          <div class="panel-section">
+            <h2>Sheet</h2>
+            <div id="sheetTabs" class="sheet-tabs" aria-label="Open sprite sheets"></div>
+            <div id="dropZone" class="drop-zone">
+              <strong>Drop a PNG here</strong>
+              <span>or use Import Sheet</span>
+            </div>
+            <div class="sheet-meta" id="sheetMeta">No sheet loaded.</div>
+          </div>
+
+          <div class="panel-section">
+            <h2>Grid Slice</h2>
+            <div class="field-grid">
+              <label>Width <input id="gridWidth" type="number" min="1" value="32"></label>
+              <label>Height <input id="gridHeight" type="number" min="1" value="32"></label>
+              <label>Margin X <input id="gridMarginX" type="number" min="0" value="0"></label>
+              <label>Margin Y <input id="gridMarginY" type="number" min="0" value="0"></label>
+              <label>Spacing X <input id="gridSpacingX" type="number" min="0" value="0"></label>
+              <label>Spacing Y <input id="gridSpacingY" type="number" min="0" value="0"></label>
+            </div>
+            <button id="sliceGridButton" class="wide-button">Slice Grid</button>
+          </div>
+
+          <div class="panel-section">
+            <h2>Detect</h2>
+            <div class="field-grid">
+              <label>Alpha <input id="alphaThreshold" type="number" min="1" max="255" value="8"></label>
+              <label>Min Area <input id="minArea" type="number" min="1" value="8"></label>
+              <label>Padding <input id="detectPadding" type="number" min="0" value="0"></label>
+            </div>
+            <button id="detectButton" class="wide-button">Detect Sprites</button>
+          </div>
+
+          <div class="panel-section">
+            <h2>Selected Frame</h2>
+            <div class="frame-editor-grid">
+              <label>Name <input id="frameName" type="text"></label>
+              <div class="pair-row">
+                <label>X <input id="frameX" type="number"></label>
+                <label>Y <input id="frameY" type="number"></label>
+              </div>
+              <div class="pair-row">
+                <label>W <input id="frameW" type="number" min="1"></label>
+                <label>H <input id="frameH" type="number" min="1"></label>
+              </div>
+              <div class="pair-row">
+                <label>Pivot X <input id="pivotX" type="number"></label>
+                <label>Pivot Y <input id="pivotY" type="number"></label>
+              </div>
+              <label>Duration <input id="frameDuration" type="number" min="1" value="100"></label>
+            </div>
+            <div class="button-row">
+              <button id="addFrameButton">Add</button>
+              <button id="duplicateFrameButton">Duplicate</button>
+              <button id="deleteFrameButton">Delete</button>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <h2>Selected Frames</h2>
+            <div class="bulk-meta" id="bulkMeta">Select multiple frames with Ctrl/Shift.</div>
+            <div class="button-row two">
+              <button id="sameSizeButton">Same Size</button>
+              <button id="samePivotButton">Same Pivot</button>
+            </div>
+            <div class="button-row two">
+              <button id="samePositionButton">Same X/Y</button>
+              <button id="sameDurationButton">Same Time</button>
+            </div>
+            <div class="rename-tools">
+              <input id="bulkPrefix" type="text" value="frame" aria-label="Frame name prefix">
+              <button id="renameSelectedButton">Rename 001...</button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="stage-panel" aria-label="Sprite sheet canvas">
+          <div class="canvas-toolbar">
+            <div class="segmented">
+              <button id="toolSelect" class="active">Select</button>
+              <button id="toolDraw">Draw</button>
+              <button id="toolPivot">Pivot</button>
+            </div>
+            <label>Zoom <input id="zoomRange" type="range" min="1" max="8" value="3"></label>
+            <label class="check"><input id="showGrid" type="checkbox" checked> Boxes</label>
+            <label class="check"><input id="showPivots" type="checkbox" checked> Pivots</label>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="sheetCanvas" width="960" height="540"></canvas>
+          </div>
+        </section>
+
+        <aside class="panel animation-panel" aria-label="Animation tools">
+          <div class="panel-section">
+            <h2>Frames</h2>
+            <div id="frameList" class="frame-list"></div>
+          </div>
+
+          <div class="panel-section">
+            <h2>Animations</h2>
+            <div class="animation-create">
+              <input id="animationName" type="text" value="idle" aria-label="Animation name">
+              <button id="addAnimationButton">Create</button>
+            </div>
+            <select id="animationSelect" aria-label="Animation selection"></select>
+            <div class="button-row">
+              <button id="addToAnimationButton">Add Frame</button>
+              <button id="removeAnimFrameButton">Remove Step</button>
+            </div>
+            <div id="timeline" class="timeline"></div>
+          </div>
+
+          <div class="panel-section preview-section">
+            <h2>Preview</h2>
+            <canvas id="previewCanvas" width="256" height="192"></canvas>
+            <div class="preview-controls">
+              <button id="playButton">Play</button>
+              <label>FPS <input id="fpsInput" type="number" min="1" max="60" value="8"></label>
+              <label class="check"><input id="loopInput" type="checkbox" checked> Loop</label>
+            </div>
+            <label class="speed-slider">Playback Speed
+              <input id="speedRange" type="range" min="0.1" max="2" step="0.1" value="1">
+              <span id="speedValue">1.0x</span>
+            </label>
+          </div>
+
+          <div class="panel-section">
+            <h2>Export</h2>
+            <div class="field-grid">
+              <label>Project <input id="exportName" type="text" value="sprite_lab_export"></label>
+              <label>Scale <input id="exportScale" type="number" min="1" value="1"></label>
+            </div>
+            <button id="exportButton" class="wide-button">Export ZIP</button>
+            <p class="hint">ZIP includes only animation timeline frames, plus manifest JSON and a Godot import script.</p>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

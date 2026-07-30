@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="Skill" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="Skill" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/skill.gd" id="1_skill"]
 [ext_resource type="Script" path="res://scripts/resources/physical_damage_effect.gd" id="2_effect"]
 [ext_resource type="Script" path="res://scripts/resources/poison_damage_effect.gd" id="3_effect"]
+[ext_resource type="Texture2D" path="res://assets/skill_icons/rogue/venom_jab.png" id="4_icon"]
 
 [sub_resource type="Resource" id="Resource_venom_jab_phys"]
 script = ExtResource("2_effect")
@@ -16,6 +17,7 @@ stacks_applied = 8
 script = ExtResource("1_skill")
 id = "skill.venom_jab"
 display_name = "Venom Jab"
+icon = ExtResource("4_icon")
 icon_letter = "V"
 base_execution_ms = 1000
 min_execution_ms = 500

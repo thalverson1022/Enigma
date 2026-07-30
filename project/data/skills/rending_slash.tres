@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="Skill" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="Skill" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/skill.gd" id="1_skill"]
 [ext_resource type="Script" path="res://scripts/resources/physical_damage_effect.gd" id="2_effect"]
 [ext_resource type="Script" path="res://scripts/resources/armor_reduction_effect.gd" id="3_effect"]
+[ext_resource type="Texture2D" path="res://assets/skill_icons/rogue/rending_slash.png" id="4_icon"]
 
 [sub_resource type="Resource" id="Resource_rending_slash_phys"]
 script = ExtResource("2_effect")
@@ -16,6 +17,7 @@ amount = 20
 script = ExtResource("1_skill")
 id = "skill.rending_thrust"
 display_name = "Rending Slash"
+icon = ExtResource("4_icon")
 icon_letter = "R"
 base_execution_ms = 1400
 min_execution_ms = 650

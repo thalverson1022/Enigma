@@ -12,6 +12,12 @@ extends SceneTree
 ##   godot --headless -s res://tests/training_room_combat_view_test.gd
 
 
+const HUD_ARMOR_ICON := preload("res://assets/combat_ui_icons/enemy_armor.png")
+const HUD_RESISTANCE_ICON := preload("res://assets/combat_ui_icons/resistance.png")
+const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
+const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
+const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
+
 var _failed := false
 var _finished_count := 0
 
@@ -25,6 +31,7 @@ func _initialize() -> void:
 	await process_frame
 	view.finished.connect(func(): _finished_count += 1)
 
+	_check_initial_practice_target_sprite(view)
 	_check_damage_readout(view)
 	_check_realtime_status_readout(view)
 	# A frame between checks that spawn/free popups: play() only
@@ -35,7 +42,19 @@ func _initialize() -> void:
 	await process_frame
 	_check_no_popup_for_zero_stack_ticks(view)
 	await process_frame
+	_check_poison_stack_application_tints_enemy_without_popup(view)
+	await process_frame
+	_check_popup_for_damaging_poison_ticks(view)
+	await process_frame
+	_check_wyvern_kriss_uses_smaller_poison_tick_text(view)
+	await process_frame
 	_check_legendary_proc_popup_highlight(view)
+	await process_frame
+	_check_crit_popup_highlight(view)
+	await process_frame
+	await _check_realtime_intro_gates_timeline(view)
+	await process_frame
+	_check_skip_bypasses_realtime_outcome_hold(view)
 
 	print("real BuildState.gold unchanged (expect %d): %d" % [real_gold_before, build_state.gold])
 	_require(build_state.gold == real_gold_before, "TrainingRoomCombatView must never touch the real BuildState.")
@@ -45,7 +64,17 @@ func _initialize() -> void:
 		quit(1)
 	else:
 		print("Training Room combat view check: OK")
-		quit()
+	quit()
+
+
+func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void:
+	print("-- Initial Training Room stage shows the Practice Target sprite --")
+	_require(view._combat_stage != null, "Expected Training Room combat view to own a stage layer before playback.")
+	_require(view._combat_stage._enemy_name_label.text == "Practice Target", "Expected initial Training Room stage enemy label to be Practice Target, not the default Enemy card.")
+	_require(not view._combat_stage.debug_grid_visible, "Expected Training Room to hide the combat-stage debug grid now that sprite placement tuning is done.")
+	_require(view._combat_stage.enemy_sprite_available(), "Expected initial Training Room stage to show the imported Practice Target sprite.")
+	_require(view._combat_stage._enemy_sprite.size == Vector2(32, 32), "Expected Practice Target sprite rect to stay at one 32px peasant frame, not stretch to the actor box.")
+	_require(view._combat_stage._enemy_sprite.scale == Vector2(5.0, 5.0), "Expected Practice Target sprite to scale once from its 32px frame.")
 
 
 ## Returns [CombatResolver.CombatResult, Monster] -- GDScript has no tuple
@@ -64,7 +93,7 @@ func _known_result() -> Array:
 	player.crit_multiplier = 2.0
 	player.poison_damage_per_tick = 5.0
 	var monster := Monster.new()
-	monster.display_name = "Playback Dummy"
+	monster.display_name = "Practice Target"
 	monster.armor = 0
 	monster.poison_resistance = 0.0
 	var result := CombatResolver.resolve(rotation, player, monster, 8000, 3)
@@ -87,6 +116,76 @@ func _check_damage_readout(view: TrainingRoomCombatView) -> void:
 	_require(view._name_label.text == monster.display_name, "Name label should show the target's display name.")
 
 
+func _check_realtime_intro_gates_timeline(view: TrainingRoomCombatView) -> void:
+	print("-- Realtime Training Room playback waits for the shared fight intro --")
+	var result_and_monster: Array = _known_result()
+	var result: CombatResolver.CombatResult = result_and_monster[0]
+	var monster: Monster = result_and_monster[1]
+	monster.hp = 60
+	var before_count := _finished_count
+	view._instant_playback = false
+	view.play(result, monster)
+	_require(_finished_count == before_count, "Expected realtime Training Room playback not to finish synchronously.")
+	_require(view._controls_row.visible, "Expected realtime Training Room playback controls to stay visible during playback.")
+	_require(view._playback_intro_remaining_sec > 0.0, "Expected realtime Training Room playback to begin with an intro delay.")
+	_require(view._combat_stage.fight_intro_count == 1, "Expected Training Room to request one shared fight intro from the stage.")
+	_require(view._playback.events_fired() == 0, "Expected no Training Room events to fire before the intro advances.")
+
+	view._process(view._playback_intro_duration_sec * 0.5)
+	_require(view._playback.events_fired() == 0, "Expected Training Room events to stay gated during the intro.")
+	_require(is_equal_approx(view._playback.elapsed_ms(), 0.0), "Expected Training Room combat time to stay at zero during the intro.")
+	_require(_finished_count == before_count, "Expected Training Room playback not to finish during the intro.")
+
+	view._process(view._playback_intro_remaining_sec + result.duration_ms / 1000.0 + 0.1)
+	_require(_finished_count == before_count, "Expected realtime Training Room playback to hold briefly on the outcome pose before emitting finished.")
+	_require(view._playback == null, "Expected Training Room playback to clear itself before the outcome hold.")
+	_require(view._combat_stage.outcome_pose == "victory", "Expected Training Room to show the target defeat pose during the outcome hold.")
+	_require(view._combat_stage.outcome_flash_count == 1, "Expected Training Room to play one outcome flash beat at natural finish.")
+	_require(not view._controls_row.visible, "Expected controls hidden during the Training Room outcome hold.")
+
+	await create_timer(view.OUTCOME_REVEAL_HOLD_SEC + 0.05).timeout
+	_require(_finished_count == before_count + 1, "Expected realtime Training Room playback to emit finished after the outcome hold.")
+	view._instant_playback = DisplayServer.get_name() == "headless"
+	_require(view._combat_stage != null, "Expected Training Room combat view to own a stage layer.")
+	_require(view._combat_stage.player_actor_anchor != null, "Expected a player actor anchor in Training Room.")
+	_require(view._combat_stage.enemy_actor_anchor != null, "Expected an enemy actor anchor in Training Room.")
+	_require(view._combat_stage.contact_effect_anchor != null, "Expected a contact effect anchor in Training Room.")
+	_require(view._combat_stage.floating_text_anchor != null, "Expected a floating text anchor in Training Room.")
+	_require(view._combat_stage._enemy_name_label.text == monster.display_name, "Expected the Training Room stage enemy actor label to track the target.")
+	_require(view._combat_stage.player_actor_anchor.get_node_or_null("PlayerSprite") != null, "Expected Training Room to expose a configured player sprite slot.")
+	_require(view._combat_stage.enemy_actor_anchor.get_node_or_null("EnemySprite") != null, "Expected Training Room to expose a configured enemy sprite slot.")
+	_require(view._combat_stage.enemy_sprite_available(), "Expected Training Room Practice Target to use the imported peasant placeholder sprite.")
+	_require(
+		view._combat_stage.expected_enemy_sprite_region("Practice Target", "idle") == Rect2(Vector2(0, 0), Vector2(32, 32)),
+		"Expected Practice Target idle to use the selected peasant standing frame in Training Room."
+	)
+	_require(
+		view._combat_stage.expected_enemy_sprite_region("Practice Target", "defeat") == Rect2(Vector2(0, 96), Vector2(32, 32)),
+		"Expected Practice Target defeat to use the selected prone frame in Training Room."
+	)
+
+
+func _check_skip_bypasses_realtime_outcome_hold(view: TrainingRoomCombatView) -> void:
+	print("-- Realtime Training Room skip reveals outcome immediately --")
+	var result_and_monster: Array = _known_result()
+	var result: CombatResolver.CombatResult = result_and_monster[0]
+	var monster: Monster = result_and_monster[1]
+	monster.hp = 60
+	var before_count := _finished_count
+	view._instant_playback = false
+	view.play(result, monster)
+	_require(_finished_count == before_count, "Expected realtime Training Room playback to be active before skip.")
+	_require(view._controls_row.visible, "Expected controls visible before Training Room skip.")
+
+	view._skip_button.pressed.emit()
+	_require(_finished_count == before_count + 1, "Expected Training Room skip to emit finished immediately.")
+	_require(view._playback == null, "Expected Training Room skip to clear playback.")
+	_require(not view._controls_row.visible, "Expected Training Room controls hidden after skip.")
+	_require(view._combat_stage.outcome_pose == "victory", "Expected Training Room skip to still snap to the target defeat pose.")
+	_require(view._combat_stage.outcome_flash_count == 1, "Expected Training Room skip to record one outcome flash beat.")
+	view._instant_playback = DisplayServer.get_name() == "headless"
+
+
 ## User-requested: armor/poison-resist/poison-stacks should be visible and
 ## change live during the fight, like Adventure mode's HUD
 ## (combat_screen.gd's _update_playback_hud_readout()). Rending Slash
@@ -101,7 +200,8 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 	print("-- Real-time armor/resist/poison-stacks readout updates during the fight --")
 	var poison_strike: Skill = load("res://data/skills/poison_strike.tres")
 	var rending_slash: Skill = load("res://data/skills/rending_slash.tres")
-	var rotation: Array[Skill] = [poison_strike, rending_slash]
+	var beguiling_strike: Skill = load("res://data/skills/beguiling_strike.tres")
+	var rotation: Array[Skill] = [poison_strike, rending_slash, beguiling_strike]
 	var player := PlayerStats.new()
 	player.attack_speed = 0.0
 	player.crit_chance = 0.0
@@ -121,22 +221,61 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 	_require(view._armor_reduced > 0, "Rending Slash should have reduced armor at least once.")
 	_require(view._stacks == expected_stacks, "Stacks should reflect ticks consuming them, not just casts accumulating them.")
 
-	print("info label (expect base armor 200, unreduced): %s" % view._info_label.text)
-	_require(view._info_label.text.contains("Armor: 200"), "Info label should show base armor, not the reduced value.")
+	var expected_current_armor := monster.armor - view._armor_reduced
+	print("armor value label (expect current armor %d): %s" % [expected_current_armor, view._info_label.text])
+	_require(view._info_label.text == "%d" % expected_current_armor, "Shield-labeled armor value should show current armor after Shred.")
+	_require(view._info_label.get_parent().get_node_or_null("ArmorIcon") != null, "Expected the Training Room combat window's armor readout to include the shield icon.")
+	_require(view._resist_label.text == "%.0f%%" % (view._resist * 100.0), "Resistance value should show current poison resistance after Decay.")
+	var resist_icon := view._resist_label.get_parent().get_node_or_null("PoisonResistIcon") as TextureRect
+	_require(resist_icon != null and resist_icon.texture == HUD_RESISTANCE_ICON, "Expected the Training Room combat window's poison resistance readout to include the resistance icon.")
 
 	var chip_texts: PackedStringArray = []
 	for child in view._status_row.get_children():
-		chip_texts.append(child.text)
+		chip_texts.append(_status_chip_text(child))
 	print("status chips: %s" % [chip_texts])
 	var has_poison_chip := false
-	var has_armor_chip := false
-	for chip_text in chip_texts:
-		if chip_text.begins_with("Poison x"):
+	var has_shred_chip := false
+	var has_decay_chip := false
+	var has_poison_icon := false
+	var has_shred_icon := false
+	var has_decay_icon := false
+	for child in view._status_row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		var text := _status_chip_text(child)
+		if icon != null and icon.texture == HUD_POISON_ICON and text == "x%d" % view._stacks:
 			has_poison_chip = true
-		if chip_text.begins_with("Armor -"):
-			has_armor_chip = true
-	_require(has_poison_chip == (expected_stacks > 0), "Poison chip should be present iff stacks are currently active.")
-	_require(has_armor_chip, "Expected an Armor reduction chip.")
+			has_poison_icon = true
+		if icon != null and icon.texture == HUD_SHRED_ICON and text == "x%d" % view._shred_stacks:
+			has_shred_chip = true
+			has_shred_icon = true
+		if icon != null and icon.texture == HUD_DECAY_ICON and text == "x%d" % view._decay_stacks:
+			has_decay_chip = true
+			has_decay_icon = true
+	_require(has_poison_chip, "Poison chip should stay visible even at x0.")
+	_require(has_shred_chip, "Expected a Shred stack chip.")
+	_require(has_decay_chip, "Expected a Decay stack chip.")
+	_require(has_poison_icon, "Poison stack chip should use the selected skull icon.")
+	_require(has_shred_icon, "Shred chip should use the selected rogue icon.")
+	_require(has_decay_icon, "Decay chip should use the selected mage icon.")
+	_require(_status_chip_font_size(view._status_row, HUD_POISON_ICON) == 24, "Expected Training Room combat status values to use the larger number font.")
+
+
+func _status_chip_text(chip: Node) -> String:
+	if chip is Label:
+		return chip.text
+	var label := chip.get_node_or_null("Text") as Label
+	if label != null:
+		return label.text
+	return ""
+
+
+func _status_chip_font_size(row: HBoxContainer, icon_texture: Texture2D) -> int:
+	for child in row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		var label := child.get_node_or_null("Text") as Label
+		if icon != null and icon.texture == icon_texture and label != null:
+			return label.get_theme_font_size("font_size")
+	return 0
 
 
 ## Independently replays the same merged cast/tick timeline
@@ -193,6 +332,100 @@ func _check_no_popup_for_zero_stack_ticks(view: TrainingRoomCombatView) -> void:
 	_require(poison_popups == 0, "A zero-damage poison tick must not spawn a popup.")
 
 
+func _check_popup_for_damaging_poison_ticks(view: TrainingRoomCombatView) -> void:
+	print("-- Damaging poison tick spawns green half-size poison text near the enemy --")
+	var poison_strike: Skill = load("res://data/skills/poison_strike.tres")
+	var rotation: Array[Skill] = [poison_strike]
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	player.poison_damage_per_tick = 5.0
+	var monster := Monster.new()
+	monster.display_name = "Poisoned Dummy"
+	monster.hp = 100000
+	monster.poison_resistance = 0.0
+	var result := CombatResolver.resolve(rotation, player, monster, 4500, 3)
+	_require(result.tick_events.any(func(tick): return tick.damage > 0.0), "Test setup error: expected at least one damaging poison tick.")
+
+	view.play(result, monster)
+	var found_poison_popup := false
+	var found_enemy_centered_popup := false
+	var enemy_local: Vector2 = view._popup_layer.get_global_transform().affine_inverse() * view._combat_stage.enemy_popup_global_position()
+	for child in view._popup_layer.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child is Label and child.text.begins_with("Poison"):
+			var color: Color = child.get_theme_color("font_color")
+			var font_size: int = child.get_theme_font_size("font_size")
+			if color == UIColors.TEXT_POISON and font_size == view.POPUP_TICK_FONT_SIZE:
+				found_poison_popup = true
+				var popup_center: Vector2 = child.position + child.size * 0.5
+				if popup_center.distance_to(enemy_local) <= 48.0:
+					found_enemy_centered_popup = true
+	print("found a green half-size poison popup for damaging poison tick (expect true): %s" % found_poison_popup)
+	_require(found_poison_popup, "A damaging poison tick should spawn green half-size poison text.")
+	_require(found_enemy_centered_popup, "Poison tick text should stay tightly centered on the enemy.")
+
+
+func _check_wyvern_kriss_uses_smaller_poison_tick_text(view: TrainingRoomCombatView) -> void:
+	print("-- Wyvern Kriss uses smaller poison tick text --")
+	var poison_strike: Skill = load("res://data/skills/poison_strike.tres")
+	var wyvern_kriss: GearItem = load("res://data/gear/wyvern_kriss.tres")
+	var rotation: Array[Skill] = [poison_strike]
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	player.poison_damage_per_tick = 5.0
+	var monster := Monster.new()
+	monster.display_name = "Wyvern Poison Dummy"
+	monster.hp = 100000
+	monster.poison_resistance = 0.0
+	var result := CombatResolver.resolve(rotation, player, monster, 4500, 3)
+	_require(result.tick_events.any(func(tick): return tick.damage > 0.0), "Test setup error: expected at least one damaging poison tick.")
+
+	var equipped_gear: Array[GearItem] = [wyvern_kriss]
+	view.play(result, monster, equipped_gear)
+	var found_wyvern_tick_popup := false
+	for child in view._popup_layer.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child is Label and child.text.begins_with("Poison"):
+			var color: Color = child.get_theme_color("font_color")
+			var font_size: int = child.get_theme_font_size("font_size")
+			if color == UIColors.TEXT_POISON and font_size == view.POPUP_WYVERN_TICK_FONT_SIZE:
+				found_wyvern_tick_popup = true
+	print("found smaller Wyvern poison tick popup (expect true): %s" % found_wyvern_tick_popup)
+	_require(found_wyvern_tick_popup, "Wyvern Kriss should make poison tick text smaller than the default poison tick popup.")
+
+
+func _check_poison_stack_application_tints_enemy_without_popup(view: TrainingRoomCombatView) -> void:
+	print("-- Poison stack application tints the enemy without floating stack text --")
+	var poison_strike: Skill = load("res://data/skills/poison_strike.tres")
+	var rotation: Array[Skill] = [poison_strike]
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	player.poison_damage_per_tick = 5.0
+	var monster := Monster.new()
+	monster.display_name = "Poison Stack Dummy"
+	monster.hp = 100000
+	monster.poison_resistance = 0.0
+	var result := CombatResolver.resolve(rotation, player, monster, 2200, 3)
+	_require(result.cast_events.any(func(cast): return cast.poison_stacks_applied > 0), "Test setup error: expected at least one poison-applying cast.")
+
+	view.play(result, monster)
+	_require(view._combat_stage.poison_stack_tint_updates > 0, "Expected poison-applying casts to update the shared poison tint.")
+	_require(view._combat_stage.last_poison_stack_tint_stacks >= 0, "Expected shared poison tint to record the active stack count.")
+	var found_stack_popup := false
+	for child in view._popup_layer.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child is Label and child.text.begins_with("Poison x"):
+			found_stack_popup = true
+	print("found a poison-stack popup (expect false): %s" % found_stack_popup)
+	_require(not found_stack_popup, "Poison stack counts should stay in the UI chips, not spawn floating text.")
+
+
 ## User-requested: a Legendary effect actually firing (Bejeweled Push
 ## Dagger's minimum-cast-time proc here) should be visually distinct in the
 ## combat animation, not read identically to an ordinary hit. Forces the
@@ -227,6 +460,35 @@ func _check_legendary_proc_popup_highlight(view: TrainingRoomCombatView) -> void
 	print("combat log marks the proc line (expect true): %s" % log_text.contains(">>> "))
 	_require(log_text.contains(">>> "), "Expected the '>>> ' legendary-proc marker in the text log.")
 	_require(log_text.contains("procs at minimum cast speed"), "Expected the proc clause in the text log.")
+
+
+func _check_crit_popup_highlight(view: TrainingRoomCombatView) -> void:
+	print("-- Crit gets a gold, larger popup without literal CRIT text in Training Room playback --")
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var rotation: Array[Skill] = [stab]
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 1.0
+	player.crit_multiplier = 2.0
+	var monster := Monster.new()
+	monster.display_name = "Crit Dummy"
+	monster.hp = 100000
+	var result := CombatResolver.resolve(rotation, player, monster, 2200, 1)
+	_require(not result.cast_events.is_empty(), "Expected casts in this known crit fight.")
+	for cast in result.cast_events:
+		_require(cast.is_crit, "Test setup error: expected every cast to crit at 100% chance.")
+
+	view.play(result, monster)
+	var found_gold_crit_popup := false
+	for child in view._popup_layer.get_children():
+		if child is Label and child.text.ends_with("!") and not child.text.contains("CRIT"):
+			var color: Color = child.get_theme_color("font_color")
+			var font_size: int = child.get_theme_font_size("font_size")
+			var font: Font = child.get_theme_font("font")
+			if color == UIColors.TEXT_GOLD and font_size == view.POPUP_CRIT_FONT_SIZE and font == view.POPUP_FONT:
+				found_gold_crit_popup = true
+	print("found a gold larger crit popup without literal CRIT text (expect true): %s" % found_gold_crit_popup)
+	_require(found_gold_crit_popup, "Expected at least one gold, larger crit popup using color/size/font instead of literal 'CRIT' text.")
 
 
 func _require(condition: bool, message: String) -> void:

@@ -27,6 +27,16 @@ const TALENT_SCENE := preload("res://scenes/combat/talent_panel.tscn")
 const AVAILABLE_SKILLS_SCENE := preload("res://scenes/combat/available_skills_panel.tscn")
 const SKILL_BUILD_SCENE := preload("res://scenes/combat/skill_build_panel.tscn")
 const GEAR_SCENE := preload("res://scenes/combat/gear_panel.tscn")
+const COMBAT_STAGE_SCRIPT := preload("res://scripts/ui/combat_stage.gd")
+const COMBAT_STATUS_ICONS := preload("res://scripts/ui/combat_status_icons.gd")
+const COMBAT_STATUS_ICON_SIZE := Vector2(22, 22)
+const COMBAT_STATUS_FONT_SIZE := 24
+const HUD_HEALTH_ICON := preload("res://assets/combat_ui_icons/enemy_health.png")
+const HUD_ARMOR_ICON := preload("res://assets/combat_ui_icons/enemy_armor.png")
+const HUD_RESISTANCE_ICON := preload("res://assets/combat_ui_icons/resistance.png")
+const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
+const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
+const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
 
 const SIDE_COLUMN_WIDTH := 300
 const SCREEN_MARGIN := 16
@@ -129,24 +139,31 @@ const PLAYBACK_TICK_HP_TWEEN_SEC := 0.3
 ## MedievalSharp-Regular.ttf here if it lands better in real play).
 const POPUP_FONT := preload("res://assets/fonts/PirataOne-Regular.ttf")
 ## Popup lifetime from spawn to fully faded/freed.
-const POPUP_DURATION_SEC := 0.9
+const POPUP_DURATION_SEC := 1.35
 ## How far a popup floats upward over its lifetime.
-const POPUP_RISE_PX := 48.0
+const POPUP_RISE_PX := 68.0
+## Gentle lift duration; avoids damage text feeling launched from the target.
+const POPUP_RISE_SEC := 1.05
+## Poison ticks drift more slowly so they read as damage-over-time.
+const POPUP_TICK_RISE_SEC := 1.5
 ## Fade starts after this long, so the word is readable before it dissolves.
-const POPUP_FADE_DELAY_SEC := 0.35
+const POPUP_FADE_DELAY_SEC := 0.45
 ## Horizontal/vertical random jitter around the spawn point so rapid casts
 ## don't stack into one unreadable pile.
-const POPUP_JITTER_X_PX := 90.0
-const POPUP_JITTER_Y_PX := 24.0
+const POPUP_JITTER_X_PX := 120.0
+const POPUP_JITTER_Y_PX := 34.0
 ## Vertical spawn anchor as a fraction of the combat panel's height.
 const POPUP_BASE_Y_FRACTION := 0.55
 ## Popups never spawn above this y -- keeps the enemy HUD strip clear.
 const POPUP_TOP_MARGIN_PX := 96.0
 ## Font sizes per popup kind.
-const POPUP_FONT_SIZE := 26
-const POPUP_CRIT_FONT_SIZE := 34
-const POPUP_TICK_FONT_SIZE := 16
-const POPUP_PROC_FONT_SIZE := 28
+const POPUP_FONT_SIZE := 52
+const POPUP_CRIT_FONT_SIZE := 68
+const POPUP_TICK_FONT_SIZE := 26
+const POPUP_WYVERN_TICK_FONT_SIZE := 20
+const POPUP_PROC_FONT_SIZE := 56
+const POPUP_POISON_TICK_JITTER_X_PX := 34.0
+const POPUP_POISON_TICK_JITTER_Y_PX := 16.0
 ## Crit punch-scale: the label spawns at this scale and snaps to 1.0.
 const POPUP_CRIT_PUNCH_SCALE := 1.35
 const POPUP_CRIT_PUNCH_SEC := 0.12
@@ -163,8 +180,8 @@ const POPUP_TICK_COLOR := UIColors.TEXT_POISON
 const POPUP_PROC_COLOR := UIColors.TEXT_MAGIC
 ## Combat-playback adjustment round 1 (2026-07-19): a short pause between
 ## the timeline finishing and _reveal_fight_outcome() actually running, so
-## the last spawned popup's float+fade (POPUP_DURATION_SEC 0.9s, fading
-## after POPUP_FADE_DELAY_SEC 0.35s) has visibly finished before the
+## the last spawned popup's float+fade (POPUP_DURATION_SEC 1.35s, fading
+## after POPUP_FADE_DELAY_SEC 0.45s) has visibly finished before the
 ## outcome banner/recap pops in on top of it. Deliberately a little under
 ## the full 0.9s popup lifetime rather than a full match -- close enough
 ## that the last popup reads as "done" without adding a full extra second
@@ -247,7 +264,9 @@ var _contract_options_box: HBoxContainer
 var _contract_action_button: Button
 var _contract_step: ContractStep = ContractStep.GREETING
 var _victory_overlay: Control
-var _victory_center: CenterContainer
+var _victory_center: Control
+var _victory_combat_dim: ColorRect
+var _victory_stack: Control
 var _victory_recap_label: Label
 var _recap_label: Label
 # -- Enemy status HUD (user-requested combat-HUD addition, 2026-07-18):
@@ -260,6 +279,7 @@ var _hud_hp_text_label: Label
 var _hud_health_bar: ProgressBar
 var _hud_status_row: HBoxContainer
 var _hud_info_label: Label
+var _hud_resist_label: Label
 ## Combat resolves synchronously in one CombatResolver.resolve() call, so
 ## the HUD can't animate live values mid-fight. Instead it has exactly two
 ## display states: pre-fight (full HP / base armor / base resist / zero
@@ -283,6 +303,8 @@ var instant_playback: bool = DisplayServer.get_name() == "headless"
 var _playback: CombatPlayback = null
 var _playback_active := false
 var _playback_skipping := false
+var _playback_intro_remaining_sec := 0.0
+var _playback_intro_duration_sec := 0.0
 var _playback_result: CombatResolver.CombatResult = null
 var _playback_monster: Monster = null
 ## Live HUD values during playback, advanced per fired event by replaying
@@ -293,10 +315,13 @@ var _playback_armor := 0
 var _playback_resist := 0.0
 var _playback_stacks := 0
 var _playback_armor_reduced := 0
+var _playback_shred_stacks := 0
+var _playback_decay_stacks := 0
 var _playback_controls: HBoxContainer
 var _playback_time_label: Label
 var _playback_speed_buttons: Array[Button] = []
 var _playback_skip_button: Button
+var _skill_build_panel
 ## Session-persistent playback speed (combat-playback adjustment round 2 +
 ## retry bug, 2026-07-19): the user asked for their last-chosen speed to
 ## carry forward into the next fight instead of always resetting to 1x.
@@ -314,11 +339,14 @@ var _last_playback_speed: float = PLAYBACK_SPEED_OPTIONS[0]
 var _combat_window: PanelContainer
 var _tavern_background: TextureRect
 var _tavern_background_tint: ColorRect
+var _combat_stage
 var _popup_layer: Control
 var _popup_rng := RandomNumberGenerator.new()
+var _popup_generation := 0
 var _hp_bar_tween: Tween
 var _active_popups := 0
 var _active_tick_popups := 0
+var _wyvern_kriss_effect_active := false
 var _reward_label: Label
 var _continue_button: Button
 var _shop_overlay: Control
@@ -444,7 +472,8 @@ func _ready() -> void:
 	center_column.add_child(_fight_button_row)
 
 	center_column.add_child(AVAILABLE_SKILLS_SCENE.instantiate())
-	center_column.add_child(SKILL_BUILD_SCENE.instantiate())
+	_skill_build_panel = SKILL_BUILD_SCENE.instantiate()
+	center_column.add_child(_skill_build_panel)
 
 	# Right column: Enemy Stats over Gear.
 	var right_column := VBoxContainer.new()
@@ -498,7 +527,23 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not _playback_active or _playback == null:
 		return
+	if _playback_intro_remaining_sec > 0.0:
+		var playback_speed := maxf(_playback.speed, 0.0)
+		var intro_advance := delta * playback_speed
+		if intro_advance < _playback_intro_remaining_sec:
+			_playback_intro_remaining_sec -= intro_advance
+			_update_playback_time_label()
+			return
+		var overflow_delta := 0.0
+		if playback_speed > 0.0:
+			overflow_delta = (intro_advance - _playback_intro_remaining_sec) / playback_speed
+		_playback_intro_remaining_sec = 0.0
+		if overflow_delta <= 0.0:
+			_update_playback_time_label()
+			return
+		delta = overflow_delta
 	_playback.advance(delta)
+	_update_macro_cast_progress()
 	# advance() may finish the playback (nulling _playback) via its
 	# finished callback -- only refresh the readout while it's still live.
 	if _playback != null:
@@ -535,6 +580,12 @@ func _build_combat_window() -> PanelContainer:
 	_tavern_background_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_tavern_background_tint.visible = false
 	window.add_child(_tavern_background_tint)
+
+	_combat_stage = COMBAT_STAGE_SCRIPT.new()
+	_combat_stage.name = "CombatStage"
+	_combat_stage.safe_top_px = 132.0
+	_combat_stage.safe_bottom_px = 28.0
+	window.add_child(_combat_stage)
 
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 8)
@@ -655,11 +706,52 @@ func _build_enemy_hud() -> VBoxContainer:
 	_enemy_hud.add_theme_constant_override("separation", 4)
 
 	var name_row := HBoxContainer.new()
+	name_row.add_theme_constant_override("separation", 10)
 	_hud_name_label = Label.new()
 	_hud_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(_hud_name_label)
+
+	var values_row := HBoxContainer.new()
+	values_row.name = "CombatValuesRow"
+	values_row.add_theme_constant_override("separation", 14)
+	name_row.add_child(values_row)
+
+	var hp_icon := TextureRect.new()
+	hp_icon.name = "HealthIcon"
+	hp_icon.texture = HUD_HEALTH_ICON
+	hp_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
+	hp_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	hp_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hp_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	values_row.add_child(hp_icon)
 	_hud_hp_text_label = Label.new()
-	name_row.add_child(_hud_hp_text_label)
+	_hud_hp_text_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
+	values_row.add_child(_hud_hp_text_label)
+
+	var armor_icon := TextureRect.new()
+	armor_icon.name = "ArmorIcon"
+	armor_icon.texture = HUD_ARMOR_ICON
+	armor_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
+	armor_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	armor_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	armor_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	values_row.add_child(armor_icon)
+	_hud_info_label = Label.new()
+	_hud_info_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
+	values_row.add_child(_hud_info_label)
+
+	var poison_resist_icon := TextureRect.new()
+	poison_resist_icon.name = "PoisonResistIcon"
+	poison_resist_icon.texture = HUD_RESISTANCE_ICON
+	poison_resist_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
+	poison_resist_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	poison_resist_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	poison_resist_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	values_row.add_child(poison_resist_icon)
+	_hud_resist_label = Label.new()
+	_hud_resist_label.name = "ResistText"
+	_hud_resist_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
+	values_row.add_child(_hud_resist_label)
 	_enemy_hud.add_child(name_row)
 
 	_hud_health_bar = ProgressBar.new()
@@ -677,17 +769,12 @@ func _build_enemy_hud() -> VBoxContainer:
 	_hud_health_bar.add_theme_stylebox_override("fill", bar_fill)
 	_enemy_hud.add_child(_hud_health_bar)
 
-	# Status bar: a deliberately minimal placeholder region that will grow
-	# with future status mechanics. Empty pre-fight; carries small colored
-	# chips post-fight for effects that actually occurred. Reserved height so
-	# the HUD doesn't jump when chips appear.
 	_hud_status_row = HBoxContainer.new()
-	_hud_status_row.custom_minimum_size = Vector2(0, 16)
+	_hud_status_row.alignment = BoxContainer.ALIGNMENT_END
+	_hud_status_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hud_status_row.custom_minimum_size = Vector2(0, 26)
 	_hud_status_row.add_theme_constant_override("separation", 10)
 	_enemy_hud.add_child(_hud_status_row)
-
-	_hud_info_label = Label.new()
-	_enemy_hud.add_child(_hud_info_label)
 	return _enemy_hud
 
 
@@ -716,10 +803,15 @@ func _refresh_enemy_hud() -> void:
 	var enemy := _hud_pre_fight_monster()
 	if enemy == null:
 		_enemy_hud.visible = false
+		_update_combat_stage_target(null)
 		return
 	_set_enemy_hud_display(enemy.display_name, float(enemy.hp), enemy.hp, enemy.armor, enemy.poison_resistance)
 	_clear_hud_status_chips()
+	_add_hud_status_chip("x0", UIColors.TEXT_POISON, HUD_POISON_ICON)
+	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+	_add_hud_status_chip("x0", UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_enemy_hud.visible = true
+	_update_combat_stage_target(enemy)
 
 
 ## The monster the HUD should show before a fight, or null when the current
@@ -744,16 +836,13 @@ func _render_enemy_hud_post_fight() -> void:
 	var final_armor := _hud_final_armor(result, monster)
 	var final_resist := _hud_final_poison_resist(result, monster)
 	var peak_stacks := _hud_peak_poison_stacks(result.tick_events)
+	var shred_stacks := _hud_armor_reduction_cast_count(result.cast_events)
+	var decay_stacks := _hud_poison_resistance_reduction_cast_count(result.cast_events)
 	_set_enemy_hud_display(monster.display_name, remaining, monster.hp, final_armor, final_resist)
 	_clear_hud_status_chips()
-	if peak_stacks > 0:
-		_add_hud_status_chip("Poison x%d" % peak_stacks, UIColors.TEXT_POISON)
-	var armor_reduced := _hud_total_armor_reduction(result.cast_events)
-	if armor_reduced > 0:
-		_add_hud_status_chip("Armor -%d" % armor_reduced, UIColors.TEXT_WARNING)
-	var resist_reduced := monster.poison_resistance - final_resist
-	if resist_reduced > 0.001:
-		_add_hud_status_chip("Resist -%.0f%%" % (resist_reduced * 100.0), UIColors.TEXT_WARNING)
+	_add_hud_status_chip("x%d" % peak_stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
+	_add_hud_status_chip("x%d" % shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+	_add_hud_status_chip("x%d" % decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_enemy_hud.visible = true
 
 
@@ -761,10 +850,12 @@ func _set_enemy_hud_display(display_name: String, hp_remaining: float, hp_max: i
 	_hud_name_label.text = display_name
 	# ceili() so a not-quite-dead enemy never displays a misleading "0" --
 	# hp_remaining is only exactly 0.0 on a win (total damage >= HP).
-	_hud_hp_text_label.text = "HP %d/%d" % [ceili(hp_remaining), hp_max]
+	_hud_hp_text_label.text = "%d/%d" % [ceili(hp_remaining), hp_max]
 	_hud_health_bar.max_value = hp_max
 	_hud_health_bar.value = hp_remaining
-	_hud_info_label.text = "Armor: %d | Resist: %.0f%%" % [armor, poison_resistance * 100.0]
+	_hud_info_label.text = "%d" % armor
+	if _hud_resist_label != null:
+		_hud_resist_label.text = "%.0f%%" % (poison_resistance * 100.0)
 
 
 func _clear_hud_status_chips() -> void:
@@ -778,10 +869,15 @@ func _clear_hud_status_chips() -> void:
 		child.queue_free()
 
 
-func _add_hud_status_chip(text: String, color: Color) -> void:
+func _add_hud_status_chip(text: String, color: Color, icon: Texture2D = null) -> void:
+	if icon != null:
+		COMBAT_STATUS_ICONS.add_icon_label(_hud_status_row, icon, text, color, "StatusChip")
+		return
 	var chip := Label.new()
+	chip.name = "StatusChip"
 	chip.text = text
 	chip.add_theme_color_override("font_color", color)
+	chip.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	_hud_status_row.add_child(chip)
 
 
@@ -791,6 +887,7 @@ func _show_enemy_hud_post_fight(result: CombatResolver.CombatResult, monster: Mo
 	_hud_result = result
 	_hud_result_monster = monster
 	_refresh_enemy_hud()
+	_update_combat_stage_target(monster)
 
 
 ## Drops the stored post-fight result so the HUD returns to its pre-fight
@@ -800,6 +897,15 @@ func _reset_enemy_hud() -> void:
 	_hud_result = null
 	_hud_result_monster = null
 	_refresh_enemy_hud()
+
+
+func _update_combat_stage_target(monster: Monster) -> void:
+	if _combat_stage == null:
+		return
+	var enemy_name := "Enemy"
+	if monster != null:
+		enemy_name = monster.display_name
+	_combat_stage.configure("Rogue", enemy_name)
 
 
 ## Enemy HP left after the resolved fight, clamped to [0, monster.hp] --
@@ -817,6 +923,22 @@ func _hud_total_armor_reduction(cast_events: Array) -> int:
 	var total := 0
 	for event in cast_events:
 		total += event.armor_reduction_applied
+	return total
+
+
+func _hud_armor_reduction_cast_count(cast_events: Array) -> int:
+	var total := 0
+	for event in cast_events:
+		if event.armor_reduction_applied > 0:
+			total += 1
+	return total
+
+
+func _hud_poison_resistance_reduction_cast_count(cast_events: Array) -> int:
+	var total := 0
+	for event in cast_events:
+		if event.poison_resistance_reduction_applied > 0.0:
+			total += 1
 	return total
 
 
@@ -880,35 +1002,41 @@ func _build_victory_overlay() -> void:
 	add_child(_victory_overlay)
 
 	var backdrop := ColorRect.new()
-	backdrop.color = BACKDROP_COLOR
+	backdrop.name = "VictoryClickBlocker"
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.0)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_victory_overlay.add_child(backdrop)
 
-	# Deliberately NOT full-rect (unlike every other overlay's center wrapper)
-	# -- P2:R7 playtest feedback: centering over the whole screen put the
-	# banner in an odd spot well below the combat window, since the side
-	# columns run the full column height while the combat window is only the
-	# top portion of the center column. _show_victory_banner() repositions
-	# this to the combat window's own rect every time it's shown instead, so
-	# the banner reads as "popping up over the fight," not the whole screen.
-	var center := CenterContainer.new()
+	# Deliberately positioned over the combat window only: the screen-level
+	# overlay still blocks clicks, but the visible victory state belongs to
+	# the fight stage instead of reading as a separate full-screen modal.
+	var center := Control.new()
+	center.name = "VictoryCombatWindowOverlay"
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_victory_center = center
 	_victory_overlay.add_child(center)
 
+	var combat_dim := ColorRect.new()
+	combat_dim.name = "VictoryCombatDim"
+	combat_dim.color = Color(0.0, 0.0, 0.0, 0.58)
+	combat_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	combat_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_victory_combat_dim = combat_dim
+	center.add_child(combat_dim)
+
+	var content_center := CenterContainer.new()
+	content_center.name = "VictoryContentCenter"
+	content_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.add_child(content_center)
+
 	var stack := VBoxContainer.new()
 	stack.name = "VictoryStack"
-	stack.add_theme_constant_override("separation", 10)
-	center.add_child(stack)
-
-	var victory_panel := PanelContainer.new()
-	victory_panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox(24))
-	stack.add_child(victory_panel)
-
-	var victory_content := VBoxContainer.new()
-	victory_content.add_theme_constant_override("separation", 12)
-	victory_panel.add_child(victory_content)
+	stack.custom_minimum_size = Vector2(430, 0)
+	stack.add_theme_constant_override("separation", 12)
+	_victory_stack = stack
+	content_center.add_child(stack)
 
 	var banner_title := Label.new()
 	banner_title.text = "VICTORY!"
@@ -916,29 +1044,22 @@ func _build_victory_overlay() -> void:
 	banner_title.theme_type_variation = &"PanelHeader"
 	banner_title.add_theme_font_size_override("font_size", VICTORY_TITLE_FONT_SIZE)
 	banner_title.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
-	victory_content.add_child(banner_title)
+	stack.add_child(banner_title)
+
+	var top_rule := ColorRect.new()
+	top_rule.name = "VictoryTopRule"
+	top_rule.color = Color(CardStyle.ACCENT_COLOR.r, CardStyle.ACCENT_COLOR.g, CardStyle.ACCENT_COLOR.b, 0.72)
+	top_rule.custom_minimum_size = Vector2(0, 2)
+	stack.add_child(top_rule)
 
 	_victory_recap_label = Label.new()
-	victory_content.add_child(_victory_recap_label)
-
-	var reward_panel := PanelContainer.new()
-	reward_panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox(16))
-	stack.add_child(reward_panel)
-
-	var reward_content := VBoxContainer.new()
-	reward_content.add_theme_constant_override("separation", 10)
-	reward_panel.add_child(reward_content)
-
-	var reward_title := Label.new()
-	reward_title.text = "Rewards"
-	reward_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	reward_title.theme_type_variation = &"PanelHeader"
-	reward_title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	reward_content.add_child(reward_title)
+	_victory_recap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stack.add_child(_victory_recap_label)
 
 	_reward_label = Label.new()
 	_reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	reward_content.add_child(_reward_label)
+	_reward_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
+	stack.add_child(_reward_label)
 
 	var button_row := HBoxContainer.new()
 	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -950,7 +1071,7 @@ func _build_victory_overlay() -> void:
 	_continue_button = continue_button
 	button_row.add_child(_continue_button)
 
-	reward_content.add_child(button_row)
+	stack.add_child(button_row)
 
 
 func _show_victory_banner(result: CombatResolver.CombatResult, monster: Monster) -> void:
@@ -963,7 +1084,9 @@ func _show_victory_banner(result: CombatResolver.CombatResult, monster: Monster)
 	_reward_label.text = _reward_text()
 	_continue_button.disabled = BuildState.has_claimed_current_reward()
 	_position_victory_center_over_combat_window()
+	_prepare_victory_reveal_animation()
 	_victory_overlay.visible = true
+	_play_victory_reveal_animation()
 
 
 ## Recomputes _victory_center's rect from the combat window's current global
@@ -976,6 +1099,26 @@ func _position_victory_center_over_combat_window() -> void:
 	var overlay_origin := _victory_overlay.get_global_rect().position
 	_victory_center.position = window_rect.position - overlay_origin
 	_victory_center.size = window_rect.size
+
+
+func _prepare_victory_reveal_animation() -> void:
+	if _victory_combat_dim != null:
+		_victory_combat_dim.modulate.a = 0.0
+	if _victory_stack != null:
+		_victory_stack.modulate.a = 0.0
+		_victory_stack.scale = Vector2.ONE * 0.96
+		_victory_stack.pivot_offset = _victory_stack.size * 0.5
+
+
+func _play_victory_reveal_animation() -> void:
+	if _victory_combat_dim != null:
+		var dim_tween := create_tween()
+		dim_tween.tween_property(_victory_combat_dim, "modulate:a", 1.0, 0.18)
+	if _victory_stack != null:
+		var stack_tween := create_tween()
+		stack_tween.set_parallel(true)
+		stack_tween.tween_property(_victory_stack, "modulate:a", 1.0, 0.22)
+		stack_tween.tween_property(_victory_stack, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## P2:R7:T7 -- compact, buildcraft-focused fight recap shared by the win
@@ -2646,6 +2789,8 @@ func _on_fight_pressed() -> void:
 	# already renders the HUD's post-fight state, not a pre-fight flicker.
 	_show_enemy_hud_post_fight(result, monster)
 	BuildState.finish_fight(result.is_win)
+	if _combat_stage != null:
+		_combat_stage.play_outcome_pose(result.is_win, false)
 	_reveal_fight_outcome(result, monster)
 	_autosave()
 
@@ -2663,6 +2808,13 @@ func _apply_shadow_export_fallback(rotation: Array[Skill]) -> void:
 func _has_selected_tree(tree_id: String) -> bool:
 	for tree in BuildState.selected_trees:
 		if tree != null and tree.id == tree_id:
+			return true
+	return false
+
+
+func _equipped_gear_has_id(gear_id: String) -> bool:
+	for gear in BuildState.equipped_gear():
+		if gear != null and gear.id == gear_id:
 			return true
 	return false
 
@@ -2705,9 +2857,16 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 	_playback_resist = monster.poison_resistance
 	_playback_stacks = 0
 	_playback_armor_reduced = 0
+	_playback_shred_stacks = 0
+	_playback_decay_stacks = 0
 	_active_popups = 0
 	_active_tick_popups = 0
+	_popup_generation += 1
 	_popup_rng.randomize()
+	_update_combat_stage_target(monster)
+	_combat_stage.reset_state()
+	if _skill_build_panel != null and _skill_build_panel.has_method("clear_combat_highlight"):
+		_skill_build_panel.clear_combat_highlight()
 	# Lock out everything that would reveal or act on the outcome early. The
 	# build panels are already locked (build_locked stays true through the
 	# fight), and the enemy panel's FIGHT! button is already disabled because
@@ -2729,9 +2888,13 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 	# while _playback_active).
 	_set_enemy_hud_display(monster.display_name, float(monster.hp), monster.hp, monster.armor, monster.poison_resistance)
 	_clear_hud_status_chips()
+	_add_hud_status_chip("x0", UIColors.TEXT_POISON, HUD_POISON_ICON)
+	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+	_add_hud_status_chip("x0", UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_enemy_hud.visible = true
 	_playback = CombatPlayback.new()
 	_playback.event_callback = _on_playback_event
+	_playback.cast_start_callback = _on_playback_cast_start
 	_playback.finished_callback = _on_playback_finished
 	# Full window always plays on both a win and a loss (adjustment round 1,
 	# 2026-07-19) -- a win used to truncate at the recorded kill moment; the
@@ -2739,10 +2902,15 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 	# still land on the corpse. The HUD's HP bar clamps at 0 in
 	# _on_playback_event() so it never dips below dead or un-dies.
 	_playback.start(result)
+	_wyvern_kriss_effect_active = _equipped_gear_has_id("gear.legendary.wyvern_kriss")
+	if _combat_stage != null:
+		_combat_stage.set_bandit_blade_effect_active(_equipped_gear_has_id(_combat_stage.BANDIT_BLADE_ID))
 	# Session-persistent speed (adjustment round 2, 2026-07-19): initialize
 	# from the last speed the player chose instead of always defaulting back
 	# to 1x -- see _last_playback_speed's declaration.
 	_set_playback_speed(_last_playback_speed)
+	_playback_intro_duration_sec = _combat_stage.play_fight_intro(not instant_playback) if _combat_stage != null else 0.0
+	_playback_intro_remaining_sec = _playback_intro_duration_sec
 	_playback_controls.visible = true
 	_update_playback_time_label()
 	_update_header_status()
@@ -2757,7 +2925,11 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
 	if event.is_tick:
 		_playback_stacks = event.tick.stacks_remaining
+		if _combat_stage != null:
+			_combat_stage.set_poison_stacks(_playback_stacks, not _playback_skipping)
 		if event.tick.damage > 0.0:
+			if _combat_stage != null:
+				_combat_stage.play_poison_tick_pulse(not _playback_skipping)
 			_playback_hp = maxf(_playback_hp - event.tick.damage, 0.0)
 			_apply_playback_hp(PLAYBACK_TICK_HP_TWEEN_SEC)
 			# "Poison -N" (combat-playback adjustment round 2, 2026-07-19) --
@@ -2767,42 +2939,82 @@ func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
 			_spawn_skill_popup("Poison -%.0f" % event.tick.damage, PopupKind.POISON_TICK)
 	else:
 		var cast := event.cast
+		var popup_delay := 0.0
+		if _combat_stage != null:
+			popup_delay = _combat_stage.play_cast_impact(cast, not _playback_skipping)
+		if not cast.triggered_skill_names.is_empty() and _skill_build_panel != null and _skill_build_panel.has_method("highlight_rotation_index"):
+			_skill_build_panel.highlight_rotation_index(cast.rotation_index, true)
 		if cast.physical_damage > 0.0:
 			_playback_hp = maxf(_playback_hp - cast.physical_damage, 0.0)
 		_playback_armor -= cast.armor_reduction_applied
 		_playback_armor_reduced += cast.armor_reduction_applied
+		if cast.armor_reduction_applied > 0:
+			_playback_shred_stacks += 1
 		if cast.poison_resistance_reduction_applied > 0.0:
 			_playback_resist *= 1.0 - clampf(cast.poison_resistance_reduction_applied, 0.0, 1.0)
+			_playback_decay_stacks += 1
 		_playback_stacks = mini(_playback_stacks + cast.poison_stacks_applied, CombatResolver.MAX_POISON_STACKS)
+		if cast.poison_stacks_applied > 0:
+			if _combat_stage != null:
+				_combat_stage.set_poison_stacks(_playback_stacks, not _playback_skipping)
 		_apply_playback_hp(PLAYBACK_HP_TWEEN_SEC)
-		var skill_name := cast.skill.display_name if cast.skill != null else "Attack"
-		# Damage number appended in the same "-N" style poison ticks already
-		# use (combat-playback adjustment round 1, 2026-07-19) -- omitted
-		# only when the cast dealt no physical damage at all (a pure
-		# poison-stack/utility cast), so nothing renders "-0". The number is
-		# the event's full physical_damage, which already includes any
-		# triggered-skill damage folded into the same cast by the resolver
-		# (CombatResolver merges a trigger's hit into the source event rather
-		# than recording it separately) -- there is no per-trigger damage
-		# breakdown to attribute to the proc popup below without touching
-		# systems/, which is out of scope for this pass.
-		var damage_suffix := ""
-		if cast.physical_damage > 0.0:
-			damage_suffix = " -%.0f" % cast.physical_damage
-		if cast.is_crit:
-			_spawn_skill_popup("%s%s!" % [skill_name, damage_suffix], PopupKind.CRIT)
-		else:
-			_spawn_skill_popup("%s%s" % [skill_name, damage_suffix], PopupKind.NORMAL)
-		for triggered_name in cast.triggered_skill_names:
-			_spawn_skill_popup(String(triggered_name), PopupKind.PROC)
+		_schedule_cast_popups(cast, popup_delay)
 	_update_playback_hud_readout()
+
+
+func _on_playback_cast_start(cast: CombatResolver.CastEvent) -> void:
+	if _playback_skipping:
+		return
+	if _combat_stage != null:
+		_combat_stage.play_cast_windup(cast, _playback.speed if _playback != null else _last_playback_speed, true)
+	if _skill_build_panel != null and _skill_build_panel.has_method("set_cast_progress"):
+		_skill_build_panel.set_cast_progress(cast.rotation_index, 0.0, cast.min_cast_time_proc_applied)
+
+
+func _update_macro_cast_progress() -> void:
+	if _playback == null or _skill_build_panel == null or not _skill_build_panel.has_method("set_cast_progress"):
+		return
+	var cast := _playback.active_cast()
+	if cast == null:
+		return
+	_skill_build_panel.set_cast_progress(cast.rotation_index, _playback.active_cast_progress(), cast.min_cast_time_proc_applied)
+
+
+func _schedule_cast_popups(cast: CombatResolver.CastEvent, delay_sec: float) -> void:
+	var generation := _popup_generation
+	if delay_sec <= 0.0 or _playback_skipping:
+		_spawn_cast_popups(cast)
+		return
+	await get_tree().create_timer(delay_sec).timeout
+	if generation != _popup_generation or _playback_skipping:
+		return
+	_spawn_cast_popups(cast)
+
+
+func _spawn_cast_popups(cast: CombatResolver.CastEvent) -> void:
+	var skill_name := cast.skill.display_name if cast.skill != null else "Attack"
+	# Damage number appended in the same "-N" style poison ticks already
+	# use. The number is the event's full physical_damage, which already
+	# includes any triggered-skill damage folded into the same cast by the
+	# resolver; presentation splits the attack, but combat math stays merged.
+	var damage_suffix := ""
+	if cast.physical_damage > 0.0:
+		damage_suffix = " -%.0f" % cast.physical_damage
+	if cast.is_crit:
+		_spawn_skill_popup("%s%s!" % [skill_name, damage_suffix], PopupKind.CRIT)
+	elif cast.min_cast_time_proc_applied:
+		_spawn_skill_popup("%s%s PROC!" % [skill_name, damage_suffix], PopupKind.PROC)
+	else:
+		_spawn_skill_popup("%s%s" % [skill_name, damage_suffix], PopupKind.NORMAL)
+	for triggered_name in cast.triggered_skill_names:
+		_spawn_skill_popup(String(triggered_name), PopupKind.PROC)
 
 
 ## Updates the HP text immediately and tweens the bar to the new value --
 ## discrete per-hit chunks rather than one smooth constant drain. Skipping
 ## sets the value directly (no tween churn for dozens of events at once).
 func _apply_playback_hp(tween_sec: float) -> void:
-	_hud_hp_text_label.text = "HP %d/%d" % [ceili(_playback_hp), _playback_monster.hp]
+	_hud_hp_text_label.text = "%d/%d" % [ceili(_playback_hp), _playback_monster.hp]
 	if _hp_bar_tween != null and _hp_bar_tween.is_valid():
 		_hp_bar_tween.kill()
 	if _playback_skipping:
@@ -2816,15 +3028,13 @@ func _apply_playback_hp(tween_sec: float) -> void:
 ## values -- the real-time version of _render_enemy_hud_post_fight()'s
 ## chip logic, updating as each event lands.
 func _update_playback_hud_readout() -> void:
-	_hud_info_label.text = "Armor: %d | Resist: %.0f%%" % [_playback_armor, _playback_resist * 100.0]
+	_hud_info_label.text = "%d" % _playback_armor
+	if _hud_resist_label != null:
+		_hud_resist_label.text = "%.0f%%" % (_playback_resist * 100.0)
 	_clear_hud_status_chips()
-	if _playback_stacks > 0:
-		_add_hud_status_chip("Poison x%d" % _playback_stacks, UIColors.TEXT_POISON)
-	if _playback_armor_reduced > 0:
-		_add_hud_status_chip("Armor -%d" % _playback_armor_reduced, UIColors.TEXT_WARNING)
-	var resist_reduced := _playback_monster.poison_resistance - _playback_resist
-	if resist_reduced > 0.001:
-		_add_hud_status_chip("Resist -%.0f%%" % (resist_reduced * 100.0), UIColors.TEXT_WARNING)
+	_add_hud_status_chip("x%d" % _playback_stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
+	_add_hud_status_chip("x%d" % _playback_shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+	_add_hud_status_chip("x%d" % _playback_decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 
 
 ## Spawns one comic-book popup in the black combat panel: the text pops in,
@@ -2848,7 +3058,7 @@ func _spawn_skill_popup(text: String, kind: int) -> void:
 			font_size = POPUP_CRIT_FONT_SIZE
 			color = POPUP_CRIT_COLOR
 		PopupKind.POISON_TICK:
-			font_size = POPUP_TICK_FONT_SIZE
+			font_size = _poison_tick_font_size()
 			color = POPUP_TICK_COLOR
 		PopupKind.PROC:
 			font_size = POPUP_PROC_FONT_SIZE
@@ -2858,11 +3068,9 @@ func _spawn_skill_popup(text: String, kind: int) -> void:
 	_popup_layer.add_child(label)
 	label.reset_size()
 	label.pivot_offset = label.size * 0.5
-	var spawn_x := _popup_layer.size.x * 0.5 - label.size.x * 0.5 + _popup_rng.randf_range(-POPUP_JITTER_X_PX, POPUP_JITTER_X_PX)
-	var spawn_y := maxf(
-		_popup_layer.size.y * POPUP_BASE_Y_FRACTION + _popup_rng.randf_range(-POPUP_JITTER_Y_PX, POPUP_JITTER_Y_PX),
-		POPUP_TOP_MARGIN_PX
-	)
+	var spawn_position := _popup_spawn_position(kind, label.size)
+	var spawn_x := spawn_position.x
+	var spawn_y := spawn_position.y
 	label.position = Vector2(spawn_x, spawn_y)
 	_active_popups += 1
 	if kind == PopupKind.POISON_TICK:
@@ -2872,9 +3080,26 @@ func _spawn_skill_popup(text: String, kind: int) -> void:
 	if kind == PopupKind.CRIT:
 		label.scale = Vector2.ONE * POPUP_CRIT_PUNCH_SCALE
 		tween.tween_property(label, "scale", Vector2.ONE, POPUP_CRIT_PUNCH_SEC)
-	tween.tween_property(label, "position:y", spawn_y - POPUP_RISE_PX, POPUP_DURATION_SEC)
+	else:
+		label.scale = Vector2.ONE * 0.92
+		tween.tween_property(label, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	var rise_sec := POPUP_TICK_RISE_SEC if kind == PopupKind.POISON_TICK else POPUP_RISE_SEC
+	tween.tween_property(label, "position:y", spawn_y - POPUP_RISE_PX, rise_sec).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(label, "modulate:a", 0.0, POPUP_DURATION_SEC - POPUP_FADE_DELAY_SEC).set_delay(POPUP_FADE_DELAY_SEC)
 	tween.finished.connect(_on_popup_finished.bind(label, kind))
+
+
+func _popup_spawn_position(kind: int, label_size: Vector2) -> Vector2:
+	if kind == PopupKind.POISON_TICK and _combat_stage != null:
+		var enemy_local: Vector2 = _popup_layer.get_global_transform().affine_inverse() * _combat_stage.enemy_popup_global_position()
+		return Vector2(
+			enemy_local.x - label_size.x * 0.5 + _popup_rng.randf_range(-POPUP_POISON_TICK_JITTER_X_PX, POPUP_POISON_TICK_JITTER_X_PX),
+			maxf(enemy_local.y - label_size.y * 0.5 + _popup_rng.randf_range(-POPUP_POISON_TICK_JITTER_Y_PX, POPUP_POISON_TICK_JITTER_Y_PX), POPUP_TOP_MARGIN_PX)
+		)
+	return Vector2(
+		_popup_layer.size.x * 0.5 - label_size.x * 0.5 + _popup_rng.randf_range(-POPUP_JITTER_X_PX, POPUP_JITTER_X_PX),
+		maxf(_popup_layer.size.y * POPUP_BASE_Y_FRACTION + _popup_rng.randf_range(-POPUP_JITTER_Y_PX, POPUP_JITTER_Y_PX), POPUP_TOP_MARGIN_PX)
+	)
 
 
 func _on_popup_finished(label: Label, kind: int) -> void:
@@ -2882,6 +3107,10 @@ func _on_popup_finished(label: Label, kind: int) -> void:
 	if kind == PopupKind.POISON_TICK:
 		_active_tick_popups = maxi(_active_tick_popups - 1, 0)
 	label.queue_free()
+
+
+func _poison_tick_font_size() -> int:
+	return POPUP_WYVERN_TICK_FONT_SIZE if _wyvern_kriss_effect_active else POPUP_TICK_FONT_SIZE
 
 
 ## Sets the playback speed and disables the matching speed button so the
@@ -2907,6 +3136,8 @@ func _skip_playback() -> void:
 	if not _playback_active or _playback == null:
 		return
 	_playback_skipping = true
+	_popup_generation += 1
+	_playback_intro_remaining_sec = 0.0
 	_playback.skip()
 	_playback_skipping = false
 
@@ -2932,11 +3163,16 @@ func _on_playback_finished() -> void:
 	_playback_result = null
 	_playback_monster = null
 	_playback_active = false
+	if _skill_build_panel != null and _skill_build_panel.has_method("clear_combat_highlight"):
+		_skill_build_panel.clear_combat_highlight()
+	_playback_intro_remaining_sec = 0.0
+	_playback_intro_duration_sec = 0.0
 	_playback_controls.visible = false
-	_map_button.disabled = false
 	# Exact final HUD state (bar value, chips, info line) from the stored
 	# result -- the same rendering the instant path uses.
 	_show_enemy_hud_post_fight(result, monster)
+	if _combat_stage != null:
+		_combat_stage.play_outcome_pose(result.is_win, not instant_playback and not _playback_skipping)
 	# Brief pause so the last popup's float+fade finishes before the outcome
 	# reveal pops in on top of it (adjustment round 1). Skipped when Skip was
 	# pressed (_playback_skipping is still true here -- set before
@@ -2950,6 +3186,7 @@ func _on_playback_finished() -> void:
 	if not instant_playback and not _playback_skipping:
 		await get_tree().create_timer(PLAYBACK_OUTCOME_REVEAL_DELAY_SEC).timeout
 	_reveal_fight_outcome(result, monster)
+	_map_button.disabled = false
 	_update_header_status()
 
 

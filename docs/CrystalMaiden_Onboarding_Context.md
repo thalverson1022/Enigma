@@ -57,8 +57,14 @@ Current milestone status:
 - Milestone 0: Complete
 - Milestone 1: In Progress
 
-Milestone 1 is currently in Task 0 planning. Implementation has not started
-yet.
+Milestone 1 planning, M1:T1 controlled playback scenarios, M1:T2 combat
+stage/actor layer, M1:T3 sprite configuration, M1:T4 fallback-compatible Rogue
+vs Mouthy Drunk animation prototype, M1:T5 cast animation language, M1:T6
+attack timing, M1:T7 start-of-fight readability, M1:T8 hit/crit feedback,
+M1:T9 poison feedback, M1:T10 persistent enemy state feedback, M1:T11
+proc/minimum-cast feedback, and M1:T12 victory/defeat reveal timing are
+complete. M1:T13 placeholder asset mapping has partial progress, including
+enemy sprite mappings and Rogue skill icon mapping.
 
 Latest known pushed commit:
 
@@ -159,18 +165,20 @@ Combat and build systems:
 - `project/scripts/systems/build_resolver.gd`
 - `project/scripts/systems/combat_resolver.gd`
 - `project/scripts/ui/combat_playback.gd`
+- `project/scripts/ui/combat_stage.gd`
 - `project/scripts/systems/combat_result_formatter.gd`
 - `project/scripts/systems/combat_recap.gd`
 - `project/scripts/systems/gear_generator.gd`
 - `project/scripts/systems/run_rng.gd`
 - `project/scripts/systems/save_system.gd`
 - `project/scripts/tools/balance_lab.gd`
+- `project/tests/helpers/combat_playback_scenarios.gd`
 
 Key docs:
 
 - `docs/Phase_3_CrystalMaiden_Milestones.md`
-- `docs/Phase_3_Current_State_Audit_Checklist.md`
-- `docs/Phase_3_Milestone_1_Task_0_Combat_Playback_Plan.md`
+- `docs/Phase_3_Milestone_0_Planning_And_Phase_Setup.md`
+- `docs/Phase_3_Milestone_1_Combat_Playback_Juice.md`
 - `docs/Phase_3_Context/Game_Summary_And_Phase_3_Brief.md`
 - `docs/Phase_3_Context/Mechanics_And_Balance_Glossary.md`
 - `docs/Phase_3_Context/Phase_2_Closeout_Review.md`
@@ -189,7 +197,7 @@ Completed:
 - Cleaned Phase 3 docs to the handoff/planning set.
 - Approved Phase 3 milestone structure.
 - Completed current-state audit.
-- Created Milestone 1 Task 0 planning doc.
+- Created the Milestone 1 tasking doc.
 
 Focused baseline checks passed after a one-time Godot import:
 
@@ -217,11 +225,104 @@ Goal:
 
 Current state:
 
-- Task 0 planning doc exists.
-- Implementation tasks have not started.
+- Milestone 1 planning is complete.
+- M1:T1 controlled playback scenarios are complete.
+- M1:T2 combat stage and actor layer is complete.
+- M1:T3 combat sprite configuration is in place; purchased RogueBandit and
+  Townsfolk PNGs were copied into `project/assets/placeholder_combat_sprites/`
+  on 2026-07-26 and imported by Godot.
+- M1:T4 fallback-compatible Rogue vs Mouthy Drunk animation implementation and
+  sprite-region tuning are complete.
+- M1:T5 cast animation language is complete, mapping physical casts, poison
+  casts, poison-themed utility casts, poison ticks, and minimum-cast procs to
+  distinct presentation paths without changing combat math.
+- M1:T6 attack timing is complete enough for the current pass: attack
+  presentation now lasts long enough for the selected Rogue animation to finish.
+- M1:T7 start-of-fight readability is complete: Adventure and Training Room
+  both play a short shared visual pre-roll before the resolved combat timeline
+  advances, keeping the combat clock and HUD at pre-fight values until the
+  first event can legitimately fire.
+- M1:T8 hit/crit feedback is complete for the current pass: enemy recoil/hurt
+  timing begins on the second-to-last Rogue attack frame, shared contact
+  flashes distinguish regular hits from larger gold crits, crit recoil is
+  stronger, and Training Room crit popups now mirror Adventure's gold emphasis.
+- M1:T9 poison feedback is complete for the current pass: poison-applying casts
+  deepen the enemy's green tint based on active stacks while HUD/status chips
+  track the stack count, and damaging poison ticks use smaller green
+  enemy-centered damage-over-time pulse/text feedback.
+- M1:T10 persistent enemy state feedback is complete for the current pass:
+  combat-window HP, current armor, current resistance, poison stacks, Shred
+  stacks, and Decay stacks now use persistent icon/value language. The selected
+  placeholder heart, metal shield, resistance, poison, shred, and decay icons
+  live under `project/assets/combat_ui_icons/`. Shred and Decay are
+  presentation keywords for planned future mechanics language; this pass does
+  not change combat math. Poison, Shred, and Decay counters remain visible at
+  `x0` before they are active. Floating combat text was intentionally left
+  unchanged.
+- M1:T11 proc/minimum-cast feedback is complete for the current pass:
+  triggered skills and retriggers now present as the normal source attack plus
+  a fast follow-up attack; minimum-cast procs compress the source attack to max
+  speed; Adventure and Training Room damage popups now wait for contact timing
+  instead of appearing at cast-event start; and the Skill Build strip highlights
+  and fills the current macro slot from cast start through contact, pulsing the
+  source slot for triggered/retriggered casts. Bejeweled Push Dagger
+  minimum-cast procs remain a single fast attack with purple proc-styled damage
+  text and a purple macro fill. Bandit Blade has a first-pass always-on combat
+  effect that reuses the Lucky Coin asset as a restrained 3-coin physical-hit
+  spray, with 5 coins on crits, at contact timing. Wyvern Kriss has a
+  first-pass always-on combat effect that makes poison tick text smaller while
+  equipped. Umbral Stiletto intentionally has no extra combat overlay because
+  Death Strike is the visible Legendary payoff. Karambit retriggers
+  were verified not to skip the next macro attack; a same-timestamp playback
+  ordering tweak keeps the next cast-start highlight from being visually hidden
+  by the retrigger pulse. `CastEvent.cast_start_ms` and
+  `CastEvent.rotation_index` were added as presentation metadata and do not
+  change combat math.
+- M1:T12 victory/defeat reveal timing is complete for the current pass:
+  Adventure and Training Room now land on a shared terminal outcome beat before
+  the result UI or Training Room finished signal resolves during natural
+  playback. Victory uses the configured enemy defeat pose plus a restrained
+  gold stage flash; the win result now uses the Option 3 integrated transition,
+  dimming only the combat window while `VICTORY!`, recap, rewards, and
+  `Claim Rewards` fade/scale into the same combat-window area over the still-
+  visible Rogue/defeated enemy stage. Defeat uses the Rogue hurt/defeat
+  presentation plus a restrained red stage flash. Adventure keeps outcome UI,
+  combat log access, and Map locked during the natural reveal hold, then
+  unlocks them together when the result is revealed. Skip remains instant,
+  suppresses delayed popups, and still snaps actors to the correct outcome
+  pose. This pass is presentation-only and does not change combat math, event
+  ordering, BuildState mutation timing, autosave timing, or Training Room
+  damage accounting.
+- Cast windup alignment has been added as a follow-up Milestone 1 playback
+  polish adjustment: Skill Build slot fill now represents the source cast
+  windup, Rogue attack animation begins during that fill, and the animation
+  contact frame aligns with `CastEvent.time_ms` when the slot completes.
+  Enemy recoil, Bandit Blade coins, HUD damage, and damage popups remain tied
+  to the resolved cast event. Triggered follow-up popups still wait for the
+  fast follow-up hit beat. The playback controller now interleaves cast-start
+  callbacks and cast/tick events by timestamp while preserving prior
+  cast-end-before-next-cast-start ordering at exact same-timestamp boundaries.
+- M1:T13 placeholder asset mapping is partially complete: current Tavern and
+  contract enemies have configured combat sprites, and the remaining current
+  fight targets reuse the Hired Goon visual until bespoke art is assigned.
+- M1:T13 also now includes a first Rogue skill icon pass: selected RPG Icon
+  Pack icons were copied into `project/assets/skill_icons/rogue/`, `Skill`
+  gained an optional `icon` texture field while preserving `icon_letter`
+  fallback behavior, the eight current Rogue skills were mapped to named icon
+  assets, Available Skills now shows icon+name buttons, and Skill Build macro
+  slots now render icon-backed skills without changing rotation behavior,
+  combat timing, or combat math.
+- Documentation has been consolidated to one Phase 3 overview document and one
+  document per started milestone. Avoid adding per-task docs; update the
+  relevant milestone document instead.
 
 Milestone 1 should focus on:
 
+- Controlled playback scenarios for the major combat event types.
+- A combat stage and actor layer.
+- Placeholder Rogue and Mouthy Drunk animation using purchased sprite assets.
+- Cast-to-animation mapping for physical-only and poison-themed attacks.
+- Attack timing that fits cast duration without changing combat math.
 - Start-of-fight readability.
 - Hit and crit feedback.
 - Poison stack and poison tick feedback.
@@ -235,17 +336,124 @@ Milestone 1 should focus on:
 Likely implementation files:
 
 - `project/scripts/ui/combat_playback.gd`
+- `project/scripts/ui/combat_stage.gd`
+- `project/scripts/systems/combat_resolver.gd`
+- `project/scenes/combat/skill_build_panel.gd`
 - `project/scenes/combat/combat_screen.gd`
+- `project/scenes/training_room/training_room.gd`
 - `project/scenes/training_room/training_room_combat_view.gd`
+- `project/tests/helpers/combat_playback_scenarios.gd`
 - `project/tests/combat_playback_test.gd`
 - `project/tests/combat_hud_test.gd`
 - `project/tests/training_room_combat_view_test.gd`
 
 Recommended next action:
 
-- Continue Milestone 1 Task 0 by choosing the first small implementation
-  slice, likely start-of-fight readability plus clearer event-type visual
-  language.
+- M1:T13 placeholder asset mapping has useful partial progress. Continue with
+  remaining asset mapping/polish or M1:T14 verification/documentation cleanup.
+
+Latest focused checks:
+
+- M1:T13 Rogue skill icon focused checks passed on 2026-07-30 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - Direct `project.godot --import`: Pass; generated import metadata for the
+    eight new skill icon PNGs.
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/rotation_cap_test.gd`: Pass.
+  - `res://tests/training_room_build_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion. The first sandboxed
+    run failed only on that known assertion.
+- M1:T12 focused checks passed on 2026-07-29 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion. The first sandboxed
+    run failed only on that known assertion.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+- Cast windup alignment focused checks passed on 2026-07-29 using the same
+  Godot executable and explicit workspace `--log-file` paths:
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion. The first sandboxed
+    run failed only on that known assertion.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+- Integrated combat-window victory transition focused checks passed on
+  2026-07-29 using the same Godot executable and explicit workspace
+  `--log-file` paths:
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion. The first sandboxed
+    run failed only on that known assertion.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/run_outcome_presentation_test.gd`: Pass.
+  - `res://tests/combat_recap_test.gd`: Pass.
+- `res://tests/combat_playback_test.gd`: Pass.
+- `res://tests/combat_hud_test.gd`: Pass.
+- `res://tests/training_room_combat_view_test.gd`: Pass.
+- `res://tests/build_panels_test.gd`: Pass.
+- `res://tests/combat_screen_test.gd`: Pass.
+- M1:T11 focused checks passed on 2026-07-29 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/legendary_mechanics_test.gd`: Pass for Karambit macro order.
+  - Final Bandit Blade coin-position/timing and Wyvern Kriss smaller-poison-
+    tick checks also passed in `combat_playback_test.gd`,
+    `training_room_combat_view_test.gd`, and `combat_screen_test.gd`.
+- Earlier baseline:
+  - `res://tests/combat_recap_test.gd`: Pass.
+- M1:T10 focused checks passed on 2026-07-29 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths after a direct `project.godot --import` pass
+  imported the new combat UI icon PNGs:
+  - `res://tests/combat_playback_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+- M1:T9 focused checks passed on 2026-07-29 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_playback_test.gd`: Pass.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass after rerunning outside the sandbox
+    because the sandboxed `--path` invocation exited before creating its log.
+  - The direct `project.godot` invocation was not a valid substitute for the
+    HUD check because it did not load normal project autoloads.
+- M1:T8 focused checks passed on 2026-07-28 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+- M1:T3 through M1:T6 Godot import and focused checks completed using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe`.
+- `res://tests/combat_playback_test.gd`: Pass after running outside the
+  sandbox so the autosave assertion can access normal user data.
+- `res://tests/combat_hud_test.gd`: Pass.
+- `res://tests/training_room_combat_view_test.gd`: Pass.
+- M1:T7 focused checks passed on 2026-07-28 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe`.
+- Godot still prints the known ObjectDB/resource cleanup warnings at exit even
+  when checks pass.
+- Godot 4.7 crashed with `--path project --import` in this shell; importing by
+  passing the direct `project.godot` file worked.
+- Focused M1:T2 checks used explicit `--log-file` paths because the default
+  Godot `user://logs` path crashed while another Godot process was running.
+- This machine also printed a Windows root-certificate-store warning during
+  focused headless test runs.
 
 ## Working Agreements
 

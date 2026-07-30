@@ -107,6 +107,21 @@ func _initialize() -> void:
 		if child is Label and child.text == "x":
 			has_remove_badge = true
 	_require(has_remove_badge, "Expected an explicit 'x' remove badge on an unlocked rotation slot.")
+	skill_build_panel.highlight_rotation_index(1)
+	var highlighted_slot: Button = skill_build_panel._slots_box.get_child(1)
+	var highlighted_style: StyleBoxFlat = highlighted_slot.get_theme_stylebox("normal")
+	_require(highlighted_style.border_color == skill_build_panel.ACTIVE_SLOT_COLOR, "Expected combat playback to highlight the active macro slot.")
+	skill_build_panel.set_cast_progress(1, 0.5)
+	_require(is_equal_approx(skill_build_panel._slot_fills[1].anchor_right, 0.5), "Expected active macro slot fill to show cast progress.")
+	_require(is_equal_approx(skill_build_panel._slot_fills[0].anchor_right, 0.0), "Expected inactive macro slots to stay empty.")
+	skill_build_panel.set_cast_progress(1, 1.0, true)
+	_require(skill_build_panel._slot_fills[1].color == skill_build_panel.PROC_PROGRESS_FILL_COLOR, "Expected proc/min-cast progress to use the purple fill.")
+	skill_build_panel.highlight_rotation_index(1, true)
+	highlighted_style = highlighted_slot.get_theme_stylebox("normal")
+	_require(highlighted_style.border_color == skill_build_panel.PULSE_SLOT_COLOR, "Expected proc/retrigger playback to pulse the active macro slot.")
+	skill_build_panel.clear_combat_highlight()
+	highlighted_style = highlighted_slot.get_theme_stylebox("normal")
+	_require(highlighted_style.border_color == CardStyle.ACCENT_COLOR, "Expected clearing playback to restore the normal slot border.")
 
 	# Locking the build hides the remove badge (clicking does nothing then).
 	build_state.set_locked(true)

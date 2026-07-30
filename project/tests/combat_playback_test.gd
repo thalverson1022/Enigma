@@ -13,15 +13,22 @@ extends SceneTree
 
 
 var _failed := false
+const CombatPlaybackScenarios := preload("res://tests/helpers/combat_playback_scenarios.gd")
+const CombatStageScript := preload("res://scripts/ui/combat_stage.gd")
 
 
 func _initialize() -> void:
 	_check_controller_timeline_and_speed()
 	_check_controller_skip_and_single_finish()
 	_check_controller_event_ordering()
+	_check_controller_cast_start_callback()
 	_check_controller_win_truncation()
+	_check_m1_t1_controlled_playback_scenarios()
+	await _check_m1_t4_combat_stage_animation_mapping()
 	await _check_live_playback_win()
+	await _check_natural_playback_win_reveal_timing()
 	await _check_live_playback_loss()
+	await _check_natural_playback_loss_reveal_timing()
 	await _check_playback_speed_persists()
 	if _failed:
 		print("Combat playback check: FAILED")
@@ -159,6 +166,46 @@ func _check_controller_event_ordering() -> void:
 	_require(cast_count == result.cast_events.size() and tick_count == result.tick_events.size(), "Expected cast/tick counts to match the result.")
 
 
+func _check_controller_cast_start_callback() -> void:
+	print("-- Controller cast-start callback: macro highlight timing precedes damage events --")
+	var result := _known_loss_result()
+	_require(result.cast_events.size() >= 2, "Expected at least two casts in the known fight.")
+	_require(result.cast_events[0].cast_start_ms == 0, "Expected the first cast to begin at combat time zero.")
+	_require(result.cast_events[0].time_ms == result.cast_events[1].cast_start_ms, "Expected the next macro slot to start when the previous cast completes.")
+
+	var starts: Array[CombatResolver.CastEvent] = []
+	var events: Array = []
+	var callback_order: PackedStringArray = []
+	var playback := CombatPlayback.new()
+	playback.cast_start_callback = func(cast):
+		starts.append(cast)
+		callback_order.append("start:%d" % cast.rotation_index)
+	playback.event_callback = func(event):
+		events.append(event)
+		if not event.is_tick:
+			callback_order.append("end:%d" % event.cast.rotation_index)
+	playback.start(result)
+	playback.advance(0.01)
+	_require(starts.size() == 1, "Expected the first macro slot to highlight at cast start before its damage event.")
+	_require(events.is_empty(), "Expected no damage event when only the first cast start has fired.")
+	_require(playback.active_cast() == result.cast_events[0], "Expected the first cast to be the active macro cast during its windup.")
+	_require(playback.active_cast_progress() > 0.0 and playback.active_cast_progress() < 1.0, "Expected active cast progress to report partial windup.")
+	playback.advance(float(result.cast_events[0].time_ms) / 1000.0 - 0.01)
+	_require(starts.size() >= 2, "Expected the second macro slot to highlight at the first cast's end/start boundary.")
+	_require(not events.is_empty(), "Expected the first cast-end event to fire at that same boundary.")
+	_require(playback.active_cast() == result.cast_events[1], "Expected the next cast to become active at the shared cast-end/start boundary.")
+	_require(is_equal_approx(playback.active_cast_progress(), 0.0), "Expected the next cast's progress fill to start empty.")
+	var first_cast_event = null
+	for event in events:
+		if not event.is_tick:
+			first_cast_event = event
+			break
+	_require(first_cast_event != null and first_cast_event.cast == result.cast_events[0], "Expected the first cast-end event to remain the first cast.")
+	var first_end_index := callback_order.find("end:%d" % result.cast_events[0].rotation_index)
+	var second_start_index := callback_order.find("start:%d" % result.cast_events[1].rotation_index)
+	_require(first_end_index >= 0 and second_start_index > first_end_index, "Expected same-timestamp cast-end/proc presentation to resolve before the next macro slot highlight wins.")
+
+
 func _check_controller_win_truncation() -> void:
 	print("-- Controller full-window playback: a win plays out the entire window, not just to the kill --")
 	# Renamed from "win truncation" (adjustment round 1, 2026-07-19): the
@@ -205,6 +252,269 @@ func _check_controller_win_truncation() -> void:
 	_require(playback.is_finished(), "Expected the full-window timeline to finish.")
 
 
+func _check_m1_t1_controlled_playback_scenarios() -> void:
+	print("-- M1:T1 controlled playback scenarios cover major presentation event types --")
+	var ids := CombatPlaybackScenarios.ids()
+	_require(ids.size() == 12, "Expected M1:T1 to define every approved controlled playback scenario.")
+	var seen := {}
+	for id in ids:
+		_require(not seen.has(id), "Expected scenario ids to be unique: %s." % id)
+		seen[id] = true
+		var scenario: Dictionary = CombatPlaybackScenarios.build(id)
+		_require(not scenario.is_empty(), "Expected scenario %s to build." % id)
+		var result: CombatResolver.CombatResult = scenario["result"]
+		var monster: Monster = scenario["monster"]
+		var tags: PackedStringArray = scenario["tags"]
+		_require(result.duration_ms == scenario["duration_ms"], "Expected %s duration to match its fixture." % id)
+		_require(result.cast_events.size() + result.tick_events.size() > 0, "Expected %s to produce playback events." % id)
+		_require(_scenario_has_tags(result, monster, tags), "Expected %s to satisfy its presentation tags: %s." % [id, tags])
+
+		var delivered: Array = []
+		var playback := CombatPlayback.new()
+		playback.event_callback = func(event): delivered.append(event)
+		playback.start(result)
+		playback.skip()
+		_require(delivered.size() == result.cast_events.size() + result.tick_events.size(), "Expected %s playback to deliver every event." % id)
+		_require(is_equal_approx(playback.damage_dealt(), result.total_damage), "Expected %s playback damage to match resolved total damage." % id)
+		for i in range(1, delivered.size()):
+			_require(delivered[i - 1].time_ms <= delivered[i].time_ms, "Expected %s playback events to stay time-ordered." % id)
+		var rotation_size: int = scenario["rotation"].size()
+		for event in delivered:
+			if event.is_tick:
+				continue
+			_require(event.cast.rotation_index >= 0 and event.cast.rotation_index < rotation_size, "Expected %s cast rotation index to point at the source macro slot." % id)
+
+
+func _check_m1_t4_combat_stage_animation_mapping() -> void:
+	print("-- M1:T4 combat stage maps casts, ticks, and outcomes to presentation states --")
+	var stage = CombatStageScript.new()
+	root.add_child(stage)
+	await process_frame
+	stage.size = Vector2(640, 360)
+	stage.configure("Rogue", "Mouthy Drunk")
+	stage.reset_state()
+	_require(is_equal_approx(stage._player_animation_frame_sec, 0.15), "Expected Rogue idle animation to use the slower 150ms frame cadence.")
+	_require(stage.PEASANT_ANCHOR_POINT == Vector2(16, 16), "Expected enemy sprite pivot to sit at the center of its 32x32 frame.")
+	_require(stage.ENEMY_STAGE_GRID == Vector2(1, 1), "Expected enemy sprite to target grid point (1, 1).")
+	var enemy_target_point: Vector2 = stage._stage_point_for_grid(stage.ENEMY_STAGE_GRID)
+	var enemy_sprite_anchor: Vector2 = stage._sprite_anchor_point(stage.enemy_actor_anchor, stage._enemy_sprite, stage.PEASANT_ANCHOR_POINT)
+	_require(enemy_sprite_anchor.distance_to(enemy_target_point) < 0.01, "Expected the enemy sprite anchor to land on its grid target without a pixel offset.")
+	var intro_duration := stage.play_fight_intro(false)
+	_require(stage.fight_intro_count == 1, "Expected the stage to record a start-of-fight intro beat.")
+	_require(is_equal_approx(intro_duration, 0.0), "Expected non-animated intro calls to finish instantly for headless checks.")
+	_require(is_equal_approx(stage.last_fight_intro_duration_sec, CombatStageScript.FIGHT_INTRO_SEC), "Expected the intro beat to expose its authored duration.")
+
+	var physical_cast := CombatResolver.CastEvent.new()
+	physical_cast.skill = load("res://data/skills/stab.tres")
+	physical_cast.physical_damage = 12.0
+	physical_cast.cast_start_ms = 0
+	physical_cast.time_ms = 700
+	stage.play_cast_windup(physical_cast, 1.0, false)
+	_require(stage.cast_animation_count == 1, "Expected a physical cast to record one stage animation.")
+	_require(stage.cast_windup_count == 1, "Expected a physical cast to record one windup animation.")
+	_require(stage.last_cast_animation_kind == CombatStageScript.ANIMATION_PHYSICAL, "Expected Stab to map to the physical Rogue attack language.")
+	_require(stage.last_player_animation_key == "attack_physical", "Expected a physical cast to select Rogue attack1 frame animation.")
+	_require(stage.last_player_animation_frame_count == 6, "Expected Rogue attack1 to expose its 6 fixed-size frames.")
+	_require(is_equal_approx(stage._player_animation_duration_sec("attack_physical"), 0.6), "Expected Rogue attack1 to last 0.6s at its manifest cadence.")
+	_require(stage._presentation_duration_for_cast(physical_cast, 1.0, "attack_physical") >= 0.6, "Expected physical cast presentation to last long enough for attack1 to finish.")
+	_require(is_equal_approx(stage._player_animation_contact_sec("attack_physical"), 0.4), "Expected attack1 contact timing to land on its second-to-last frame.")
+	_require(is_equal_approx(stage.last_cast_windup_duration_sec, 0.7), "Expected physical windup to track the cast-start-to-cast-end duration.")
+	_require(is_equal_approx(stage.last_cast_contact_delay_sec, 0.7), "Expected physical contact to align with cast completion.")
+	_require(is_equal_approx(stage.last_cast_animation_start_delay_sec, 0.3), "Expected attack1 to start late enough that contact lands as the slot fills.")
+
+	var poison_cast := CombatResolver.CastEvent.new()
+	poison_cast.skill = load("res://data/skills/poison_strike.tres")
+	poison_cast.physical_damage = 15.0
+	poison_cast.poison_stacks_applied = 1
+	poison_cast.cast_start_ms = 0
+	poison_cast.time_ms = 1200
+	stage.play_cast_windup(poison_cast, 1.0, false)
+	_require(stage.cast_animation_count == 2, "Expected a poison cast to record another stage animation.")
+	_require(stage.last_cast_animation_kind == CombatStageScript.ANIMATION_POISON, "Expected Poison Strike to map to the poison Rogue attack language.")
+	_require(stage.last_player_animation_key == "attack_poison", "Expected a poison cast to select Rogue attack2 frame animation.")
+	_require(stage.last_player_animation_frame_count == 12, "Expected Rogue attack2 to expose its 12 normalized frames.")
+	_require(is_equal_approx(stage._player_animation_duration_sec("attack_poison"), 1.2), "Expected Rogue attack2 to last 1.2s at its manifest cadence.")
+	_require(stage._presentation_duration_for_cast(poison_cast, 1.0, "attack_poison") >= 1.2, "Expected poison cast presentation to last long enough for attack2 to finish.")
+	_require(is_equal_approx(stage._player_animation_contact_sec("attack_poison"), 1.0), "Expected attack2 contact timing to land on its second-to-last frame.")
+	_require(is_equal_approx(stage.last_cast_windup_duration_sec, 1.2), "Expected poison windup to track the cast-start-to-cast-end duration.")
+	_require(is_equal_approx(stage.last_cast_contact_delay_sec, 1.2), "Expected poison contact to align with cast completion.")
+	_require(is_equal_approx(stage.last_cast_animation_start_delay_sec, 0.2), "Expected attack2 to start late enough that contact lands as the slot fills.")
+
+	var poison_theme_cast := CombatResolver.CastEvent.new()
+	poison_theme_cast.skill = load("res://data/skills/beguiling_strike.tres")
+	poison_theme_cast.physical_damage = 4.0
+	poison_theme_cast.time_ms = 700
+	stage.play_cast_windup(poison_theme_cast, 1.0, false)
+	_require(stage.cast_animation_count == 3, "Expected a poison-themed utility cast to record one source-cast animation.")
+	_require(stage.last_cast_animation_kind == CombatStageScript.ANIMATION_POISON, "Expected poison-resist skills to use the poison Rogue attack language even when no stack is applied.")
+
+	var poison_damage_effect := PoisonDamageEffect.new()
+	poison_damage_effect.stacks_applied = 1
+	var neutral_poison_skill := Skill.new()
+	neutral_poison_skill.id = "skill.neutral_dot"
+	neutral_poison_skill.display_name = "Needle Jab"
+	neutral_poison_skill.effects.append(poison_damage_effect)
+	var poison_damage_cast := CombatResolver.CastEvent.new()
+	poison_damage_cast.skill = neutral_poison_skill
+	poison_damage_cast.physical_damage = 3.0
+	poison_damage_cast.time_ms = 700
+	stage.play_cast_windup(poison_damage_cast, 1.0, false)
+	_require(stage.cast_animation_count == 4, "Expected a poison-damage attack to record one source-cast animation.")
+	_require(stage.last_cast_animation_kind == CombatStageScript.ANIMATION_POISON, "Expected any attack with poison damage to use the poison Rogue attack language.")
+	_require(stage.last_player_animation_key == "attack_poison", "Expected any attack with poison damage to select Rogue attack2.")
+
+	var min_cast_proc := CombatResolver.CastEvent.new()
+	min_cast_proc.skill = load("res://data/skills/stab.tres")
+	min_cast_proc.physical_damage = 12.0
+	min_cast_proc.min_cast_time_proc_applied = true
+	min_cast_proc.cast_start_ms = 0
+	min_cast_proc.time_ms = 180
+	stage.play_cast_windup(min_cast_proc, 1.0, false)
+	_require(stage.cast_animation_count == 5, "Expected a minimum-cast proc to stay attached to its source cast, not spawn an extra attack.")
+	_require(stage.last_cast_animation_kind == CombatStageScript.ANIMATION_PHYSICAL, "Expected a physical minimum-cast proc source to keep the physical Rogue attack language.")
+	_require(stage.last_cast_min_cast_proc_was_timing_event, "Expected minimum-cast procs to be recorded as timing events on the source cast.")
+	_require(is_equal_approx(stage._presentation_duration_for_cast(min_cast_proc, 1.0, "attack_physical"), CombatStageScript.MIN_CAST_ANIMATION_SEC), "Expected minimum-cast procs to compress the source attack animation to max speed.")
+	_require(is_equal_approx(stage.last_cast_contact_delay_sec, 0.18), "Expected minimum-cast proc contact to align with the short slot fill.")
+
+	var triggered_cast := CombatResolver.CastEvent.new()
+	triggered_cast.skill = load("res://data/skills/stab.tres")
+	triggered_cast.physical_damage = 42.0
+	triggered_cast.triggered_skill_names = PackedStringArray(["Stab"])
+	triggered_cast.cast_start_ms = 0
+	triggered_cast.time_ms = 700
+	stage.play_cast_windup(triggered_cast, 1.0, false)
+	var triggered_contact_delay := stage.play_cast_impact(triggered_cast, true)
+	_require(stage.last_cast_triggered_followup_count == 1, "Expected triggered skill casts to request one fast follow-up attack.")
+	_require(triggered_contact_delay > 0.0 and triggered_contact_delay < stage.TRIGGERED_FOLLOWUP_ANIMATION_SEC, "Expected triggered-skill damage text timing to wait for the fast follow-up hit beat.")
+	stage.reset_state()
+
+	stage.play_cast_windup(physical_cast, 1.0, true)
+	_require(stage.contact_feedback_count == 0, "Expected cast windup to animate the Rogue without triggering enemy contact feedback early.")
+	stage.play_cast_impact(physical_cast, true)
+	_require(is_equal_approx(stage.last_enemy_recoil_delay_sec, 0.0), "Expected physical hit recoil to start exactly when the cast event fires.")
+	_require(stage.contact_feedback_count == 1, "Expected a physical impact to schedule one enemy contact reaction.")
+	_require(not stage.last_contact_feedback_was_crit, "Expected a regular physical hit to use non-crit enemy recoil.")
+	_require(stage.bandit_coin_spray_count == 0, "Expected ordinary physical hits to skip Bandit Blade coin particles when the Legendary is not active.")
+	stage.set_bandit_blade_effect_active(true)
+	stage.play_cast_windup(physical_cast, 1.0, true)
+	var early_coin_particles := 0
+	for child in stage.get_children():
+		if String(child.name).begins_with("BanditCoinParticle"):
+			early_coin_particles += 1
+	_require(early_coin_particles == 0, "Expected Bandit Blade coins to wait for cast impact instead of appearing during windup.")
+	stage.play_cast_impact(physical_cast, true)
+	_require(stage.bandit_coin_spray_count == 1, "Expected Bandit Blade to add one subtle coin spray to a physical hit.")
+	_require(stage.last_bandit_coin_count == stage.BANDIT_COIN_NORMAL_COUNT, "Expected normal Bandit Blade hits to use the restrained coin count.")
+	stage.play_cast_windup(poison_cast, 1.0, true)
+	stage.play_cast_impact(poison_cast, true)
+	_require(is_equal_approx(stage.last_enemy_recoil_delay_sec, 0.0), "Expected poison hit recoil to start exactly when the cast event fires.")
+	_require(stage.contact_feedback_count == 3, "Expected the poison hit to schedule another enemy contact reaction.")
+	stage.set_poison_stacks(poison_cast.poison_stacks_applied, false)
+	_require(stage.poison_stack_tint_updates == 1, "Expected poison stack application to update the shared enemy tint.")
+	_require(stage.last_poison_stack_tint_stacks == 1, "Expected poison stack tint to record the active stack count.")
+	_require(stage.enemy_actor_anchor.modulate != Color.WHITE, "Expected active poison stacks to tint the enemy green.")
+
+	var crit_cast := CombatResolver.CastEvent.new()
+	crit_cast.skill = load("res://data/skills/stab.tres")
+	crit_cast.physical_damage = 24.0
+	crit_cast.is_crit = true
+	crit_cast.time_ms = 700
+	stage.play_cast_windup(crit_cast, 1.0, true)
+	stage.play_cast_impact(crit_cast, true)
+	_require(stage.contact_feedback_count == 4, "Expected a crit to schedule enemy contact feedback.")
+	_require(stage.last_contact_feedback_was_crit, "Expected crit enemy recoil to be marked distinctly.")
+	_require(stage.bandit_coin_spray_count == 3, "Expected Bandit Blade to add coin particles to each physical-damage hit while active.")
+	_require(stage.last_bandit_coin_count == stage.BANDIT_COIN_CRIT_COUNT, "Expected Bandit Blade crits to get a slightly richer coin spray.")
+	stage.reset_state()
+	_require(stage.bandit_coin_spray_count == 0, "Expected reset_state() to clear Bandit Blade coin spray counters.")
+
+	stage.play_poison_tick_pulse(false)
+	_require(stage.poison_tick_pulse_count == 1, "Expected poison ticks to use a status pulse instead of a Rogue attack animation.")
+
+	stage.play_outcome_pose(true, false)
+	_require(stage.outcome_pose == CombatStageScript.OUTCOME_VICTORY, "Expected a won fight to record the enemy defeat pose.")
+	_require(stage.outcome_flash_count == 1, "Expected victory to record one outcome flash beat.")
+	_require(stage.last_outcome_flash_was_victory, "Expected the outcome flash to know this was a victory.")
+
+	stage.play_outcome_pose(false, false)
+	_require(stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected a lost fight to record the player defeat pose.")
+	_require(stage.outcome_flash_count == 2, "Expected defeat to record another outcome flash beat.")
+	_require(not stage.last_outcome_flash_was_victory, "Expected the outcome flash to know this was a defeat.")
+
+	stage.reset_state()
+	_require(stage.cast_animation_count == 0, "Expected reset_state() to clear cast animation counters for the next fight.")
+	_require(stage.poison_tick_pulse_count == 0, "Expected reset_state() to clear poison tick counters for the next fight.")
+	_require(stage.poison_stack_tint_updates == 0, "Expected reset_state() to clear poison stack tint counters for the next fight.")
+	_require(stage.last_poison_stack_tint_stacks == 0, "Expected reset_state() to clear the active poison stack tint.")
+	_require(stage.outcome_pose == "", "Expected reset_state() to clear the previous outcome pose.")
+	_require(stage.outcome_flash_count == 0, "Expected reset_state() to clear outcome flash counters.")
+
+	stage.queue_free()
+	await process_frame
+
+
+func _scenario_has_tags(result: CombatResolver.CombatResult, monster: Monster, tags: PackedStringArray) -> bool:
+	for tag in tags:
+		match tag:
+			"cast":
+				if result.cast_events.is_empty():
+					return false
+			"physical_hit":
+				if not _has_cast_matching(result, func(cast): return cast.physical_damage > 0.0):
+					return false
+			"crit":
+				if not _has_cast_matching(result, func(cast): return cast.is_crit):
+					return false
+			"poison_stack":
+				if not _has_cast_matching(result, func(cast): return cast.poison_stacks_applied > 0):
+					return false
+			"poison_tick":
+				if not _has_tick_matching(result, func(tick): return tick.damage > 0.0):
+					return false
+			"armor_reduction":
+				if not _has_cast_matching(result, func(cast): return cast.armor_reduction_applied > 0):
+					return false
+			"poison_resist_reduction":
+				if not _has_cast_matching(result, func(cast): return cast.poison_resistance_reduction_applied > 0.0):
+					return false
+			"triggered_skill":
+				if not _has_cast_matching(result, func(cast): return not cast.triggered_skill_names.is_empty()):
+					return false
+			"min_cast_proc":
+				if not _has_cast_matching(result, func(cast): return cast.min_cast_time_proc_applied):
+					return false
+			"slow_cast":
+				if not _has_cast_matching(result, func(cast): return cast.skill != null and cast.skill.display_name == "Heavy Slash" and cast.time_ms >= 2000):
+					return false
+			"fast_cast":
+				if not _has_cast_matching(result, func(cast): return cast.time_ms <= 900):
+					return false
+			"poison_cast":
+				if not _has_cast_matching(result, func(cast): return cast.skill != null and cast.skill.display_name == "Poison Strike" and cast.poison_stacks_applied > 0):
+					return false
+			"victory":
+				if not result.is_win:
+					return false
+			"defeat":
+				if result.is_win or result.total_damage >= float(monster.hp):
+					return false
+	return true
+
+
+func _has_cast_matching(result: CombatResolver.CombatResult, predicate: Callable) -> bool:
+	for cast in result.cast_events:
+		if predicate.call(cast):
+			return true
+	return false
+
+
+func _has_tick_matching(result: CombatResolver.CombatResult, predicate: Callable) -> bool:
+	for tick in result.tick_events:
+		if predicate.call(tick):
+			return true
+	return false
+
+
 ## Live check: a real winning fight with playback enabled. State and
 ## autosave mutate the instant Fight is pressed (the state-vs-presentation
 ## invariant), the outcome UI stays hidden mid-playback, manual advance
@@ -248,19 +558,30 @@ func _check_live_playback_win() -> void:
 	_require(combat_screen._view_log_button.disabled, "Expected the combat log locked mid-playback.")
 	_require(combat_screen._map_button.disabled, "Expected the Map button locked mid-playback.")
 	_require(combat_screen._phase_label.text == "Phase: Fighting", "Expected the header frozen on Fighting mid-playback.")
+	_require(combat_screen._combat_stage != null, "Expected playback to have a combat stage behind the HUD.")
+	_require(combat_screen._combat_stage._enemy_name_label.text == monster.display_name, "Expected the combat stage to name the current target mid-playback.")
+	_require(combat_screen._combat_stage.fight_intro_count == 1, "Expected the combat stage to play one start-of-fight intro.")
+	_require(combat_screen._playback_intro_remaining_sec > 0.0, "Expected playback to begin with a visual intro before the combat clock advances.")
+	_require(combat_screen._playback.events_fired() == 0, "Expected no timeline events to fire during the fight intro setup.")
 	_require(
-		combat_screen._hud_hp_text_label.text == "HP %d/%d" % [monster.hp, monster.hp],
+		combat_screen._hud_hp_text_label.text == "%d/%d" % [monster.hp, monster.hp],
 		"Expected the HUD to open at full HP for playback."
 	)
 
-	# Drive partway manually (2 simulated seconds at 1x): some hits land,
-	# HP text drops in step with the controller's damage bookkeeping, and
-	# the outcome stays hidden.
-	combat_screen._playback.advance(2.0)
+	# Drive half of the intro first: the combat clock should still be
+	# truthful at 0, with no damage or events leaking in early.
+	combat_screen._process(combat_screen._playback_intro_duration_sec * 0.5)
+	_require(combat_screen._playback.events_fired() == 0, "Expected no events to fire before the intro finishes.")
+	_require(is_equal_approx(combat_screen._playback.elapsed_ms(), 0.0), "Expected the combat timeline clock to stay at 0 during the intro.")
+
+	# Drive through the rest of the intro plus 2 simulated combat seconds:
+	# some hits land, HP text drops in step with the controller's damage
+	# bookkeeping, and the outcome stays hidden.
+	combat_screen._process(combat_screen._playback_intro_remaining_sec + 2.0)
 	_require(combat_screen._playback.events_fired() > 0, "Expected events to have fired 2s in.")
 	var expected_hp: float = float(monster.hp) - combat_screen._playback.damage_dealt()
 	_require(
-		combat_screen._hud_hp_text_label.text == "HP %d/%d" % [ceili(expected_hp), monster.hp],
+		combat_screen._hud_hp_text_label.text == "%d/%d" % [ceili(expected_hp), monster.hp],
 		"Expected the HUD HP text to track fired damage mid-playback."
 	)
 	_require(not combat_screen._victory_overlay.visible, "Expected the outcome still hidden after partial playback.")
@@ -275,8 +596,48 @@ func _check_live_playback_win() -> void:
 	_require(not combat_screen._view_log_button.disabled, "Expected the combat log unlocked after the reveal.")
 	_require(not combat_screen._map_button.disabled, "Expected the Map button unlocked after the reveal.")
 	_require(combat_screen._victory_recap_label.text.contains("Total Damage:"), "Expected the win recap populated at the reveal.")
-	_require(combat_screen._hud_hp_text_label.text == "HP 0/%d" % monster.hp, "Expected the HUD snapped to the exact post-fight state (dead enemy).")
+	_require(combat_screen._hud_hp_text_label.text == "0/%d" % monster.hp, "Expected the HUD snapped to the exact post-fight state (dead enemy).")
 	_require(combat_screen._phase_label.text != "Phase: Fighting", "Expected the header unfrozen after the reveal.")
+	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_VICTORY, "Expected skip to still snap the enemy into the victory pose.")
+	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected skip to record the victory outcome beat without waiting.")
+
+	combat_screen.queue_free()
+	await process_frame
+
+
+## Natural playback finish: the final stage pose lands before the outcome UI,
+## then the short reveal hold expires and the normal victory banner appears.
+func _check_natural_playback_win_reveal_timing() -> void:
+	var build_state = root.get_node("BuildState")
+	build_state.reset()
+	var rogue: ClassDef = load("res://data/classes/rogue.tres")
+	build_state.set_class(rogue)
+	build_state.select_tree(rogue.trees[1])
+	build_state.choose_current_tavern_encounter()
+	var quick_cut: Skill = load("res://data/skills/quick_cut.tres")
+	var win_rotation: Array[Skill] = [quick_cut]
+	build_state.rotation = win_rotation
+
+	var combat_screen := _instantiate_combat_screen()
+	await process_frame
+	combat_screen.instant_playback = false
+	build_state.set_locked(true)
+
+	print("-- Natural playback win reveal timing --")
+	combat_screen._enemy_panel.fight_pressed.emit()
+	var duration_sec := float(combat_screen._playback.timeline_end_ms()) / 1000.0
+	combat_screen._process(combat_screen._playback_intro_remaining_sec + duration_sec + 0.1)
+	_require(not combat_screen._playback_active, "Expected playback to be finished before the natural reveal hold expires.")
+	_require(not combat_screen._victory_overlay.visible, "Expected the victory banner hidden during the natural outcome pose hold.")
+	_require(combat_screen._view_log_button.disabled, "Expected the combat log to stay locked during the natural outcome pose hold.")
+	_require(combat_screen._map_button.disabled, "Expected the Map button to stay locked during the natural outcome pose hold.")
+	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_VICTORY, "Expected the enemy defeat pose to land before the victory banner appears.")
+	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected natural victory to play one outcome flash beat.")
+
+	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
+	_require(combat_screen._victory_overlay.visible, "Expected the victory banner after the natural reveal hold.")
+	_require(not combat_screen._view_log_button.disabled, "Expected the combat log unlocked after the natural reveal.")
+	_require(not combat_screen._map_button.disabled, "Expected the Map button unlocked after the natural reveal.")
 
 	combat_screen.queue_free()
 	await process_frame
@@ -310,6 +671,8 @@ func _check_live_playback_loss() -> void:
 	_require(not combat_screen._outcome_title_label.visible, "Expected the DEFEATED title hidden mid-playback.")
 	_require(not combat_screen._retry_button.visible, "Expected the retry button hidden mid-playback.")
 	_require(combat_screen._playback.timeline_end_ms() == duration_ms, "Expected a loss playback to span the full DPS window.")
+	_require(combat_screen._playback_intro_remaining_sec > 0.0, "Expected the losing fight to start with the shared intro beat.")
+	_require(combat_screen._playback.events_fired() == 0, "Expected skip-during-intro coverage to begin before any events fire.")
 
 	combat_screen._skip_playback()
 	_require(not combat_screen._playback_active, "Expected playback finished after skip.")
@@ -317,13 +680,54 @@ func _check_live_playback_loss() -> void:
 	_require(combat_screen._retry_button.visible, "Expected the retry do-over revealed after skip.")
 	_require(combat_screen._recap_label.visible, "Expected the loss recap revealed after skip.")
 	_require(
-		combat_screen._hud_hp_text_label.text == "HP %d/%d" % [monster.hp, monster.hp],
+		combat_screen._hud_hp_text_label.text == "%d/%d" % [monster.hp, monster.hp],
 		"Expected the enemy HP bar to end the loss playback still full (window expired, enemy alive)."
 	)
 	_require(
 		combat_screen._playback_time_label.text == "%.1fs / %.0fs" % [duration_ms / 1000.0, duration_ms / 1000.0],
 		"Expected the window readout to end at the cap on a loss."
 	)
+	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected skip to still snap the player into the defeat pose.")
+	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected skip to record the defeat outcome beat without waiting.")
+
+	combat_screen.queue_free()
+	await process_frame
+
+
+## Natural loss reveal mirrors the win path: the player defeat pose is visible
+## during the short hold, and retry/recap UI unlocks only after the hold.
+func _check_natural_playback_loss_reveal_timing() -> void:
+	var build_state = root.get_node("BuildState")
+	build_state.reset()
+	var rogue: ClassDef = load("res://data/classes/rogue.tres")
+	build_state.set_class(rogue)
+	build_state.select_tree(rogue.trees[1])
+	build_state.choose_current_tavern_encounter()
+
+	var combat_screen := _instantiate_combat_screen()
+	await process_frame
+	combat_screen.instant_playback = false
+	build_state.rotation.clear()
+	build_state.set_locked(true)
+
+	print("-- Natural playback loss reveal timing --")
+	combat_screen._enemy_panel.fight_pressed.emit()
+	var duration_sec := float(combat_screen._playback.timeline_end_ms()) / 1000.0
+	combat_screen._process(combat_screen._playback_intro_remaining_sec + duration_sec + 0.1)
+	_require(not combat_screen._playback_active, "Expected losing playback to finish before the natural reveal hold expires.")
+	_require(not combat_screen._outcome_title_label.visible, "Expected the defeat title hidden during the natural outcome pose hold.")
+	_require(not combat_screen._retry_button.visible, "Expected retry hidden during the natural outcome pose hold.")
+	_require(combat_screen._view_log_button.disabled, "Expected combat log locked during the natural loss hold.")
+	_require(combat_screen._map_button.disabled, "Expected map locked during the natural loss hold.")
+	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected the player defeat pose before the loss UI appears.")
+	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected natural defeat to play one outcome flash beat.")
+
+	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
+	_require(combat_screen._outcome_title_label.visible, "Expected the defeat title after the natural reveal hold.")
+	_require(combat_screen._retry_button.visible, "Expected retry after the natural reveal hold.")
+	_require(combat_screen._recap_label.visible, "Expected loss recap after the natural reveal hold.")
+	_require(not combat_screen._view_log_button.disabled, "Expected combat log unlocked after the natural loss reveal.")
+	_require(not combat_screen._map_button.disabled, "Expected map unlocked after the natural loss reveal.")
 
 	combat_screen.queue_free()
 	await process_frame

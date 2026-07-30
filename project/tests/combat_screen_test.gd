@@ -223,14 +223,26 @@ func _initialize() -> void:
 		print("skill button min width: %.1f (expect > 20)" % min_width)
 		assert(min_width > 20.0)
 
-	# -- Skill Build strip: slots are letter boxes; clicking one removes it --
+	# -- Skill Build strip: assigned skills render icons; clicking one
+	# removes it. The text glyph stays empty for icon-backed slots so the
+	# compact macro doesn't double-render icon + letter, while iconless skills
+	# still fall back to their authored letter. --
 	await process_frame
-	var slot_letters: Array = []
+	var icon_slot_texts: Array = []
+	var icon_slots := 0
 	for child in skill_build_panel._slots_box.get_children():
 		if child is Button:
-			slot_letters.append(child.text)
-	print("slot letters (expect [S, H, Q]): %s" % str(slot_letters))
-	assert(slot_letters == ["S", "H", "Q"])
+			icon_slot_texts.append(child.text)
+			if child.get_node_or_null("SkillIcon") != null:
+				icon_slots += 1
+	print("icon-backed slot texts (expect empty strings): %s" % str(icon_slot_texts))
+	print("icon-backed slot count (expect 3): %d" % icon_slots)
+	assert(icon_slot_texts == ["", "", ""])
+	assert(icon_slots == 3)
+	var iconless_skill := Skill.new()
+	iconless_skill.display_name = "Fallback Test"
+	iconless_skill.icon_letter = "Z"
+	assert(skill_build_panel._glyph_for(iconless_skill) == "Z")
 
 	var first_before: Skill = build_state.rotation[0]
 	skill_build_panel._on_slot_pressed(0)
@@ -327,12 +339,23 @@ func _initialize() -> void:
 	# split is exactly 100/0. --
 	print("victory overlay visible after win (expect true): %s" % combat_screen._victory_overlay.visible)
 	assert(combat_screen._victory_overlay.visible)
-	# Bug fix: _victory_overlay is now a true full-rect overlay (backdrop +
-	# centered stack), not a plain flow child whose first child was the
-	# content stack -- find it by name instead of assuming child index 0.
+	# Victory now resolves inside the combat window: a transparent full-screen
+	# click blocker preserves modal behavior, while the visible dim/content
+	# are constrained to the combat window so the defeated stage remains
+	# visible behind the recap.
 	var victory_stack = combat_screen._victory_overlay.find_child("VictoryStack", true, false)
 	assert(victory_stack != null)
-	assert(victory_stack.get_child_count() == 2)
+	assert(victory_stack.get_child_count() == 5)
+	var click_blocker = combat_screen._victory_overlay.find_child("VictoryClickBlocker", true, false)
+	assert(click_blocker != null)
+	assert(click_blocker.color.a == 0.0)
+	var combat_dim = combat_screen._victory_overlay.find_child("VictoryCombatDim", true, false)
+	assert(combat_dim != null)
+	assert(combat_dim.get_parent() == combat_screen._victory_center)
+	assert(combat_screen._victory_center.get_global_rect().position.distance_to(combat_screen._combat_window.get_global_rect().position) < 1.0)
+	assert(combat_screen._victory_center.size.distance_to(combat_screen._combat_window.size) < 1.0)
+	assert(combat_screen._combat_stage.visible)
+	assert(combat_screen._combat_stage.outcome_pose == "victory")
 	assert(combat_screen._view_log_button.visible)
 	assert(build_state.run_phase == BuildState.RunPhase.RESULT)
 	assert(build_state.last_fight_won)
@@ -354,7 +377,7 @@ func _initialize() -> void:
 	for node in combat_screen._victory_overlay.find_children("*", "Label", true, false):
 		if node.text == "Rewards":
 			reward_title_found = true
-	assert(reward_title_found)
+	assert(not reward_title_found)
 	assert(build_state.gold == 0)
 	assert(build_state.earned_talent_points == 0)
 

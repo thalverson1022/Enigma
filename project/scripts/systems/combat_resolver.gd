@@ -6,8 +6,10 @@ const MAX_POISON_STACKS: int = 20
 
 
 class CastEvent:
+	var cast_start_ms: int = 0
 	var time_ms: int = 0
 	var skill: Skill
+	var rotation_index: int = -1
 	var physical_damage: float = 0.0
 	var is_crit: bool = false
 	var poison_stacks_applied: int = 0
@@ -68,8 +70,10 @@ static func resolve(rotation: Array[Skill], player: PlayerStats, monster: Monste
 			next_tick_time_ms += tick_interval_ms
 
 		var event := CastEvent.new()
+		event.cast_start_ms = cast_time_ms
 		event.time_ms = cast_end_ms
 		event.skill = skill
+		event.rotation_index = rotation_index % rotation.size()
 		event.min_cast_time_proc_applied = used_min_cast_time
 		var state := _apply_skill_effects(skill, event, player, current_armor, current_poison_resistance, active_stacks, rng)
 		current_armor = state["armor"]

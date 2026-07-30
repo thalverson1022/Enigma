@@ -86,6 +86,7 @@ var _duration_spin: SpinBox
 var _seed_spin: SpinBox
 var _gold_spin: SpinBox
 var _combat_view: TrainingRoomCombatView
+var _skill_build_panel
 var _fight_button: Button
 var _view_log_button: Button
 var _log_overlay: Control
@@ -216,9 +217,10 @@ func _ready() -> void:
 	available_skills_panel.state = _state
 	center_column.add_child(available_skills_panel)
 
-	var skill_build_panel := SKILL_BUILD_PANEL_SCENE.instantiate()
-	skill_build_panel.state = _state
-	center_column.add_child(skill_build_panel)
+	_skill_build_panel = SKILL_BUILD_PANEL_SCENE.instantiate()
+	_skill_build_panel.state = _state
+	_combat_view.skill_build_panel = _skill_build_panel
+	center_column.add_child(_skill_build_panel)
 
 	var right_column := VBoxContainer.new()
 	right_column.name = "RightColumn"
@@ -601,7 +603,7 @@ func _on_fight_button_pressed() -> void:
 ## animation (or its headless instant-skip) finishes, via _combat_view's
 ## `finished` signal -> _on_combat_view_finished().
 func _on_state_fight_finished() -> void:
-	_combat_view.play(_state.last_result, _state.selected_target)
+	_combat_view.play(_state.last_result, _state.selected_target, _state.equipped_gear())
 
 
 ## Fills the (button-gated, see _build_log_overlay()) Combat Log and enables

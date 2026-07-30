@@ -1,0 +1,149 @@
+{
+  "format": "crystalmaiden-animation",
+  "version": 2,
+  "source_manifest": "F:\\Data\\Junk\\DPS Game\\Rogue Animations\\attack2\\sprite_lab_manifest.json",
+  "frame_size": {
+    "w": 48,
+    "h": 48
+  },
+  "pivot": {
+    "x": 24,
+    "y": 24
+  },
+  "fps": 8,
+  "loop": false,
+  "frames": [
+    {
+      "name": "frame_001",
+      "file": "frames/frame_001.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 15,
+        "y": 9,
+        "w": 22,
+        "h": 28
+      }
+    },
+    {
+      "name": "frame_002",
+      "file": "frames/frame_002.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 17,
+        "y": 10,
+        "w": 15,
+        "h": 27
+      }
+    },
+    {
+      "name": "frame_003",
+      "file": "frames/frame_003.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 18,
+        "y": 11,
+        "w": 15,
+        "h": 26
+      }
+    },
+    {
+      "name": "frame_004",
+      "file": "frames/frame_004.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 18,
+        "y": 11,
+        "w": 15,
+        "h": 26
+      }
+    },
+    {
+      "name": "frame_005",
+      "file": "frames/frame_005.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 18,
+        "y": 11,
+        "w": 15,
+        "h": 26
+      }
+    },
+    {
+      "name": "frame_006",
+      "file": "frames/frame_006.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 18,
+        "y": 11,
+        "w": 15,
+        "h": 26
+      }
+    },
+    {
+      "name": "frame_007",
+      "file": "frames/frame_007.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 18,
+        "y": 11,
+        "w": 15,
+        "h": 26
+      }
+    },
+    {
+      "name": "frame_008",
+      "file": "frames/frame_008.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 13,
+        "y": 9,
+        "w": 33,
+        "h": 28
+      }
+    },
+    {
+      "name": "frame_009",
+      "file": "frames/frame_009.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 13,
+        "y": 9,
+        "w": 33,
+        "h": 28
+      }
+    },
+    {
+      "name": "frame_010",
+      "file": "frames/frame_010.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 13,
+        "y": 9,
+        "w": 30,
+        "h": 28
+      }
+    },
+    {
+      "name": "frame_011",
+      "file": "frames/frame_011.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 14,
+        "y": 9,
+        "w": 29,
+        "h": 28
+      }
+    },
+    {
+      "name": "frame_012",
+      "file": "frames/frame_012.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 15,
+        "y": 9,
+        "w": 22,
+        "h": 28
+      }
+    }
+  ]
+}
