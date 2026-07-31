@@ -18,12 +18,24 @@ below explicitly recommends doing it first.
 
 ## Status
 
-Phases 1, 2, and 3 complete (2026-07-30). Phases 4-7 not started.
+Phases 1-4 complete (2026-07-30). Phases 5-7 not started.
 
 **Phase 3 result:** all 8 overlays extracted into their own scenes.
 `combat_screen.gd` went from **3,564 lines to 2,157** (-40%). Verified after
-every single extraction with the full 39-test suite; Balance Lab held at
+every single extraction with the full 39/41-test suite; Balance Lab held at
 19 pass / 0 warn / 0 fail throughout. No behavior change.
+
+**Phase 4 result:** the inline real-time combat playback/VFX layer extracted
+into three focused components (`scripts/ui/combat_popup_layer.gd`,
+`scripts/ui/playback_controls.gd`, `scripts/ui/combat_playback_presenter.gd`)
+plus a fourth, unplanned promotion (`scripts/ui/gear_compare_button.gd`,
+pulled out of a combat_screen.gd inner class because the Shop extraction in
+Phase 3 needed it globally reachable). `combat_screen.gd` went from
+**2,157 lines to 1,825** (-15% more). **Combined Phase 3+4 total:
+3,564 -> 1,825 lines, -49%.** Verified with the full 41-test suite and
+Balance Lab (19/0/0) after each of the 4 sub-steps. No behavior change.
+This was gated on Milestone 1 (Combat Playback Juice) being Complete first
+(confirmed 2026-07-31) -- see "Why Phase 4 waited" below.
 
 ## Known Gotchas For Remaining Phase 3 Extractions
 
@@ -86,6 +98,31 @@ exhaustively for every symbol moved or renamed. Step (2) caught two stale
 `_route_tradeoff_text` call sites during the Map extraction that would
 otherwise have hung the suite.
 
+**4. (Phase 4) A `_process()`-driven component can't always become a `Node`
+with its own `_process()` callback -- check what tests call first.** The
+original plan for the playback presenter assumed it would own a real
+`_process()`. Grepping `tests/*.gd` first found `combat_screen._process(delta)`
+called directly, repeatedly, across `combat_playback_test.gd` -- headless
+single-shot test scripts have no running game loop, so tests drive frame
+advancement by calling `_process()` themselves. Moving `_process()` off
+combat_screen.gd would have silently broken every one of those calls (a
+Node's default no-op `_process()` swallowing the call with no error at all --
+the quietest possible failure mode yet). Fix: `combat_screen.gd` keeps its own
+`_process(delta)`, which now just calls `_playback_presenter.advance(delta)`
+-- the presenter is still a `Node` (for free `get_tree()`/`create_tween()`
+access) but never defines `_process()` itself.
+
+**5. (Phase 4) When a signal's emitter clears its own state, order the clear
+after the emit, not before.** `CombatPlaybackPresenter._on_finished()`
+originally nulled `_playback`/`_result`/`_monster` and then emitted `finished`.
+Caught before it ever hit a test run: the signal handler
+(`combat_screen.gd`'s `_on_playback_finished`) calls
+`_update_playback_time_label()`, which reads `_playback_presenter.elapsed_ms()`
+-- already-nulled defaults at that point, not the fight's actual final values.
+Fixed by emitting first, clearing state after. Worth a specific check
+whenever a signal handler reads the emitter's own instance state during the
+callback: does the emitter clear that state before or after `.emit()`?
+
 ## Source
 
 Findings below are drawn from Section 1 of the adversarial assessment
@@ -102,10 +139,11 @@ and are not repeated here.
   deliberate, recorded policy decision). Any other observed behavior change
   during this work is a regression, not an improvement, and should be treated
   as a bug in the refactor.
-- After every step: run the full 39-file headless test suite (not just the
-  "focused" subset), not only the tests that obviously relate to the touched
-  file, since these changes shift encapsulation boundaries. Run Balance Lab
-  for anything touching resolvers, resources, or build/gear data.
+- After every step: run the full headless test suite (41 files as of Phase 4;
+  grow this count as new tests are added -- not just the "focused" subset,
+  and not only the tests that obviously relate to the touched file, since
+  these changes shift encapsulation boundaries. Run Balance Lab for anything
+  touching resolvers, resources, or build/gear data.
 - Commit one logical extraction/fix at a time so a regression is bisectable.
 - Do not build speculative machinery for problems that do not exist yet (see
   1.4, 1.8, 1.10 below) -- record the decision or defer the generalization
@@ -126,8 +164,10 @@ and are not repeated here.
    with real regression risk during transition. Highest total value, worst
    value-per-effort of the big items -- sequence it deliberately, don't rush
    it for the sake of a quick win.
-5. **Phase 4 (extract inline playback/VFX layer)** -- wait until Milestone 1
-   fully closes; it's the most actively-changing part of the file right now.
+5. **Phase 4 (extract inline playback/VFX layer)** -- Complete. Was gated on
+   Milestone 1 fully closing (confirmed 2026-07-31) since it's the most
+   actively-changing part of the file; turned out to be the single biggest
+   line-count reduction of any phase (-332 lines) once actually attempted.
 6. **Phase 5/6/7** -- real but narrow; capture opportunistically alongside
    the milestone each already relates to (see each item's notes).
 
@@ -151,7 +191,10 @@ and are not repeated here.
 | 3 | Extract contract overlay | Complete | `scenes/combat/contract_overlay.gd`/`.tscn`. Owns the `Step` wizard state and advances itself through the two purely-narrative transitions; emits `accept_requested`/`route_requested` for the two steps with cross-cutting effects, which combat_screen.gd still handles (BuildState mutation, secondary-subclass reveal, enemy HUD, route map, autosave). **Two semantic signals instead of one `action_pressed(step)` deliberately, so the enum never crosses the scene boundary** -- see gotcha #3 below for why that mattered. |
 | 3 | Extract map overlay | Complete | `scenes/combat/map_overlay.gd`/`.tscn` (640 lines -- by far the largest extraction; renders the Tavern ladder, Contract Offer node, and route schematic from one window). Public `show_map(manual_open)`, `close()`, `clear_tavern_preview()`, `refresh()`; emits `tavern_proceed_pressed`/`contract_offer_pressed`/`route_node_pressed(node)`. Tavern node *previewing* stays internal (local state only); only commits cross the boundary. The hardcoded Gilded Serpent schematic moved as-is -- finding 1.4 is still deliberately deferred, now noted in the new file's header. |
 | 3 | Promote `_find_route_node` to `ContractRouteNode.find_by_id()` | Complete | Was private on combat_screen.gd but needed by *both* the contract and map overlays after extraction. Now a static, cycle-safe traversal on the resource itself. (Test files each keep their own local `_find_route_node` helper -- unrelated, untouched.) |
-| 4 | Extract inline real-time combat playback/VFX layer (~900 lines, combat_screen.gd consts ~125-193, vars ~296-352, functions ~2925-3216) into/alongside `CombatPlayback` | Not Started | **Do not start until Milestone 1 is fully closed** -- this is the most actively-changing part of the file right now; extracting mid-milestone maximizes merge-conflict risk for no benefit. |
+| 4 | Extract the comic-book skill-popup subsystem | Complete | `scripts/ui/combat_popup_layer.gd` (`CombatPopupLayer`, global class, no scene). All `POPUP_*` tuning and spawn/fade/lifecycle logic moved; public `spawn()`, `reset_for_new_fight()`, `generation()`/`skip_generation()` (staleness guard for delayed triggered-skill popups -- nearly dropped as dead code, but it's read by `_schedule_cast_popups`), `skip_active`/`wyvern_tick_font_active` properties the presenter sets. `training_room_combat_view.gd` has its own separate, parallel popup implementation, discovered but intentionally not touched -- worth unifying later. |
+| 4 | Extract the playback transport-controls widget | Complete | `scripts/ui/playback_controls.gd` (`PlaybackControls`, global class, extends `HBoxContainer`). Owns speed-button/time-label/skip-button construction and visual state; emits `speed_selected(speed)`/`skip_pressed`, combat_screen.gd still decides what those mean (writes to `CombatPlayback`, remembers `_last_playback_speed`). |
+| 4 | Extract the core playback presenter | Complete | `scripts/ui/combat_playback_presenter.gd` (`CombatPlaybackPresenter`, global class, extends `Node`). Owns the `CombatPlayback` instance, event-translation (`_on_event`/`_on_cast_start`/macro progress), HP tween, and the HUD-during-playback readout via widget refs handed in (`set_hud_widgets()`, including two Callables for the chip-render helpers still shared with pre/post-fight HUD). Emits `finished(result, monster, was_skipped)` for combat_screen.gd's dashboard-level outcome reveal. **Does not define its own `_process()`** -- see gotcha #4. `_playback_active` deliberately stays a combat_screen.gd field, not owned here -- see the file's own header comment for the ordering reason. |
+| 4 | Wire the presenter into combat_screen.gd | Complete | Done as part of the same pass as building the presenter (the boundary design *was* the wiring decision, so this wasn't a separable step in practice). `_begin_playback()`/`_on_playback_finished()` are now thin dashboard-orchestration wrappers; `_process()` forwards to `_playback_presenter.advance()`. |
 | 5 | 1.9: Move enemy visual-key mapping (combat_stage.gd `ENEMY_VISUAL_KEYS_BY_NAME`, ~176-194) onto the `Monster` resource as authored data | Not Started | Fold into M1:T13 (placeholder-asset-mapping) since it's the same task already in flight. |
 | 5 | 1.4: Move contract-route node stage-positions (combat_screen.gd `_make_contract_route_schematic` and helpers, ~1653-1806) from hardcoded script logic onto `ContractRouteNode` resource fields | Not Started | Defer until a second contract actually starts (Milestone 5). Don't generalize for a hypothetical second contract before it exists. |
 | 5 | 1.10: Decide a general pattern for Legendary-specific visual effects (currently hardcoded gear-ID branches for Bandit Blade and Wyvern Kriss, split across combat_stage.gd and combat_screen.gd) | Not Started | No urgency at 2 items. Decide (e.g. an optional `visual_effect_id` dispatched through a small registry) before a 3rd Legendary effect is added, not before. |
@@ -219,11 +262,30 @@ their headers: `shop_overlay.gd` is non-blocking (no backdrop -- gear stays
 sellable from the dashboard behind it), and Victory was never a candidate at
 all (it overlays only the combat window, not a centered card).
 
-### Phase 4: Extract the inline playback/VFX layer
-Move the ~900-line real-time combat playback/VFX block into (or alongside)
-the existing `CombatPlayback` class as a proper presenter. Deliberately
-sequenced after Phase 3 and after Milestone 1 closes, since this is currently
-the most actively-changing part of the file.
+### Phase 4: Extract the inline playback/VFX layer (Complete)
+Done in 3 sub-steps, each independently verified with the full test suite +
+Balance Lab before moving to the next: (1) the popup subsystem, (2) the
+transport-controls widget, (3) the core presenter -- with wiring folded into
+step 3 rather than kept as a separate step, since designing the presenter's
+boundary and wiring it in were the same decision.
+
+`combat_screen.gd`: 2,157 -> 1,825 lines. Combined with Phase 3:
+**3,564 -> 1,825 lines (-49%) across the whole effort.**
+
+The core presenter step was exactly as risky as flagged going in -- it
+surfaced two real design mistakes before they shipped (see gotchas #4 and #5
+above), both caught by checking test call sites and reasoning through signal
+timing before writing the "obvious" version. The eventual design keeps
+`_playback_active` and all dashboard-chrome toggling in combat_screen.gd,
+gives the presenter direct references to the specific widgets it needs to
+write (matching how the pre-extraction code already reached into them,
+just relocated), and uses `finished(result, monster, was_skipped)` as the
+one handoff point back to combat_screen.gd -- the same "narrow signal, not a
+wide abstraction" principle used throughout Phase 3.
+
+One live gameplay caveat repeated from the original plan still applies: this
+is presentation timing, not resolved-combat data, so a live playtest is worth
+doing here specifically, not just trusting the green test suite.
 
 ### Phase 5: Data-driven fixes for scope/scale problems
 Each of these swaps a hardcoded/string-keyed pattern for authored data, but
@@ -240,14 +302,22 @@ Deferred to Milestone 7, which already owns this kind of hardening.
 
 This document's work is complete when:
 
-- All Phase 1-4 items are resolved and the full test suite + Balance Lab
+- [x] All Phase 1-4 items are resolved and the full test suite + Balance Lab
   pass with no behavior change beyond the two explicitly-flagged exceptions.
-- `combat_screen.gd` no longer contains the 8 hand-built overlays inline (they
-  live in their own scenes) and no longer contains the inline playback/VFX
-  layer.
-- The Phase 2 product decision (which overlays dismiss on outside-click) has
+- [x] `combat_screen.gd` no longer contains the 8 hand-built overlays inline
+  (they live in their own scenes) and no longer contains the inline
+  playback/VFX layer (extracted into `combat_popup_layer.gd`/
+  `playback_controls.gd`/`combat_playback_presenter.gd`).
+- [x] The Phase 2 product decision (which overlays dismiss on outside-click) has
   been made and documented, not left as accidental behavior.
-- Phase 5/6/7 items are either resolved or explicitly still deferred with a
-  recorded reason (matching their "defer until X" condition above).
-- This document's tasking table reflects the true current state, updated as
+- [ ] Phase 5/6/7 items are either resolved or explicitly still deferred with a
+  recorded reason (matching their "defer until X" condition above) --
+  Phases 5-7 remain Not Started, each already recorded with a "defer until X"
+  condition in the tasking table.
+- [x] This document's tasking table reflects the true current state, updated as
   each row completes.
+
+**Phases 1-4 (the code half of this document) are done.** Phases 5-7 are
+intentionally still open, each gated on a specific future trigger already
+recorded in the tasking table above -- this document stays open until those
+triggers are hit, not until someone forces them early.

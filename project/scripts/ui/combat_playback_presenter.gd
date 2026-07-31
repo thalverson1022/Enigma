@@ -1,0 +1,339 @@
+class_name CombatPlaybackPresenter
+extends Node
+## Owns the CombatPlayback instance and translates each fired timeline event
+## into HUD/stage/popup/macro-strip updates. Extracted from combat_screen.gd's
+## inline playback/VFX layer (docs/Phase_3_Technical_Debt_Architecture_Cleanup.md
+## Phase 4).
+##
+## A Node (added as a permanent child of the combat window) so it gets
+## get_tree()/create_tween() for free, but it deliberately never defines its
+## own _process() -- combat_screen.gd's own _process() still exists and
+## calls advance() every frame instead, specifically because headless tests
+## drive frame advancement by calling combat_screen._process(delta) directly
+## in single-shot scripts with no real running game loop. Moving _process()
+## itself onto this node would have silently broken every one of those calls.
+##
+## Configured with direct references to the widgets/panels it needs to write
+## to (set_combat_stage()/set_skill_build_panel()/set_popup_layer()/
+## set_hud_widgets()) rather than a wider abstraction -- this mirrors exactly
+## how the pre-extraction code already reached into those same widgets, just
+## relocated. combat_screen.gd still owns constructing every widget and
+## everything NOT related to live playback rendering: dashboard chrome
+## (status/recap/log/retry/restart/map-button visibility), pre-fight HUD
+## setup, the outcome reveal, and autosave -- those hand off through the
+## `finished` signal exactly like every Phase 3 overlay's cross-cutting
+## effects did.
+##
+## `_playback_active` intentionally stays a combat_screen.gd field, not
+## something this class owns or mirrors: combat_screen.gd raises it BEFORE
+## BuildState.finish_fight() even runs (see _on_fight_pressed()'s comment) so
+## a run_state_changed signal fired by finish_fight() doesn't clobber the
+## animated HUD -- that ordering requirement means the flag has to be
+## settable independently of when start() is called here.
+
+signal finished(result: CombatResolver.CombatResult, monster: Monster, was_skipped: bool)
+
+const PLAYBACK_HP_TWEEN_SEC := 0.15
+const PLAYBACK_TICK_HP_TWEEN_SEC := 0.3
+const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
+const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
+const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
+
+var skipping := false
+
+var _playback: CombatPlayback = null
+var _intro_remaining_sec := 0.0
+var _intro_duration_sec := 0.0
+var _result: CombatResolver.CombatResult = null
+var _monster: Monster = null
+
+var _hp := 0.0
+var _armor := 0
+var _resist := 0.0
+var _stacks := 0
+var _armor_reduced := 0
+var _shred_stacks := 0
+var _decay_stacks := 0
+var _hp_bar_tween: Tween
+
+var _combat_stage
+var _skill_build_panel
+var _popup_layer: CombatPopupLayer
+var _hud_hp_text_label: Label
+var _hud_health_bar: ProgressBar
+var _hud_info_label: Label
+var _hud_resist_label: Label
+var _clear_status_chips: Callable
+var _add_status_chip: Callable
+
+
+func set_combat_stage(stage) -> void:
+	_combat_stage = stage
+
+
+func set_skill_build_panel(panel) -> void:
+	_skill_build_panel = panel
+
+
+func set_popup_layer(layer: CombatPopupLayer) -> void:
+	_popup_layer = layer
+
+
+## `clear_chips`/`add_chip` mirror combat_screen.gd's private
+## _clear_hud_status_chips()/_add_hud_status_chip() signatures exactly --
+## shared with the pre/post-fight HUD render, so they stay owned there
+## rather than duplicated here.
+func set_hud_widgets(hp_text_label: Label, health_bar: ProgressBar, info_label: Label, resist_label: Label, clear_chips: Callable, add_chip: Callable) -> void:
+	_hud_hp_text_label = hp_text_label
+	_hud_health_bar = health_bar
+	_hud_info_label = info_label
+	_hud_resist_label = resist_label
+	_clear_status_chips = clear_chips
+	_add_status_chip = add_chip
+
+
+func is_active() -> bool:
+	return _playback != null
+
+
+func elapsed_ms() -> float:
+	return _playback.elapsed_ms() if _playback != null else 0.0
+
+
+func window_ms() -> int:
+	return _playback.window_ms() if _playback != null else 0
+
+
+func set_speed(speed: float) -> void:
+	if _playback != null:
+		_playback.speed = speed
+
+
+## Starts real-time visual playback of an already-resolved fight: builds the
+## CombatPlayback timeline, resets the popup layer/combat stage/macro
+## highlight, applies the Bandit Blade/Wyvern Kriss always-on visual effects
+## (equipped-gear checks stay with the caller, which has BuildState access),
+## and begins the intro countdown that advance() ticks down before the first
+## timeline event can fire. Does not touch dashboard chrome, pre-fight HUD
+## text, or _playback_active -- see this class's header for why those stay
+## with the caller.
+func start(result: CombatResolver.CombatResult, monster: Monster, wyvern_effect_active: bool, bandit_blade_effect_active: bool, play_intro_animation: bool) -> void:
+	_result = result
+	_monster = monster
+	_hp = float(monster.hp)
+	_armor = monster.armor
+	_resist = monster.poison_resistance
+	_stacks = 0
+	_armor_reduced = 0
+	_shred_stacks = 0
+	_decay_stacks = 0
+	if _popup_layer != null:
+		_popup_layer.reset_for_new_fight()
+		_popup_layer.wyvern_tick_font_active = wyvern_effect_active
+	if _combat_stage != null:
+		_combat_stage.reset_state()
+		_combat_stage.set_bandit_blade_effect_active(bandit_blade_effect_active)
+	if _skill_build_panel != null and _skill_build_panel.has_method("clear_combat_highlight"):
+		_skill_build_panel.clear_combat_highlight()
+	_playback = CombatPlayback.new()
+	_playback.event_callback = _on_event
+	_playback.cast_start_callback = _on_cast_start
+	_playback.finished_callback = _on_finished
+	# Full window always plays on both a win and a loss -- a win used to
+	# truncate at the recorded kill moment; the full window keeps the
+	# "overkill" feel of watching every remaining cast/tick still land on the
+	# corpse. The HUD's HP bar clamps at 0 in _on_event() so it never dips
+	# below dead or un-dies.
+	_playback.start(result)
+	_intro_duration_sec = _combat_stage.play_fight_intro(play_intro_animation) if _combat_stage != null else 0.0
+	_intro_remaining_sec = _intro_duration_sec
+
+
+## Advances the playback clock by one frame. Called from combat_screen.gd's
+## own _process() every frame while a fight is active -- see this class's
+## header for why advancement isn't driven by a _process() defined here.
+func advance(delta: float) -> void:
+	if _playback == null:
+		return
+	if _intro_remaining_sec > 0.0:
+		var playback_speed := maxf(_playback.speed, 0.0)
+		var intro_advance := delta * playback_speed
+		if intro_advance < _intro_remaining_sec:
+			_intro_remaining_sec -= intro_advance
+			return
+		var overflow_delta := 0.0
+		if playback_speed > 0.0:
+			overflow_delta = (intro_advance - _intro_remaining_sec) / playback_speed
+		_intro_remaining_sec = 0.0
+		if overflow_delta <= 0.0:
+			return
+		delta = overflow_delta
+	_playback.advance(delta)
+	_update_macro_progress()
+
+
+## Fires every remaining timeline event instantly -- the Skip button's
+## action, and the path the playback-enabled headless checks drive. Popup
+## spawning and per-hit tweening are suppressed while the burst of remaining
+## events fires.
+func skip() -> void:
+	if _playback == null:
+		return
+	skipping = true
+	if _popup_layer != null:
+		_popup_layer.skip_active = true
+		_popup_layer.skip_generation()
+	_intro_remaining_sec = 0.0
+	_playback.skip()
+	skipping = false
+	if _popup_layer != null:
+		_popup_layer.skip_active = false
+
+
+func _update_macro_progress() -> void:
+	if _playback == null or _skill_build_panel == null or not _skill_build_panel.has_method("set_cast_progress"):
+		return
+	var cast := _playback.active_cast()
+	if cast == null:
+		return
+	_skill_build_panel.set_cast_progress(cast.rotation_index, _playback.active_cast_progress(), cast.min_cast_time_proc_applied)
+
+
+## Applies one fired timeline event to the live HUD: drains HP with a quick
+## tween, replays the event's recorded armor/resist/stack changes (the same
+## event-replay reads combat_screen.gd's _hud_final_armor()/
+## _hud_final_poison_resist() use -- no combat math reimplemented), refreshes
+## the info line and status chips, and spawns the matching comic-book popup.
+func _on_event(event: CombatPlayback.PlaybackEvent) -> void:
+	if event.is_tick:
+		_stacks = event.tick.stacks_remaining
+		if _combat_stage != null:
+			_combat_stage.set_poison_stacks(_stacks, not skipping)
+		if event.tick.damage > 0.0:
+			if _combat_stage != null:
+				_combat_stage.play_poison_tick_pulse(not skipping)
+			_hp = maxf(_hp - event.tick.damage, 0.0)
+			_apply_hp(PLAYBACK_TICK_HP_TWEEN_SEC)
+			# "Poison -N" matches the "SkillName -N" pattern the physical
+			# cast popups use, for visual cohesion; font size/color are
+			# unchanged, only the text gained a label.
+			if _popup_layer != null:
+				_popup_layer.spawn("Poison -%.0f" % event.tick.damage, CombatPopupLayer.Kind.POISON_TICK)
+	else:
+		var cast := event.cast
+		var popup_delay := 0.0
+		if _combat_stage != null:
+			popup_delay = _combat_stage.play_cast_impact(cast, not skipping)
+		if not cast.triggered_skill_names.is_empty() and _skill_build_panel != null and _skill_build_panel.has_method("highlight_rotation_index"):
+			_skill_build_panel.highlight_rotation_index(cast.rotation_index, true)
+		if cast.physical_damage > 0.0:
+			_hp = maxf(_hp - cast.physical_damage, 0.0)
+		_armor -= cast.armor_reduction_applied
+		_armor_reduced += cast.armor_reduction_applied
+		if cast.armor_reduction_applied > 0:
+			_shred_stacks += 1
+		if cast.poison_resistance_reduction_applied > 0.0:
+			_resist *= 1.0 - clampf(cast.poison_resistance_reduction_applied, 0.0, 1.0)
+			_decay_stacks += 1
+		_stacks = mini(_stacks + cast.poison_stacks_applied, CombatResolver.MAX_POISON_STACKS)
+		if cast.poison_stacks_applied > 0:
+			if _combat_stage != null:
+				_combat_stage.set_poison_stacks(_stacks, not skipping)
+		_apply_hp(PLAYBACK_HP_TWEEN_SEC)
+		_schedule_cast_popups(cast, popup_delay)
+	_update_hud_readout()
+
+
+func _on_cast_start(cast: CombatResolver.CastEvent) -> void:
+	if skipping:
+		return
+	if _combat_stage != null:
+		_combat_stage.play_cast_windup(cast, _playback.speed, true)
+	if _skill_build_panel != null and _skill_build_panel.has_method("set_cast_progress"):
+		_skill_build_panel.set_cast_progress(cast.rotation_index, 0.0, cast.min_cast_time_proc_applied)
+
+
+func _schedule_cast_popups(cast: CombatResolver.CastEvent, delay_sec: float) -> void:
+	var generation := _popup_layer.generation() if _popup_layer != null else 0
+	if delay_sec <= 0.0 or skipping:
+		_spawn_cast_popups(cast)
+		return
+	await get_tree().create_timer(delay_sec).timeout
+	if _popup_layer == null or generation != _popup_layer.generation() or skipping:
+		return
+	_spawn_cast_popups(cast)
+
+
+func _spawn_cast_popups(cast: CombatResolver.CastEvent) -> void:
+	if _popup_layer == null:
+		return
+	var skill_name := cast.skill.display_name if cast.skill != null else "Attack"
+	# Damage number appended in the same "-N" style poison ticks already use.
+	# The number is the event's full physical_damage, which already includes
+	# any triggered-skill damage folded into the same cast by the resolver;
+	# presentation splits the attack, but combat math stays merged.
+	var damage_suffix := ""
+	if cast.physical_damage > 0.0:
+		damage_suffix = " -%.0f" % cast.physical_damage
+	if cast.is_crit:
+		_popup_layer.spawn("%s%s!" % [skill_name, damage_suffix], CombatPopupLayer.Kind.CRIT)
+	elif cast.min_cast_time_proc_applied:
+		_popup_layer.spawn("%s%s PROC!" % [skill_name, damage_suffix], CombatPopupLayer.Kind.PROC)
+	else:
+		_popup_layer.spawn("%s%s" % [skill_name, damage_suffix], CombatPopupLayer.Kind.NORMAL)
+	for triggered_name in cast.triggered_skill_names:
+		_popup_layer.spawn(String(triggered_name), CombatPopupLayer.Kind.PROC)
+
+
+## Updates the HP text immediately and tweens the bar to the new value --
+## discrete per-hit chunks rather than one smooth constant drain. Skipping
+## sets the value directly (no tween churn for dozens of events at once).
+func _apply_hp(tween_sec: float) -> void:
+	if _hud_hp_text_label != null:
+		_hud_hp_text_label.text = "%d/%d" % [ceili(_hp), _monster.hp]
+	if _hp_bar_tween != null and _hp_bar_tween.is_valid():
+		_hp_bar_tween.kill()
+	if _hud_health_bar == null:
+		return
+	if skipping:
+		_hud_health_bar.value = _hp
+		return
+	_hp_bar_tween = create_tween()
+	_hp_bar_tween.tween_property(_hud_health_bar, "value", _hp, tween_sec)
+
+
+## Refreshes the HUD info line and status chips from the live playback
+## values -- the real-time version of combat_screen.gd's
+## _render_enemy_hud_post_fight()'s chip logic, updating as each event lands.
+func _update_hud_readout() -> void:
+	if _hud_info_label != null:
+		_hud_info_label.text = "%d" % _armor
+	if _hud_resist_label != null:
+		_hud_resist_label.text = "%.0f%%" % (_resist * 100.0)
+	if _clear_status_chips.is_valid():
+		_clear_status_chips.call()
+	if _add_status_chip.is_valid():
+		_add_status_chip.call("x%d" % _stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
+		_add_status_chip.call("x%d" % _shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+		_add_status_chip.call("x%d" % _decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
+
+
+## CombatPlayback guarantees this fires exactly once per fight, whether the
+## timeline ran to completion naturally or was cut short by skip(). Emits
+## `finished` BEFORE clearing internal state (not after) so a handler that
+## reads elapsed_ms()/window_ms()/is_active() during the signal still sees
+## the fight's final values, not already-reset defaults.
+func _on_finished() -> void:
+	if _hp_bar_tween != null and _hp_bar_tween.is_valid():
+		_hp_bar_tween.kill()
+	var result := _result
+	var monster := _monster
+	var was_skipped := skipping
+	if _skill_build_panel != null and _skill_build_panel.has_method("clear_combat_highlight"):
+		_skill_build_panel.clear_combat_highlight()
+	finished.emit(result, monster, was_skipped)
+	_playback = null
+	_result = null
+	_monster = null
+	_intro_remaining_sec = 0.0
+	_intro_duration_sec = 0.0

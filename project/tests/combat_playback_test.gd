@@ -564,8 +564,8 @@ func _check_live_playback_win() -> void:
 	_require(combat_screen._combat_stage != null, "Expected playback to have a combat stage behind the HUD.")
 	_require(combat_screen._combat_stage._enemy_name_label.text == monster.display_name, "Expected the combat stage to name the current target mid-playback.")
 	_require(combat_screen._combat_stage.fight_intro_count == 1, "Expected the combat stage to play one start-of-fight intro.")
-	_require(combat_screen._playback_intro_remaining_sec > 0.0, "Expected playback to begin with a visual intro before the combat clock advances.")
-	_require(combat_screen._playback.events_fired() == 0, "Expected no timeline events to fire during the fight intro setup.")
+	_require(combat_screen._playback_presenter._intro_remaining_sec > 0.0, "Expected playback to begin with a visual intro before the combat clock advances.")
+	_require(combat_screen._playback_presenter._playback.events_fired() == 0, "Expected no timeline events to fire during the fight intro setup.")
 	_require(
 		combat_screen._hud_hp_text_label.text == "%d/%d" % [monster.hp, monster.hp],
 		"Expected the HUD to open at full HP for playback."
@@ -573,16 +573,16 @@ func _check_live_playback_win() -> void:
 
 	# Drive half of the intro first: the combat clock should still be
 	# truthful at 0, with no damage or events leaking in early.
-	combat_screen._process(combat_screen._playback_intro_duration_sec * 0.5)
-	_require(combat_screen._playback.events_fired() == 0, "Expected no events to fire before the intro finishes.")
-	_require(is_equal_approx(combat_screen._playback.elapsed_ms(), 0.0), "Expected the combat timeline clock to stay at 0 during the intro.")
+	combat_screen._process(combat_screen._playback_presenter._intro_duration_sec * 0.5)
+	_require(combat_screen._playback_presenter._playback.events_fired() == 0, "Expected no events to fire before the intro finishes.")
+	_require(is_equal_approx(combat_screen._playback_presenter._playback.elapsed_ms(), 0.0), "Expected the combat timeline clock to stay at 0 during the intro.")
 
 	# Drive through the rest of the intro plus 2 simulated combat seconds:
 	# some hits land, HP text drops in step with the controller's damage
 	# bookkeeping, and the outcome stays hidden.
-	combat_screen._process(combat_screen._playback_intro_remaining_sec + 2.0)
-	_require(combat_screen._playback.events_fired() > 0, "Expected events to have fired 2s in.")
-	var expected_hp: float = float(monster.hp) - combat_screen._playback.damage_dealt()
+	combat_screen._process(combat_screen._playback_presenter._intro_remaining_sec + 2.0)
+	_require(combat_screen._playback_presenter._playback.events_fired() > 0, "Expected events to have fired 2s in.")
+	var expected_hp: float = float(monster.hp) - combat_screen._playback_presenter._playback.damage_dealt()
 	_require(
 		combat_screen._hud_hp_text_label.text == "%d/%d" % [ceili(expected_hp), monster.hp],
 		"Expected the HUD HP text to track fired damage mid-playback."
@@ -592,7 +592,7 @@ func _check_live_playback_win() -> void:
 
 	# Skip to the result: the deferred reveal runs exactly as instant mode
 	# would have shown it.
-	combat_screen._playback_skip_button.pressed.emit()
+	combat_screen._playback_controls._skip_button.pressed.emit()
 	_require(not combat_screen._playback_active, "Expected playback finished after Skip.")
 	_require(combat_screen._victory_overlay.visible, "Expected the victory banner revealed after Skip.")
 	_require(not combat_screen._playback_controls.visible, "Expected the playback controls hidden after the reveal.")
@@ -628,8 +628,8 @@ func _check_natural_playback_win_reveal_timing() -> void:
 
 	print("-- Natural playback win reveal timing --")
 	combat_screen._enemy_panel.fight_pressed.emit()
-	var duration_sec := float(combat_screen._playback.timeline_end_ms()) / 1000.0
-	combat_screen._process(combat_screen._playback_intro_remaining_sec + duration_sec + 0.1)
+	var duration_sec := float(combat_screen._playback_presenter._playback.timeline_end_ms()) / 1000.0
+	combat_screen._process(combat_screen._playback_presenter._intro_remaining_sec + duration_sec + 0.1)
 	_require(not combat_screen._playback_active, "Expected playback to be finished before the natural reveal hold expires.")
 	_require(not combat_screen._victory_overlay.visible, "Expected the victory banner hidden during the natural outcome pose hold.")
 	_require(combat_screen._view_log_button.disabled, "Expected the combat log to stay locked during the natural outcome pose hold.")
@@ -673,9 +673,9 @@ func _check_live_playback_loss() -> void:
 	_require(not build_state.last_fight_won, "Expected the loss to be resolved instantly.")
 	_require(not combat_screen._outcome_title_label.visible, "Expected the DEFEATED title hidden mid-playback.")
 	_require(not combat_screen._retry_button.visible, "Expected the retry button hidden mid-playback.")
-	_require(combat_screen._playback.timeline_end_ms() == duration_ms, "Expected a loss playback to span the full DPS window.")
-	_require(combat_screen._playback_intro_remaining_sec > 0.0, "Expected the losing fight to start with the shared intro beat.")
-	_require(combat_screen._playback.events_fired() == 0, "Expected skip-during-intro coverage to begin before any events fire.")
+	_require(combat_screen._playback_presenter._playback.timeline_end_ms() == duration_ms, "Expected a loss playback to span the full DPS window.")
+	_require(combat_screen._playback_presenter._intro_remaining_sec > 0.0, "Expected the losing fight to start with the shared intro beat.")
+	_require(combat_screen._playback_presenter._playback.events_fired() == 0, "Expected skip-during-intro coverage to begin before any events fire.")
 
 	combat_screen._skip_playback()
 	_require(not combat_screen._playback_active, "Expected playback finished after skip.")
@@ -687,7 +687,7 @@ func _check_live_playback_loss() -> void:
 		"Expected the enemy HP bar to end the loss playback still full (window expired, enemy alive)."
 	)
 	_require(
-		combat_screen._playback_time_label.text == "%.1fs / %.0fs" % [duration_ms / 1000.0, duration_ms / 1000.0],
+		combat_screen._playback_controls._time_label.text == "%.1fs / %.0fs" % [duration_ms / 1000.0, duration_ms / 1000.0],
 		"Expected the window readout to end at the cap on a loss."
 	)
 	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected skip to still snap the player into the defeat pose.")
@@ -715,8 +715,8 @@ func _check_natural_playback_loss_reveal_timing() -> void:
 
 	print("-- Natural playback loss reveal timing --")
 	combat_screen._enemy_panel.fight_pressed.emit()
-	var duration_sec := float(combat_screen._playback.timeline_end_ms()) / 1000.0
-	combat_screen._process(combat_screen._playback_intro_remaining_sec + duration_sec + 0.1)
+	var duration_sec := float(combat_screen._playback_presenter._playback.timeline_end_ms()) / 1000.0
+	combat_screen._process(combat_screen._playback_presenter._intro_remaining_sec + duration_sec + 0.1)
 	_require(not combat_screen._playback_active, "Expected losing playback to finish before the natural reveal hold expires.")
 	_require(not combat_screen._outcome_title_label.visible, "Expected the defeat title hidden during the natural outcome pose hold.")
 	_require(not combat_screen._retry_button.visible, "Expected retry hidden during the natural outcome pose hold.")
@@ -760,13 +760,13 @@ func _check_playback_speed_persists() -> void:
 
 	print("-- Live playback speed persists across fights --")
 	fight_enemy_panel.fight_pressed.emit()
-	_require(is_equal_approx(combat_screen._playback.speed, 1.0), "Expected the first-ever fight of a session to start at the default 1x.")
+	_require(is_equal_approx(combat_screen._playback_presenter._playback.speed, 1.0), "Expected the first-ever fight of a session to start at the default 1x.")
 
 	# Pick 4x mid-playback via the real speed button (index 2 of
 	# PLAYBACK_SPEED_OPTIONS == [1.0, 2.0, 4.0]).
-	combat_screen._playback_speed_buttons[2].pressed.emit()
-	_require(is_equal_approx(combat_screen._playback.speed, 4.0), "Expected the 4x speed button press to apply immediately.")
-	_require(combat_screen._playback_speed_buttons[2].disabled, "Expected the 4x button to show as the active speed.")
+	combat_screen._playback_controls._speed_buttons[2].pressed.emit()
+	_require(is_equal_approx(combat_screen._playback_presenter._playback.speed, 4.0), "Expected the 4x speed button press to apply immediately.")
+	_require(combat_screen._playback_controls._speed_buttons[2].disabled, "Expected the 4x button to show as the active speed.")
 
 	combat_screen._skip_playback()
 	_require(combat_screen._retry_button.visible, "Expected the retry do-over after this Tavern loss.")
@@ -778,11 +778,11 @@ func _check_playback_speed_persists() -> void:
 	fight_enemy_panel.fight_pressed.emit()
 	_require(combat_screen._playback_active, "Expected the second fight to also enter playback.")
 	_require(
-		is_equal_approx(combat_screen._playback.speed, 4.0),
+		is_equal_approx(combat_screen._playback_presenter._playback.speed, 4.0),
 		"Expected the second fight's playback to start at the previously-chosen 4x speed, not reset to 1x."
 	)
-	_require(combat_screen._playback_speed_buttons[2].disabled, "Expected the 4x button to already show as active on the second fight.")
-	_require(not combat_screen._playback_speed_buttons[0].disabled, "Expected the 1x button to not be shown as active on the second fight.")
+	_require(combat_screen._playback_controls._speed_buttons[2].disabled, "Expected the 4x button to already show as active on the second fight.")
+	_require(not combat_screen._playback_controls._speed_buttons[0].disabled, "Expected the 1x button to not be shown as active on the second fight.")
 
 	combat_screen._skip_playback()
 	combat_screen.queue_free()

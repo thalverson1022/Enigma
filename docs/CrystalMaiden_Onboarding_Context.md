@@ -69,6 +69,20 @@ complete.
 Latest known pushed state:
 
 - Milestone 1 closeout committed and pushed on `phase-3-crystalmaiden`.
+- Phase 1-4 of the cross-cutting technical-debt cleanup (see
+  `docs/Phase_3_Technical_Debt_Architecture_Cleanup.md`) are complete but not
+  yet committed as of 2026-07-31. `combat_screen.gd` went from 3,564 to 1,825
+  lines (-49%) via 8 extracted overlay scenes (Phase 3) plus a playback/VFX
+  layer extraction into `combat_popup_layer.gd`, `playback_controls.gd`, and
+  `combat_playback_presenter.gd` (Phase 4). No behavior change; verified with
+  the full 41-test suite and Balance Lab after every sub-step, plus a manual
+  playtest pass. Phases 5-7 remain deliberately deferred behind their own
+  triggers (see that doc's Status section).
+- A stale test assertion in `tests/contract_offer_flow_test.gd` (expecting
+  Shadow's old, longer `intrinsic_text`) was fixed to match the corrected
+  `data/subclass_trees/shadow.tres` text ("Stab & Heavy Slash apply +1 poison
+  stack") during Milestone 1 verification; this was a test-sync fix, not a
+  mechanics change.
 
 ## Phase 3 Scope
 
@@ -165,6 +179,9 @@ Combat and build systems:
 - `project/scripts/systems/build_resolver.gd`
 - `project/scripts/systems/combat_resolver.gd`
 - `project/scripts/ui/combat_playback.gd`
+- `project/scripts/ui/combat_playback_presenter.gd`
+- `project/scripts/ui/combat_popup_layer.gd`
+- `project/scripts/ui/playback_controls.gd`
 - `project/scripts/ui/combat_stage.gd`
 - `project/scripts/systems/combat_result_formatter.gd`
 - `project/scripts/systems/combat_recap.gd`
@@ -179,6 +196,7 @@ Key docs:
 - `docs/Phase_3_CrystalMaiden_Milestones.md`
 - `docs/Phase_3_Milestone_0_Planning_And_Phase_Setup.md`
 - `docs/Phase_3_Milestone_1_Combat_Playback_Juice.md`
+- `docs/Phase_3_Technical_Debt_Architecture_Cleanup.md`
 - `docs/Phase_3_Context/Game_Summary_And_Phase_3_Brief.md`
 - `docs/Phase_3_Context/Mechanics_And_Balance_Glossary.md`
 - `docs/Phase_3_Context/Phase_2_Closeout_Review.md`

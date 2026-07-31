@@ -63,61 +63,10 @@ const BACKDROP_COLOR := UIColors.OVERLAY_BACKDROP
 # font sizes/colors/motion. The playback timeline itself is driven by
 # CombatPlayback (scripts/ui/combat_playback.gd); these constants only shape
 # how each fired event LOOKS. --
-## Selectable playback speed multipliers, in button order. First entry is
-## the default every playback starts at.
-const PLAYBACK_SPEED_OPTIONS: Array[float] = [1.0, 2.0, 4.0]
-## HP-bar tween duration for a direct cast hit -- short and punchy so each
-## hit reads as a discrete chunk, not a smooth drain.
-const PLAYBACK_HP_TWEEN_SEC := 0.15
-## HP-bar tween duration for a poison tick -- slightly softer than a hit.
-const PLAYBACK_TICK_HP_TWEEN_SEC := 0.3
-## Comic-book popup font (Pirata One reads as a heavy action word; swap for
-## MedievalSharp-Regular.ttf here if it lands better in real play).
-const POPUP_FONT := preload("res://assets/fonts/PirataOne-Regular.ttf")
-## Popup lifetime from spawn to fully faded/freed.
-const POPUP_DURATION_SEC := 1.35
-## How far a popup floats upward over its lifetime.
-const POPUP_RISE_PX := 68.0
-## Gentle lift duration; avoids damage text feeling launched from the target.
-const POPUP_RISE_SEC := 1.05
-## Poison ticks drift more slowly so they read as damage-over-time.
-const POPUP_TICK_RISE_SEC := 1.5
-## Fade starts after this long, so the word is readable before it dissolves.
-const POPUP_FADE_DELAY_SEC := 0.45
-## Horizontal/vertical random jitter around the spawn point so rapid casts
-## don't stack into one unreadable pile.
-const POPUP_JITTER_X_PX := 120.0
-const POPUP_JITTER_Y_PX := 34.0
-## Vertical spawn anchor as a fraction of the combat panel's height.
-const POPUP_BASE_Y_FRACTION := 0.55
-## Popups never spawn above this y -- keeps the enemy HUD strip clear.
-const POPUP_TOP_MARGIN_PX := 96.0
-## Font sizes per popup kind.
-const POPUP_FONT_SIZE := 52
-const POPUP_CRIT_FONT_SIZE := 68
-const POPUP_TICK_FONT_SIZE := 26
-const POPUP_WYVERN_TICK_FONT_SIZE := 20
-const POPUP_PROC_FONT_SIZE := 56
-const POPUP_POISON_TICK_JITTER_X_PX := 34.0
-const POPUP_POISON_TICK_JITTER_Y_PX := 16.0
-## Crit punch-scale: the label spawns at this scale and snaps to 1.0.
-const POPUP_CRIT_PUNCH_SCALE := 1.35
-const POPUP_CRIT_PUNCH_SEC := 0.12
-## Simultaneous popup caps so long fights don't flood the panel -- poison
-## ticks (1/second, low-stakes) get a tighter cap of their own.
-const POPUP_MAX_ACTIVE := 10
-const POPUP_MAX_TICK_ACTIVE := 3
-## Popup colors per kind, all from UIColors: normal cast, crit (gold, per
-## the agreed design), poison tick (low-key green), proc (flashy magic
-## purple for Opportunity Strikes / Mithril Karambit triggers).
-const POPUP_NORMAL_COLOR := UIColors.TEXT_NORMAL
-const POPUP_CRIT_COLOR := UIColors.TEXT_GOLD
-const POPUP_TICK_COLOR := UIColors.TEXT_POISON
-const POPUP_PROC_COLOR := UIColors.TEXT_MAGIC
 ## Combat-playback adjustment round 1 (2026-07-19): a short pause between
 ## the timeline finishing and _reveal_fight_outcome() actually running, so
-## the last spawned popup's float+fade (POPUP_DURATION_SEC 1.35s, fading
-## after POPUP_FADE_DELAY_SEC 0.45s) has visibly finished before the
+## the last spawned popup's float+fade (CombatPopupLayer.POPUP_DURATION_SEC
+## 1.35s, fading after POPUP_FADE_DELAY_SEC 0.45s) has visibly finished before the
 ## outcome banner/recap pops in on top of it. Deliberately a little under
 ## the full 0.9s popup lifetime rather than a full match -- close enough
 ## that the last popup reads as "done" without adding a full extra second
@@ -130,7 +79,6 @@ const TAVERN_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/tavern_dumm
 const CONTRACT_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/contract_exterior.jpg")
 const TAVERN_BACKGROUND_TINT := Color(0, 0, 0, 0.42)
 
-enum PopupKind { NORMAL, CRIT, POISON_TICK, PROC }
 
 var _status_label: Label
 var _outcome_title_label: Label
@@ -186,27 +134,14 @@ var _hud_result_monster: Monster = null
 # post-fight UI state synchronously, while the real game window gets 1x
 # playback; tests that exercise playback itself set it to false explicitly. --
 var instant_playback: bool = DisplayServer.get_name() == "headless"
-var _playback: CombatPlayback = null
+## Raised BEFORE BuildState.finish_fight() runs (see _on_fight_pressed()) so
+## a run_state_changed refresh it emits doesn't clobber the animated HUD --
+## that ordering need is why this flag stays here instead of being owned or
+## mirrored by _playback_presenter. See combat_playback_presenter.gd's
+## header for the full rationale.
 var _playback_active := false
-var _playback_skipping := false
-var _playback_intro_remaining_sec := 0.0
-var _playback_intro_duration_sec := 0.0
-var _playback_result: CombatResolver.CombatResult = null
-var _playback_monster: Monster = null
-## Live HUD values during playback, advanced per fired event by replaying
-## the recorded CastEvent/TickEvent fields (no combat math reimplemented --
-## the same event-replay reads the post-fight helpers below already use).
-var _playback_hp := 0.0
-var _playback_armor := 0
-var _playback_resist := 0.0
-var _playback_stacks := 0
-var _playback_armor_reduced := 0
-var _playback_shred_stacks := 0
-var _playback_decay_stacks := 0
-var _playback_controls: HBoxContainer
-var _playback_time_label: Label
-var _playback_speed_buttons: Array[Button] = []
-var _playback_skip_button: Button
+var _playback_presenter: CombatPlaybackPresenter
+var _playback_controls: PlaybackControls
 var _skill_build_panel
 ## Session-persistent playback speed (combat-playback adjustment round 2 +
 ## retry bug, 2026-07-19): the user asked for their last-chosen speed to
@@ -218,21 +153,15 @@ var _skill_build_panel
 ## SaveSystem plumbing needed for "carries into the next fight." Not
 ## persisted across a save/reload (the user asked for "into the next fight,"
 ## not "across sessions") -- a fresh session or a loaded save always starts
-## back at PLAYBACK_SPEED_OPTIONS[0] (1x), which is judged an acceptable,
+## back at PlaybackControls.SPEED_OPTIONS[0] (1x), which is judged an acceptable,
 ## easy-to-revisit default rather than adding save-file schema churn for a
 ## same-session-only ask.
-var _last_playback_speed: float = PLAYBACK_SPEED_OPTIONS[0]
+var _last_playback_speed: float = PlaybackControls.SPEED_OPTIONS[0]
 var _combat_window: PanelContainer
 var _tavern_background: TextureRect
 var _tavern_background_tint: ColorRect
 var _combat_stage
-var _popup_layer: Control
-var _popup_rng := RandomNumberGenerator.new()
-var _popup_generation := 0
-var _hp_bar_tween: Tween
-var _active_popups := 0
-var _active_tick_popups := 0
-var _wyvern_kriss_effect_active := false
+var _popup_layer: CombatPopupLayer
 var _reward_label: Label
 var _continue_button: Button
 var _shop_overlay
@@ -354,6 +283,14 @@ func _ready() -> void:
 	_skill_build_panel = SKILL_BUILD_SCENE.instantiate()
 	center_column.add_child(_skill_build_panel)
 
+	_playback_presenter = CombatPlaybackPresenter.new()
+	_playback_presenter.set_combat_stage(_combat_stage)
+	_playback_presenter.set_skill_build_panel(_skill_build_panel)
+	_playback_presenter.set_popup_layer(_popup_layer)
+	_playback_presenter.set_hud_widgets(_hud_hp_text_label, _hud_health_bar, _hud_info_label, _hud_resist_label, _clear_hud_status_chips, _add_hud_status_chip)
+	_playback_presenter.finished.connect(_on_playback_finished)
+	add_child(_playback_presenter)
+
 	# Right column: Enemy Stats over Gear.
 	var right_column := VBoxContainer.new()
 	right_column.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0)
@@ -424,30 +361,15 @@ func _ready() -> void:
 	call_deferred("_show_initial_map_if_needed")
 
 
+## Kept here (not moved to a _process() on _playback_presenter) specifically
+## so headless tests can keep driving frame advancement by calling
+## combat_screen._process(delta) directly in single-shot scripts with no
+## real running game loop -- see combat_playback_presenter.gd's header.
 func _process(delta: float) -> void:
-	if not _playback_active or _playback == null:
+	if not _playback_active:
 		return
-	if _playback_intro_remaining_sec > 0.0:
-		var playback_speed := maxf(_playback.speed, 0.0)
-		var intro_advance := delta * playback_speed
-		if intro_advance < _playback_intro_remaining_sec:
-			_playback_intro_remaining_sec -= intro_advance
-			_update_playback_time_label()
-			return
-		var overflow_delta := 0.0
-		if playback_speed > 0.0:
-			overflow_delta = (intro_advance - _playback_intro_remaining_sec) / playback_speed
-		_playback_intro_remaining_sec = 0.0
-		if overflow_delta <= 0.0:
-			_update_playback_time_label()
-			return
-		delta = overflow_delta
-	_playback.advance(delta)
-	_update_macro_cast_progress()
-	# advance() may finish the playback (nulling _playback) via its
-	# finished callback -- only refresh the readout while it's still live.
-	if _playback != null:
-		_update_playback_time_label()
+	_playback_presenter.advance(delta)
+	_update_playback_time_label()
 
 
 ## The central combat window -- the future home of animated combat. For now
@@ -506,7 +428,10 @@ func _build_combat_window() -> PanelContainer:
 	# Playback controls: elapsed/window readout plus 1x/2x/4x/Skip, visible
 	# only while a fight's timeline is playing back. Sits directly under the
 	# HUD so the black panel center stays the popup stage.
-	content.add_child(_build_playback_controls())
+	_playback_controls = PlaybackControls.new()
+	_playback_controls.speed_selected.connect(_set_playback_speed)
+	_playback_controls.skip_pressed.connect(_skip_playback)
+	content.add_child(_playback_controls)
 
 	_outcome_title_label = Label.new()
 	_outcome_title_label.visible = false
@@ -551,43 +476,15 @@ func _build_combat_window() -> PanelContainer:
 	_restart_adventure_button.pressed.connect(func(): adventure_restart_pressed.emit())
 	content.add_child(_restart_adventure_button)
 
-	# Popup layer: a full-panel, mouse-transparent Control the comic-book
-	# skill popups spawn into. Added after the content column so popups draw
-	# over the black stage; a plain Control contributes no minimum size, so
-	# the layout is unaffected.
-	_popup_layer = Control.new()
-	_popup_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Popup layer: a full-panel, mouse-transparent layer the comic-book skill
+	# popups spawn into (scripts/ui/combat_popup_layer.gd). Added after the
+	# content column so popups draw over the black stage; contributes no
+	# minimum size of its own, so the layout is unaffected.
+	_popup_layer = CombatPopupLayer.new()
+	_popup_layer.set_combat_stage(_combat_stage)
 	window.add_child(_popup_layer)
 
 	return window
-
-
-## The playback control strip: a compact "elapsed / window" time readout
-## (the DPS-window pressure indicator -- on a loss the elapsed time visibly
-## reaches the window cap while the HP bar still shows red) plus 1x/2x/4x
-## speed buttons and a Skip-to-result button. Hidden outside playback.
-func _build_playback_controls() -> HBoxContainer:
-	_playback_controls = HBoxContainer.new()
-	_playback_controls.visible = false
-	_playback_controls.add_theme_constant_override("separation", 8)
-
-	_playback_time_label = Label.new()
-	_playback_time_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_playback_controls.add_child(_playback_time_label)
-
-	_playback_speed_buttons = []
-	for speed in PLAYBACK_SPEED_OPTIONS:
-		var speed_button := Button.new()
-		speed_button.text = "%dx" % int(speed)
-		speed_button.pressed.connect(_set_playback_speed.bind(speed))
-		_playback_speed_buttons.append(speed_button)
-		_playback_controls.add_child(speed_button)
-
-	_playback_skip_button = Button.new()
-	_playback_skip_button.text = "Skip"
-	_playback_skip_button.pressed.connect(_skip_playback)
-	_playback_controls.add_child(_playback_skip_button)
-	return _playback_controls
 
 
 ## The enemy status HUD (user-requested combat-HUD addition, 2026-07-18):
@@ -1520,29 +1417,14 @@ func _reveal_fight_outcome(result: CombatResolver.CombatResult, monster: Monster
 		_recap_label.visible = true
 
 
-## Starts the real-time visual playback of an already-resolved fight. The
-## HUD is reset to the monster's pre-fight values and then driven forward
-## per event by _on_playback_event(); every outcome-revealing control is
-## hidden/locked until _on_playback_finished().
+## Starts the real-time visual playback of an already-resolved fight. Locks
+## every outcome-revealing dashboard control, sets the pre-fight HUD state,
+## and hands off to _playback_presenter for the actual timeline/animation
+## mechanics -- it reports back exactly once via its `finished` signal (see
+## _on_playback_finished() below).
 func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> void:
 	_playback_active = true
-	_playback_result = result
-	_playback_monster = monster
-	_playback_hp = float(monster.hp)
-	_playback_armor = monster.armor
-	_playback_resist = monster.poison_resistance
-	_playback_stacks = 0
-	_playback_armor_reduced = 0
-	_playback_shred_stacks = 0
-	_playback_decay_stacks = 0
-	_active_popups = 0
-	_active_tick_popups = 0
-	_popup_generation += 1
-	_popup_rng.randomize()
 	_update_combat_stage_target(monster)
-	_combat_stage.reset_state()
-	if _skill_build_panel != null and _skill_build_panel.has_method("clear_combat_highlight"):
-		_skill_build_panel.clear_combat_highlight()
 	# Lock out everything that would reveal or act on the outcome early. The
 	# build panels are already locked (build_locked stays true through the
 	# fight), and the enemy panel's FIGHT! button is already disabled because
@@ -1568,298 +1450,76 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON)
 	_add_hud_status_chip("x0", UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_enemy_hud.visible = true
-	_playback = CombatPlayback.new()
-	_playback.event_callback = _on_playback_event
-	_playback.cast_start_callback = _on_playback_cast_start
-	_playback.finished_callback = _on_playback_finished
 	# Full window always plays on both a win and a loss (adjustment round 1,
 	# 2026-07-19) -- a win used to truncate at the recorded kill moment; the
 	# user wants the "overkill" feel of watching every remaining cast/tick
-	# still land on the corpse. The HUD's HP bar clamps at 0 in
-	# _on_playback_event() so it never dips below dead or un-dies.
-	_playback.start(result)
-	_wyvern_kriss_effect_active = _equipped_gear_has_id("gear.legendary.wyvern_kriss")
-	if _combat_stage != null:
-		_combat_stage.set_bandit_blade_effect_active(_equipped_gear_has_id(_combat_stage.BANDIT_BLADE_ID))
+	# still land on the corpse. The HUD's HP bar clamps at 0 in the
+	# presenter's own event handler so it never dips below dead or un-dies.
+	_playback_presenter.start(
+		result,
+		monster,
+		_equipped_gear_has_id("gear.legendary.wyvern_kriss"),
+		_combat_stage != null and _equipped_gear_has_id(_combat_stage.BANDIT_BLADE_ID),
+		not instant_playback
+	)
 	# Session-persistent speed (adjustment round 2, 2026-07-19): initialize
 	# from the last speed the player chose instead of always defaulting back
 	# to 1x -- see _last_playback_speed's declaration.
 	_set_playback_speed(_last_playback_speed)
-	_playback_intro_duration_sec = _combat_stage.play_fight_intro(not instant_playback) if _combat_stage != null else 0.0
-	_playback_intro_remaining_sec = _playback_intro_duration_sec
 	_playback_controls.visible = true
 	_update_playback_time_label()
 	_update_header_status()
 	set_process(true)
 
 
-## Applies one fired timeline event to the live HUD: drains HP with a quick
-## tween, replays the event's recorded armor/resist/stack changes (the same
-## event-replay reads _hud_final_armor()/_hud_final_poison_resist() use --
-## no combat math reimplemented), refreshes the info line and status chips,
-## and spawns the matching comic-book popup.
-func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
-	if event.is_tick:
-		_playback_stacks = event.tick.stacks_remaining
-		if _combat_stage != null:
-			_combat_stage.set_poison_stacks(_playback_stacks, not _playback_skipping)
-		if event.tick.damage > 0.0:
-			if _combat_stage != null:
-				_combat_stage.play_poison_tick_pulse(not _playback_skipping)
-			_playback_hp = maxf(_playback_hp - event.tick.damage, 0.0)
-			_apply_playback_hp(PLAYBACK_TICK_HP_TWEEN_SEC)
-			# "Poison -N" (combat-playback adjustment round 2, 2026-07-19) --
-			# matches the "SkillName -N" pattern the physical cast popups use
-			# (added in adjustment round 1) for visual cohesion; font
-			# size/color are unchanged, only the text gained a label.
-			_spawn_skill_popup("Poison -%.0f" % event.tick.damage, PopupKind.POISON_TICK)
-	else:
-		var cast := event.cast
-		var popup_delay := 0.0
-		if _combat_stage != null:
-			popup_delay = _combat_stage.play_cast_impact(cast, not _playback_skipping)
-		if not cast.triggered_skill_names.is_empty() and _skill_build_panel != null and _skill_build_panel.has_method("highlight_rotation_index"):
-			_skill_build_panel.highlight_rotation_index(cast.rotation_index, true)
-		if cast.physical_damage > 0.0:
-			_playback_hp = maxf(_playback_hp - cast.physical_damage, 0.0)
-		_playback_armor -= cast.armor_reduction_applied
-		_playback_armor_reduced += cast.armor_reduction_applied
-		if cast.armor_reduction_applied > 0:
-			_playback_shred_stacks += 1
-		if cast.poison_resistance_reduction_applied > 0.0:
-			_playback_resist *= 1.0 - clampf(cast.poison_resistance_reduction_applied, 0.0, 1.0)
-			_playback_decay_stacks += 1
-		_playback_stacks = mini(_playback_stacks + cast.poison_stacks_applied, CombatResolver.MAX_POISON_STACKS)
-		if cast.poison_stacks_applied > 0:
-			if _combat_stage != null:
-				_combat_stage.set_poison_stacks(_playback_stacks, not _playback_skipping)
-		_apply_playback_hp(PLAYBACK_HP_TWEEN_SEC)
-		_schedule_cast_popups(cast, popup_delay)
-	_update_playback_hud_readout()
-
-
-func _on_playback_cast_start(cast: CombatResolver.CastEvent) -> void:
-	if _playback_skipping:
-		return
-	if _combat_stage != null:
-		_combat_stage.play_cast_windup(cast, _playback.speed if _playback != null else _last_playback_speed, true)
-	if _skill_build_panel != null and _skill_build_panel.has_method("set_cast_progress"):
-		_skill_build_panel.set_cast_progress(cast.rotation_index, 0.0, cast.min_cast_time_proc_applied)
-
-
-func _update_macro_cast_progress() -> void:
-	if _playback == null or _skill_build_panel == null or not _skill_build_panel.has_method("set_cast_progress"):
-		return
-	var cast := _playback.active_cast()
-	if cast == null:
-		return
-	_skill_build_panel.set_cast_progress(cast.rotation_index, _playback.active_cast_progress(), cast.min_cast_time_proc_applied)
-
-
-func _schedule_cast_popups(cast: CombatResolver.CastEvent, delay_sec: float) -> void:
-	var generation := _popup_generation
-	if delay_sec <= 0.0 or _playback_skipping:
-		_spawn_cast_popups(cast)
-		return
-	await get_tree().create_timer(delay_sec).timeout
-	if generation != _popup_generation or _playback_skipping:
-		return
-	_spawn_cast_popups(cast)
-
-
-func _spawn_cast_popups(cast: CombatResolver.CastEvent) -> void:
-	var skill_name := cast.skill.display_name if cast.skill != null else "Attack"
-	# Damage number appended in the same "-N" style poison ticks already
-	# use. The number is the event's full physical_damage, which already
-	# includes any triggered-skill damage folded into the same cast by the
-	# resolver; presentation splits the attack, but combat math stays merged.
-	var damage_suffix := ""
-	if cast.physical_damage > 0.0:
-		damage_suffix = " -%.0f" % cast.physical_damage
-	if cast.is_crit:
-		_spawn_skill_popup("%s%s!" % [skill_name, damage_suffix], PopupKind.CRIT)
-	elif cast.min_cast_time_proc_applied:
-		_spawn_skill_popup("%s%s PROC!" % [skill_name, damage_suffix], PopupKind.PROC)
-	else:
-		_spawn_skill_popup("%s%s" % [skill_name, damage_suffix], PopupKind.NORMAL)
-	for triggered_name in cast.triggered_skill_names:
-		_spawn_skill_popup(String(triggered_name), PopupKind.PROC)
-
-
-## Updates the HP text immediately and tweens the bar to the new value --
-## discrete per-hit chunks rather than one smooth constant drain. Skipping
-## sets the value directly (no tween churn for dozens of events at once).
-func _apply_playback_hp(tween_sec: float) -> void:
-	_hud_hp_text_label.text = "%d/%d" % [ceili(_playback_hp), _playback_monster.hp]
-	if _hp_bar_tween != null and _hp_bar_tween.is_valid():
-		_hp_bar_tween.kill()
-	if _playback_skipping:
-		_hud_health_bar.value = _playback_hp
-		return
-	_hp_bar_tween = create_tween()
-	_hp_bar_tween.tween_property(_hud_health_bar, "value", _playback_hp, tween_sec)
-
-
-## Refreshes the HUD info line and status chips from the live playback
-## values -- the real-time version of _render_enemy_hud_post_fight()'s
-## chip logic, updating as each event lands.
-func _update_playback_hud_readout() -> void:
-	_hud_info_label.text = "%d" % _playback_armor
-	if _hud_resist_label != null:
-		_hud_resist_label.text = "%.0f%%" % (_playback_resist * 100.0)
-	_clear_hud_status_chips()
-	_add_hud_status_chip("x%d" % _playback_stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
-	_add_hud_status_chip("x%d" % _playback_shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
-	_add_hud_status_chip("x%d" % _playback_decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
-
-
-## Spawns one comic-book popup in the black combat panel: the text pops in,
-## floats up, and fades out. Crits punch-scale in bigger and gold; poison
-## ticks are small, green, and tightly capped; procs are magic purple.
-func _spawn_skill_popup(text: String, kind: int) -> void:
-	if _playback_skipping or _popup_layer == null:
-		return
-	if _active_popups >= POPUP_MAX_ACTIVE:
-		return
-	if kind == PopupKind.POISON_TICK and _active_tick_popups >= POPUP_MAX_TICK_ACTIVE:
-		return
-	var label := Label.new()
-	label.text = text
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_override("font", POPUP_FONT)
-	var font_size := POPUP_FONT_SIZE
-	var color := POPUP_NORMAL_COLOR
-	match kind:
-		PopupKind.CRIT:
-			font_size = POPUP_CRIT_FONT_SIZE
-			color = POPUP_CRIT_COLOR
-		PopupKind.POISON_TICK:
-			font_size = _poison_tick_font_size()
-			color = POPUP_TICK_COLOR
-		PopupKind.PROC:
-			font_size = POPUP_PROC_FONT_SIZE
-			color = POPUP_PROC_COLOR
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	_popup_layer.add_child(label)
-	label.reset_size()
-	label.pivot_offset = label.size * 0.5
-	var spawn_position := _popup_spawn_position(kind, label.size)
-	var spawn_x := spawn_position.x
-	var spawn_y := spawn_position.y
-	label.position = Vector2(spawn_x, spawn_y)
-	_active_popups += 1
-	if kind == PopupKind.POISON_TICK:
-		_active_tick_popups += 1
-	var tween := label.create_tween()
-	tween.set_parallel(true)
-	if kind == PopupKind.CRIT:
-		label.scale = Vector2.ONE * POPUP_CRIT_PUNCH_SCALE
-		tween.tween_property(label, "scale", Vector2.ONE, POPUP_CRIT_PUNCH_SEC)
-	else:
-		label.scale = Vector2.ONE * 0.92
-		tween.tween_property(label, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	var rise_sec := POPUP_TICK_RISE_SEC if kind == PopupKind.POISON_TICK else POPUP_RISE_SEC
-	tween.tween_property(label, "position:y", spawn_y - POPUP_RISE_PX, rise_sec).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(label, "modulate:a", 0.0, POPUP_DURATION_SEC - POPUP_FADE_DELAY_SEC).set_delay(POPUP_FADE_DELAY_SEC)
-	tween.finished.connect(_on_popup_finished.bind(label, kind))
-
-
-func _popup_spawn_position(kind: int, label_size: Vector2) -> Vector2:
-	if kind == PopupKind.POISON_TICK and _combat_stage != null:
-		var enemy_local: Vector2 = _popup_layer.get_global_transform().affine_inverse() * _combat_stage.enemy_popup_global_position()
-		return Vector2(
-			enemy_local.x - label_size.x * 0.5 + _popup_rng.randf_range(-POPUP_POISON_TICK_JITTER_X_PX, POPUP_POISON_TICK_JITTER_X_PX),
-			maxf(enemy_local.y - label_size.y * 0.5 + _popup_rng.randf_range(-POPUP_POISON_TICK_JITTER_Y_PX, POPUP_POISON_TICK_JITTER_Y_PX), POPUP_TOP_MARGIN_PX)
-		)
-	return Vector2(
-		_popup_layer.size.x * 0.5 - label_size.x * 0.5 + _popup_rng.randf_range(-POPUP_JITTER_X_PX, POPUP_JITTER_X_PX),
-		maxf(_popup_layer.size.y * POPUP_BASE_Y_FRACTION + _popup_rng.randf_range(-POPUP_JITTER_Y_PX, POPUP_JITTER_Y_PX), POPUP_TOP_MARGIN_PX)
-	)
-
-
-func _on_popup_finished(label: Label, kind: int) -> void:
-	_active_popups = maxi(_active_popups - 1, 0)
-	if kind == PopupKind.POISON_TICK:
-		_active_tick_popups = maxi(_active_tick_popups - 1, 0)
-	label.queue_free()
-
-
-func _poison_tick_font_size() -> int:
-	return POPUP_WYVERN_TICK_FONT_SIZE if _wyvern_kriss_effect_active else POPUP_TICK_FONT_SIZE
-
-
-## Sets the playback speed and disables the matching speed button so the
-## active speed is visible at a glance. Also remembers the choice
-## (_last_playback_speed, adjustment round 2, 2026-07-19) so the next
-## fight's playback starts at this speed instead of always resetting to 1x
-## -- called both from a real speed-button press and from _begin_playback()
-## initializing a fresh playback from the remembered speed, so recording it
-## here covers both without a second call site.
+## Remembers the choice (_last_playback_speed, adjustment round 2,
+## 2026-07-19) so the next fight's playback starts at this speed instead of
+## always resetting to 1x -- called both from a real speed-button press and
+## from _begin_playback() initializing a fresh playback from the remembered
+## speed, so recording it here covers both without a second call site.
 func _set_playback_speed(speed: float) -> void:
 	_last_playback_speed = speed
-	if _playback != null:
-		_playback.speed = speed
-	for i in _playback_speed_buttons.size():
-		_playback_speed_buttons[i].disabled = is_equal_approx(PLAYBACK_SPEED_OPTIONS[i], speed)
+	_playback_presenter.set_speed(speed)
+	_playback_controls.set_active_speed(speed)
 
 
-## Fires every remaining timeline event instantly and reveals the outcome --
-## the Skip button's action, and the path the playback-enabled headless
-## checks drive. Popup spawning and per-hit tweening are suppressed while
-## the burst of remaining events fires.
+## Fires every remaining timeline event instantly -- the Skip button's
+## action, and the path the playback-enabled headless checks drive.
 func _skip_playback() -> void:
-	if not _playback_active or _playback == null:
+	if not _playback_active:
 		return
-	_playback_skipping = true
-	_popup_generation += 1
-	_playback_intro_remaining_sec = 0.0
-	_playback.skip()
-	_playback_skipping = false
+	_playback_presenter.skip()
 
 
 func _update_playback_time_label() -> void:
-	if _playback == null or _playback_time_label == null:
+	if not _playback_active or _playback_controls == null:
 		return
-	_playback_time_label.text = "%.1fs / %.0fs" % [_playback.elapsed_ms() / 1000.0, _playback.window_ms() / 1000.0]
+	_playback_controls.set_time_text("%.1fs / %.0fs" % [_playback_presenter.elapsed_ms() / 1000.0, _playback_presenter.window_ms() / 1000.0])
 
 
-## The end of a playback (natural or skipped): unlocks the controls the
-## playback froze, snaps the HUD to the exact resolved post-fight state, and
-## runs the deferred outcome reveal. CombatPlayback guarantees this fires
-## exactly once per fight.
-func _on_playback_finished() -> void:
+## The dashboard-level end of a playback (natural or skipped): unlocks the
+## controls the playback froze, snaps the HUD to the exact resolved
+## post-fight state, and runs the deferred outcome reveal.
+## _playback_presenter's `finished` signal guarantees this fires exactly
+## once per fight.
+func _on_playback_finished(result: CombatResolver.CombatResult, monster: Monster, was_skipped: bool) -> void:
 	set_process(false)
 	_update_playback_time_label()
-	if _hp_bar_tween != null and _hp_bar_tween.is_valid():
-		_hp_bar_tween.kill()
-	var result := _playback_result
-	var monster := _playback_monster
-	_playback = null
-	_playback_result = null
-	_playback_monster = null
 	_playback_active = false
-	if _skill_build_panel != null and _skill_build_panel.has_method("clear_combat_highlight"):
-		_skill_build_panel.clear_combat_highlight()
-	_playback_intro_remaining_sec = 0.0
-	_playback_intro_duration_sec = 0.0
 	_playback_controls.visible = false
 	# Exact final HUD state (bar value, chips, info line) from the stored
 	# result -- the same rendering the instant path uses.
 	_show_enemy_hud_post_fight(result, monster)
 	if _combat_stage != null:
-		_combat_stage.play_outcome_pose(result.is_win, not instant_playback and not _playback_skipping)
+		_combat_stage.play_outcome_pose(result.is_win, not instant_playback and not was_skipped)
 	# Brief pause so the last popup's float+fade finishes before the outcome
 	# reveal pops in on top of it (adjustment round 1). Skipped when Skip was
-	# pressed (_playback_skipping is still true here -- set before
-	# CombatPlayback.skip() is called and cleared only after it returns, so
-	# it reads true for the duration of this synchronously-triggered call --
-	# no popups spawn during a skip flush, so nothing needs outlasting) and
-	# in instant_playback mode (headless tests never reach this function at
-	# all today, since _begin_playback() is only entered when playback is
-	# non-instant, but the check is kept here too so this function stays
-	# correct if that ever changes).
-	if not instant_playback and not _playback_skipping:
+	# pressed (no popups spawn during a skip flush, so nothing needs
+	# outlasting) and in instant_playback mode (headless tests never reach
+	# this function at all today, since _begin_playback() is only entered
+	# when playback is non-instant, but the check is kept here too so this
+	# function stays correct if that ever changes).
+	if not instant_playback and not was_skipped:
 		await get_tree().create_timer(PLAYBACK_OUTCOME_REVEAL_DELAY_SEC).timeout
 	_reveal_fight_outcome(result, monster)
 	_map_button.disabled = false
