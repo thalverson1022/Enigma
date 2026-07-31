@@ -66,7 +66,7 @@ func _initialize() -> void:
 	_require(tree_card_1_vbox.find_child("Title", true, false).text.contains("Shadow"), "Expected Shadow second-tree choice.")
 	_require(tree_card_1_vbox.find_child("Icon", true, false) != null, "Expected Shadow second-tree choice to show an icon.")
 	_require(
-		tree_card_1_vbox.get_child(1).text.contains("ticks for poison damage"),
+		tree_card_1_vbox.get_child(1).text.contains("Stab & Heavy Slash apply +1 poison stack"),
 		"Expected Shadow intrinsic in second-tree choice."
 	)
 
