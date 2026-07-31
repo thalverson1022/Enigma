@@ -13,12 +13,18 @@ extends PanelContainer
 ## Root is PanelContainer -- see character_stats_panel.gd's comment for why.
 
 const CARD_TITLE_FONT_SIZE := 20
-const SUBCLASS_LABEL_FONT_SIZE := 15
-const INTRINSIC_LABEL_FONT_SIZE := 13
-const NODE_ROW_SEPARATION := 20
-const COMPACT_NODE_ROW_SEPARATION := 4
+const SUBCLASS_LABEL_FONT_SIZE := 30
+const INTRINSIC_LABEL_FONT_SIZE := 16
+const POINTS_FONT_SIZE := 24
+const NODE_FONT_SIZE := 19
+const NODE_DETAIL_FONT_SIZE := 15
+const NODE_ROW_SEPARATION := 24
+const TREE_COLUMN_WIDTH := 400
+const TREE_COLUMN_MIN_HEIGHT := 500
+const TREE_COLUMN_SEPARATION := 24
 const CONNECTOR_COLOR := UIColors.STRUCTURE_LINE_LIGHT
 const UNAVAILABLE_ALPHA := 0.45
+const TREE_ICON_SIZE := Vector2(54, 54)
 
 ## P2:R10: the reused build-panel state source. Defaults to the real
 ## `BuildState` singleton (Adventure's actual behavior, unchanged), but
@@ -38,8 +44,8 @@ var _points_label: Label
 class TalentCircles:
 	extends Control
 
-	const RADIUS := 7.0
-	const GAP := 5.0
+	const RADIUS := 9.0
+	const GAP := 6.0
 	const FILL_COLOR := UIColors.TEXT_POISON
 	const OUTLINE_COLOR := UIColors.TEXT_NORMAL
 
@@ -85,6 +91,7 @@ func _ready() -> void:
 	footer_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(footer_spacer)
 	_points_label = Label.new()
+	_points_label.add_theme_font_size_override("font_size", POINTS_FONT_SIZE)
 	footer.add_child(_points_label)
 	content.add_child(footer)
 
@@ -95,31 +102,69 @@ func _ready() -> void:
 func _refresh() -> void:
 	for child in _talent_box.get_children():
 		child.queue_free()
-	_talent_box.alignment = BoxContainer.ALIGNMENT_CENTER if state.selected_trees.size() > 1 else BoxContainer.ALIGNMENT_BEGIN
-	_talent_box.add_theme_constant_override("separation", 14 if state.selected_trees.size() > 1 else 2)
-	for tree in state.selected_trees:
-		_build_tree(tree)
+	if state.selected_trees.is_empty():
+		_build_empty_state()
+		_refresh_points_label()
+		return
+	_talent_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	var tree_row := HBoxContainer.new()
+	tree_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tree_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tree_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	tree_row.add_theme_constant_override("separation", TREE_COLUMN_SEPARATION)
+	_talent_box.add_child(tree_row)
+	for i in state.selected_trees.size():
+		_build_tree(state.selected_trees[i], tree_row, "Primary" if i == 0 else "Secondary")
+	if state.selected_trees.size() < 2:
+		_build_locked_secondary_column(tree_row)
 	_refresh_points_label()
 
 
-func _build_tree(tree: SubclassTree) -> void:
+func _build_empty_state() -> void:
+	_talent_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	var empty_label := Label.new()
+	empty_label.text = "No subclass selected."
+	empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	empty_label.add_theme_font_size_override("font_size", INTRINSIC_LABEL_FONT_SIZE)
+	empty_label.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
+	_talent_box.add_child(empty_label)
+
+
+func _build_tree(tree: SubclassTree, parent: Container, role: String) -> void:
 	var section := VBoxContainer.new()
-	section.add_theme_constant_override("separation", 3 if state.selected_trees.size() > 1 else 3)
-	section.size_flags_vertical = Control.SIZE_SHRINK_CENTER if state.selected_trees.size() > 1 else Control.SIZE_EXPAND_FILL
-	_talent_box.add_child(section)
+	section.add_theme_constant_override("separation", 12)
+	section.custom_minimum_size = Vector2(TREE_COLUMN_WIDTH, TREE_COLUMN_MIN_HEIGHT)
+	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	section.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	parent.add_child(section)
+
+	var role_label := Label.new()
+	role_label.text = role
+	role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	role_label.add_theme_font_size_override("font_size", 13)
+	role_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
+	section.add_child(role_label)
+
+	var tree_header := HBoxContainer.new()
+	tree_header.alignment = BoxContainer.ALIGNMENT_CENTER
+	tree_header.add_theme_constant_override("separation", 12)
+	section.add_child(tree_header)
+
+	if tree.icon != null:
+		tree_header.add_child(CardStyle.make_pixel_icon(tree.icon, TREE_ICON_SIZE))
 
 	var tree_name := Label.new()
 	tree_name.text = tree.display_name
-	tree_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tree_name.add_theme_font_size_override("font_size", 14 if state.selected_trees.size() > 1 else SUBCLASS_LABEL_FONT_SIZE)
+	tree_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tree_name.add_theme_font_size_override("font_size", SUBCLASS_LABEL_FONT_SIZE)
 	tree_name.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
-	section.add_child(tree_name)
+	tree_header.add_child(tree_name)
 
 	var intrinsic := Label.new()
 	intrinsic.text = "Intrinsic: %s" % _intrinsic_description(tree)
 	intrinsic.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	intrinsic.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	intrinsic.add_theme_font_size_override("font_size", 11 if state.selected_trees.size() > 1 else INTRINSIC_LABEL_FONT_SIZE)
+	intrinsic.add_theme_font_size_override("font_size", INTRINSIC_LABEL_FONT_SIZE)
 	section.add_child(intrinsic)
 
 	var memo := {}
@@ -139,10 +184,43 @@ func _build_tree(tree: SubclassTree) -> void:
 			section.add_child(_build_connector())
 		var row := HBoxContainer.new()
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 8 if state.selected_trees.size() > 1 else NODE_ROW_SEPARATION)
+		row.add_theme_constant_override("separation", NODE_ROW_SEPARATION)
 		for talent in tiers[tier]:
 			row.add_child(_build_node(talent))
 		section.add_child(row)
+
+
+func _build_locked_secondary_column(parent: Container) -> void:
+	var section := PanelContainer.new()
+	section.custom_minimum_size = Vector2(TREE_COLUMN_WIDTH, TREE_COLUMN_MIN_HEIGHT)
+	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	section.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var style := CardStyle.make_stylebox()
+	style.bg_color = UIColors.PANEL_DISABLED
+	style.border_color = UIColors.STRUCTURE_LINE_LIGHT
+	style.set_border_width_all(2)
+	section.add_theme_stylebox_override("panel", style)
+	parent.add_child(section)
+
+	var content := VBoxContainer.new()
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_theme_constant_override("separation", 16)
+	section.add_child(content)
+
+	var title := Label.new()
+	title.text = "Second Subclass"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", SUBCLASS_LABEL_FONT_SIZE)
+	title.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
+	content.add_child(title)
+
+	var body := Label.new()
+	body.text = "Unlocks later in the Adventure."
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_font_size_override("font_size", INTRINSIC_LABEL_FONT_SIZE)
+	body.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
+	content.add_child(body)
 
 
 ## Prerequisite depth: 0 for no-prereq (base row) talents, otherwise one
@@ -161,7 +239,7 @@ func _tier_of(talent: Talent, memo: Dictionary) -> int:
 func _build_connector() -> ColorRect:
 	var connector := ColorRect.new()
 	connector.color = CONNECTOR_COLOR
-	connector.custom_minimum_size = Vector2(2, 10 if state.selected_trees.size() > 1 else 14)
+	connector.custom_minimum_size = Vector2(4, 18)
 	connector.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	return connector
 
@@ -188,39 +266,66 @@ func _build_node(talent: Talent) -> Button:
 	var node_col := VBoxContainer.new()
 	node_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	node_col.add_theme_constant_override("separation", 1)
+	node_col.add_theme_constant_override("separation", 3)
 
 	var node_row := HBoxContainer.new()
 	node_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	node_row.add_theme_constant_override("separation", 5 if state.selected_trees.size() > 1 else 8)
+	node_row.add_theme_constant_override("separation", 8)
 
 	node_row.add_child(TalentCircles.new(talent.cost, selected))
 
 	var name_label := Label.new()
 	name_label.text = talent.display_name
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	name_label.add_theme_font_size_override("font_size", 10 if state.selected_trees.size() > 1 else 13)
+	name_label.add_theme_font_size_override("font_size", NODE_FONT_SIZE)
 	node_row.add_child(name_label)
 	node_col.add_child(node_row)
 
+	var detail_label := Label.new()
+	detail_label.text = _talent_visible_details(talent)
+	detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	detail_label.add_theme_font_size_override("font_size", NODE_DETAIL_FONT_SIZE)
+	node_col.add_child(detail_label)
+
 	var button := Button.new()
-	button.flat = true
 	button.set_meta("talent_id", talent.id)
 	button.tooltip_text = _talent_tooltip(talent, lock_reason)
 	button.pressed.connect(_on_node_pressed.bind(talent))
 	button.add_child(node_col)
 
 	var content_min: Vector2 = node_col.get_combined_minimum_size()
-	button.custom_minimum_size = content_min + (Vector2(10, 5) if state.selected_trees.size() > 1 else Vector2(16, 8))
+	button.custom_minimum_size = content_min + Vector2(22, 14)
 	node_col.set_anchors_preset(Control.PRESET_FULL_RECT)
 
 	if not selected and not selectable:
 		button.disabled = true
 		button.modulate.a = UNAVAILABLE_ALPHA
 		name_label.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
+		detail_label.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
+		_apply_node_style(button, UIColors.PANEL_DISABLED, UIColors.STRUCTURE_LINE_LIGHT, 1)
+	elif selected:
+		name_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
+		detail_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+		_apply_node_style(button, Color(0.24, 0.32, 0.15, 0.96), UIColors.TEXT_POISON, 3)
+	else:
+		name_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+		detail_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+		_apply_node_style(button, UIColors.PANEL_DEEP, CardStyle.ACCENT_COLOR, 2)
 
 	return button
+
+
+func _apply_node_style(button: Button, fill: Color, border: Color, border_width: int) -> void:
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = fill
+		style.border_color = border
+		style.set_border_width_all(border_width)
+		style.set_corner_radius_all(8)
+		button.add_theme_stylebox_override(state_name, style)
 
 
 ## Why an unavailable (not selected, not selectable) talent is locked --
@@ -345,6 +450,21 @@ func _talent_tooltip(talent: Talent, lock_reason: String = "") -> String:
 	return "\n".join(lines)
 
 
+func _talent_visible_details(talent: Talent) -> String:
+	var lines: PackedStringArray = []
+	for modifier in talent.stat_modifiers:
+		lines.append(StatModifierFormatter.format(modifier))
+	for skill in talent.unlocked_skills:
+		lines.append("Unlocks %s" % skill.display_name)
+	for trigger in talent.triggered_skill_effects:
+		var trigger_text := _trigger_description(trigger)
+		if trigger_text != "":
+			lines.append(trigger_text)
+	if lines.is_empty():
+		return "No effect yet"
+	return "\n".join(lines)
+
+
 func _trigger_description(trigger: TriggeredSkillEffect) -> String:
 	if trigger == null or trigger.skill == null:
 		return ""
@@ -357,12 +477,11 @@ func _trigger_description(trigger: TriggeredSkillEffect) -> String:
 	return "%s: %s" % [" & ".join(source_names), chance_text]
 
 
-## "Spent/Earned" budget readout so the player always knows how much room
-## is left (Earned - Spent) without doing the subtraction themselves.
+## Stable spent/earned budget readout.
 func _refresh_points_label() -> void:
 	var spent: int = PassiveAllocator.points_spent(state.selected_talents)
 	var earned: int = state.earned_talent_points
-	_points_label.text = "Points Spent: %d/%d" % [spent, earned]
+	_points_label.text = "Points: %d/%d" % [spent, earned]
 	var remaining: int = earned - spent
 	_points_label.add_theme_color_override(
 		"font_color", UIColors.TEXT_GOLD if remaining > 0 else UIColors.TEXT_NORMAL

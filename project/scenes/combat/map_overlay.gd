@@ -1,0 +1,651 @@
+extends Control
+## The Map overlay: the Tavern encounter ladder, the Contract Offer node, and
+## the Gilded Serpent route schematic all share this one window, switching
+## which of the three it renders off BuildState. Extracted from
+## combat_screen.gd's inline overlay builder
+## (docs/Phase_3_Technical_Debt_Architecture_Cleanup.md Phase 3) -- gates a
+## real decision with no defined "cancel" behavior, so it stays locked (no
+## dismiss on outside click), matching its behavior before extraction.
+##
+## Like the other extracted overlays, this scene owns its own construction,
+## refresh, and node/story presentation, but NOT the consequences of a
+## choice: `tavern_proceed_pressed`, `contract_offer_pressed`, and
+## `route_node_pressed(node)` hand those to combat_screen.gd, which owns
+## BuildState mutation, the dashboard chrome, and autosaving.
+##
+## No `class_name` -- this script references the BuildState autoload; see
+## contract_overlay.gd's header for why that rules out a global class.
+##
+## NOTE (carried over unchanged from combat_screen.gd): the Gilded Serpent
+## route schematic below is hardcoded to one contract's node ids and
+## hand-tuned pixel positions. That is finding 1.4 in the tech-debt doc,
+## deliberately deferred until a second contract exists rather than
+## generalized speculatively during this extraction.
+
+## The player picked a Tavern encounter and pressed Proceed.
+signal tavern_proceed_pressed
+## The player clicked the single Contract Offer node.
+signal contract_offer_pressed
+## The player clicked a selectable contract-route node.
+signal route_node_pressed(node: ContractRouteNode)
+
+const MAP_NODE_SIZE := Vector2(190, 150)
+const CONTRACT_MAP_SIZE := Vector2(840, 470)
+const CONTRACT_NODE_SIZE := Vector2(140, 96)
+## Tavern map's art box -- the exterior shot shown while choosing a Tavern
+## encounter, replacing the earlier plain black placeholder.
+const TAVERN_MAP_ART_TEXTURE := preload("res://assets/backgrounds/Tavern__Exterior.jpg")
+## Smaller than MAP_NODE_SIZE -- the Tavern map (P2:R7 story pass) makes room
+## for TAVERN_ART_BOX_SIZE above it and sits lower in the panel, so its own
+## node buttons shrink to match rather than crowding the reduced space.
+const TAVERN_MAP_NODE_SIZE := Vector2(140, 100)
+## Placeholder for future scene art above the Tavern's node row -- same
+## "solid near-black fill, art to come later" convention as the combat
+## window's own UIColors.PANEL_DEEP background.
+const TAVERN_ART_BOX_SIZE := Vector2(760, 200)
+
+## The Tavern map's default flavor line, shown until a node is clicked to
+## preview it (see _tavern_story_text()).
+const TAVERN_INTRO_TEXT := "You find a nice respite from the rain in the dim light of a warm tavern. You do your best to mind your own business, but fate does not always abide."
+
+## Per-encounter flavor line shown once its node is clicked (preview state,
+## before Proceed commits the choice) -- keyed by Monster.display_name, the
+## same key _tavern_story_text() already reads off BuildState.current_encounter().
+const TAVERN_ENCOUNTER_FLAVOR_TEXT := {
+	"Mouthy Drunk": "A red-faced patron decides your quiet corner is somehow his business.",
+	"Drunk Buddy": "Leaping to his fallen companion's aid, another drunk patron wants to try his hand.",
+	"Tavern Bouncer": "The burley bouncer grabs you to politely show you the door.",
+	"Hired Goon": "A mysterious and sinister figure in the corner takes notice. His large bodyguard steps over to have a word with you.",
+}
+
+## Shown on the map when returning to it after winning that encounter --
+## i.e. while choosing the *next* encounter, before its own node is previewed
+## (see _tavern_pre_choice_story_text()). Keyed the same way as
+## TAVERN_ENCOUNTER_FLAVOR_TEXT. Reflects the new state of the story rather
+## than replaying TAVERN_INTRO_TEXT a second time.
+const TAVERN_VICTORY_TEXT := {
+	"Mouthy Drunk": "You easily dispatch him with a few well-placed strikes. He falls into a heap on the floor. However, this has caused quite the commotion.",
+	"Drunk Buddy": "He lands with a thud atop the fallen body of his companion, but now the tavern is abuzz with action. You have made your pressence known; however you are not sure that was the best idea.",
+	"Tavern Bouncer": "The night is cold and the fire warm, so you not-so politely decline his invitation. The rest of the patrons have scattered. Now you might get some peace and quite.",
+	"Hired Goon": "Being in no mood for this, you \"pursuede\" the large gentlemen to joins the gorwing pile of bodies.",
+}
+
+const CONTRACT_LINE_COLOR := UIColors.STRUCTURE_LINE
+const CONTRACT_LINE_THICKNESS := 5.0
+## Map/contract-route/secondary-tree buttons carry dense multi-line data
+## text (stats, difficulty, reward tags) rather than a short action label,
+## so they stay on the VT323 body/data font instead of the theme's default
+## Press Start 2P button font -- Press Start 2P's width would clip or
+## badly overflow these fixed-size, multi-line buttons (P2:R7:T2 Phase 2
+## legibility pass).
+const DATA_BUTTON_FONT := preload("res://assets/fonts/VT323-Regular.ttf")
+const MAP_ICON := preload("res://assets/ui/icons/map.png")
+const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
+const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
+
+var _map_phase_label: Label
+var _map_story_label: Label
+var _map_art_box: Control
+var _map_nodes_box: HBoxContainer
+var _map_node_buttons: Array[Button] = []
+var _map_close_button: Button
+var _map_proceed_button: Button
+var _map_manual_open: bool = false
+## Which Tavern node the player has clicked to preview but not yet committed
+## via Proceed; -1 when nothing is previewed.
+var _tavern_preview_index: int = -1
+
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	visible = false
+
+	var panel := CardStyle.build_modal_panel(self, false)
+	var style := CardStyle.make_stylebox(18)
+	style.set_border_width_all(3)
+	panel.add_theme_stylebox_override("panel", style)
+
+	var content := VBoxContainer.new()
+	content.custom_minimum_size = Vector2(940, 560)
+	content.add_theme_constant_override("separation", 12)
+	panel.add_child(content)
+
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 8)
+	content.add_child(title_row)
+
+	title_row.add_child(CardStyle.make_pixel_icon(MAP_ICON, CardStyle.UI_ICON_SIZE))
+
+	var title := Label.new()
+	title.text = "Map"
+	title.theme_type_variation = &"PanelHeader"
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
+	title_row.add_child(title)
+
+	_map_phase_label = Label.new()
+	_map_phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_map_phase_label.add_theme_font_size_override("font_size", 24)
+	content.add_child(_map_phase_label)
+
+	_map_story_label = Label.new()
+	_map_story_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_map_story_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_map_story_label.custom_minimum_size = Vector2(760, 0)
+	content.add_child(_map_story_label)
+
+	# Tavern-only scene art (hidden for Contract Offer/Route, which never set
+	# it visible) -- sized/positioned so the node row below reads as smaller
+	# and pushed toward the bottom of the panel, per the story pass's mockup.
+	_map_art_box = PanelContainer.new()
+	_map_art_box.custom_minimum_size = TAVERN_ART_BOX_SIZE
+	_map_art_box.visible = false
+	var art_box_style := CardStyle.make_stylebox(8)
+	art_box_style.bg_color = UIColors.PANEL_DEEP
+	_map_art_box.add_theme_stylebox_override("panel", art_box_style)
+	content.add_child(_map_art_box)
+
+	var map_art_image := TextureRect.new()
+	map_art_image.texture = TAVERN_MAP_ART_TEXTURE
+	map_art_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	map_art_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	map_art_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_art_image.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_art_box.add_child(map_art_image)
+
+	var center_row := CenterContainer.new()
+	center_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(center_row)
+
+	_map_nodes_box = HBoxContainer.new()
+	_map_nodes_box.add_theme_constant_override("separation", 0)
+	center_row.add_child(_map_nodes_box)
+
+	var button_row := HBoxContainer.new()
+	button_row.alignment = BoxContainer.ALIGNMENT_END
+	button_row.add_theme_constant_override("separation", 8)
+	content.add_child(button_row)
+
+	# Tavern-only (hidden otherwise): clicking a node just previews its
+	# flavor text (_on_tavern_node_previewed()) -- Proceed is the actual
+	# commit step, matching the story pass's two-step "read the flavor, then
+	# commit" flow. Contract Offer/Route stay single-click, as before.
+	_map_proceed_button = Button.new()
+	_map_proceed_button.text = "Proceed"
+	CardStyle.configure_icon_button(_map_proceed_button, FIGHT_ICON)
+	_map_proceed_button.visible = false
+	_map_proceed_button.disabled = true
+	_map_proceed_button.pressed.connect(func(): tavern_proceed_pressed.emit())
+	button_row.add_child(_map_proceed_button)
+
+	_map_close_button = Button.new()
+	_map_close_button.text = "Close Map"
+	_map_close_button.pressed.connect(func(): visible = false)
+	button_row.add_child(_map_close_button)
+	refresh()
+
+
+func refresh() -> void:
+	if _map_nodes_box == null:
+		return
+	if _map_close_button != null:
+		_map_close_button.visible = _map_manual_open or not _map_requires_choice()
+	for child in _map_nodes_box.get_children():
+		child.queue_free()
+	_map_node_buttons = []
+	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
+		_refresh_contract_offer_map()
+	elif BuildState.active_contract != null:
+		_refresh_contract_route_map()
+	else:
+		_refresh_tavern_map()
+
+
+func _refresh_tavern_map() -> void:
+	_map_phase_label.text = "The Nooby Tavern"
+	_map_story_label.text = _tavern_story_text()
+	_map_art_box.visible = true
+	# Always visible while a choice is pending (not just once previewed),
+	# just disabled until then -- same "always there, grayed out until you
+	# act" pattern as the Contract Window's own Proceed button, deliberately,
+	# so this teaches the player what to expect there.
+	_map_proceed_button.visible = BuildState.needs_tavern_map_choice()
+	_map_proceed_button.disabled = _tavern_preview_index != BuildState.current_encounter_index
+	for i in RunFlow.tavern_encounter_count():
+		var button := _make_tavern_map_node_button(i)
+		_map_node_buttons.append(button)
+		_map_nodes_box.add_child(button)
+		if i < RunFlow.tavern_encounter_count() - 1:
+			_map_nodes_box.add_child(_make_map_connector())
+
+
+func _refresh_contract_offer_map() -> void:
+	var contract := BuildState.active_contract
+	_map_phase_label.text = "Contract"
+	_map_story_label.text = contract.offer_text if contract != null else "The trail out of the Tavern has gone cold."
+	_map_art_box.visible = false
+	_map_proceed_button.visible = false
+	var button := Button.new()
+	button.custom_minimum_size = MAP_NODE_SIZE
+	button.text = contract.display_name if contract != null else "Unknown Contract"
+	CardStyle.configure_icon_button(button, CONTRACT_ICON)
+	button.disabled = contract == null
+	button.pressed.connect(func(): contract_offer_pressed.emit())
+	_style_map_node(button, true)
+	_map_node_buttons.append(button)
+	_map_nodes_box.add_child(button)
+
+
+func _refresh_contract_route_map() -> void:
+	_map_phase_label.text = BuildState.active_contract.display_name if BuildState.active_contract != null else "Contract Route"
+	_map_story_label.text = _contract_route_story_text()
+	_map_art_box.visible = false
+	_map_proceed_button.visible = false
+	var schematic := _make_contract_route_schematic()
+	if schematic != null:
+		_map_nodes_box.add_child(schematic)
+		return
+	var node := BuildState.current_route_node
+	var choices: Array[ContractRouteNode] = []
+	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE and node != null:
+		choices = node.next_nodes
+	if choices.is_empty():
+		var button := Button.new()
+		button.custom_minimum_size = MAP_NODE_SIZE
+		button.text = _route_node_button_text(node) if node != null else "Route Pending"
+		button.disabled = true
+		_style_map_node(button, false)
+		_map_node_buttons.append(button)
+		_map_nodes_box.add_child(button)
+		return
+	for i in choices.size():
+		var choice := choices[i]
+		var button := Button.new()
+		button.custom_minimum_size = MAP_NODE_SIZE
+		button.text = _route_node_button_text(choice)
+		button.tooltip_text = _route_node_tooltip(choice)
+		button.disabled = BuildState.needs_secondary_subclass_choice()
+		button.pressed.connect(func(): route_node_pressed.emit(choice))
+		_style_map_node(button, not button.disabled)
+		_map_node_buttons.append(button)
+		_map_nodes_box.add_child(button)
+		if i < choices.size() - 1:
+			_map_nodes_box.add_child(_make_map_connector())
+
+
+func _make_contract_route_schematic() -> Control:
+	var secondary := _gilded_serpent_secondary_node()
+	if secondary == null or secondary.next_nodes.size() < 2:
+		return null
+	var door_guard := ContractRouteNode.find_by_id(secondary, "route.gilded_serpent.door_guard")
+	var portly_cook := ContractRouteNode.find_by_id(secondary, "route.gilded_serpent.portly_cook")
+	var sleeping := ContractRouteNode.find_by_id(secondary, "route.gilded_serpent.sleeping_henchman")
+	var cloaked := ContractRouteNode.find_by_id(secondary, "route.gilded_serpent.cloaked_watchmen")
+	var lazy := ContractRouteNode.find_by_id(secondary, "route.gilded_serpent.lazy_henchman")
+	var patrol := ContractRouteNode.find_by_id(secondary, "route.gilded_serpent.patrolling_guard")
+	var knives := ContractRouteNode.find_by_id(secondary, "route.gilded_serpent.knives")
+	var vyra := ContractRouteNode.find_by_id(secondary, "route.gilded_serpent.vyra")
+	if door_guard == null or portly_cook == null or sleeping == null or cloaked == null or lazy == null or patrol == null or knives == null or vyra == null:
+		return null
+
+	var canvas := Control.new()
+	canvas.custom_minimum_size = CONTRACT_MAP_SIZE
+
+	var positions := {
+		door_guard: Vector2(20, 95),
+		portly_cook: Vector2(20, 320),
+		sleeping: Vector2(235, 20),
+		cloaked: Vector2(235, 135),
+		lazy: Vector2(235, 250),
+		patrol: Vector2(235, 365),
+		knives: Vector2(515, 190),
+		vyra: Vector2(690, 190),
+	}
+	_add_contract_route_lines(canvas, positions, door_guard, portly_cook, sleeping, cloaked, lazy, patrol, knives, vyra)
+	_add_contract_route_button(canvas, door_guard, positions[door_guard])
+	_add_contract_route_button(canvas, portly_cook, positions[portly_cook])
+	_add_contract_route_button(canvas, sleeping, positions[sleeping])
+	_add_contract_route_button(canvas, cloaked, positions[cloaked])
+	_add_contract_route_button(canvas, lazy, positions[lazy])
+	_add_contract_route_button(canvas, patrol, positions[patrol])
+	_add_contract_route_button(canvas, knives, positions[knives])
+	_add_contract_route_button(canvas, vyra, positions[vyra])
+	return canvas
+
+
+func _add_contract_route_lines(canvas: Control, positions: Dictionary, door_guard: ContractRouteNode, portly_cook: ContractRouteNode, sleeping: ContractRouteNode, cloaked: ContractRouteNode, lazy: ContractRouteNode, patrol: ContractRouteNode, knives: ContractRouteNode, vyra: ContractRouteNode) -> void:
+	var door_center := _contract_node_center(positions[door_guard])
+	var cook_center := _contract_node_center(positions[portly_cook])
+	var sleeping_center := _contract_node_center(positions[sleeping])
+	var cloaked_center := _contract_node_center(positions[cloaked])
+	var lazy_center := _contract_node_center(positions[lazy])
+	var patrol_center := _contract_node_center(positions[patrol])
+	var knives_center := _contract_node_center(positions[knives])
+	var vyra_center := _contract_node_center(positions[vyra])
+	var opener_branch_x := 195.0
+	var convergence_x := 465.0
+
+	_add_map_line(canvas, Vector2(door_center.x + CONTRACT_NODE_SIZE.x * 0.5, door_center.y), Vector2(opener_branch_x, door_center.y))
+	_add_map_line(canvas, Vector2(opener_branch_x, sleeping_center.y), Vector2(opener_branch_x, cloaked_center.y))
+	_add_map_line(canvas, Vector2(opener_branch_x, sleeping_center.y), Vector2(sleeping_center.x - CONTRACT_NODE_SIZE.x * 0.5, sleeping_center.y))
+	_add_map_line(canvas, Vector2(opener_branch_x, cloaked_center.y), Vector2(cloaked_center.x - CONTRACT_NODE_SIZE.x * 0.5, cloaked_center.y))
+
+	_add_map_line(canvas, Vector2(cook_center.x + CONTRACT_NODE_SIZE.x * 0.5, cook_center.y), Vector2(opener_branch_x, cook_center.y))
+	_add_map_line(canvas, Vector2(opener_branch_x, lazy_center.y), Vector2(opener_branch_x, patrol_center.y))
+	_add_map_line(canvas, Vector2(opener_branch_x, lazy_center.y), Vector2(lazy_center.x - CONTRACT_NODE_SIZE.x * 0.5, lazy_center.y))
+	_add_map_line(canvas, Vector2(opener_branch_x, patrol_center.y), Vector2(patrol_center.x - CONTRACT_NODE_SIZE.x * 0.5, patrol_center.y))
+
+	for center in [sleeping_center, cloaked_center, lazy_center, patrol_center]:
+		_add_map_line(canvas, Vector2(center.x + CONTRACT_NODE_SIZE.x * 0.5, center.y), Vector2(convergence_x, center.y))
+	_add_map_line(canvas, Vector2(convergence_x, sleeping_center.y), Vector2(convergence_x, patrol_center.y))
+	_add_map_line(canvas, Vector2(convergence_x, knives_center.y), Vector2(knives_center.x - CONTRACT_NODE_SIZE.x * 0.5, knives_center.y))
+	_add_map_line(canvas, Vector2(knives_center.x + CONTRACT_NODE_SIZE.x * 0.5, knives_center.y), Vector2(vyra_center.x - CONTRACT_NODE_SIZE.x * 0.5, vyra_center.y))
+
+
+func _contract_node_center(top_left: Vector2) -> Vector2:
+	return top_left + CONTRACT_NODE_SIZE * 0.5
+
+
+func _add_map_line(canvas: Control, start: Vector2, end: Vector2) -> void:
+	var line := ColorRect.new()
+	line.color = CONTRACT_LINE_COLOR
+	if absf(end.x - start.x) >= absf(end.y - start.y):
+		line.position = Vector2(minf(start.x, end.x), start.y - CONTRACT_LINE_THICKNESS * 0.5)
+		line.custom_minimum_size = Vector2(absf(end.x - start.x), CONTRACT_LINE_THICKNESS)
+		line.size = line.custom_minimum_size
+	else:
+		line.position = Vector2(start.x - CONTRACT_LINE_THICKNESS * 0.5, minf(start.y, end.y))
+		line.custom_minimum_size = Vector2(CONTRACT_LINE_THICKNESS, absf(end.y - start.y))
+		line.size = line.custom_minimum_size
+	canvas.add_child(line)
+
+
+func _add_contract_route_button(canvas: Control, node: ContractRouteNode, position: Vector2) -> void:
+	var button := Button.new()
+	button.position = position
+	button.custom_minimum_size = CONTRACT_NODE_SIZE
+	button.size = CONTRACT_NODE_SIZE
+	button.text = _contract_schematic_node_text(node)
+	button.tooltip_text = _route_node_tooltip(node)
+	var selectable := _route_node_is_selectable(node)
+	button.disabled = not selectable
+	if selectable:
+		button.pressed.connect(func(): route_node_pressed.emit(node))
+	_style_map_node(button, selectable or BuildState.current_route_node == node)
+	_map_node_buttons.append(button)
+	canvas.add_child(button)
+
+
+func _contract_schematic_node_text(node: ContractRouteNode) -> String:
+	var lines: PackedStringArray = []
+	lines.append(node.display_name)
+	for reward_line in _contract_schematic_reward_lines(node):
+		lines.append(reward_line)
+	return "\n".join(lines)
+
+
+func _contract_schematic_reward_lines(node: ContractRouteNode) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	if node == null or node.reward == null:
+		return lines
+	var reward_label := _contract_reward_display(node)
+	if reward_label != "":
+		lines.append(reward_label)
+	return lines
+
+
+func _contract_reward_display(node: ContractRouteNode) -> String:
+	if node == null or node.reward == null:
+		return ""
+	if node.reward.gear_choice_rewards.size() > 0:
+		return "%s Gear" % _tier_name_for_reward_gear(node.reward.gear_choice_rewards[0])
+	if node.reward.generated_gear_choice_count > 0:
+		return "%s Gear" % GearGenerator.TIER_NAMES[node.reward.generated_gear_tier]
+	if node.reward_quality_label == "Contract Victory":
+		return node.reward_quality_label
+	return ""
+
+
+func _tier_name_for_reward_gear(gear: GearItem) -> String:
+	if gear == null:
+		return "Gear"
+	return GearGenerator.TIER_NAMES[gear.tier]
+
+
+func _route_node_is_selectable(node: ContractRouteNode) -> bool:
+	return (
+		BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE
+		and not BuildState.needs_secondary_subclass_choice()
+		and BuildState.current_route_node != null
+		and BuildState.current_route_node.next_nodes.has(node)
+	)
+
+
+func _gilded_serpent_secondary_node() -> ContractRouteNode:
+	if BuildState.active_contract == null or BuildState.active_contract.offer_node == null:
+		return null
+	if BuildState.active_contract.offer_node.next_nodes.is_empty():
+		return null
+	return BuildState.active_contract.offer_node.next_nodes[0]
+
+
+func _make_tavern_map_node_button(index: int) -> Button:
+	var current_index := BuildState.current_encounter_index
+	var is_current := BuildState.is_tavern_planning() and index == current_index
+	var is_selectable := is_current and BuildState.needs_tavern_map_choice()
+	var is_revealed := index <= current_index
+	# Deliberately NOT highlighted just for being the current/clickable node
+	# (user-requested): the player has to actually click it -- previewing it
+	# (_tavern_preview_index == index) or having already committed it
+	# (needs_tavern_map_choice() false, e.g. reopening the map later via the
+	# Map button to review a locked-in choice) is what earns the highlight.
+	# This mirrors -- and is meant to teach the player toward -- the Contract
+	# Window's own select-then-Proceed card behavior.
+	var is_highlighted := is_current and (_tavern_preview_index == index or not BuildState.needs_tavern_map_choice())
+	var encounter := RunFlow.load_encounter(index)
+	var button := Button.new()
+	button.custom_minimum_size = TAVERN_MAP_NODE_SIZE
+	button.text = encounter.monster.display_name if is_revealed and encounter != null else "Unknown"
+	button.disabled = not is_selectable
+	button.pressed.connect(_on_tavern_node_previewed.bind(index))
+	_style_map_node(button, is_highlighted)
+	return button
+
+
+func _make_map_connector() -> Control:
+	var connector := ColorRect.new()
+	connector.custom_minimum_size = Vector2(80, 6)
+	connector.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	connector.color = UIColors.STRUCTURE_LINE_LIGHT
+	return connector
+
+
+func _style_map_node(button: Button, is_current: bool) -> void:
+	var color := UIColors.MAP_NODE_CURRENT if is_current else UIColors.MAP_NODE_INACTIVE
+	var border_color := CardStyle.ACCENT_COLOR if is_current else UIColors.STRUCTURE_LINE_LIGHT
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = color
+		style.border_color = border_color
+		style.set_border_width_all(3)
+		style.set_corner_radius_all(8)
+		button.add_theme_stylebox_override(state, style)
+		button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+		button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
+	# Multi-line stat/reward data, not a short action label -- see
+	# DATA_BUTTON_FONT's comment.
+	button.add_theme_font_override("font", DATA_BUTTON_FONT)
+	button.add_theme_font_size_override("font_size", 14)
+## Before any node is (re-)previewed, _tavern_pre_choice_story_text() sets
+## the scene; clicking the current node previews its
+## TAVERN_ENCOUNTER_FLAVOR_TEXT without committing (see
+## _on_tavern_node_previewed()); Proceed then commits it, after which this
+## falls to the same "marked" line it always has.
+func _tavern_story_text() -> String:
+	var encounter := BuildState.current_encounter()
+	if encounter == null:
+		return "The Tavern is quiet for the moment."
+	if BuildState.needs_tavern_map_choice():
+		if _tavern_preview_index == BuildState.current_encounter_index:
+			return TAVERN_ENCOUNTER_FLAVOR_TEXT.get(
+				encounter.monster.display_name, "A stranger's business becomes yours."
+			)
+		return _tavern_pre_choice_story_text()
+	return "%s is marked. Tune the build, lock in, and start the fight when ready." % encounter.monster.display_name
+
+
+## The very first Tavern choice (nothing defeated yet) sets the scene with
+## TAVERN_INTRO_TEXT; every later choice instead shows the encounter just
+## defeated's TAVERN_VICTORY_TEXT, so returning to the map after a win
+## reflects the new state of the story instead of replaying the intro.
+func _tavern_pre_choice_story_text() -> String:
+	if BuildState.current_encounter_index == 0:
+		return TAVERN_INTRO_TEXT
+	var previous_encounter := RunFlow.load_encounter(BuildState.current_encounter_index - 1)
+	if previous_encounter == null or previous_encounter.monster == null:
+		return TAVERN_INTRO_TEXT
+	return TAVERN_VICTORY_TEXT.get(previous_encounter.monster.display_name, TAVERN_INTRO_TEXT)
+
+
+## P2:R7:T6: when the player is choosing between exactly two branches, this
+## appends a data-derived tradeoff sentence (see _route_tradeoff_text())
+## naming the harder branch and comparing reward tier, so the choice isn't
+## blind. Applies at every branch point, not only the opener choice -- the
+## base line no longer says "first route" since this story text is reused
+## for every later fork too (Door Guard's/Portly Cook's own next-node choice).
+func _contract_route_story_text() -> String:
+	var node := BuildState.current_route_node
+	if node == null:
+		return "The route has not been charted yet."
+	if BuildState.needs_secondary_subclass_choice():
+		return node.summary_text
+	if BuildState.is_contract_fight_active():
+		return "%s is marked. Tune the build, lock in, and start the fight when ready." % node.display_name
+	var base := "Choose your next route into The Gilded Serpent. Enemy pressure and reward quality matter from here."
+	if node.next_nodes.size() == 2:
+		var tradeoff := _route_tradeoff_text(node.next_nodes[0], node.next_nodes[1])
+		if tradeoff != "":
+			return "%s %s" % [base, tradeoff]
+	return base
+
+
+## Relative pressure score for a route branch, used only to rank two
+## branches against each other (not shown as an absolute number) --
+## higher armor/poison resistance reads as a harder branch, from the same
+## real Monster fields enemy_panel.gd's _build_pressure_text() (P2:R7:T5)
+## already reads.
+func _route_pressure_score(node: ContractRouteNode) -> float:
+	if node == null or node.monster == null:
+		return 0.0
+	return float(node.monster.armor) + node.monster.poison_resistance * 200.0
+
+
+## Reward tier rank for a route branch's reward, covering both the
+## authored gear_choice_rewards path (Knives' Legendary pair) and the
+## generated_gear_tier path every other route reward uses. Returns -1 when
+## the node has no gear reward to rank (e.g. Vyra's gold-only reward).
+func _route_reward_tier_rank(node: ContractRouteNode) -> int:
+	if node == null or node.reward == null:
+		return -1
+	if node.reward.gear_choice_rewards.size() > 0:
+		var best := -1
+		for gear in node.reward.gear_choice_rewards:
+			if gear != null:
+				best = maxi(best, gear.tier)
+		return best
+	if node.reward.generated_gear_choice_count > 0:
+		return node.reward.generated_gear_tier
+	return -1
+
+
+## Data-derived tradeoff sentence for a pair of route branches, comparing
+## real Monster pressure and reward tier rather than authored per-node
+## flavor text -- so a newly authored branch pair reads correctly with zero
+## additional authoring, matching the same discipline as T5's
+## _build_pressure_text(). Pure ContractRouteNode -> String, no BuildState
+## writes.
+func _route_tradeoff_text(node_a: ContractRouteNode, node_b: ContractRouteNode) -> String:
+	if node_a == null or node_b == null:
+		return ""
+	var pressure_a := _route_pressure_score(node_a)
+	var pressure_b := _route_pressure_score(node_b)
+	var pressure_line: String
+	if is_equal_approx(pressure_a, pressure_b):
+		pressure_line = "%s and %s carry similar pressure" % [node_a.display_name, node_b.display_name]
+	elif pressure_a > pressure_b:
+		pressure_line = "%s is the harder branch" % node_a.display_name
+	else:
+		pressure_line = "%s is the harder branch" % node_b.display_name
+	var tier_a := _route_reward_tier_rank(node_a)
+	var tier_b := _route_reward_tier_rank(node_b)
+	var tier_a_name: String = GearGenerator.TIER_NAMES[tier_a] if tier_a >= 0 else "no gear"
+	var tier_b_name: String = GearGenerator.TIER_NAMES[tier_b] if tier_b >= 0 else "no gear"
+	return "%s. %s reward: %s -- %s reward: %s." % [pressure_line, node_a.display_name, tier_a_name, node_b.display_name, tier_b_name]
+
+
+func _route_node_button_text(node: ContractRouteNode) -> String:
+	if node == null:
+		return "Route Pending"
+	var lines: PackedStringArray = []
+	lines.append(node.display_name)
+	if node.monster != null:
+		lines.append("HP %d | Armor %d" % [node.monster.hp, node.monster.armor])
+		lines.append("Poison %.0f%% | %.0fs" % [node.monster.poison_resistance * 100.0, node.duration_ms / 1000.0])
+	if node.difficulty_label != "":
+		lines.append(node.difficulty_label)
+	if node.reward_quality_label != "":
+		lines.append(node.reward_quality_label)
+	return "\n".join(lines)
+
+
+func _route_node_tooltip(node: ContractRouteNode) -> String:
+	var parts: PackedStringArray = []
+	parts.append(node.summary_text)
+	if node.difficulty_label != "":
+		parts.append("Difficulty: %s" % node.difficulty_label)
+	var reward_label := _contract_reward_display(node)
+	if reward_label != "":
+		parts.append("Reward: %s" % reward_label)
+	return "\n".join(parts)
+
+
+## Opens the map. `manual_open` marks a player-initiated open via the Map
+## button (as opposed to the flow pushing the map up at a decision point) --
+## it's what keeps Close Map available even while a choice is still pending.
+func show_map(manual_open: bool = false) -> void:
+	_map_manual_open = manual_open
+	refresh()
+	visible = true
+
+
+## Hides the map and clears the manual-open flag. combat_screen.gd calls this
+## after a choice commits, so the next automatic open starts from a clean
+## state rather than inheriting the previous manual-open exemption.
+func close() -> void:
+	visible = false
+	_map_manual_open = false
+
+
+## Clears the pending Tavern preview. combat_screen.gd calls this once a
+## Tavern choice actually commits, since the preview no longer applies.
+func clear_tavern_preview() -> void:
+	_tavern_preview_index = -1
+
+
+func _map_requires_choice() -> bool:
+	return (
+		BuildState.needs_tavern_map_choice()
+		or BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER
+		or BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE
+	)
+
+
+## Clicking a Tavern node only previews its flavor text (_tavern_story_text())
+## and enables the Proceed button -- it never commits the choice itself.
+## Proceed is what commits, restoring a two-step "read the flavor, then
+## commit" flow. Purely local state, so it stays in this scene.
+func _on_tavern_node_previewed(index: int) -> void:
+	if index != BuildState.current_encounter_index or not BuildState.needs_tavern_map_choice():
+		return
+	_tavern_preview_index = index
+	refresh()

@@ -1,0 +1,7 @@
+id,status,seed_count,monster,rotation,gear,mean_dps,p05_dps,p50_dps,p95_dps,win_rate,mean_physical_damage,mean_poison_damage,mean_poison_ticks,mean_min_cast_proc_rate,notes
+baseline_rogue_stab_mouthy,pass,200,Mouthy Drunk,Stab,,13.9125,12.0,13.5,16.5,0.75,166.95,0.0,0.0,0.0,
+shadow_intrinsic_stab_mouthy,pass,200,Mouthy Drunk,Stab,,18.5791666666666,16.6666666666667,18.1666666666667,21.1666666666667,1.0,166.95,56.0,7.0,0.0,
+shadow_wyvern_poison_mouthy,pass,200,Mouthy Drunk,Stab > Heavy Slash,Wyvern Kriss,29.7491666666667,27.8666666666667,29.3666666666667,32.8666666666667,1.0,166.59,190.400000000001,17.0,0.0,
+bandit_blade_gold_scaling,pass,200,Mouthy Drunk,Stab > Heavy Slash,Bandit Blade,27.802,20.4,27.2,34.0,1.0,333.624000000001,0.0,0.0,0.0,
+bejeweled_proc_rate_training_dummy,pass,200,Training Dummy,Stab > Heavy Slash,Bejeweled Push Dagger,26.5164,22.32,26.4,30.96,1.0,795.492,0.0,0.0,0.20965284842007,
+thief_contract_watchmen,pass,200,Cloaked Watchmen,Heavy Slash > Quick Cut > Rending Slash,Wyvern Kriss,19.7583698642751,17.5176825443787,19.501993396027,22.743354237109,0.34,362.517616471154,151.200000000001,18.0,0.0,

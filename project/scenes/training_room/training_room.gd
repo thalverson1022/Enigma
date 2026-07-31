@@ -50,7 +50,9 @@ const HEADING_FONT_SIZE := 32
 const CARD_TITLE_FONT_SIZE := 20
 const ROGUE_CLASS_PATH := "res://data/classes/rogue.tres"
 const BACKDROP_COLOR := UIColors.OVERLAY_BACKDROP
+const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
 
+const ACTIVE_TALENTS_PANEL_SCENE := preload("res://scenes/combat/active_talents_panel.tscn")
 const TALENT_PANEL_SCENE := preload("res://scenes/combat/talent_panel.tscn")
 const AVAILABLE_SKILLS_PANEL_SCENE := preload("res://scenes/combat/available_skills_panel.tscn")
 const SKILL_BUILD_PANEL_SCENE := preload("res://scenes/combat/skill_build_panel.tscn")
@@ -91,6 +93,8 @@ var _fight_button: Button
 var _view_log_button: Button
 var _log_overlay: Control
 var _result_log: RichTextLabel
+var _talent_overlay: Control
+var _talent_panel
 
 
 func _ready() -> void:
@@ -161,22 +165,12 @@ func _ready() -> void:
 	character_stats_panel.state = _state
 	left_column.add_child(character_stats_panel)
 
-	var talent_column := VBoxContainer.new()
-	talent_column.name = "TalentColumn"
-	talent_column.add_theme_constant_override("separation", 8)
-	left_column.add_child(talent_column)
-
-	var tree_dropdowns_row := HBoxContainer.new()
-	tree_dropdowns_row.name = "TreeDropdowns"
-	tree_dropdowns_row.add_theme_constant_override("separation", 8)
-	talent_column.add_child(tree_dropdowns_row)
-
-	_primary_tree_option = _build_tree_option(tree_dropdowns_row, "Primary", _on_primary_tree_selected)
-	_secondary_tree_option = _build_tree_option(tree_dropdowns_row, "Secondary", _on_secondary_tree_selected)
-
-	var talent_panel := TALENT_PANEL_SCENE.instantiate()
-	talent_panel.state = _state
-	talent_column.add_child(talent_panel)
+	var active_talents_panel := ACTIVE_TALENTS_PANEL_SCENE.instantiate()
+	active_talents_panel.name = "ActiveTalentsPanel"
+	active_talents_panel.state = _state
+	active_talents_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	active_talents_panel.open_talents_pressed.connect(_show_talent_overlay)
+	left_column.add_child(active_talents_panel)
 
 	var center_column := VBoxContainer.new()
 	center_column.name = "CenterColumn"
@@ -202,6 +196,7 @@ func _ready() -> void:
 	_fight_button = Button.new()
 	_fight_button.name = "FightButton"
 	_fight_button.text = "Fight"
+	CardStyle.configure_icon_button(_fight_button, FIGHT_ICON)
 	_fight_button.custom_minimum_size = Vector2(180, 0)
 	_fight_button.pressed.connect(_on_fight_button_pressed)
 	fight_button_row.add_child(_fight_button)
@@ -266,6 +261,7 @@ func _ready() -> void:
 	_trinket_affix_column = _build_gear_slot_column(gear_editor_column, "Trinket", false)
 	_charm_affix_column = _build_gear_slot_column(gear_editor_column, "Charm", false)
 
+	_build_talent_overlay()
 	_build_log_overlay()
 
 	_state.build_changed.connect(_refresh_tree_dropdowns)
@@ -324,6 +320,65 @@ func _on_primary_tree_selected(tree: SubclassTree) -> void:
 func _on_secondary_tree_selected(tree: SubclassTree) -> void:
 	_state.set_secondary_tree(tree)
 	_refresh_tree_dropdowns()
+
+
+func _show_talent_overlay() -> void:
+	_talent_overlay.visible = true
+
+
+func _build_talent_overlay() -> void:
+	_talent_overlay = Control.new()
+	_talent_overlay.name = "TalentOverlay"
+	_talent_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_talent_overlay.visible = false
+	add_child(_talent_overlay)
+
+	var panel := CardStyle.build_modal_panel(_talent_overlay, true)
+	var style := CardStyle.make_stylebox(18)
+	style.set_border_width_all(3)
+	panel.add_theme_stylebox_override("panel", style)
+
+	var content := VBoxContainer.new()
+	content.custom_minimum_size = Vector2(900, 700)
+	content.add_theme_constant_override("separation", 10)
+	panel.add_child(content)
+
+	var header := HBoxContainer.new()
+	var title := Label.new()
+	title.text = "Talent Trees"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.theme_type_variation = &"PanelHeader"
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
+	header.add_child(title)
+
+	var close_button := Button.new()
+	close_button.text = "Close"
+	close_button.pressed.connect(func(): _talent_overlay.visible = false)
+	header.add_child(close_button)
+	content.add_child(header)
+
+	var tree_dropdowns_row := HBoxContainer.new()
+	tree_dropdowns_row.name = "TreeDropdowns"
+	tree_dropdowns_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	tree_dropdowns_row.add_theme_constant_override("separation", 10)
+	content.add_child(tree_dropdowns_row)
+
+	_primary_tree_option = _build_tree_option(tree_dropdowns_row, "Primary", _on_primary_tree_selected)
+	_secondary_tree_option = _build_tree_option(tree_dropdowns_row, "Secondary", _on_secondary_tree_selected)
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(860, 590)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(scroll)
+
+	_talent_panel = TALENT_PANEL_SCENE.instantiate()
+	_talent_panel.name = "TalentPanel"
+	_talent_panel.state = _state
+	_talent_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_talent_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_talent_panel)
 
 
 ## Builds one gear slot's column: a title, a Rarity dropdown (Basic/Master/
@@ -621,28 +676,12 @@ func _on_combat_view_finished() -> void:
 func _build_log_overlay() -> void:
 	_log_overlay = Control.new()
 	_log_overlay.name = "LogOverlay"
-	_log_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_log_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_log_overlay.visible = false
 	add_child(_log_overlay)
 
-	var backdrop := Button.new()
-	backdrop.flat = true
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var backdrop_style := StyleBoxFlat.new()
-	backdrop_style.bg_color = BACKDROP_COLOR
-	for backdrop_state in ["normal", "hover", "pressed", "focus"]:
-		backdrop.add_theme_stylebox_override(backdrop_state, backdrop_style)
-	backdrop.pressed.connect(func(): _log_overlay.visible = false)
-	_log_overlay.add_child(backdrop)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_log_overlay.add_child(center)
-
-	var panel := PanelContainer.new()
+	var panel := CardStyle.build_modal_panel(_log_overlay, true)
 	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox())
-	center.add_child(panel)
 
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 8)

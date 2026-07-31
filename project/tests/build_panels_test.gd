@@ -22,11 +22,12 @@ func _initialize() -> void:
 	await process_frame
 
 	var talent_panel = combat_screen.find_child("TalentPanel", true, false)
+	var active_talents_panel = combat_screen.find_child("ActiveTalentsPanel", true, false)
 	var available_skills_panel = combat_screen.find_child("AvailableSkillsPanel", true, false)
 	var skill_build_panel = combat_screen.find_child("SkillBuildPanel", true, false)
 	var character_stats_panel = combat_screen.find_child("CharacterStatsPanel", true, false)
 	var gear_panel = combat_screen.find_child("GearPanel", true, false)
-	_require(talent_panel != null and available_skills_panel != null and skill_build_panel != null and character_stats_panel != null and gear_panel != null, "Expected all five build panels to be found.")
+	_require(talent_panel != null and active_talents_panel != null and available_skills_panel != null and skill_build_panel != null and character_stats_panel != null and gear_panel != null, "Expected all build panels to be found.")
 
 	# -- 1. Talent lock reason: Opportunity Strikes requires Practiced Rhythm,
 	# which is unselected at 0 earned points, so its unmet prerequisite
@@ -57,18 +58,40 @@ func _initialize() -> void:
 	print("Quick Hands lock reason at 0 points (expect budget): %s" % budget_reason)
 	_require(budget_reason.contains("Needs"), "Expected a budget-based reason for a no-prereq talent with no points, got: %s" % budget_reason)
 
-	# -- 2. Points-spent budget display: "Points Spent: spent/earned", counts
-	# UP as points are spent (distinct from the pre-T4 "remaining/earned"
-	# format). --
-	_require(talent_panel._points_label.text == "Points Spent: 0/0", "Expected zero-budget points label, got: %s" % talent_panel._points_label.text)
+	# -- 2. Points budget display: "Points: spent/earned", kept stable even
+	# when points are unspent so the warning state comes from color/button
+	# treatment instead of changing sentence structure. --
+	_require(talent_panel._points_label.text == "Points: 0/0", "Expected zero-budget points label, got: %s" % talent_panel._points_label.text)
+	_require(_talent_panel_text(talent_panel).contains("Second Subclass"), "Expected one-tree Talent panel to explain the future second subclass slot.")
+	_require(not _talent_panel_text(talent_panel).contains("Secondary"), "Expected unchosen secondary subclass teaser to omit the tiny Secondary label.")
+	_require(active_talents_panel._points_label.text == "Points: 0/0", "Expected active talent summary to show zero points, got: %s" % active_talents_panel._points_label.text)
+	_require(_active_talents_text(active_talents_panel).contains("Thief"), "Expected active talent summary to show the selected tree name.")
+	_require(active_talents_panel.find_child("Icon", true, false) != null, "Expected active talent summary to show the selected tree icon.")
+	_require(_active_talents_text(active_talents_panel).contains("Intrinsic: Unlocks Quick Cut"), "Expected active talent summary to show the selected tree intrinsic.")
+	_require(_active_talents_text(active_talents_panel).contains("Thief Talents"), "Expected active talent summary to show tree-specific talent heading.")
+	_require(_active_talents_text(active_talents_panel).contains("No Thief talents selected."), "Expected active talent summary to show empty state for the selected tree.")
 	build_state.add_talent_points(1)
 	await process_frame
-	_require(talent_panel._points_label.text == "Points Spent: 0/1", "Expected unspent-but-earned points label, got: %s" % talent_panel._points_label.text)
+	_require(talent_panel._points_label.text == "Points: 0/1", "Expected unspent-but-earned points label, got: %s" % talent_panel._points_label.text)
+	_require(active_talents_panel._points_label.text == "Points: 0/1", "Expected active talent summary to show unspent point budget, got: %s" % active_talents_panel._points_label.text)
+	_require(active_talents_panel._open_button.text == "Talent Trees", "Expected Active Talents button copy to stay stable when points are unspent.")
+	_require(active_talents_panel._open_button.custom_minimum_size == active_talents_panel.OPEN_BUTTON_SIZE, "Expected Talent Trees button to keep a fixed minimum size.")
+	_require(active_talents_panel._button_blink_tween != null and active_talents_panel._button_blink_tween.is_running(), "Expected Active Talents button to blink when points are unspent.")
+	_require(not active_talents_panel._open_button.has_theme_stylebox_override("normal"), "Expected unspent-points alert to avoid stylebox overrides that can change button layout.")
 	var quick_hands: Talent = thief.talents[0]
 	_require(quick_hands.display_name == "Quick Hands", "Expected thief.talents[0] to be Quick Hands.")
 	_require(build_state.select_talent(quick_hands), "Expected Quick Hands to be selectable with 1 earned point.")
 	await process_frame
-	_require(talent_panel._points_label.text == "Points Spent: 1/1", "Expected spent count to increase, got: %s" % talent_panel._points_label.text)
+	_require(talent_panel._points_label.text == "Points: 1/1", "Expected spent count to increase, got: %s" % talent_panel._points_label.text)
+	_require(active_talents_panel._points_label.text == "Points: 1/1", "Expected active talent summary to update spent points, got: %s" % active_talents_panel._points_label.text)
+	_require(active_talents_panel._open_button.text == "Talent Trees", "Expected Active Talents button to return to neutral copy when all points are spent.")
+	_require(active_talents_panel._button_blink_tween == null, "Expected Active Talents button blink to stop when all points are spent.")
+	_require(_active_talents_text(active_talents_panel).contains("Quick Hands"), "Expected active talent summary to list Quick Hands.")
+	_require(not combat_screen._talent_overlay.visible, "Expected Talent Trees overlay hidden by default.")
+	active_talents_panel._open_button.pressed.emit()
+	await process_frame
+	_require(combat_screen._talent_overlay.visible, "Expected Active Talents button to open the Talent Trees overlay.")
+	combat_screen._talent_overlay.visible = false
 
 	# Now that Practiced Rhythm's OR-group (Quick Hands or Piercing Blades) is
 	# satisfied, its remaining lock reason should be about the point budget
@@ -99,6 +122,12 @@ func _initialize() -> void:
 		available_skills_panel._on_skill_pressed(skill)
 	await process_frame
 	_require(build_state.rotation.size() == 3, "Expected 3 unlocked skills in rotation (Stab, Heavy Slash, Quick Cut).")
+	_require(skill_build_panel._lock_button.text == "", "Expected lock toggle button to be icon-only, got: %s" % skill_build_panel._lock_button.text)
+	_require(skill_build_panel._lock_button.custom_minimum_size == skill_build_panel.LOCK_BUTTON_SIZE, "Expected lock toggle to keep a large fixed button size.")
+	_require(skill_build_panel._lock_button.icon == null, "Expected Lock Build button to use the custom child icon, not Button.icon.")
+	_require(skill_build_panel._lock_button_icon.texture == skill_build_panel.UNLOCK_ICON, "Expected editable Lock Build button to show the open lock icon.")
+	_require(skill_build_panel._lock_button_icon.custom_minimum_size == skill_build_panel.LOCK_BUTTON_ICON_SIZE, "Expected Lock Build icon to keep a fixed readable size.")
+	_require(skill_build_panel._lock_button_icon.size == skill_build_panel.LOCK_BUTTON_ICON_SIZE, "Expected Lock Build icon rect to obey its fixed size, got: %s" % skill_build_panel._lock_button_icon.size)
 	var first_slot: Button = skill_build_panel._slots_box.get_child(0)
 	print("first slot tooltip (expect position 1 of 3): %s" % first_slot.tooltip_text)
 	_require(first_slot.tooltip_text.contains("cast position 1 of 3"), "Expected the slot tooltip to state its cast order, got: %s" % first_slot.tooltip_text)
@@ -126,6 +155,10 @@ func _initialize() -> void:
 	# Locking the build hides the remove badge (clicking does nothing then).
 	build_state.set_locked(true)
 	await process_frame
+	_require(skill_build_panel._lock_button.text == "", "Expected locked macro button to remain icon-only, got: %s" % skill_build_panel._lock_button.text)
+	_require(skill_build_panel._lock_button_icon.texture == skill_build_panel.LOCK_ICON, "Expected locked Lock Build button to show the closed lock icon.")
+	var locked_button_style: StyleBoxFlat = skill_build_panel._lock_button.get_theme_stylebox("normal")
+	_require(locked_button_style.bg_color == UIColors.BUTTON_FILL_PRESSED, "Expected locked Lock Build button to use the pushed-in dark fill.")
 	first_slot = skill_build_panel._slots_box.get_child(0)
 	has_remove_badge = false
 	for child in first_slot.get_children():
@@ -227,6 +260,16 @@ func _initialize() -> void:
 	_require(build_state.equipped_weapon == null, "Expected clicking the equipped weapon slot to unequip it.")
 	_require(build_state.has_inventory_item(dagger), "Expected the unequipped dagger to land back in the inventory.")
 
+	build_state.reset()
+	build_state.set_class(rogue)
+	build_state.select_tree(rogue.trees[0])
+	await process_frame
+	var assassin_summary := _active_talents_text(active_talents_panel)
+	_require(assassin_summary.contains("Assassin"), "Expected active talent summary to show Assassin.")
+	_require(assassin_summary.contains("Intrinsic: None"), "Expected active talent summary to show Assassin's intrinsic.")
+	_require(assassin_summary.contains("Assassin Talents"), "Expected active talent summary to show the Assassin talents section.")
+	_require(assassin_summary.contains("No Assassin talents selected."), "Expected active talent summary to show Assassin's empty talent state.")
+
 	print("")
 	print("P2:R7:T4 build panels test passed.")
 	quit()
@@ -236,3 +279,17 @@ func _require(condition: bool, message: String) -> void:
 	if not condition:
 		push_error(message)
 		assert(condition, message)
+
+
+func _active_talents_text(active_talents_panel) -> String:
+	var parts: PackedStringArray = []
+	for label in active_talents_panel.find_children("*", "Label", true, false):
+		parts.append(label.text)
+	return "\n".join(parts)
+
+
+func _talent_panel_text(talent_panel) -> String:
+	var parts: PackedStringArray = []
+	for label in talent_panel.find_children("*", "Label", true, false):
+		parts.append(label.text)
+	return "\n".join(parts)

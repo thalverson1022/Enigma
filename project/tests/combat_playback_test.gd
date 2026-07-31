@@ -413,6 +413,9 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	_require(stage.poison_stack_tint_updates == 1, "Expected poison stack application to update the shared enemy tint.")
 	_require(stage.last_poison_stack_tint_stacks == 1, "Expected poison stack tint to record the active stack count.")
 	_require(stage.enemy_actor_anchor.modulate != Color.WHITE, "Expected active poison stacks to tint the enemy green.")
+	stage.configure("Rogue", "Tavern Bouncer")
+	_require(stage.last_poison_stack_tint_stacks == 0, "Expected configuring a new target to clear stale poison tint stacks.")
+	_require(stage.enemy_actor_anchor.modulate == Color.WHITE, "Expected a newly configured target to start without the previous enemy's poison tint.")
 
 	var crit_cast := CombatResolver.CastEvent.new()
 	crit_cast.skill = load("res://data/skills/stab.tres")

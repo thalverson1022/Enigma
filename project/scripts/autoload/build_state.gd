@@ -52,6 +52,7 @@ const CONTRACT_SHOP_MASTER_WEIGHT := 25
 const CONTRACT_SHOP_CURSED_WEIGHT := 10
 const CONTRACT_SHOP_LEGENDARY_WEIGHT := 1
 const SHOP_UNIQUE_ROLL_ATTEMPTS := 80
+const STANDARD_MAX_ATTEMPTS := 2
 var pending_reward_choices: Array[GearItem] = []
 var equipped_weapon: GearItem = null
 var equipped_trinket: GearItem = null
@@ -65,7 +66,7 @@ var run_phase: int = RunPhase.PLANNING
 var run_outcome: int = RunOutcome.NONE
 var last_fight_won: bool = false
 var tavern_map_choice_made: bool = false
-## "Ready" flag: locking the build enables the FIGHT button. Any build
+## Build lock flag: locking the build enables the FIGHT button. Any build
 ## mutation (talents, macro, gear, ...) automatically clears it, since the
 ## lock refers to the build as it was when locked -- see _ready().
 var build_locked: bool = false
@@ -328,6 +329,21 @@ func failure_count_for_current_encounter() -> int:
 	return int(encounter_failure_counts.get(_current_fight_key(), 0))
 
 
+func attempts_remaining_for_current_encounter() -> int:
+	if is_unlimited_retry_encounter():
+		return -1
+	return max(0, STANDARD_MAX_ATTEMPTS - failure_count_for_current_encounter())
+
+
+func current_attempts_text() -> String:
+	if is_unlimited_retry_encounter():
+		return "Attempts: unlimited"
+	return "Attempts: %d/%d remaining" % [
+		attempts_remaining_for_current_encounter(),
+		STANDARD_MAX_ATTEMPTS,
+	]
+
+
 ## The very first Tavern encounter (Mouthy Drunk, encounter index 0 in
 ## RunFlow.ENCOUNTER_PATHS) -- see docs/Phase_2_R5_Run_Rules_And_Determinism.md
 ## for the unlimited-retry exception this identifies. Must be an actual
@@ -468,7 +484,7 @@ func can_store_shop_offer(offer: GearItem) -> bool:
 
 
 func has_open_equipment_slot(slot: GearItem.SlotType) -> bool:
-	return _equipped_item_for_slot(slot) == null
+	return equipped_item_for_slot(slot) == null
 
 
 func close_shop_round() -> bool:
@@ -768,7 +784,7 @@ func sell_inventory_item(gear: GearItem) -> bool:
 
 
 func sell_equipped_item(slot: GearItem.SlotType) -> bool:
-	var gear := _equipped_item_for_slot(slot)
+	var gear := equipped_item_for_slot(slot)
 	if gear == null:
 		return false
 	match slot:
@@ -801,7 +817,7 @@ func equip(gear: GearItem) -> void:
 	if gear == null:
 		return
 	inventory.erase(gear)
-	var replaced: GearItem = _equipped_item_for_slot(gear.slot)
+	var replaced: GearItem = equipped_item_for_slot(gear.slot)
 	match gear.slot:
 		GearItem.SlotType.WEAPON:
 			equipped_weapon = gear
@@ -815,7 +831,7 @@ func equip(gear: GearItem) -> void:
 
 
 func unequip(slot: GearItem.SlotType) -> void:
-	var removed: GearItem = _equipped_item_for_slot(slot)
+	var removed: GearItem = equipped_item_for_slot(slot)
 	if removed == null:
 		return
 	match slot:
@@ -830,7 +846,10 @@ func unequip(slot: GearItem.SlotType) -> void:
 	build_changed.emit()
 
 
-func _equipped_item_for_slot(slot: GearItem.SlotType) -> GearItem:
+## Public so other screens (e.g. combat_screen.gd's shop/reward gear-compare
+## tooltips) can look up what's currently equipped in a slot without keeping
+## their own mirrored copy of this lookup.
+func equipped_item_for_slot(slot: GearItem.SlotType) -> GearItem:
 	match slot:
 		GearItem.SlotType.WEAPON:
 			return equipped_weapon

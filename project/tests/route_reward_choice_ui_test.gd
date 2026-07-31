@@ -36,9 +36,9 @@ func _initialize() -> void:
 	_require(build_state.pending_reward_choices.size() == 2, "Expected two generated reward choices.")
 	_require(build_state.pending_reward_choices[0].slot == GearItem.SlotType.WEAPON, "Expected first generated reward to be weapon.")
 	_require(build_state.pending_reward_choices[1].slot == GearItem.SlotType.CHARM, "Expected second generated reward to be charm.")
-	_require(combat_screen._reward_choice_options.get_child_count() == 2, "Expected two generated reward buttons.")
+	_require(combat_screen._reward_choice_overlay.options_container().get_child_count() == 2, "Expected two generated reward buttons.")
 
-	var generated_choice_button: Button = combat_screen._reward_choice_options.get_child(0)
+	var generated_choice_button: Button = combat_screen._reward_choice_overlay.options_container().get_child(0)
 	_require(generated_choice_button.tooltip_text.contains("Basic"), "Expected Basic generated reward tooltip.")
 	var fill_rng := RandomNumberGenerator.new()
 	fill_rng.seed = 570
@@ -77,16 +77,16 @@ func _initialize() -> void:
 		build_state.pending_reward_choices.all(func(gear): return gear.tier == GearItem.Tier.LEGENDARY),
 		"Expected both Legendary choices to be Legendary tier."
 	)
-	_require(combat_screen._reward_choice_options.get_child_count() == 2, "Expected two Legendary reward buttons.")
-	var first_button: Button = combat_screen._reward_choice_options.get_child(0)
-	var second_button: Button = combat_screen._reward_choice_options.get_child(1)
+	_require(combat_screen._reward_choice_overlay.options_container().get_child_count() == 2, "Expected two Legendary reward buttons.")
+	var first_button: Button = combat_screen._reward_choice_overlay.options_container().get_child(0)
+	var second_button: Button = combat_screen._reward_choice_overlay.options_container().get_child(1)
 	var first_choice: GearItem = build_state.pending_reward_choices[0]
 	var second_choice: GearItem = build_state.pending_reward_choices[1]
 	_require(first_button.tooltip_text.contains(first_choice.display_name), "Expected first choice's own name in its tooltip.")
 	_require(second_button.tooltip_text.contains(second_choice.display_name), "Expected second choice's own name in its tooltip.")
 	for i in build_state.pending_reward_choices.size():
 		var choice: GearItem = build_state.pending_reward_choices[i]
-		var button: Button = combat_screen._reward_choice_options.get_child(i)
+		var button: Button = combat_screen._reward_choice_overlay.options_container().get_child(i)
 		var expected_effect := LegendaryCatalog.effect_text(choice)
 		_require(expected_effect != "", "Expected a Legendary flavor line for %s." % choice.display_name)
 		_require(button.tooltip_text.contains(expected_effect), "Expected %s reward tooltip to include '%s', got: %s" % [choice.display_name, expected_effect, button.tooltip_text])
@@ -102,9 +102,9 @@ func _initialize() -> void:
 	_require(build_state.equipped_weapon.id == first_choice.id, "Expected the chosen Legendary to be equipped.")
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected route choice phase after Legendary reward.")
 	_require(combat_screen._map_overlay.visible, "Expected route map after Legendary reward.")
-	_require(combat_screen._map_node_buttons.size() == 8, "Expected full route schematic after Legendary reward.")
-	_require(not combat_screen._map_node_buttons[7].disabled, "Expected Vyra selectable after Knives.")
-	_require(combat_screen._map_node_buttons[7].text.contains("Vyra"), "Expected Vyra node after Knives.")
+	_require(combat_screen._map_overlay._map_node_buttons.size() == 8, "Expected full route schematic after Legendary reward.")
+	_require(not combat_screen._map_overlay._map_node_buttons[7].disabled, "Expected Vyra selectable after Knives.")
+	_require(combat_screen._map_overlay._map_node_buttons[7].text.contains("Vyra"), "Expected Vyra node after Knives.")
 
 	print("Route reward choice UI check: OK")
 	quit()

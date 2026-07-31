@@ -7,9 +7,10 @@ extends PanelContainer
 ## state.rotation.
 
 const CARD_TITLE_FONT_SIZE := 20
-const SLOT_SIZE := Vector2(48, 48)
+const SLOT_SIZE := Vector2(56, 56)
 const SLOT_FONT_SIZE := 22
-const SLOT_ICON_SIZE := Vector2(30, 30)
+const SLOT_ICON_INSET := 5.0
+const SLOT_ICON_SIZE := Vector2(42, 42)
 const PANEL_MIN_HEIGHT := 132
 const ORDER_BADGE_FONT_SIZE := 10
 const REMOVE_BADGE_FONT_SIZE := 13
@@ -19,6 +20,10 @@ const PULSE_SLOT_COLOR := UIColors.TEXT_MAGIC
 const PULSE_SLOT_BG := Color(0.18, 0.08, 0.24, 0.94)
 const PROGRESS_FILL_COLOR := Color(1.0, 0.86, 0.28, 0.36)
 const PROC_PROGRESS_FILL_COLOR := Color(0.62, 0.45, 0.85, 0.48)
+const LOCK_ICON := preload("res://assets/ui/icons/build_lock.png")
+const UNLOCK_ICON := preload("res://assets/ui/icons/build_unlock.png")
+const LOCK_BUTTON_SIZE := Vector2(52, 52)
+const LOCK_BUTTON_ICON_SIZE := Vector2(34, 34)
 
 ## P2:R10: see talent_panel.gd's `state` comment -- same pattern, same
 ## default, same untyped declaration reason.
@@ -26,6 +31,7 @@ var state = BuildState
 
 var _slots_box: HBoxContainer
 var _lock_button: Button
+var _lock_button_icon: TextureRect
 var _slot_buttons: Array[Button] = []
 var _slot_fills: Array[ColorRect] = []
 var _active_index := -1
@@ -53,9 +59,26 @@ func _ready() -> void:
 	content.add_child(_slots_box)
 
 	_lock_button = Button.new()
+	_lock_button.custom_minimum_size = LOCK_BUTTON_SIZE
 	_lock_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_lock_button.pressed.connect(_on_lock_pressed)
 	content.add_child(_lock_button)
+
+	_lock_button_icon = TextureRect.new()
+	_lock_button_icon.name = "LockButtonIcon"
+	_lock_button_icon.custom_minimum_size = LOCK_BUTTON_ICON_SIZE
+	_lock_button_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_lock_button_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lock_button_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_lock_button_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_lock_button_icon.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	_lock_button_icon.anchor_top = 0.5
+	_lock_button_icon.anchor_bottom = 0.5
+	_lock_button_icon.offset_left = (LOCK_BUTTON_SIZE.x - LOCK_BUTTON_ICON_SIZE.x) / 2.0
+	_lock_button_icon.offset_right = (LOCK_BUTTON_SIZE.x + LOCK_BUTTON_ICON_SIZE.x) / 2.0
+	_lock_button_icon.offset_top = -LOCK_BUTTON_ICON_SIZE.y / 2.0
+	_lock_button_icon.offset_bottom = LOCK_BUTTON_ICON_SIZE.y / 2.0
+	_lock_button.add_child(_lock_button_icon)
 
 	state.build_changed.connect(_refresh)
 	state.lock_changed.connect(_refresh)
@@ -67,8 +90,23 @@ func _on_lock_pressed() -> void:
 
 
 func _update_lock_button() -> void:
-	_lock_button.text = "UNLOCK" if state.build_locked else "LOCK"
-	# Can't ready an empty macro -- fighting with no skills is a guaranteed
+	_lock_button.text = ""
+	_lock_button.icon = null
+	_lock_button.add_theme_constant_override("icon_max_width", 0)
+	_lock_button.add_theme_constant_override("h_separation", 0)
+	_lock_button.add_theme_constant_override("text_outline_size", 0)
+	_lock_button.add_theme_constant_override("padding_left", 0)
+	_lock_button.add_theme_constant_override("padding_right", 0)
+	_lock_button.add_theme_constant_override("padding_top", 0)
+	_lock_button.add_theme_constant_override("padding_bottom", 0)
+	_lock_button_icon.texture = LOCK_ICON if state.build_locked else UNLOCK_ICON
+	_lock_button.tooltip_text = (
+		"Unlock your skill macro so you can edit it"
+		if state.build_locked
+		else "Lock this skill macro so you can start the fight"
+	)
+	_apply_lock_button_style()
+	# Can't lock an empty macro -- fighting with no skills is a guaranteed
 	# zero-damage loss.
 	_lock_button.disabled = state.rotation.is_empty() and not state.build_locked
 
@@ -118,7 +156,7 @@ func _refresh() -> void:
 		fill.offset_top = 0.0
 		fill.offset_right = 0.0
 		fill.offset_bottom = 0.0
-		fill.z_index = 1
+		fill.z_index = 3
 		slot.add_child(fill)
 
 		# Cast-order number, top-left corner -- makes the left-to-right
@@ -128,7 +166,7 @@ func _refresh() -> void:
 		var order_badge := Label.new()
 		order_badge.text = str(i + 1)
 		order_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		order_badge.z_index = 3
+		order_badge.z_index = 4
 		order_badge.add_theme_font_size_override("font_size", ORDER_BADGE_FONT_SIZE)
 		order_badge.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
 		order_badge.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -143,7 +181,7 @@ func _refresh() -> void:
 			var remove_badge := Label.new()
 			remove_badge.text = "x"
 			remove_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			remove_badge.z_index = 3
+			remove_badge.z_index = 4
 			remove_badge.add_theme_font_size_override("font_size", REMOVE_BADGE_FONT_SIZE)
 			remove_badge.add_theme_color_override("font_color", UIColors.TEXT_WARNING)
 			remove_badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -209,10 +247,10 @@ func _add_skill_icon(slot: Button, skill: Skill) -> void:
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	icon.offset_left = 8.0
-	icon.offset_top = 8.0
-	icon.offset_right = -8.0
-	icon.offset_bottom = -8.0
+	icon.offset_left = SLOT_ICON_INSET
+	icon.offset_top = SLOT_ICON_INSET
+	icon.offset_right = -SLOT_ICON_INSET
+	icon.offset_bottom = -SLOT_ICON_INSET
 	icon.z_index = 2
 	slot.add_child(icon)
 
@@ -236,6 +274,18 @@ func _apply_slot_style(slot: Button, active: bool, pulse: bool) -> void:
 	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
 		slot.add_theme_stylebox_override(state_name, style)
 	slot.add_theme_color_override("font_color", border_color)
+
+
+func _apply_lock_button_style() -> void:
+	var fill := UIColors.BUTTON_FILL_PRESSED if state.build_locked else UIColors.BUTTON_FILL
+	var border := UIColors.TEXT_DISABLED if state.build_locked else UIColors.PANEL_BORDER
+	for state_name in ["normal", "hover", "pressed", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = fill
+		style.border_color = border
+		style.set_border_width_all(2)
+		style.set_corner_radius_all(26)
+		_lock_button.add_theme_stylebox_override(state_name, style)
 
 
 func _pulse_slot(slot: Button) -> void:

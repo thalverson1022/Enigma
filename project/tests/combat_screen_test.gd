@@ -10,6 +10,7 @@ extends SceneTree
 ## click-through available in this environment.
 
 
+
 func _initialize() -> void:
 	var build_state = root.get_node("BuildState")
 
@@ -47,6 +48,7 @@ func _initialize() -> void:
 			disabled_count += 1
 	print("subclass select disabled buttons (expect 0): %d" % disabled_count)
 	assert(disabled_count == 0)
+	assert(subclass_select.find_children("Icon", "TextureRect", true, false).size() == 3)
 
 	var thief: SubclassTree = rogue.trees[1]
 	assert(thief.display_name == "Thief")
@@ -63,7 +65,7 @@ func _initialize() -> void:
 	print("story overlay visible right after subclass select (expect true): %s" % combat_screen._story_overlay.visible)
 	assert(combat_screen._story_overlay.visible)
 	assert(not combat_screen._map_overlay.visible)
-	assert(combat_screen._story_label.text == combat_screen.INTRO_STORY_TEXT)
+	assert(combat_screen._story_overlay._story_label.text == combat_screen._story_overlay.INTRO_STORY_TEXT)
 	var story_proceed_button: Button = combat_screen._story_overlay.find_child("StoryProceedButton", true, false)
 	assert(story_proceed_button != null)
 	story_proceed_button.pressed.emit()
@@ -85,33 +87,33 @@ func _initialize() -> void:
 	await process_frame
 	assert(combat_screen._seed_label.text == "Seed: 37")
 	assert(combat_screen._map_overlay.visible)
-	assert(combat_screen._map_node_buttons.size() == RunFlow.tavern_encounter_count())
-	assert(combat_screen._map_node_buttons[0].text == "Mouthy Drunk")
-	assert(not combat_screen._map_node_buttons[0].disabled)
-	assert(combat_screen._map_node_buttons[1].text == "Unknown")
-	assert(combat_screen._map_node_buttons[1].disabled)
-	assert(not combat_screen._map_close_button.visible)
+	assert(combat_screen._map_overlay._map_node_buttons.size() == RunFlow.tavern_encounter_count())
+	assert(combat_screen._map_overlay._map_node_buttons[0].text == "Mouthy Drunk")
+	assert(not combat_screen._map_overlay._map_node_buttons[0].disabled)
+	assert(combat_screen._map_overlay._map_node_buttons[1].text == "Unknown")
+	assert(combat_screen._map_overlay._map_node_buttons[1].disabled)
+	assert(not combat_screen._map_overlay._map_close_button.visible)
 
 	# -- Clicking a node only previews its flavor text; Proceed commits it.
 	# The current node isn't highlighted until clicked, and Proceed is
 	# always visible while a choice is pending, just disabled until then --
 	# both deliberately mirror the Contract Window's own
 	# select-then-Proceed pattern, to teach the player that structure early. --
-	assert(combat_screen._map_proceed_button.visible)
-	assert(combat_screen._map_proceed_button.disabled)
-	var mouthy_drunk_style_before: StyleBoxFlat = combat_screen._map_node_buttons[0].get_theme_stylebox("normal")
+	assert(combat_screen._map_overlay._map_proceed_button.visible)
+	assert(combat_screen._map_overlay._map_proceed_button.disabled)
+	var mouthy_drunk_style_before: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
 	assert(mouthy_drunk_style_before.border_color != CardStyle.ACCENT_COLOR)
-	combat_screen._map_node_buttons[0].pressed.emit()
+	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
 	await process_frame
 	assert(combat_screen._map_overlay.visible)
 	assert(not build_state.tavern_map_choice_made)
-	assert(combat_screen._map_proceed_button.visible)
-	assert(not combat_screen._map_proceed_button.disabled)
-	var mouthy_drunk_style_after: StyleBoxFlat = combat_screen._map_node_buttons[0].get_theme_stylebox("normal")
+	assert(combat_screen._map_overlay._map_proceed_button.visible)
+	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
+	var mouthy_drunk_style_after: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
 	assert(mouthy_drunk_style_after.border_color == CardStyle.ACCENT_COLOR)
-	print("previewed flavor text (expect Mouthy Drunk's): %s" % combat_screen._map_story_label.text)
-	assert(combat_screen._map_story_label.text == "A red-faced patron decides your quiet corner is somehow his business.")
-	combat_screen._map_proceed_button.pressed.emit()
+	print("previewed flavor text (expect Mouthy Drunk's): %s" % combat_screen._map_overlay._map_story_label.text)
+	assert(combat_screen._map_overlay._map_story_label.text == "A red-faced patron decides your quiet corner is somehow his business.")
+	combat_screen._map_overlay._map_proceed_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay.visible)
 	assert(build_state.tavern_map_choice_made)
@@ -160,10 +162,9 @@ func _initialize() -> void:
 	print("assassin intrinsic (expect None): %s" % talent_panel._intrinsic_description(rogue.trees[0]))
 	assert(talent_panel._intrinsic_description(rogue.trees[0]) == "None")
 
-	# -- Points footer: "Points Spent: spent/earned" budget readout (P2:R7:T4)
-	# -- counts UP as talents are taken, against the earned total. --
-	print("points label (expect Points Spent: 0/0): %s" % talent_panel._points_label.text)
-	assert(talent_panel._points_label.text == "Points Spent: 0/0")
+	# -- Points footer: "Points: spent/earned" budget readout.
+	print("points label (expect Points: 0/0): %s" % talent_panel._points_label.text)
+	assert(talent_panel._points_label.text == "Points: 0/0")
 
 	# -- Tree structure: base tier has the two no-prereq talents side by
 	# side; deeper talents (Sunder) start disabled/dimmed until their
@@ -273,10 +274,9 @@ func _initialize() -> void:
 	assert(enemy_panel._title_label.text == "Mouthy Drunk")
 	assert(not enemy_panel._info_label.text.contains("Encounter:"))
 	assert(not enemy_panel._info_label.text.contains("Target:"))
-	# P2:R7:T5: 150 HP over a 12s window is a 12.5 required DPS, and Mouthy
-	# Drunk's authored reward (12g, 1 talent point) is visible before the
-	# fight, not only after via the post-fight claim UI.
-	assert(enemy_panel._info_label.text.contains("Required DPS: 12.5"))
+	# Mouthy Drunk's authored reward (12g, 1 talent point) is visible before
+	# the fight, not only after via the post-fight claim UI.
+	assert(not enemy_panel._info_label.text.contains("Damage Goal:"))
 	assert(enemy_panel._info_label.text.contains("Reward: 12g, 1 talent point"))
 	assert(enemy_panel._info_label.text.contains("Pressure: No notable defensive pressure."))
 	print("fight button disabled before lock (expect true): %s" % enemy_panel._fight_button.disabled)
@@ -284,8 +284,8 @@ func _initialize() -> void:
 
 	# Fight attempt without lock must be a no-op (guard in combat_screen).
 	enemy_panel.fight_pressed.emit()
-	assert(not combat_screen._log_label.text.contains("VICTORY"))
-	assert(not combat_screen._log_label.text.contains("DEFEAT"))
+	assert(not combat_screen._log_overlay._log_label.text.contains("VICTORY"))
+	assert(not combat_screen._log_overlay._log_label.text.contains("DEFEAT"))
 
 	skill_build_panel._on_lock_pressed()
 	print("build locked (expect true): %s" % build_state.build_locked)
@@ -325,11 +325,11 @@ func _initialize() -> void:
 
 	print("")
 	print("-- Combat log text --")
-	print(combat_screen._log_label.text)
-	assert(not combat_screen._log_label.text.contains("[DIAG"))
-	assert(combat_screen._log_label.text == expected_log)
-	assert(combat_screen._log_label.text.contains("VICTORY!"))
-	assert(combat_screen._log_label.text.contains("DPS"))
+	print(combat_screen._log_overlay._log_label.text)
+	assert(not combat_screen._log_overlay._log_label.text.contains("[DIAG"))
+	assert(combat_screen._log_overlay._log_label.text == expected_log)
+	assert(combat_screen._log_overlay._log_label.text.contains("VICTORY!"))
+	assert(combat_screen._log_overlay._log_label.text.contains("DPS"))
 	print("status label: %s" % combat_screen._status_label.text)
 	assert(combat_screen._status_label.text.begins_with("Fight complete:"))
 	assert(not combat_screen._view_log_button.disabled)
@@ -433,9 +433,9 @@ func _initialize() -> void:
 	assert(not build_state.build_locked)
 	assert(not build_state.tavern_map_choice_made)
 	assert(combat_screen._map_overlay.visible)
-	assert(combat_screen._map_node_buttons[0].disabled)
-	assert(combat_screen._map_node_buttons[1].text == "Drunk Buddy")
-	assert(not combat_screen._map_node_buttons[1].disabled)
+	assert(combat_screen._map_overlay._map_node_buttons[0].disabled)
+	assert(combat_screen._map_overlay._map_node_buttons[1].text == "Drunk Buddy")
+	assert(not combat_screen._map_overlay._map_node_buttons[1].disabled)
 	print("-- Enemy panel after Continue --")
 	print(enemy_panel._info_label.text)
 	assert(enemy_panel._title_label.text == "Choose Encounter")
@@ -443,13 +443,13 @@ func _initialize() -> void:
 	assert(enemy_panel._fight_button.disabled)
 	# -- Returning to the map after a win shows that encounter's Victory
 	# Text, not the intro line again, until the next node is previewed. --
-	print("map story text after Mouthy Drunk win (expect his Victory Text): %s" % combat_screen._map_story_label.text)
-	assert(combat_screen._map_story_label.text == "You easily dispatch him with a few well-placed strikes. He falls into a heap on the floor. However, this has caused quite the commotion.")
-	combat_screen._map_node_buttons[1].pressed.emit()
+	print("map story text after Mouthy Drunk win (expect his Victory Text): %s" % combat_screen._map_overlay._map_story_label.text)
+	assert(combat_screen._map_overlay._map_story_label.text == "You easily dispatch him with a few well-placed strikes. He falls into a heap on the floor. However, this has caused quite the commotion.")
+	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
 	await process_frame
-	print("previewed flavor text (expect Drunk Buddy's): %s" % combat_screen._map_story_label.text)
-	assert(combat_screen._map_story_label.text == "Leaping to his fallen companion's aid, another drunk patron wants to try his hand.")
-	combat_screen._map_proceed_button.pressed.emit()
+	print("previewed flavor text (expect Drunk Buddy's): %s" % combat_screen._map_overlay._map_story_label.text)
+	assert(combat_screen._map_overlay._map_story_label.text == "Leaping to his fallen companion's aid, another drunk patron wants to try his hand.")
+	combat_screen._map_overlay._map_proceed_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay.visible)
 	assert(build_state.tavern_map_choice_made)
@@ -464,11 +464,11 @@ func _initialize() -> void:
 	planning_map_button.pressed.emit()
 	await process_frame
 	assert(combat_screen._map_overlay.visible)
-	assert(combat_screen._map_close_button.visible)
-	assert(combat_screen._map_node_buttons[1].disabled)
-	var current_map_style: StyleBoxFlat = combat_screen._map_node_buttons[1].get_theme_stylebox("normal")
+	assert(combat_screen._map_overlay._map_close_button.visible)
+	assert(combat_screen._map_overlay._map_node_buttons[1].disabled)
+	var current_map_style: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[1].get_theme_stylebox("normal")
 	assert(current_map_style.border_color == CardStyle.ACCENT_COLOR)
-	combat_screen._map_close_button.pressed.emit()
+	combat_screen._map_overlay._map_close_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay.visible)
 
@@ -476,7 +476,7 @@ func _initialize() -> void:
 	talent_panel._on_node_pressed(piercing_blades)
 	await process_frame
 	assert(build_state.selected_talents.size() == 1)
-	assert(talent_panel._points_label.text == "Points Spent: 1/1")
+	assert(talent_panel._points_label.text == "Points: 1/1")
 	unlocked = build_state.unlocked_skills()
 	assert(unlocked.size() == 4)
 	for skill in unlocked:
@@ -509,7 +509,7 @@ func _initialize() -> void:
 	enemy_panel.fight_pressed.emit()
 	await process_frame
 	assert(combat_screen._victory_overlay.visible)
-	assert(combat_screen._log_label.text.contains("Drunk Buddy"))
+	assert(combat_screen._log_overlay._log_label.text.contains("Drunk Buddy"))
 	assert(combat_screen._reward_label.text.contains("18g"))
 	assert(combat_screen._reward_label.text.contains("Lucky Coin"))
 	assert(combat_screen._reward_label.text.contains("shop access"))
@@ -541,21 +541,21 @@ func _initialize() -> void:
 	assert(build_state.shop_offers.size() == 6)
 	for offer in build_state.shop_offers:
 		assert(offer.tier == GearItem.Tier.BASIC)
-	assert(combat_screen._shop_offers_box.columns == 2)
-	assert(combat_screen._shop_offers_box.get_child_count() == 6)
+	assert(combat_screen._shop_overlay._shop_offers_box.columns == 2)
+	assert(combat_screen._shop_overlay._shop_offers_box.get_child_count() == 6)
 
 	var first_offer: GearItem = build_state.shop_offers[0]
 	var first_offer_id := first_offer.id
-	print("first shop offer: %s" % combat_screen._shop_offer_text(first_offer))
+	print("first shop offer: %s" % combat_screen._shop_overlay._shop_offer_text(first_offer))
 	assert(GearGenerator.price_for_tier(first_offer.tier) == 18)
-	assert(combat_screen._shop_offer_text(first_offer).contains("Price: 18g"))
-	assert(combat_screen._shop_offer_text(first_offer).begins_with("%s - " % GearGenerator.SLOT_TAGS[first_offer.slot]))
-	assert(combat_screen._shop_reroll_button.text == "Reroll (1)")
+	assert(combat_screen._shop_overlay._shop_offer_text(first_offer).contains("Price: 18g"))
+	assert(combat_screen._shop_overlay._shop_offer_text(first_offer).begins_with("%s - " % GearGenerator.SLOT_TAGS[first_offer.slot]))
+	assert(combat_screen._shop_overlay._shop_reroll_button.text == "Reroll (1)")
 
 	var offers_before_reroll: Array[String] = []
 	for offer in build_state.shop_offers:
 		offers_before_reroll.append(offer.id)
-	combat_screen._shop_reroll_button.pressed.emit()
+	combat_screen._shop_overlay._shop_reroll_button.pressed.emit()
 	assert(build_state.shop_reroll_used)
 	assert(not build_state.reroll_shop_offers())
 	var offers_after_reroll: Array[String] = []
@@ -563,10 +563,10 @@ func _initialize() -> void:
 		offers_after_reroll.append(offer.id)
 	print("shop offers changed after reroll (expect true): %s" % (offers_before_reroll != offers_after_reroll))
 	assert(offers_before_reroll != offers_after_reroll)
-	combat_screen._refresh_shop_overlay()
+	combat_screen._shop_overlay.refresh()
 	await process_frame
-	assert(combat_screen._shop_reroll_button.disabled)
-	assert(combat_screen._shop_reroll_button.text == "Reroll (0)")
+	assert(combat_screen._shop_overlay._shop_reroll_button.disabled)
+	assert(combat_screen._shop_overlay._shop_reroll_button.text == "Reroll (0)")
 
 	var bought_offer: GearItem = build_state.shop_offers[0]
 	var inventory_before_purchase: int = build_state.inventory.size()
@@ -574,7 +574,7 @@ func _initialize() -> void:
 	var stats_before_purchase := BuildResolver.resolve_stats(
 		build_state.selected_class, build_state.selected_trees, build_state.selected_talents, build_state.equipped_gear()
 	)
-	var first_offer_button: Button = combat_screen._shop_offers_box.get_child(0)
+	var first_offer_button: Button = combat_screen._shop_overlay._shop_offers_box.get_child(0)
 	assert(first_offer_button.custom_minimum_size == Vector2(88, 88))
 	assert(first_offer_button.tooltip_text.contains(bought_offer.display_name))
 	assert(first_offer_button.tooltip_text.begins_with("%s - " % GearGenerator.SLOT_TAGS[bought_offer.slot]))
@@ -645,14 +645,14 @@ func _initialize() -> void:
 	assert(build_state.run_phase == BuildState.RunPhase.PLANNING)
 	assert(enemy_panel._title_label.text == "Choose Encounter")
 	assert(combat_screen._map_overlay.visible)
-	assert(combat_screen._map_node_buttons[2].text == "Tavern Bouncer")
-	print("map story text after Drunk Buddy win (expect his Victory Text): %s" % combat_screen._map_story_label.text)
-	assert(combat_screen._map_story_label.text == "He lands with a thud atop the fallen body of his companion, but now the tavern is abuzz with action. You have made your pressence known; however you are not sure that was the best idea.")
-	combat_screen._map_node_buttons[2].pressed.emit()
+	assert(combat_screen._map_overlay._map_node_buttons[2].text == "Tavern Bouncer")
+	print("map story text after Drunk Buddy win (expect his Victory Text): %s" % combat_screen._map_overlay._map_story_label.text)
+	assert(combat_screen._map_overlay._map_story_label.text == "He lands with a thud atop the fallen body of his companion, but now the tavern is abuzz with action. You have made your pressence known; however you are not sure that was the best idea.")
+	combat_screen._map_overlay._map_node_buttons[2].pressed.emit()
 	await process_frame
-	print("previewed flavor text (expect Tavern Bouncer's): %s" % combat_screen._map_story_label.text)
-	assert(combat_screen._map_story_label.text == "The burley bouncer grabs you to politely show you the door.")
-	combat_screen._map_proceed_button.pressed.emit()
+	print("previewed flavor text (expect Tavern Bouncer's): %s" % combat_screen._map_overlay._map_story_label.text)
+	assert(combat_screen._map_overlay._map_story_label.text == "The burley bouncer grabs you to politely show you the door.")
+	combat_screen._map_overlay._map_proceed_button.pressed.emit()
 	await process_frame
 	assert(build_state.tavern_map_choice_made)
 	assert(enemy_panel._title_label.text == "Tavern Bouncer")
@@ -687,31 +687,33 @@ func _initialize() -> void:
 	assert(build_state.current_route_node.id == "route.gilded_serpent.offer")
 	assert(not combat_screen._shop_overlay.visible)
 	assert(combat_screen._contract_overlay.visible)
-	assert(combat_screen._contract_body_label.text == combat_screen.CONTRACT_GREETING_TEXT)
-	assert(combat_screen._contract_action_button.text == "Hear Him Out")
+	assert(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_GREETING_TEXT)
+	assert(combat_screen._contract_overlay._contract_action_button.text == "Hear Him Out")
 	assert(enemy_panel._title_label.text == "Contract Offer")
 
-	combat_screen._contract_action_button.pressed.emit()
+	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
-	assert(combat_screen._contract_body_label.text == combat_screen.CONTRACT_PITCH_TEXT)
-	assert(combat_screen._contract_action_button.text == "Accept Contract Work")
+	assert(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_PITCH_TEXT)
+	assert(combat_screen._contract_overlay._contract_action_button.text == "Accept Contract Work")
 
-	combat_screen._contract_action_button.pressed.emit()
+	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE)
 	assert(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree")
 	assert(not combat_screen._contract_overlay.visible)
 	assert(combat_screen._secondary_subclass_overlay.visible)
-	assert(combat_screen._secondary_subclass_body.text == combat_screen.CONTRACT_SUBCLASS_PROMPT_TEXT)
-	assert(combat_screen._secondary_subclass_options.get_child_count() == 2)
+	assert(combat_screen._secondary_subclass_overlay._body_label.text == combat_screen._secondary_subclass_overlay.CONTRACT_SUBCLASS_PROMPT_TEXT)
+	assert(combat_screen._secondary_subclass_overlay._options.get_child_count() == 2)
 	# Each option is now a selection card matching the primary subclass
 	# select screen (P2:R7 second playtest-feedback pass, item 5):
-	# card -> vbox -> [title Label, intrinsic Label, Choose Button].
-	var secondary_card_0_vbox: VBoxContainer = combat_screen._secondary_subclass_options.get_child(0).get_child(0)
-	var secondary_card_1_vbox: VBoxContainer = combat_screen._secondary_subclass_options.get_child(1).get_child(0)
-	assert(secondary_card_0_vbox.get_child(0).text.contains("Assassin"))
-	assert(secondary_card_1_vbox.get_child(0).text.contains("Shadow"))
-	assert(secondary_card_1_vbox.get_child(1).text.contains("ticks for poison damage"))
+	# card -> vbox -> [icon+title row, intrinsic Label, Choose Button].
+	var secondary_card_0_vbox: VBoxContainer = combat_screen._secondary_subclass_overlay._options.get_child(0).get_child(0)
+	var secondary_card_1_vbox: VBoxContainer = combat_screen._secondary_subclass_overlay._options.get_child(1).get_child(0)
+	assert(secondary_card_0_vbox.find_child("Title", true, false).text.contains("Assassin"))
+	assert(secondary_card_0_vbox.find_child("Icon", true, false) != null)
+	assert(secondary_card_1_vbox.find_child("Title", true, false).text.contains("Shadow"))
+	assert(secondary_card_1_vbox.find_child("Icon", true, false) != null)
+	assert(secondary_card_1_vbox.get_child(1).text.contains("apply +1 poison stack"))
 	assert(secondary_card_0_vbox.get_child(2) is Button)
 	assert(secondary_card_0_vbox.get_child(2).text == "Choose")
 	secondary_card_0_vbox.get_child(2).pressed.emit()
@@ -725,52 +727,52 @@ func _initialize() -> void:
 	# Proceed then previews her, and her own Accept finally reveals the
 	# (unchanged) interactive route schematic. --
 	assert(combat_screen._contract_overlay.visible)
-	assert(combat_screen._contract_options_box.get_child_count() == 1)
-	var vyra_button: Button = combat_screen._contract_options_box.get_child(0)
-	assert(vyra_button.text.contains(combat_screen.CONTRACT_VYRA_NAME))
+	assert(combat_screen._contract_overlay._contract_options_box.get_child_count() == 1)
+	var vyra_button: Button = combat_screen._contract_overlay._contract_options_box.get_child(0)
+	assert(vyra_button.text.contains(combat_screen._contract_overlay.CONTRACT_VYRA_NAME))
 	assert(vyra_button.text.contains("Reward: 120g"))
-	assert(combat_screen._contract_action_button.disabled)
+	assert(combat_screen._contract_overlay._contract_action_button.disabled)
 	vyra_button.button_pressed = true
 	await process_frame
-	assert(not combat_screen._contract_action_button.disabled)
-	combat_screen._contract_action_button.pressed.emit()
+	assert(not combat_screen._contract_overlay._contract_action_button.disabled)
+	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
-	assert(combat_screen._contract_body_label.text == combat_screen.CONTRACT_VYRA_DETAIL_TEXT)
-	assert(combat_screen._contract_action_button.text == "Accept")
-	combat_screen._contract_action_button.pressed.emit()
+	assert(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_VYRA_DETAIL_TEXT)
+	assert(combat_screen._contract_overlay._contract_action_button.text == "Accept")
+	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._contract_overlay.visible)
 	assert(combat_screen._map_overlay.visible)
-	assert(combat_screen._map_node_buttons.size() == 8)
-	assert(combat_screen._map_node_buttons[0].text.contains("Door Guard"))
-	assert(combat_screen._map_node_buttons[0].text.contains("Master Gear"))
-	assert(not combat_screen._map_node_buttons[0].text.contains("Weapon or Ring"))
-	assert(not combat_screen._map_node_buttons[0].disabled)
-	assert(combat_screen._map_node_buttons[0].tooltip_text.contains("Hard Opener"))
-	assert(combat_screen._map_node_buttons[1].text.contains("Portly Cook"))
-	assert(combat_screen._map_node_buttons[1].text.contains("Basic Gear"))
-	assert(not combat_screen._map_node_buttons[1].text.contains("Weapon or Necklace"))
-	assert(not combat_screen._map_node_buttons[1].disabled)
-	assert(combat_screen._map_node_buttons[1].tooltip_text.contains("Easy Opener"))
-	assert(combat_screen._map_node_buttons[2].text.contains("Sleeping"))
-	assert(combat_screen._map_node_buttons[4].text.contains("Lazy"))
-	assert(combat_screen._map_node_buttons[6].text.contains("Knives"))
-	assert(combat_screen._map_node_buttons[7].text.contains("Vyra"))
-	assert(combat_screen._map_node_buttons[2].disabled)
+	assert(combat_screen._map_overlay._map_node_buttons.size() == 8)
+	assert(combat_screen._map_overlay._map_node_buttons[0].text.contains("Door Guard"))
+	assert(combat_screen._map_overlay._map_node_buttons[0].text.contains("Master Gear"))
+	assert(not combat_screen._map_overlay._map_node_buttons[0].text.contains("Weapon or Ring"))
+	assert(not combat_screen._map_overlay._map_node_buttons[0].disabled)
+	assert(combat_screen._map_overlay._map_node_buttons[0].tooltip_text.contains("Hard Opener"))
+	assert(combat_screen._map_overlay._map_node_buttons[1].text.contains("Portly Cook"))
+	assert(combat_screen._map_overlay._map_node_buttons[1].text.contains("Basic Gear"))
+	assert(not combat_screen._map_overlay._map_node_buttons[1].text.contains("Weapon or Necklace"))
+	assert(not combat_screen._map_overlay._map_node_buttons[1].disabled)
+	assert(combat_screen._map_overlay._map_node_buttons[1].tooltip_text.contains("Easy Opener"))
+	assert(combat_screen._map_overlay._map_node_buttons[2].text.contains("Sleeping"))
+	assert(combat_screen._map_overlay._map_node_buttons[4].text.contains("Lazy"))
+	assert(combat_screen._map_overlay._map_node_buttons[6].text.contains("Knives"))
+	assert(combat_screen._map_overlay._map_node_buttons[7].text.contains("Vyra"))
+	assert(combat_screen._map_overlay._map_node_buttons[2].disabled)
 	assert(enemy_panel._title_label.text == "Choose Route")
 	assert(enemy_panel._info_label.text.contains("Choose the next contract route on the map."))
 
-	combat_screen._map_node_buttons[1].pressed.emit()
+	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
 	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.PLANNING)
 	assert(build_state.current_route_node.id == "route.gilded_serpent.portly_cook")
 	assert(enemy_panel._title_label.text == "Portly Cook")
-	assert(enemy_panel._info_label.text.contains("Window: 20s"))
+	assert(enemy_panel._info_label.text.contains("Fight Window: 20s"))
 	assert(not enemy_panel._info_label.text.contains("Contract:"))
 	# P2:R7:T5: Portly Cook is a 0-armor/0-poison-resist target, so its
 	# preview shows the "no notable pressure" line and its authored Basic
 	# Gear reward, both derived from real Monster/EncounterReward data.
-	assert(enemy_panel._info_label.text.contains("Required DPS: 18.0"))
+	assert(not enemy_panel._info_label.text.contains("Damage Goal:"))
 	assert(enemy_panel._info_label.text.contains("Pressure: No notable defensive pressure."))
 	assert(enemy_panel._info_label.text.contains("Reward: 26g, Basic Gear"))
 	assert(enemy_panel._fight_button.disabled)
@@ -780,8 +782,8 @@ func _initialize() -> void:
 	enemy_panel._fight_button.pressed.emit()
 	await process_frame
 	print("route fight phase after Portly Cook: %d" % build_state.run_phase)
-	print("route fight log contains Portly Cook (expect true): %s" % combat_screen._log_label.text.contains("Portly Cook"))
-	assert(combat_screen._log_label.text.contains("Portly Cook"))
+	print("route fight log contains Portly Cook (expect true): %s" % combat_screen._log_overlay._log_label.text.contains("Portly Cook"))
+	assert(combat_screen._log_overlay._log_label.text.contains("Portly Cook"))
 	assert(combat_screen._view_log_button.disabled == false)
 	# This regression is about the post-contract-reward shop transition, not
 	# route balance for the broad dashboard build assembled above. Contract
@@ -796,7 +798,7 @@ func _initialize() -> void:
 	await process_frame
 	assert(combat_screen._reward_choice_overlay.visible)
 	assert(build_state.has_pending_reward_choice())
-	var contract_reward_button: Button = combat_screen._reward_choice_options.get_child(0)
+	var contract_reward_button: Button = combat_screen._reward_choice_overlay.options_container().get_child(0)
 	contract_reward_button.pressed.emit()
 	await process_frame
 	assert(combat_screen._shop_overlay.visible)
@@ -827,7 +829,7 @@ func _initialize() -> void:
 	map_button.pressed.emit()
 	await process_frame
 	assert(combat_screen._map_overlay.visible)
-	assert(combat_screen._map_close_button.visible)
+	assert(combat_screen._map_overlay._map_close_button.visible)
 	combat_screen._map_overlay.visible = false
 	menu_button.pressed.emit()
 	print("main menu fired before confirmation (expect false): %s" % main_menu_fired[0])

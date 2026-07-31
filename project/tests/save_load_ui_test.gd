@@ -82,9 +82,9 @@ func _initialize() -> void:
 	story_proceed_button.pressed.emit()
 	await process_frame
 	assert(combat_screen._map_overlay.visible)
-	combat_screen._map_node_buttons[0].pressed.emit()
+	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
 	await process_frame
-	combat_screen._map_proceed_button.pressed.emit()
+	combat_screen._map_overlay._map_proceed_button.pressed.emit()
 	await process_frame
 	print("pre-save gold/seed: %d / %d" % [build_state.gold, build_state.adventure_seed])
 

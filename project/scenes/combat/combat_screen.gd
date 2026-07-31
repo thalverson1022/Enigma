@@ -23,10 +23,18 @@ signal save_and_quit_pressed
 
 const CHARACTER_STATS_SCENE := preload("res://scenes/combat/character_stats_panel.tscn")
 const ENEMY_SCENE := preload("res://scenes/combat/enemy_panel.tscn")
-const TALENT_SCENE := preload("res://scenes/combat/talent_panel.tscn")
+const ACTIVE_TALENTS_SCENE := preload("res://scenes/combat/active_talents_panel.tscn")
 const AVAILABLE_SKILLS_SCENE := preload("res://scenes/combat/available_skills_panel.tscn")
 const SKILL_BUILD_SCENE := preload("res://scenes/combat/skill_build_panel.tscn")
 const GEAR_SCENE := preload("res://scenes/combat/gear_panel.tscn")
+const LOG_OVERLAY_SCENE := preload("res://scenes/combat/log_overlay.tscn")
+const TALENT_OVERLAY_SCENE := preload("res://scenes/combat/talent_overlay.tscn")
+const STORY_OVERLAY_SCENE := preload("res://scenes/combat/story_overlay.tscn")
+const SECONDARY_SUBCLASS_OVERLAY_SCENE := preload("res://scenes/combat/secondary_subclass_overlay.tscn")
+const REWARD_CHOICE_OVERLAY_SCENE := preload("res://scenes/combat/reward_choice_overlay.tscn")
+const SHOP_OVERLAY_SCENE := preload("res://scenes/combat/shop_overlay.tscn")
+const CONTRACT_OVERLAY_SCENE := preload("res://scenes/combat/contract_overlay.tscn")
+const MAP_OVERLAY_SCENE := preload("res://scenes/combat/map_overlay.tscn")
 const COMBAT_STAGE_SCRIPT := preload("res://scripts/ui/combat_stage.gd")
 const COMBAT_STATUS_ICONS := preload("res://scripts/ui/combat_status_icons.gd")
 const COMBAT_STATUS_ICON_SIZE := Vector2(22, 22)
@@ -37,6 +45,8 @@ const HUD_RESISTANCE_ICON := preload("res://assets/combat_ui_icons/resistance.pn
 const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
 const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
 const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
+const UI_MAP_ICON := preload("res://assets/ui/icons/map.png")
+const UI_GOLD_ICON := preload("res://assets/ui/icons/gold.png")
 
 const SIDE_COLUMN_WIDTH := 300
 const SCREEN_MARGIN := 16
@@ -46,80 +56,6 @@ const VICTORY_TITLE_FONT_SIZE := 36
 const OUTCOME_TITLE_FONT_SIZE := 24
 const OUTCOME_LOSS_COLOR := UIColors.OUTCOME_LOSS
 const BACKDROP_COLOR := UIColors.OVERLAY_BACKDROP
-const MAP_NODE_SIZE := Vector2(190, 150)
-const CONTRACT_MAP_SIZE := Vector2(840, 470)
-const CONTRACT_NODE_SIZE := Vector2(140, 96)
-## Smaller than MAP_NODE_SIZE -- the Tavern map (P2:R7 story pass) makes room
-## for TAVERN_ART_BOX_SIZE above it and sits lower in the panel, so its own
-## node buttons shrink to match rather than crowding the reduced space.
-const TAVERN_MAP_NODE_SIZE := Vector2(140, 100)
-## Placeholder for future scene art above the Tavern's node row -- same
-## "solid near-black fill, art to come later" convention as the combat
-## window's own UIColors.PANEL_DEEP background.
-const TAVERN_ART_BOX_SIZE := Vector2(760, 200)
-
-## Story beat shown once, right after subclass selection and before the
-## Tavern map ever appears (P2:R7 story pass, restoring a Phase 1 narrative
-## element). Verbatim user-authored copy.
-const INTRO_STORY_TEXT := "You find yourself in the shadow of the Dahm Henge Mountain. The highest peak, Peak Deeps is shrouded in darkness. You have heard tail of the secrets that lie there but know of none who had tried their hand at uncovering those hidden treasures and returned to tell the tale."
-
-## The Tavern map's default flavor line, shown until a node is clicked to
-## preview it (see _tavern_story_text()).
-const TAVERN_INTRO_TEXT := "You find a nice respite from the rain in the dim light of a warm tavern. You do your best to mind your own business, but fate does not always abide."
-
-## Per-encounter flavor line shown once its node is clicked (preview state,
-## before Proceed commits the choice) -- keyed by Monster.display_name, the
-## same key _tavern_story_text() already reads off BuildState.current_encounter().
-const TAVERN_ENCOUNTER_FLAVOR_TEXT := {
-	"Mouthy Drunk": "A red-faced patron decides your quiet corner is somehow his business.",
-	"Drunk Buddy": "Leaping to his fallen companion's aid, another drunk patron wants to try his hand.",
-	"Tavern Bouncer": "The burley bouncer grabs you to politely show you the door.",
-	"Hired Goon": "A mysterious and sinister figure in the corner takes notice. His large bodyguard steps over to have a word with you.",
-}
-
-## Shown on the map when returning to it after winning that encounter --
-## i.e. while choosing the *next* encounter, before its own node is previewed
-## (see _tavern_pre_choice_story_text()). Keyed the same way as
-## TAVERN_ENCOUNTER_FLAVOR_TEXT. Reflects the new state of the story rather
-## than replaying TAVERN_INTRO_TEXT a second time.
-const TAVERN_VICTORY_TEXT := {
-	"Mouthy Drunk": "You easily dispatch him with a few well-placed strikes. He falls into a heap on the floor. However, this has caused quite the commotion.",
-	"Drunk Buddy": "He lands with a thud atop the fallen body of his companion, but now the tavern is abuzz with action. You have made your pressence known; however you are not sure that was the best idea.",
-	"Tavern Bouncer": "The night is cold and the fire warm, so you not-so politely decline his invitation. The rest of the patrons have scattered. Now you might get some peace and quite.",
-	"Hired Goon": "Being in no mood for this, you \"pursuede\" the large gentlemen to joins the gorwing pile of bodies.",
-}
-
-## Ghit Gudd's introduction sequence, driven by the Contract Window
-## (P2:R7 story pass) -- replaces the old single-click "Map"-styled Contract
-## Offer overlay with a multi-step conversation, restoring a Phase 1-style
-## narrative beat around accepting The Gilded Serpent contract. Verbatim
-## user-authored copy (including its typos/inconsistent spelling of the
-## broker's name -- not this codebase's to silently correct).
-const CONTRACT_GREETING_TEXT := "Calm my friend. My name is Ghit Gudd. I am just a humble local... businessman. You are quite handy. You dispatched one of my best with such ease. I am always looking for useful individuals like yourself. How would you like to make a little coin?"
-const CONTRACT_PITCH_TEXT := "I often have need for travelers of your ilk. Some of my rival competition needs to be reminded of the rules of free market capitalism. If you ... take care of them for me, I will pay you handsomely."
-## Shown in the secondary-subclass overlay's body while it's reached via this
-## contract sequence (see _build_secondary_subclass_overlay()).
-const CONTRACT_SUBCLASS_PROMPT_TEXT := "This type of work may require a little extra skill."
-## The Contract Window's post-subclass-choice step -- a single option today,
-## but user-stated to grow into a real multi-contract hub later, hence a
-## dedicated options row (_contract_options_box) rather than a single fixed
-## button.
-const CONTRACT_CHOICE_PROMPT_TEXT := "Choose a contract to pursue."
-const CONTRACT_VYRA_NAME := "Vyra, the Leader of the Gilded Fang"
-const CONTRACT_VYRA_DETAIL_TEXT := "Vyra is the leader of a rival gang. Ghet wants you to take her out so he can expand his business. She is hold up in her hideout at the edge of town. Ghet tells you that there are two ways in: through the front door and through the back door."
-## The real route node backing the Vyra contract card -- read for its
-## authored gold reward (see _contract_choice_reward_text()).
-const VYRA_ROUTE_NODE_ID := "route.gilded_serpent.vyra"
-
-const CONTRACT_LINE_COLOR := UIColors.STRUCTURE_LINE
-const CONTRACT_LINE_THICKNESS := 5.0
-## Map/contract-route/secondary-tree buttons carry dense multi-line data
-## text (stats, difficulty, reward tags) rather than a short action label,
-## so they stay on the VT323 body/data font instead of the theme's default
-## Press Start 2P button font -- Press Start 2P's width would clip or
-## badly overflow these fixed-size, multi-line buttons (P2:R7:T2 Phase 2
-## legibility pass).
-const DATA_BUTTON_FONT := preload("res://assets/fonts/VT323-Regular.ttf")
 
 # -- Combat playback tuning (user-requested combat-playback addition,
 # 2026-07-19). Every knob for the first-draft adjustment round lives here:
@@ -193,39 +129,8 @@ const PLAYBACK_OUTCOME_REVEAL_DELAY_SEC := 0.75
 const TAVERN_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/tavern_dummy_background_2.jpg")
 const CONTRACT_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/contract_exterior.jpg")
 const TAVERN_BACKGROUND_TINT := Color(0, 0, 0, 0.42)
-const SHOPKEEPER_TEXTURE := preload("res://assets/backgrounds/shop_dummy_background_2.jpg")
-## Intro story art (the Dahm Henge Mountain overlook).
-const STORY_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/Ponesville.jpg")
-## Tavern map's art box -- the exterior shot shown while choosing a Tavern
-## encounter, replacing the earlier plain black placeholder.
-const TAVERN_MAP_ART_TEXTURE := preload("res://assets/backgrounds/Tavern__Exterior.jpg")
-## Ghit Gudd's portrait in the Contract Window.
-const CONTRACT_PORTRAIT_TEXTURE := preload("res://assets/backgrounds/Ghit_Guud.jpg")
 
 enum PopupKind { NORMAL, CRIT, POISON_TICK, PROC }
-
-## Steps of Ghit Gudd's Contract Window sequence (see _build_contract_overlay()
-## and _refresh_contract_overlay()).
-enum ContractStep { GREETING, PITCH, CONTRACT_CHOICE, VYRA_DETAIL }
-
-## P2:R7 second playtest-feedback pass (revises the first pass's rejected
-## big comparison panel): hovering a shop/reward gear box shows the item's
-## REGULAR small tooltip plus a second, identically tooltip-styled box
-## labeled "Equipped" beside it -- two default-tooltip-sized boxes, no
-## stat-diff text, no large card panels. Control's _make_custom_tooltip()
-## is the only way to return an arbitrary Control for a tooltip, and that's
-## a virtual method a plain Button.new() can't override -- this tiny
-## subclass exists only to host the override, and delegates the actual
-## Control-building back to combat_screen.gd via a Callable so the gear
-## data reads stay in the main script instead of being duplicated here.
-class GearCompareButton:
-	extends Button
-	var tooltip_builder: Callable
-
-	func _make_custom_tooltip(_for_text: String) -> Object:
-		if tooltip_builder.is_valid():
-			return tooltip_builder.call()
-		return null
 
 var _status_label: Label
 var _outcome_title_label: Label
@@ -239,30 +144,11 @@ var _map_button: Button
 var _retry_button: Button
 var _restart_adventure_button: Button
 var _combat_content: VBoxContainer
-var _log_overlay: Control
-var _log_label: RichTextLabel
-var _map_overlay: Control
-var _map_phase_label: Label
-var _map_story_label: Label
-var _map_art_box: Control
-var _map_nodes_box: HBoxContainer
-var _map_node_buttons: Array[Button] = []
-var _map_close_button: Button
-var _map_proceed_button: Button
-var _map_manual_open: bool = false
-## Which Tavern encounter's node was clicked to preview its flavor text
-## (see _on_tavern_node_previewed()) -- -1 means no preview yet, so
-## _tavern_story_text() falls back to TAVERN_INTRO_TEXT. Compared against
-## BuildState.current_encounter_index rather than reset explicitly: moving to
-## a new encounter naturally invalidates the old preview.
-var _tavern_preview_index: int = -1
-var _story_overlay: Control
-var _story_label: Label
-var _contract_overlay: Control
-var _contract_body_label: Label
-var _contract_options_box: HBoxContainer
-var _contract_action_button: Button
-var _contract_step: ContractStep = ContractStep.GREETING
+var _log_overlay
+var _map_overlay
+var _talent_overlay
+var _story_overlay
+var _contract_overlay
 var _victory_overlay: Control
 var _victory_center: Control
 var _victory_combat_dim: ColorRect
@@ -286,8 +172,8 @@ var _hud_resist_label: Label
 ## stacks, from the current Monster resource) and post-fight (the resolved
 ## outcome, derived from the stored CombatResult below). _hud_result is
 ## cleared at every new-fight setup transition, the same call sites that
-## clear the T7 recap label. Not persisted across save/load, matching
-## _log_label's existing behavior.
+## clear the T7 recap label. Not persisted across save/load, matching the
+## combat log overlay's existing behavior.
 var _hud_result: CombatResolver.CombatResult = null
 var _hud_result_monster: Monster = null
 # -- Real-time combat playback (user-requested combat-playback addition,
@@ -349,20 +235,9 @@ var _active_tick_popups := 0
 var _wyvern_kriss_effect_active := false
 var _reward_label: Label
 var _continue_button: Button
-var _shop_overlay: Control
-var _shop_gold_label: Label
-var _shop_status_label: Label
-var _shop_offers_box: GridContainer
-var _shopkeeper_image: TextureRect
-var _shop_reroll_button: Button
-var _shop_leave_button: Button
-var _reward_choice_overlay: Control
-var _reward_choice_title: Label
-var _reward_choice_options: HBoxContainer
-var _secondary_subclass_overlay: Control
-var _secondary_subclass_title: Label
-var _secondary_subclass_body: Label
-var _secondary_subclass_options: HBoxContainer
+var _shop_overlay
+var _reward_choice_overlay
+var _secondary_subclass_overlay
 var _enemy_panel
 var _confirm_dialog: ConfirmationDialog
 
@@ -417,6 +292,7 @@ func _ready() -> void:
 
 	_map_button = Button.new()
 	_map_button.text = "Map"
+	CardStyle.configure_icon_button(_map_button, UI_MAP_ICON)
 	_map_button.pressed.connect(_on_map_button_pressed)
 	top_bar.add_child(_map_button)
 	var save_quit_button := Button.new()
@@ -435,7 +311,9 @@ func _ready() -> void:
 	columns.add_theme_constant_override("separation", PANEL_SEPARATION)
 	root_vbox.add_child(columns)
 
-	# Left column: Character Stats over Talent Trees.
+	# Left column: Character Stats over Active Talents. The full tree lives
+	# in a modal overlay so talent allocation remains available without
+	# implying that every fight should begin with tree tinkering.
 	var left_column := VBoxContainer.new()
 	left_column.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0)
 	left_column.add_theme_constant_override("separation", PANEL_SEPARATION)
@@ -446,9 +324,10 @@ func _ready() -> void:
 	var character_stats_panel = CHARACTER_STATS_SCENE.instantiate()
 	left_column.add_child(character_stats_panel)
 
-	var talent_panel = TALENT_SCENE.instantiate()
-	talent_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left_column.add_child(talent_panel)
+	var active_talents_panel = ACTIVE_TALENTS_SCENE.instantiate()
+	active_talents_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	active_talents_panel.open_talents_pressed.connect(_show_talent_overlay)
+	left_column.add_child(active_talents_panel)
 
 	# Center column: the combat window, then the two skill strips.
 	var center_column := VBoxContainer.new()
@@ -487,9 +366,11 @@ func _ready() -> void:
 	_enemy_panel.fight_pressed.connect(_on_fight_pressed)
 	right_column.add_child(_enemy_panel)
 
-	# enemy_panel.gd builds _fight_button but deliberately never adds it to
-	# its own tree -- it lives in the centered row above instead.
-	_fight_button_row.add_child(_enemy_panel._fight_button)
+	# enemy_panel.gd builds its Fight button but deliberately never adds it
+	# to its own tree -- it lives in the centered row above instead. Reparented
+	# via the panel's public fight_button() accessor rather than reaching
+	# into its private field.
+	_fight_button_row.add_child(_enemy_panel.fight_button())
 	_view_log_button = Button.new()
 	_view_log_button.text = "View Combat Log"
 	_view_log_button.disabled = true
@@ -502,13 +383,32 @@ func _ready() -> void:
 
 	_build_confirm_dialog()
 	_build_victory_overlay()
-	_build_shop_overlay()
-	_build_reward_choice_overlay()
-	_build_map_overlay()
-	_build_story_overlay()
-	_build_contract_overlay()
-	_build_secondary_subclass_overlay()
-	_build_log_overlay()
+	_shop_overlay = SHOP_OVERLAY_SCENE.instantiate()
+	_shop_overlay.buy_pressed.connect(_on_shop_buy_pressed)
+	_shop_overlay.reroll_pressed.connect(_on_shop_reroll_pressed)
+	_shop_overlay.continue_pressed.connect(_on_shop_continue_pressed)
+	add_child(_shop_overlay)
+	_reward_choice_overlay = REWARD_CHOICE_OVERLAY_SCENE.instantiate()
+	add_child(_reward_choice_overlay)
+	_map_overlay = MAP_OVERLAY_SCENE.instantiate()
+	_map_overlay.tavern_proceed_pressed.connect(_on_tavern_proceed_pressed)
+	_map_overlay.contract_offer_pressed.connect(_on_contract_map_pressed)
+	_map_overlay.route_node_pressed.connect(_on_contract_route_node_pressed)
+	add_child(_map_overlay)
+	_talent_overlay = TALENT_OVERLAY_SCENE.instantiate()
+	add_child(_talent_overlay)
+	_story_overlay = STORY_OVERLAY_SCENE.instantiate()
+	_story_overlay.proceed_pressed.connect(_on_intro_story_proceed_pressed)
+	add_child(_story_overlay)
+	_contract_overlay = CONTRACT_OVERLAY_SCENE.instantiate()
+	_contract_overlay.accept_requested.connect(_on_contract_accept_requested)
+	_contract_overlay.route_requested.connect(_on_contract_route_requested)
+	add_child(_contract_overlay)
+	_secondary_subclass_overlay = SECONDARY_SUBCLASS_OVERLAY_SCENE.instantiate()
+	_secondary_subclass_overlay.tree_chosen.connect(_on_secondary_tree_pressed)
+	add_child(_secondary_subclass_overlay)
+	_log_overlay = LOG_OVERLAY_SCENE.instantiate()
+	add_child(_log_overlay)
 	BuildState.build_changed.connect(_on_build_state_changed)
 	BuildState.run_state_changed.connect(_on_run_state_changed)
 	BuildState.lock_changed.connect(_update_header_status)
@@ -986,7 +886,7 @@ func _hud_peak_poison_stacks(tick_events: Array) -> int:
 ## Victory banner: shown automatically after a winning fight, with a short
 ## recap (total damage, DPS, biggest hit, physical/poison damage split from
 ## CombatRecap). A true full-rect overlay added at the screen root -- same
-## shape as _build_log_overlay() below -- not a normal flow child of
+## shape as the combat log overlay -- not a normal flow child of
 ## _combat_content (bug fix: it used to be a CenterContainer added straight
 ## into _combat_content's VBoxContainer, so becoming visible immediately grew
 ## that VBox's required height by the whole reward panel's worth of content,
@@ -1056,10 +956,15 @@ func _build_victory_overlay() -> void:
 	_victory_recap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stack.add_child(_victory_recap_label)
 
+	var reward_row := HBoxContainer.new()
+	reward_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	reward_row.add_theme_constant_override("separation", 6)
+	reward_row.add_child(CardStyle.make_pixel_icon(UI_GOLD_ICON, CardStyle.UI_ICON_SIZE))
 	_reward_label = Label.new()
 	_reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_reward_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
-	stack.add_child(_reward_label)
+	reward_row.add_child(_reward_label)
+	stack.add_child(reward_row)
 
 	var button_row := HBoxContainer.new()
 	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1151,9 +1056,9 @@ func _build_recap_lines(result: CombatResolver.CombatResult, monster: Monster) -
 	return lines
 
 
-## HP / fight-window-seconds -- mirrors enemy_panel.gd's _required_dps_text()
-## calculation (P2:R7:T5) so the recap's "needed" figure matches the one the
-## player already saw before the fight. Kept as a small local mirror rather
+## HP / fight-window-seconds -- the recap still shows the exact post-fight
+## DPS comparison, while the pre-fight enemy card now uses softer
+## damage/window language. Kept as a small local mirror rather
 ## than a cross-panel call to _enemy_panel's underscore-prefixed helper,
 ## consistent with this file's existing convention of only calling panels'
 ## explicitly public methods (monster()/duration_ms()) across panel
@@ -1277,656 +1182,34 @@ func _reward_text() -> String:
 	return "Rewards: %s." % ", ".join(parts)
 
 
-## Dimmed backdrop (click to dismiss) + a centered card holding the actual
-## log. Hidden until the first fight resolves.
-func _build_log_overlay() -> void:
-	_log_overlay = Control.new()
-	_log_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_log_overlay.visible = false
-	add_child(_log_overlay)
-
-	var backdrop := Button.new()
-	backdrop.flat = true
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var backdrop_style := StyleBoxFlat.new()
-	backdrop_style.bg_color = BACKDROP_COLOR
-	for state in ["normal", "hover", "pressed", "focus"]:
-		backdrop.add_theme_stylebox_override(state, backdrop_style)
-	backdrop.pressed.connect(func(): _log_overlay.visible = false)
-	_log_overlay.add_child(backdrop)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_log_overlay.add_child(center)
-
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox())
-	center.add_child(panel)
-
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 8)
-	panel.add_child(content)
-
-	var header := HBoxContainer.new()
-	var header_title := Label.new()
-	header_title.text = "Combat Log"
-	header_title.theme_type_variation = &"PanelHeader"
-	header_title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	header.add_child(header_title)
-	var header_spacer := Control.new()
-	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(header_spacer)
-	var close_button := Button.new()
-	close_button.text = "Close"
-	close_button.pressed.connect(func(): _log_overlay.visible = false)
-	header.add_child(close_button)
-	content.add_child(header)
-
-	_log_label = RichTextLabel.new()
-	_log_label.custom_minimum_size = Vector2(600, 400)
-	content.add_child(_log_label)
+## Shared "full-screen modal" shell used by every blocking overlay except
+## Victory (which deliberately overlays only the combat window, not a
+## generic centered card) and Shop (which is intentionally not a blocking
+## modal at all -- see shop_overlay.gd's own comment). Builds the
+## full-rect root, backdrop, and centered bare PanelContainer that all seven
+## overlays built identically before this refactor; each caller still styles
+## its own panel (content margin, border width, bg color) and builds its own
+## content inside it, since those genuinely differ per overlay.
+##
+## `dismissable` preserves each overlay's existing, deliberate behavior
+## exactly -- this refactor changes no overlay's dismiss behavior. Log and
+## Talent Trees are pure informational views and already close on an outside
+## click. Story/Map/Contract/Reward-Choice/Secondary-Subclass each gate a
+## real decision (accept a contract, choose a reward, pick a route) with no
+## defined "cancel" semantics, so they stay locked exactly as they were.
+func _build_modal_shell(dismissable: bool) -> Dictionary:
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.visible = false
+	add_child(overlay)
+	var panel := CardStyle.build_modal_panel(overlay, dismissable)
+	return {"overlay": overlay, "panel": panel}
 
 
-## One-time story beat shown before the Tavern map ever appears on a fresh
-## run (see _show_initial_map_if_needed()) -- a blocking full-rect overlay
-## like Victory/Reward-Choice, since there's nothing behind it to interact
-## with yet. The panel shows the Dahm Henge Mountain overlook (STORY_
-## BACKGROUND_TEXTURE) behind the story text, tinted for readability the
-## same way the combat window's own tavern background is.
-func _build_story_overlay() -> void:
-	_story_overlay = Control.new()
-	_story_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_story_overlay.visible = false
-	add_child(_story_overlay)
-
-	var backdrop := ColorRect.new()
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = BACKDROP_COLOR
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	_story_overlay.add_child(backdrop)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_story_overlay.add_child(center)
-
-	var panel := PanelContainer.new()
-	var style := CardStyle.make_stylebox(24)
-	style.bg_color = UIColors.PANEL_DEEP
-	style.set_border_width_all(3)
-	panel.add_theme_stylebox_override("panel", style)
-	center.add_child(panel)
-
-	var background := TextureRect.new()
-	background.texture = STORY_BACKGROUND_TEXTURE
-	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(background)
-
-	var background_tint := ColorRect.new()
-	background_tint.color = TAVERN_BACKGROUND_TINT
-	background_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(background_tint)
-
-	var content := VBoxContainer.new()
-	content.custom_minimum_size = Vector2(900, 420)
-	content.add_theme_constant_override("separation", 24)
-	content.alignment = BoxContainer.ALIGNMENT_CENTER
-	panel.add_child(content)
-
-	_story_label = Label.new()
-	_story_label.name = "StoryLabel"
-	_story_label.text = INTRO_STORY_TEXT
-	_story_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_story_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_story_label.custom_minimum_size = Vector2(820, 0)
-	content.add_child(_story_label)
-
-	var button_row := HBoxContainer.new()
-	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	content.add_child(button_row)
-
-	var proceed_button := Button.new()
-	proceed_button.name = "StoryProceedButton"
-	proceed_button.text = "Proceed"
-	proceed_button.pressed.connect(_on_intro_story_proceed_pressed)
-	button_row.add_child(proceed_button)
-
-
-func _build_map_overlay() -> void:
-	_map_overlay = Control.new()
-	_map_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_map_overlay.visible = false
-	add_child(_map_overlay)
-
-	var backdrop := ColorRect.new()
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = BACKDROP_COLOR
-	_map_overlay.add_child(backdrop)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_map_overlay.add_child(center)
-
-	var panel := PanelContainer.new()
-	var style := CardStyle.make_stylebox(18)
-	style.set_border_width_all(3)
-	panel.add_theme_stylebox_override("panel", style)
-	center.add_child(panel)
-
-	var content := VBoxContainer.new()
-	content.custom_minimum_size = Vector2(940, 560)
-	content.add_theme_constant_override("separation", 12)
-	panel.add_child(content)
-
-	var title := Label.new()
-	title.text = "Map"
-	title.theme_type_variation = &"PanelHeader"
-	title.add_theme_font_size_override("font_size", 28)
-	title.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
-	content.add_child(title)
-
-	_map_phase_label = Label.new()
-	_map_phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_map_phase_label.add_theme_font_size_override("font_size", 24)
-	content.add_child(_map_phase_label)
-
-	_map_story_label = Label.new()
-	_map_story_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_map_story_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_map_story_label.custom_minimum_size = Vector2(760, 0)
-	content.add_child(_map_story_label)
-
-	# Tavern-only scene art (hidden for Contract Offer/Route, which never set
-	# it visible) -- sized/positioned so the node row below reads as smaller
-	# and pushed toward the bottom of the panel, per the story pass's mockup.
-	_map_art_box = PanelContainer.new()
-	_map_art_box.custom_minimum_size = TAVERN_ART_BOX_SIZE
-	_map_art_box.visible = false
-	var art_box_style := CardStyle.make_stylebox(8)
-	art_box_style.bg_color = UIColors.PANEL_DEEP
-	_map_art_box.add_theme_stylebox_override("panel", art_box_style)
-	content.add_child(_map_art_box)
-
-	var map_art_image := TextureRect.new()
-	map_art_image.texture = TAVERN_MAP_ART_TEXTURE
-	map_art_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	map_art_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	map_art_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	map_art_image.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_map_art_box.add_child(map_art_image)
-
-	var center_row := CenterContainer.new()
-	center_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(center_row)
-
-	_map_nodes_box = HBoxContainer.new()
-	_map_nodes_box.add_theme_constant_override("separation", 0)
-	center_row.add_child(_map_nodes_box)
-
-	var button_row := HBoxContainer.new()
-	button_row.alignment = BoxContainer.ALIGNMENT_END
-	button_row.add_theme_constant_override("separation", 8)
-	content.add_child(button_row)
-
-	# Tavern-only (hidden otherwise): clicking a node just previews its
-	# flavor text (_on_tavern_node_previewed()) -- Proceed is the actual
-	# commit step, matching the story pass's two-step "read the flavor, then
-	# commit" flow. Contract Offer/Route stay single-click, as before.
-	_map_proceed_button = Button.new()
-	_map_proceed_button.text = "Proceed"
-	_map_proceed_button.visible = false
-	_map_proceed_button.disabled = true
-	_map_proceed_button.pressed.connect(_on_tavern_proceed_pressed)
-	button_row.add_child(_map_proceed_button)
-
-	_map_close_button = Button.new()
-	_map_close_button.text = "Close Map"
-	_map_close_button.pressed.connect(func(): _map_overlay.visible = false)
-	button_row.add_child(_map_close_button)
-	_refresh_map_overlay()
-
-
-func _refresh_map_overlay() -> void:
-	if _map_nodes_box == null:
+func _show_talent_overlay() -> void:
+	if _talent_overlay == null:
 		return
-	if _map_close_button != null:
-		_map_close_button.visible = _map_manual_open or not _map_requires_choice()
-	for child in _map_nodes_box.get_children():
-		child.queue_free()
-	_map_node_buttons = []
-	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
-		_refresh_contract_offer_map()
-	elif BuildState.active_contract != null:
-		_refresh_contract_route_map()
-	else:
-		_refresh_tavern_map()
-
-
-func _refresh_tavern_map() -> void:
-	_map_phase_label.text = "The Nooby Tavern"
-	_map_story_label.text = _tavern_story_text()
-	_map_art_box.visible = true
-	# Always visible while a choice is pending (not just once previewed),
-	# just disabled until then -- same "always there, grayed out until you
-	# act" pattern as the Contract Window's own Proceed button, deliberately,
-	# so this teaches the player what to expect there.
-	_map_proceed_button.visible = BuildState.needs_tavern_map_choice()
-	_map_proceed_button.disabled = _tavern_preview_index != BuildState.current_encounter_index
-	for i in RunFlow.tavern_encounter_count():
-		var button := _make_tavern_map_node_button(i)
-		_map_node_buttons.append(button)
-		_map_nodes_box.add_child(button)
-		if i < RunFlow.tavern_encounter_count() - 1:
-			_map_nodes_box.add_child(_make_map_connector())
-
-
-func _refresh_contract_offer_map() -> void:
-	var contract := BuildState.active_contract
-	_map_phase_label.text = "Contract"
-	_map_story_label.text = contract.offer_text if contract != null else "The trail out of the Tavern has gone cold."
-	_map_art_box.visible = false
-	_map_proceed_button.visible = false
-	var button := Button.new()
-	button.custom_minimum_size = MAP_NODE_SIZE
-	button.text = contract.display_name if contract != null else "Unknown Contract"
-	button.disabled = contract == null
-	button.pressed.connect(_on_contract_map_pressed)
-	_style_map_node(button, true)
-	_map_node_buttons.append(button)
-	_map_nodes_box.add_child(button)
-
-
-func _refresh_contract_route_map() -> void:
-	_map_phase_label.text = BuildState.active_contract.display_name if BuildState.active_contract != null else "Contract Route"
-	_map_story_label.text = _contract_route_story_text()
-	_map_art_box.visible = false
-	_map_proceed_button.visible = false
-	var schematic := _make_contract_route_schematic()
-	if schematic != null:
-		_map_nodes_box.add_child(schematic)
-		return
-	var node := BuildState.current_route_node
-	var choices: Array[ContractRouteNode] = []
-	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE and node != null:
-		choices = node.next_nodes
-	if choices.is_empty():
-		var button := Button.new()
-		button.custom_minimum_size = MAP_NODE_SIZE
-		button.text = _route_node_button_text(node) if node != null else "Route Pending"
-		button.disabled = true
-		_style_map_node(button, false)
-		_map_node_buttons.append(button)
-		_map_nodes_box.add_child(button)
-		return
-	for i in choices.size():
-		var choice := choices[i]
-		var button := Button.new()
-		button.custom_minimum_size = MAP_NODE_SIZE
-		button.text = _route_node_button_text(choice)
-		button.tooltip_text = _route_node_tooltip(choice)
-		button.disabled = BuildState.needs_secondary_subclass_choice()
-		button.pressed.connect(_on_contract_route_node_pressed.bind(choice))
-		_style_map_node(button, not button.disabled)
-		_map_node_buttons.append(button)
-		_map_nodes_box.add_child(button)
-		if i < choices.size() - 1:
-			_map_nodes_box.add_child(_make_map_connector())
-
-
-func _make_contract_route_schematic() -> Control:
-	var secondary := _gilded_serpent_secondary_node()
-	if secondary == null or secondary.next_nodes.size() < 2:
-		return null
-	var door_guard := _find_route_node(secondary, "route.gilded_serpent.door_guard")
-	var portly_cook := _find_route_node(secondary, "route.gilded_serpent.portly_cook")
-	var sleeping := _find_route_node(secondary, "route.gilded_serpent.sleeping_henchman")
-	var cloaked := _find_route_node(secondary, "route.gilded_serpent.cloaked_watchmen")
-	var lazy := _find_route_node(secondary, "route.gilded_serpent.lazy_henchman")
-	var patrol := _find_route_node(secondary, "route.gilded_serpent.patrolling_guard")
-	var knives := _find_route_node(secondary, "route.gilded_serpent.knives")
-	var vyra := _find_route_node(secondary, "route.gilded_serpent.vyra")
-	if door_guard == null or portly_cook == null or sleeping == null or cloaked == null or lazy == null or patrol == null or knives == null or vyra == null:
-		return null
-
-	var canvas := Control.new()
-	canvas.custom_minimum_size = CONTRACT_MAP_SIZE
-
-	var positions := {
-		door_guard: Vector2(20, 95),
-		portly_cook: Vector2(20, 320),
-		sleeping: Vector2(235, 20),
-		cloaked: Vector2(235, 135),
-		lazy: Vector2(235, 250),
-		patrol: Vector2(235, 365),
-		knives: Vector2(515, 190),
-		vyra: Vector2(690, 190),
-	}
-	_add_contract_route_lines(canvas, positions, door_guard, portly_cook, sleeping, cloaked, lazy, patrol, knives, vyra)
-	_add_contract_route_button(canvas, door_guard, positions[door_guard])
-	_add_contract_route_button(canvas, portly_cook, positions[portly_cook])
-	_add_contract_route_button(canvas, sleeping, positions[sleeping])
-	_add_contract_route_button(canvas, cloaked, positions[cloaked])
-	_add_contract_route_button(canvas, lazy, positions[lazy])
-	_add_contract_route_button(canvas, patrol, positions[patrol])
-	_add_contract_route_button(canvas, knives, positions[knives])
-	_add_contract_route_button(canvas, vyra, positions[vyra])
-	return canvas
-
-
-func _add_contract_route_lines(canvas: Control, positions: Dictionary, door_guard: ContractRouteNode, portly_cook: ContractRouteNode, sleeping: ContractRouteNode, cloaked: ContractRouteNode, lazy: ContractRouteNode, patrol: ContractRouteNode, knives: ContractRouteNode, vyra: ContractRouteNode) -> void:
-	var door_center := _contract_node_center(positions[door_guard])
-	var cook_center := _contract_node_center(positions[portly_cook])
-	var sleeping_center := _contract_node_center(positions[sleeping])
-	var cloaked_center := _contract_node_center(positions[cloaked])
-	var lazy_center := _contract_node_center(positions[lazy])
-	var patrol_center := _contract_node_center(positions[patrol])
-	var knives_center := _contract_node_center(positions[knives])
-	var vyra_center := _contract_node_center(positions[vyra])
-	var opener_branch_x := 195.0
-	var convergence_x := 465.0
-
-	_add_map_line(canvas, Vector2(door_center.x + CONTRACT_NODE_SIZE.x * 0.5, door_center.y), Vector2(opener_branch_x, door_center.y))
-	_add_map_line(canvas, Vector2(opener_branch_x, sleeping_center.y), Vector2(opener_branch_x, cloaked_center.y))
-	_add_map_line(canvas, Vector2(opener_branch_x, sleeping_center.y), Vector2(sleeping_center.x - CONTRACT_NODE_SIZE.x * 0.5, sleeping_center.y))
-	_add_map_line(canvas, Vector2(opener_branch_x, cloaked_center.y), Vector2(cloaked_center.x - CONTRACT_NODE_SIZE.x * 0.5, cloaked_center.y))
-
-	_add_map_line(canvas, Vector2(cook_center.x + CONTRACT_NODE_SIZE.x * 0.5, cook_center.y), Vector2(opener_branch_x, cook_center.y))
-	_add_map_line(canvas, Vector2(opener_branch_x, lazy_center.y), Vector2(opener_branch_x, patrol_center.y))
-	_add_map_line(canvas, Vector2(opener_branch_x, lazy_center.y), Vector2(lazy_center.x - CONTRACT_NODE_SIZE.x * 0.5, lazy_center.y))
-	_add_map_line(canvas, Vector2(opener_branch_x, patrol_center.y), Vector2(patrol_center.x - CONTRACT_NODE_SIZE.x * 0.5, patrol_center.y))
-
-	for center in [sleeping_center, cloaked_center, lazy_center, patrol_center]:
-		_add_map_line(canvas, Vector2(center.x + CONTRACT_NODE_SIZE.x * 0.5, center.y), Vector2(convergence_x, center.y))
-	_add_map_line(canvas, Vector2(convergence_x, sleeping_center.y), Vector2(convergence_x, patrol_center.y))
-	_add_map_line(canvas, Vector2(convergence_x, knives_center.y), Vector2(knives_center.x - CONTRACT_NODE_SIZE.x * 0.5, knives_center.y))
-	_add_map_line(canvas, Vector2(knives_center.x + CONTRACT_NODE_SIZE.x * 0.5, knives_center.y), Vector2(vyra_center.x - CONTRACT_NODE_SIZE.x * 0.5, vyra_center.y))
-
-
-func _contract_node_center(top_left: Vector2) -> Vector2:
-	return top_left + CONTRACT_NODE_SIZE * 0.5
-
-
-func _add_map_line(canvas: Control, start: Vector2, end: Vector2) -> void:
-	var line := ColorRect.new()
-	line.color = CONTRACT_LINE_COLOR
-	if absf(end.x - start.x) >= absf(end.y - start.y):
-		line.position = Vector2(minf(start.x, end.x), start.y - CONTRACT_LINE_THICKNESS * 0.5)
-		line.custom_minimum_size = Vector2(absf(end.x - start.x), CONTRACT_LINE_THICKNESS)
-		line.size = line.custom_minimum_size
-	else:
-		line.position = Vector2(start.x - CONTRACT_LINE_THICKNESS * 0.5, minf(start.y, end.y))
-		line.custom_minimum_size = Vector2(CONTRACT_LINE_THICKNESS, absf(end.y - start.y))
-		line.size = line.custom_minimum_size
-	canvas.add_child(line)
-
-
-func _add_contract_route_button(canvas: Control, node: ContractRouteNode, position: Vector2) -> void:
-	var button := Button.new()
-	button.position = position
-	button.custom_minimum_size = CONTRACT_NODE_SIZE
-	button.size = CONTRACT_NODE_SIZE
-	button.text = _contract_schematic_node_text(node)
-	button.tooltip_text = _route_node_tooltip(node)
-	var selectable := _route_node_is_selectable(node)
-	button.disabled = not selectable
-	if selectable:
-		button.pressed.connect(_on_contract_route_node_pressed.bind(node))
-	_style_map_node(button, selectable or BuildState.current_route_node == node)
-	_map_node_buttons.append(button)
-	canvas.add_child(button)
-
-
-func _contract_schematic_node_text(node: ContractRouteNode) -> String:
-	var lines: PackedStringArray = []
-	lines.append(node.display_name)
-	for reward_line in _contract_schematic_reward_lines(node):
-		lines.append(reward_line)
-	return "\n".join(lines)
-
-
-func _contract_schematic_reward_lines(node: ContractRouteNode) -> PackedStringArray:
-	var lines: PackedStringArray = []
-	if node == null or node.reward == null:
-		return lines
-	var reward_label := _contract_reward_display(node)
-	if reward_label != "":
-		lines.append(reward_label)
-	return lines
-
-
-func _contract_reward_display(node: ContractRouteNode) -> String:
-	if node == null or node.reward == null:
-		return ""
-	if node.reward.gear_choice_rewards.size() > 0:
-		return "%s Gear" % _tier_name_for_reward_gear(node.reward.gear_choice_rewards[0])
-	if node.reward.generated_gear_choice_count > 0:
-		return "%s Gear" % GearGenerator.TIER_NAMES[node.reward.generated_gear_tier]
-	if node.reward_quality_label == "Contract Victory":
-		return node.reward_quality_label
-	return ""
-
-
-func _tier_name_for_reward_gear(gear: GearItem) -> String:
-	if gear == null:
-		return "Gear"
-	return GearGenerator.TIER_NAMES[gear.tier]
-
-
-func _route_node_is_selectable(node: ContractRouteNode) -> bool:
-	return (
-		BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE
-		and not BuildState.needs_secondary_subclass_choice()
-		and BuildState.current_route_node != null
-		and BuildState.current_route_node.next_nodes.has(node)
-	)
-
-
-func _gilded_serpent_secondary_node() -> ContractRouteNode:
-	if BuildState.active_contract == null or BuildState.active_contract.offer_node == null:
-		return null
-	if BuildState.active_contract.offer_node.next_nodes.is_empty():
-		return null
-	return BuildState.active_contract.offer_node.next_nodes[0]
-
-
-func _find_route_node(root_node: ContractRouteNode, id: String, visited: Array[String] = []) -> ContractRouteNode:
-	if root_node == null or visited.has(root_node.id):
-		return null
-	if root_node.id == id:
-		return root_node
-	visited.append(root_node.id)
-	for child in root_node.next_nodes:
-		var found := _find_route_node(child, id, visited)
-		if found != null:
-			return found
-	return null
-
-
-func _make_tavern_map_node_button(index: int) -> Button:
-	var current_index := BuildState.current_encounter_index
-	var is_current := BuildState.is_tavern_planning() and index == current_index
-	var is_selectable := is_current and BuildState.needs_tavern_map_choice()
-	var is_revealed := index <= current_index
-	# Deliberately NOT highlighted just for being the current/clickable node
-	# (user-requested): the player has to actually click it -- previewing it
-	# (_tavern_preview_index == index) or having already committed it
-	# (needs_tavern_map_choice() false, e.g. reopening the map later via the
-	# Map button to review a locked-in choice) is what earns the highlight.
-	# This mirrors -- and is meant to teach the player toward -- the Contract
-	# Window's own select-then-Proceed card behavior.
-	var is_highlighted := is_current and (_tavern_preview_index == index or not BuildState.needs_tavern_map_choice())
-	var encounter := RunFlow.load_encounter(index)
-	var button := Button.new()
-	button.custom_minimum_size = TAVERN_MAP_NODE_SIZE
-	button.text = encounter.monster.display_name if is_revealed and encounter != null else "Unknown"
-	button.disabled = not is_selectable
-	button.pressed.connect(_on_tavern_node_previewed.bind(index))
-	_style_map_node(button, is_highlighted)
-	return button
-
-
-func _make_map_connector() -> Control:
-	var connector := ColorRect.new()
-	connector.custom_minimum_size = Vector2(80, 6)
-	connector.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	connector.color = UIColors.STRUCTURE_LINE_LIGHT
-	return connector
-
-
-func _style_map_node(button: Button, is_current: bool) -> void:
-	var color := UIColors.MAP_NODE_CURRENT if is_current else UIColors.MAP_NODE_INACTIVE
-	var border_color := CardStyle.ACCENT_COLOR if is_current else UIColors.STRUCTURE_LINE_LIGHT
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = color
-		style.border_color = border_color
-		style.set_border_width_all(3)
-		style.set_corner_radius_all(8)
-		button.add_theme_stylebox_override(state, style)
-		button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
-		button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
-	# Multi-line stat/reward data, not a short action label -- see
-	# DATA_BUTTON_FONT's comment.
-	button.add_theme_font_override("font", DATA_BUTTON_FONT)
-	button.add_theme_font_size_override("font_size", 14)
-
-
-## Before any node is (re-)previewed, _tavern_pre_choice_story_text() sets
-## the scene; clicking the current node previews its
-## TAVERN_ENCOUNTER_FLAVOR_TEXT without committing (see
-## _on_tavern_node_previewed()); Proceed then commits it, after which this
-## falls to the same "marked" line it always has.
-func _tavern_story_text() -> String:
-	var encounter := BuildState.current_encounter()
-	if encounter == null:
-		return "The Tavern is quiet for the moment."
-	if BuildState.needs_tavern_map_choice():
-		if _tavern_preview_index == BuildState.current_encounter_index:
-			return TAVERN_ENCOUNTER_FLAVOR_TEXT.get(
-				encounter.monster.display_name, "A stranger's business becomes yours."
-			)
-		return _tavern_pre_choice_story_text()
-	return "%s is marked. Tune the build, lock in, and start the fight when ready." % encounter.monster.display_name
-
-
-## The very first Tavern choice (nothing defeated yet) sets the scene with
-## TAVERN_INTRO_TEXT; every later choice instead shows the encounter just
-## defeated's TAVERN_VICTORY_TEXT, so returning to the map after a win
-## reflects the new state of the story instead of replaying the intro.
-func _tavern_pre_choice_story_text() -> String:
-	if BuildState.current_encounter_index == 0:
-		return TAVERN_INTRO_TEXT
-	var previous_encounter := RunFlow.load_encounter(BuildState.current_encounter_index - 1)
-	if previous_encounter == null or previous_encounter.monster == null:
-		return TAVERN_INTRO_TEXT
-	return TAVERN_VICTORY_TEXT.get(previous_encounter.monster.display_name, TAVERN_INTRO_TEXT)
-
-
-## P2:R7:T6: when the player is choosing between exactly two branches, this
-## appends a data-derived tradeoff sentence (see _route_tradeoff_text())
-## naming the harder branch and comparing reward tier, so the choice isn't
-## blind. Applies at every branch point, not only the opener choice -- the
-## base line no longer says "first route" since this story text is reused
-## for every later fork too (Door Guard's/Portly Cook's own next-node choice).
-func _contract_route_story_text() -> String:
-	var node := BuildState.current_route_node
-	if node == null:
-		return "The route has not been charted yet."
-	if BuildState.needs_secondary_subclass_choice():
-		return node.summary_text
-	if BuildState.is_contract_fight_active():
-		return "%s is marked. Tune the build, lock in, and start the fight when ready." % node.display_name
-	var base := "Choose your next route into The Gilded Serpent. Enemy pressure and reward quality matter from here."
-	if node.next_nodes.size() == 2:
-		var tradeoff := _route_tradeoff_text(node.next_nodes[0], node.next_nodes[1])
-		if tradeoff != "":
-			return "%s %s" % [base, tradeoff]
-	return base
-
-
-## Relative pressure score for a route branch, used only to rank two
-## branches against each other (not shown as an absolute number) --
-## higher armor/poison resistance reads as a harder branch, from the same
-## real Monster fields enemy_panel.gd's _build_pressure_text() (P2:R7:T5)
-## already reads.
-func _route_pressure_score(node: ContractRouteNode) -> float:
-	if node == null or node.monster == null:
-		return 0.0
-	return float(node.monster.armor) + node.monster.poison_resistance * 200.0
-
-
-## Reward tier rank for a route branch's reward, covering both the
-## authored gear_choice_rewards path (Knives' Legendary pair) and the
-## generated_gear_tier path every other route reward uses. Returns -1 when
-## the node has no gear reward to rank (e.g. Vyra's gold-only reward).
-func _route_reward_tier_rank(node: ContractRouteNode) -> int:
-	if node == null or node.reward == null:
-		return -1
-	if node.reward.gear_choice_rewards.size() > 0:
-		var best := -1
-		for gear in node.reward.gear_choice_rewards:
-			if gear != null:
-				best = maxi(best, gear.tier)
-		return best
-	if node.reward.generated_gear_choice_count > 0:
-		return node.reward.generated_gear_tier
-	return -1
-
-
-## Data-derived tradeoff sentence for a pair of route branches, comparing
-## real Monster pressure and reward tier rather than authored per-node
-## flavor text -- so a newly authored branch pair reads correctly with zero
-## additional authoring, matching the same discipline as T5's
-## _build_pressure_text(). Pure ContractRouteNode -> String, no BuildState
-## writes.
-func _route_tradeoff_text(node_a: ContractRouteNode, node_b: ContractRouteNode) -> String:
-	if node_a == null or node_b == null:
-		return ""
-	var pressure_a := _route_pressure_score(node_a)
-	var pressure_b := _route_pressure_score(node_b)
-	var pressure_line: String
-	if is_equal_approx(pressure_a, pressure_b):
-		pressure_line = "%s and %s carry similar pressure" % [node_a.display_name, node_b.display_name]
-	elif pressure_a > pressure_b:
-		pressure_line = "%s is the harder branch" % node_a.display_name
-	else:
-		pressure_line = "%s is the harder branch" % node_b.display_name
-	var tier_a := _route_reward_tier_rank(node_a)
-	var tier_b := _route_reward_tier_rank(node_b)
-	var tier_a_name: String = GearGenerator.TIER_NAMES[tier_a] if tier_a >= 0 else "no gear"
-	var tier_b_name: String = GearGenerator.TIER_NAMES[tier_b] if tier_b >= 0 else "no gear"
-	return "%s. %s reward: %s -- %s reward: %s." % [pressure_line, node_a.display_name, tier_a_name, node_b.display_name, tier_b_name]
-
-
-func _route_node_button_text(node: ContractRouteNode) -> String:
-	if node == null:
-		return "Route Pending"
-	var lines: PackedStringArray = []
-	lines.append(node.display_name)
-	if node.monster != null:
-		lines.append("HP %d | Armor %d" % [node.monster.hp, node.monster.armor])
-		lines.append("Poison %.0f%% | %.0fs" % [node.monster.poison_resistance * 100.0, node.duration_ms / 1000.0])
-	if node.difficulty_label != "":
-		lines.append(node.difficulty_label)
-	if node.reward_quality_label != "":
-		lines.append(node.reward_quality_label)
-	return "\n".join(lines)
-
-
-func _route_node_tooltip(node: ContractRouteNode) -> String:
-	var parts: PackedStringArray = []
-	parts.append(node.summary_text)
-	if node.difficulty_label != "":
-		parts.append("Difficulty: %s" % node.difficulty_label)
-	var reward_label := _contract_reward_display(node)
-	if reward_label != "":
-		parts.append("Reward: %s" % reward_label)
-	return "\n".join(parts)
+	_talent_overlay.visible = true
 
 
 ## Resumes into whichever overlay a loaded save left mid-transition -- the
@@ -1940,13 +1223,13 @@ func _route_node_tooltip(node: ContractRouteNode) -> String:
 ## so this reconstructs it from the BuildState fields that do persist.
 func _show_initial_map_if_needed() -> void:
 	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
-		_show_contract_overlay(ContractStep.GREETING)
+		_contract_overlay.show_greeting()
 		return
 	if BuildState.needs_secondary_subclass_choice():
-		_show_secondary_subclass_overlay()
+		_secondary_subclass_overlay.show_overlay()
 		return
 	if _is_awaiting_contract_choice():
-		_show_contract_overlay(ContractStep.CONTRACT_CHOICE)
+		_contract_overlay.show_contract_choice()
 		return
 	if not BuildState.needs_tavern_map_choice():
 		return
@@ -1978,9 +1261,7 @@ func _on_map_button_pressed() -> void:
 func _show_map_overlay(manual_open: bool = false) -> void:
 	if _story_overlay != null:
 		_story_overlay.visible = false
-	_map_manual_open = manual_open
-	_refresh_map_overlay()
-	_map_overlay.visible = true
+	_map_overlay.show_map(manual_open)
 
 
 func _show_story_overlay() -> void:
@@ -1992,30 +1273,10 @@ func _on_intro_story_proceed_pressed() -> void:
 	_show_map_overlay(false)
 
 
-func _map_requires_choice() -> bool:
-	return (
-		BuildState.needs_tavern_map_choice()
-		or BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER
-		or BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE
-	)
-
-
-## Clicking a Tavern node only previews its flavor text (_tavern_story_text())
-## and reveals the Proceed button -- it never commits the choice itself.
-## Proceed (_on_tavern_proceed_pressed()) does what this function used to do
-## unconditionally, restoring a two-step "read the flavor, then commit" flow.
-func _on_tavern_node_previewed(index: int) -> void:
-	if index != BuildState.current_encounter_index or not BuildState.needs_tavern_map_choice():
-		return
-	_tavern_preview_index = index
-	_refresh_map_overlay()
-
-
 func _on_tavern_proceed_pressed() -> void:
 	if BuildState.choose_current_tavern_encounter():
-		_tavern_preview_index = -1
-		_map_overlay.visible = false
-		_map_manual_open = false
+		_map_overlay.clear_tavern_preview()
+		_map_overlay.close()
 		_status_label.visible = true
 		_recap_label.visible = false
 		_reset_enemy_hud()
@@ -2027,9 +1288,8 @@ func _on_tavern_proceed_pressed() -> void:
 
 func _on_contract_map_pressed() -> void:
 	if BuildState.accept_contract_offer():
-		_map_overlay.visible = false
-		_map_manual_open = false
-		_show_secondary_subclass_overlay()
+		_map_overlay.close()
+		_secondary_subclass_overlay.show_overlay()
 		_autosave()
 
 
@@ -2037,8 +1297,7 @@ func _on_contract_route_node_pressed(node: ContractRouteNode) -> void:
 	if node == null or BuildState.needs_secondary_subclass_choice():
 		return
 	if BuildState.choose_contract_route_node(node):
-		_map_overlay.visible = false
-		_map_manual_open = false
+		_map_overlay.close()
 		_status_label.visible = true
 		_recap_label.visible = false
 		_reset_enemy_hud()
@@ -2046,463 +1305,27 @@ func _on_contract_route_node_pressed(node: ContractRouteNode) -> void:
 		_autosave()
 
 
-## Same bug fix as _build_victory_overlay() above: this was a PanelContainer
-## added straight into _combat_content's VBoxContainer flow, so opening the
-## shop (a fixed 620x420 HBoxContainer's worth of content) grew that VBox's
-## required height and pushed later siblings off the bottom of the viewport.
-## Now a true full-rect root-level overlay, matching _build_map_overlay()'s
-## already-correct shape.
-func _build_shop_overlay() -> void:
-	_shop_overlay = Control.new()
-	_shop_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_shop_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_shop_overlay.visible = false
-	add_child(_shop_overlay)
 
-	# Unlike Victory/Reward-Choice, the shop is not a blocking modal: gear can
-	# still be sold from the dashboard's Gear panel while it's open, so no
-	# full-screen dimming/backdrop here -- only the card itself should catch
-	# clicks, everything else on the dashboard stays lit and interactive.
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_shop_overlay.add_child(center)
-
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox())
-	center.add_child(panel)
-
-	var content := HBoxContainer.new()
-	content.custom_minimum_size = Vector2(620, 420)
-	content.add_theme_constant_override("separation", 12)
-	panel.add_child(content)
-
-	var shopkeeper := PanelContainer.new()
-	shopkeeper.custom_minimum_size = Vector2(260, 0)
-	shopkeeper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var keeper_style := CardStyle.make_stylebox(8)
-	keeper_style.bg_color = UIColors.PANEL_DEEP
-	shopkeeper.add_theme_stylebox_override("panel", keeper_style)
-	content.add_child(shopkeeper)
-
-	var keeper_stage := Control.new()
-	keeper_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	keeper_stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	keeper_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	shopkeeper.add_child(keeper_stage)
-
-	_shopkeeper_image = TextureRect.new()
-	_shopkeeper_image.texture = SHOPKEEPER_TEXTURE
-	_shopkeeper_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_shopkeeper_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_shopkeeper_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_shopkeeper_image.set_anchors_preset(Control.PRESET_FULL_RECT)
-	keeper_stage.add_child(_shopkeeper_image)
-
-	var shop_content := VBoxContainer.new()
-	shop_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shop_content.add_theme_constant_override("separation", 12)
-	content.add_child(shop_content)
-
-	var header := HBoxContainer.new()
-	shop_content.add_child(header)
-
-	var title := Label.new()
-	title.text = "Tavern Shop"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.theme_type_variation = &"PanelHeader"
-	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	header.add_child(title)
-
-	_shop_reroll_button = Button.new()
-	_shop_reroll_button.pressed.connect(_on_shop_reroll_pressed)
-	header.add_child(_shop_reroll_button)
-
-	# P2:R7:T6: gold must be visible inside the shop overlay itself, not only
-	# via the T3 header (the header stays on-screen during a shop round, but
-	# this makes the afford-state readable without looking away from the
-	# shop card).
-	_shop_gold_label = Label.new()
-	_shop_gold_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
-	shop_content.add_child(_shop_gold_label)
-
-	_shop_status_label = Label.new()
-	_shop_status_label.visible = false
-	shop_content.add_child(_shop_status_label)
-
-	_shop_offers_box = GridContainer.new()
-	_shop_offers_box.columns = 2
-	_shop_offers_box.add_theme_constant_override("h_separation", 10)
-	_shop_offers_box.add_theme_constant_override("v_separation", 10)
-	shop_content.add_child(_shop_offers_box)
-
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	shop_content.add_child(spacer)
-
-	var button_row := HBoxContainer.new()
-	button_row.alignment = BoxContainer.ALIGNMENT_END
-	button_row.add_theme_constant_override("separation", 12)
-	shop_content.add_child(button_row)
-
-	_shop_leave_button = Button.new()
-	_shop_leave_button.text = "Leave Shop"
-	_shop_leave_button.pressed.connect(_on_shop_continue_pressed)
-	button_row.add_child(_shop_leave_button)
+## The real commit point: contract_overlay.gd's PITCH step hands off here
+## rather than mutating BuildState itself. On failure the overlay correctly
+## stays on PITCH, since only a success path hides it.
+func _on_contract_accept_requested() -> void:
+	if BuildState.accept_contract_offer():
+		_contract_overlay.visible = false
+		_secondary_subclass_overlay.show_overlay()
+		_autosave()
 
 
-## Ghit Gudd's contract introduction (P2:R7 story pass) -- visually mirrors
-## _build_shop_overlay()'s layout (a portrait box, CONTRACT_PORTRAIT_TEXTURE,
-## beside the text/action content) since this is explicitly meant to grow
-## into the same kind of hub the shop already is, just for choosing contracts
-## instead of gear, per the user's stated plan. Unlike the shop, this is a
-## blocking modal (full STOP-filter backdrop) like Victory/Reward-Choice --
-## there's no dashboard interaction to leave open behind a conversation.
-func _build_contract_overlay() -> void:
-	_contract_overlay = Control.new()
-	_contract_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+## contract_overlay.gd's VYRA_DETAIL step: the contract is accepted, so hand
+## the player to the (unchanged) interactive route schematic.
+func _on_contract_route_requested() -> void:
 	_contract_overlay.visible = false
-	add_child(_contract_overlay)
-
-	var backdrop := ColorRect.new()
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = BACKDROP_COLOR
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	_contract_overlay.add_child(backdrop)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_contract_overlay.add_child(center)
-
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox())
-	center.add_child(panel)
-
-	var content := HBoxContainer.new()
-	content.custom_minimum_size = Vector2(700, 420)
-	content.add_theme_constant_override("separation", 16)
-	panel.add_child(content)
-
-	var portrait := PanelContainer.new()
-	portrait.custom_minimum_size = Vector2(260, 0)
-	portrait.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var portrait_style := CardStyle.make_stylebox(8)
-	portrait_style.bg_color = UIColors.PANEL_DEEP
-	portrait.add_theme_stylebox_override("panel", portrait_style)
-	content.add_child(portrait)
-
-	var portrait_image := TextureRect.new()
-	portrait_image.texture = CONTRACT_PORTRAIT_TEXTURE
-	portrait_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	portrait_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	portrait_image.set_anchors_preset(Control.PRESET_FULL_RECT)
-	portrait.add_child(portrait_image)
-
-	var contract_content := VBoxContainer.new()
-	contract_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	contract_content.add_theme_constant_override("separation", 14)
-	content.add_child(contract_content)
-
-	var title := Label.new()
-	title.text = "Contract"
-	title.theme_type_variation = &"PanelHeader"
-	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	title.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
-	contract_content.add_child(title)
-
-	_contract_body_label = Label.new()
-	_contract_body_label.name = "ContractBodyLabel"
-	_contract_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_contract_body_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	contract_content.add_child(_contract_body_label)
-
-	# Empty/hidden except during ContractStep.CONTRACT_CHOICE -- one option
-	# today (Vyra), but a row rather than a single fixed button since the
-	# user's stated plan is for this step to grow into a real multi-contract
-	# picker later.
-	_contract_options_box = HBoxContainer.new()
-	_contract_options_box.name = "ContractOptionsBox"
-	_contract_options_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	_contract_options_box.add_theme_constant_override("separation", 12)
-	contract_content.add_child(_contract_options_box)
-
-	var button_row := HBoxContainer.new()
-	button_row.alignment = BoxContainer.ALIGNMENT_END
-	contract_content.add_child(button_row)
-
-	_contract_action_button = Button.new()
-	_contract_action_button.name = "ContractActionButton"
-	_contract_action_button.pressed.connect(_on_contract_action_pressed)
-	button_row.add_child(_contract_action_button)
-
-
-func _show_contract_overlay(step: ContractStep) -> void:
-	_contract_step = step
-	_refresh_contract_overlay()
-	_contract_overlay.visible = true
-
-
-## Drives the Contract Window through Ghit Gudd's introduction -- see the
-## CONTRACT_* text constants near the top of this file for the exact copy at
-## each step.
-func _refresh_contract_overlay() -> void:
-	for child in _contract_options_box.get_children():
-		child.queue_free()
-	_contract_options_box.visible = false
-	_contract_action_button.visible = true
-	_contract_action_button.disabled = false
-	match _contract_step:
-		ContractStep.GREETING:
-			_contract_body_label.text = CONTRACT_GREETING_TEXT
-			_contract_action_button.text = "Hear Him Out"
-		ContractStep.PITCH:
-			_contract_body_label.text = CONTRACT_PITCH_TEXT
-			_contract_action_button.text = "Accept Contract Work"
-		ContractStep.CONTRACT_CHOICE:
-			_contract_body_label.text = CONTRACT_CHOICE_PROMPT_TEXT
-			_contract_action_button.text = "Proceed"
-			_contract_action_button.disabled = true
-			_contract_options_box.visible = true
-			var vyra_node: ContractRouteNode = null
-			if BuildState.active_contract != null:
-				vyra_node = _find_route_node(BuildState.active_contract.offer_node, VYRA_ROUTE_NODE_ID)
-			var choice_group := ButtonGroup.new()
-			_contract_options_box.add_child(_build_contract_choice_card(CONTRACT_VYRA_NAME, vyra_node, choice_group))
-		ContractStep.VYRA_DETAIL:
-			_contract_body_label.text = CONTRACT_VYRA_DETAIL_TEXT
-			_contract_action_button.text = "Accept"
-
-
-## A larger, toggleable rectangle (not a plain button) naming the contract
-## and its final-fight gold reward -- selecting one only enables the bottom
-## Proceed button rather than committing immediately, since
-## CONTRACT_CHOICE_PROMPT_TEXT's step is meant to grow into a real
-## multi-contract picker later. `group` keeps future cards mutually
-## exclusive; harmless with today's single card.
-func _build_contract_choice_card(display_name: String, node: ContractRouteNode, group: ButtonGroup) -> Button:
-	var card := Button.new()
-	card.name = "VyraContractButton"
-	card.custom_minimum_size = Vector2(340, 110)
-	card.toggle_mode = true
-	card.button_group = group
-	card.text = "%s\n%s" % [display_name, _contract_choice_reward_text(node)]
-	var normal_style := CardStyle.make_stylebox()
-	var selected_style := CardStyle.make_stylebox()
-	selected_style.border_color = CardStyle.ACCENT_COLOR
-	selected_style.set_border_width_all(3)
-	card.add_theme_stylebox_override("normal", normal_style)
-	card.add_theme_stylebox_override("hover", normal_style)
-	card.add_theme_stylebox_override("pressed", selected_style)
-	card.add_theme_stylebox_override("hover_pressed", selected_style)
-	card.add_theme_stylebox_override("focus", selected_style)
-	card.toggled.connect(_on_contract_choice_toggled)
-	return card
-
-
-func _contract_choice_reward_text(node: ContractRouteNode) -> String:
-	if node == null or node.reward == null:
-		return "Reward: unknown"
-	return "Reward: %dg" % node.reward.gold_amount
-
-
-func _on_contract_choice_toggled(pressed: bool) -> void:
-	_contract_action_button.disabled = not pressed
-
-
-## The Contract Window's single action button means something different at
-## each step: GREETING/PITCH/CONTRACT_CHOICE just advance the conversation;
-## PITCH's press is also the real commit point
-## (BuildState.accept_contract_offer()) before handing off to the existing
-## secondary-subclass overlay; VYRA_DETAIL's press is what finally reveals
-## the (unchanged) interactive route schematic.
-func _on_contract_action_pressed() -> void:
-	match _contract_step:
-		ContractStep.GREETING:
-			_contract_step = ContractStep.PITCH
-			_refresh_contract_overlay()
-		ContractStep.PITCH:
-			if BuildState.accept_contract_offer():
-				_contract_overlay.visible = false
-				_show_secondary_subclass_overlay()
-				_autosave()
-		ContractStep.CONTRACT_CHOICE:
-			_contract_step = ContractStep.VYRA_DETAIL
-			_refresh_contract_overlay()
-		ContractStep.VYRA_DETAIL:
-			_contract_overlay.visible = false
-			_status_label.visible = true
-			_recap_label.visible = false
-			_reset_enemy_hud()
-			_status_label.text = "Contract accepted: %s. Choose your route." % CONTRACT_VYRA_NAME
-			_show_map_overlay(false)
-			_autosave()
-
-
-## Same bug fix as _build_victory_overlay()/_build_shop_overlay() above --
-## was a PanelContainer added straight into _combat_content's VBoxContainer
-## flow. Now a true full-rect root-level overlay.
-func _build_reward_choice_overlay() -> void:
-	_reward_choice_overlay = Control.new()
-	_reward_choice_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_reward_choice_overlay.visible = false
-	add_child(_reward_choice_overlay)
-
-	var backdrop := ColorRect.new()
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = BACKDROP_COLOR
-	_reward_choice_overlay.add_child(backdrop)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_reward_choice_overlay.add_child(center)
-
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox())
-	center.add_child(panel)
-
-	var content := VBoxContainer.new()
-	content.custom_minimum_size = Vector2(520, 240)
-	content.add_theme_constant_override("separation", 12)
-	panel.add_child(content)
-
-	_reward_choice_title = Label.new()
-	_reward_choice_title.text = "Choose Reward"
-	_reward_choice_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_reward_choice_title.theme_type_variation = &"PanelHeader"
-	_reward_choice_title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	_reward_choice_title.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
-	content.add_child(_reward_choice_title)
-
-	_reward_choice_options = HBoxContainer.new()
-	_reward_choice_options.alignment = BoxContainer.ALIGNMENT_CENTER
-	_reward_choice_options.add_theme_constant_override("separation", 12)
-	content.add_child(_reward_choice_options)
-
-
-func _build_secondary_subclass_overlay() -> void:
-	_secondary_subclass_overlay = Control.new()
-	_secondary_subclass_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_secondary_subclass_overlay.visible = false
-	add_child(_secondary_subclass_overlay)
-
-	var backdrop := ColorRect.new()
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = BACKDROP_COLOR
-	_secondary_subclass_overlay.add_child(backdrop)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_secondary_subclass_overlay.add_child(center)
-
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox(18))
-	center.add_child(panel)
-
-	var content := VBoxContainer.new()
-	content.custom_minimum_size = Vector2(640, 300)
-	content.add_theme_constant_override("separation", 14)
-	panel.add_child(content)
-
-	_secondary_subclass_title = Label.new()
-	_secondary_subclass_title.text = "Choose a Second Rogue Tree"
-	_secondary_subclass_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_secondary_subclass_title.theme_type_variation = &"PanelHeader"
-	_secondary_subclass_title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	_secondary_subclass_title.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
-	content.add_child(_secondary_subclass_title)
-
-	_secondary_subclass_body = Label.new()
-	_secondary_subclass_body.text = CONTRACT_SUBCLASS_PROMPT_TEXT
-	_secondary_subclass_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_secondary_subclass_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(_secondary_subclass_body)
-
-	_secondary_subclass_options = HBoxContainer.new()
-	_secondary_subclass_options.alignment = BoxContainer.ALIGNMENT_CENTER
-	_secondary_subclass_options.add_theme_constant_override("separation", 20)
-	content.add_child(_secondary_subclass_options)
-
-
-func _show_secondary_subclass_overlay() -> void:
-	_refresh_secondary_subclass_options()
-	_secondary_subclass_overlay.visible = true
-
-
-func _refresh_secondary_subclass_options() -> void:
-	for child in _secondary_subclass_options.get_children():
-		child.queue_free()
-	if BuildState.selected_class == null:
-		return
-	for tree in BuildState.selected_class.trees:
-		if BuildState.selected_trees.has(tree):
-			continue
-		_secondary_subclass_options.add_child(_make_secondary_tree_card(tree))
-
-
-## One selectable tree card in the secondary-tree chooser, built through the
-## same shared CardStyle.make_selection_card() layout the primary subclass
-## select screen uses (larger-font title, small intrinsic description, an
-## action button) so the two choosers read as the same UI (P2:R7 second
-## playtest-feedback pass, item 5 -- replaces the previous single dense
-## multi-line Button per tree).
-func _make_secondary_tree_card(tree: SubclassTree) -> PanelContainer:
-	var choose_button := Button.new()
-	choose_button.text = "Choose"
-	choose_button.pressed.connect(_on_secondary_tree_pressed.bind(tree))
-	return CardStyle.make_selection_card(
-		tree.display_name,
-		"Intrinsic: %s" % _intrinsic_description_for_tree(tree),
-		choose_button
-	)
-
-
-func _intrinsic_description_for_tree(tree: SubclassTree) -> String:
-	if tree.intrinsic_text != "":
-		return tree.intrinsic_text
-	var parts: PackedStringArray = []
-	for skill in tree.unlocked_skills:
-		parts.append("Unlocks %s" % skill.display_name)
-	for modifier in tree.innate_modifiers:
-		parts.append(StatModifierFormatter.format(modifier))
-	for augment in tree.skill_augments:
-		parts.append(_skill_augment_description_for_tree(augment))
-	if parts.is_empty():
-		return "None"
-	return ", ".join(parts)
-
-
-func _skill_augment_description_for_tree(augment: SkillAugment) -> String:
-	if augment == null:
-		return ""
-	var target_names: PackedStringArray = []
-	for target_id in augment.target_skill_ids:
-		target_names.append(_skill_name_for_id(target_id))
-	var effect_names: PackedStringArray = []
-	for effect in augment.extra_effects:
-		if effect is PoisonDamageEffect:
-			var poison_effect: PoisonDamageEffect = effect
-			effect_names.append("+%d poison stack%s" % [poison_effect.stacks_applied, "" if poison_effect.stacks_applied == 1 else "s"])
-	if target_names.is_empty() or effect_names.is_empty():
-		return "Enhances selected skills"
-	return "%s gain %s" % [", ".join(target_names), ", ".join(effect_names)]
-
-
-func _skill_name_for_id(skill_id: String) -> String:
-	if BuildState.selected_class != null:
-		for skill in BuildState.selected_class.base_skills:
-			if skill.id == skill_id:
-				return skill.display_name
-		for tree in BuildState.selected_class.trees:
-			for skill in tree.unlocked_skills:
-				if skill.id == skill_id:
-					return skill.display_name
-			for talent in tree.talents:
-				for skill in talent.unlocked_skills:
-					if skill.id == skill_id:
-						return skill.display_name
-	return skill_id
+	_status_label.visible = true
+	_recap_label.visible = false
+	_reset_enemy_hud()
+	_status_label.text = "Contract accepted: %s. Choose your route." % _contract_overlay.CONTRACT_VYRA_NAME
+	_show_map_overlay(false)
+	_autosave()
 
 
 func _show_shop_overlay() -> void:
@@ -2513,7 +1336,7 @@ func _show_shop_overlay() -> void:
 	_view_log_button.visible = false
 	_retry_button.visible = false
 	_restart_adventure_button.visible = false
-	_refresh_shop_overlay()
+	_shop_overlay.refresh()
 	_shop_overlay.visible = true
 	# The shop owns the combat window in this state; _refresh_enemy_hud()
 	# keeps the HUD hidden while the overlay is visible.
@@ -2528,10 +1351,11 @@ func _show_reward_choice_overlay() -> void:
 	_view_log_button.visible = false
 	_retry_button.visible = false
 	_restart_adventure_button.visible = false
-	for child in _reward_choice_options.get_children():
+	var options_container: HBoxContainer = _reward_choice_overlay.options_container()
+	for child in options_container.get_children():
 		child.queue_free()
 	for gear in BuildState.pending_reward_choices:
-		_reward_choice_options.add_child(_make_reward_choice_button(gear))
+		options_container.add_child(_make_reward_choice_button(gear))
 	_reward_choice_overlay.visible = true
 	# Same overlay-owns-the-window rule as _show_shop_overlay().
 	_refresh_enemy_hud()
@@ -2541,29 +1365,29 @@ func _make_reward_choice_button(gear: GearItem) -> Button:
 	var item_box := GearCompareButton.new()
 	item_box.custom_minimum_size = Vector2(112, 112)
 	item_box.tooltip_text = _reward_choice_text(gear)
-	item_box.tooltip_builder = func(): return _build_gear_compare_tooltip(_reward_choice_text(gear), _equipped_item_for_slot(gear.slot))
+	item_box.tooltip_builder = func(): return CardStyle.build_gear_compare_tooltip(self, _reward_choice_text(gear), BuildState.equipped_item_for_slot(gear.slot))
 	item_box.pressed.connect(_on_reward_choice_pressed.bind(gear))
-	_style_shop_item_box(item_box, gear)
+	CardStyle.style_shop_item_box(item_box, gear)
 	CardStyle.build_gear_box_content(item_box, gear)
 	return item_box
 
 
 ## The reward-choice gear box's regular tooltip text: slot/name, tier,
 ## affixes, triggered skills, and the click hint. Rendered inside the first
-## of _build_gear_compare_tooltip()'s two tooltip-styled boxes, and kept on
-## Button.tooltip_text as the plain-text fallback/accessibility copy. The
+## of CardStyle.build_gear_compare_tooltip()'s two tooltip-styled boxes, and
+## kept on Button.tooltip_text as the plain-text fallback/accessibility copy. The
 ## T6-era appended stat-diff comparison line was removed in the P2:R7
 ## second playtest-feedback pass -- the "Equipped" box beside this tooltip
 ## replaces it.
 func _reward_choice_text(gear: GearItem) -> String:
-	var lines := _gear_tooltip_lines(gear)
+	var lines := CardStyle.gear_tooltip_lines(gear)
 	lines.append("Click to choose.")
 	return "\n".join(lines)
 
 
 func _on_build_state_changed() -> void:
 	if _shop_overlay != null and _shop_overlay.visible:
-		_refresh_shop_overlay()
+		_shop_overlay.refresh()
 	_update_header_status()
 	_refresh_enemy_hud()
 	_update_combat_background()
@@ -2571,160 +1395,12 @@ func _on_build_state_changed() -> void:
 
 func _on_run_state_changed() -> void:
 	if _map_overlay != null:
-		_refresh_map_overlay()
+		_map_overlay.refresh()
 	_update_header_status()
 	_refresh_enemy_hud()
 	_update_combat_background()
 
 
-func _refresh_shop_overlay() -> void:
-	_shop_gold_label.text = "Gold: %dg" % BuildState.gold
-	_shop_status_label.text = ""
-	_shop_reroll_button.text = "Reroll (%d)" % (0 if BuildState.shop_reroll_used else 1)
-	_shop_reroll_button.disabled = BuildState.shop_reroll_used
-	for child in _shop_offers_box.get_children():
-		child.queue_free()
-	for offer in BuildState.shop_offers:
-		_shop_offers_box.add_child(_make_shop_offer_row(offer))
-
-
-func _make_shop_offer_row(offer: GearItem) -> Control:
-	var item_box := GearCompareButton.new()
-	item_box.custom_minimum_size = Vector2(88, 88)
-	item_box.tooltip_text = _shop_offer_text(offer)
-	item_box.tooltip_builder = func(): return _build_gear_compare_tooltip(_shop_offer_text(offer), _equipped_item_for_slot(offer.slot))
-	item_box.disabled = GearGenerator.price_for_tier(offer.tier) > BuildState.gold or not BuildState.can_store_shop_offer(offer)
-	item_box.pressed.connect(_on_shop_buy_pressed.bind(offer))
-	_style_shop_item_box(item_box, offer)
-	CardStyle.build_gear_box_content(item_box, offer)
-	return item_box
-
-
-func _style_shop_item_box(button: Button, offer: GearItem) -> void:
-	var color := UIColors.TIER_BASIC
-	match offer.tier:
-		GearItem.Tier.MASTER:
-			color = UIColors.TIER_MASTER
-		GearItem.Tier.CURSED:
-			color = UIColors.TIER_CURSED
-		GearItem.Tier.LEGENDARY:
-			color = UIColors.TIER_LEGENDARY
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		# Unaffordable/unstorable offers (Button.disabled == true) read as
-		# visibly muted rather than full tier color, so "can't afford"
-		# communicates itself without reading the tooltip.
-		style.bg_color = color.darkened(0.55) if state == "disabled" else color
-		style.border_color = UIColors.TEXT_DISABLED if state == "disabled" else UIColors.SLOT_BORDER
-		style.set_border_width_all(2)
-		style.set_corner_radius_all(6)
-		button.add_theme_stylebox_override(state, style)
-
-
-## The shop-offer gear box's regular tooltip text: slot/name, tier, affixes,
-## the price, and an explicit afford/inventory-space/click hint (P2:R7:T6).
-## Rendered inside the first of _build_gear_compare_tooltip()'s two
-## tooltip-styled boxes, and kept on Button.tooltip_text as the plain-text
-## fallback/accessibility copy. The T6-era appended stat-diff comparison
-## line was removed in the P2:R7 second playtest-feedback pass -- the
-## "Equipped" box beside this tooltip replaces it.
-func _shop_offer_text(offer: GearItem) -> String:
-	var lines := _gear_tooltip_lines(offer)
-	lines.append_array(_shop_offer_footer_lines(offer))
-	return "\n".join(lines)
-
-
-## Price + afford/inventory-space/click hint for a shop offer, appended to
-## _shop_offer_text()'s item lines.
-func _shop_offer_footer_lines(offer: GearItem) -> PackedStringArray:
-	var lines: PackedStringArray = []
-	lines.append("Price: %dg" % GearGenerator.price_for_tier(offer.tier))
-	if not BuildState.can_store_shop_offer(offer):
-		lines.append("Inventory full -- can't buy.")
-	elif GearGenerator.price_for_tier(offer.tier) > BuildState.gold:
-		lines.append("Not enough gold.")
-	else:
-		lines.append("Click to buy.")
-	return lines
-
-
-## The regular tooltip lines for one gear item -- slot/name, tier, affixes,
-## and any triggered-skill effects. Shared by _shop_offer_text(),
-## _reward_choice_text(), and _build_gear_compare_tooltip()'s "Equipped"
-## box so the three can't drift apart.
-func _gear_tooltip_lines(gear: GearItem) -> PackedStringArray:
-	if gear != null and gear.tier == GearItem.Tier.LEGENDARY:
-		return LegendaryCatalog.tooltip_lines(gear)
-	var lines: PackedStringArray = []
-	lines.append("%s - %s" % [GearGenerator.SLOT_TAGS[gear.slot], gear.display_name])
-	lines.append(GearGenerator.TIER_NAMES[gear.tier])
-	for affix in gear.affixes:
-		lines.append(StatModifierFormatter.format(affix))
-	for trigger in gear.triggered_skill_effects:
-		if trigger != null and trigger.skill != null:
-			lines.append("%d%% chance to trigger %s" % [roundi(trigger.chance * 100.0), trigger.skill.display_name])
-	return lines
-
-
-## P2:R7 second playtest-feedback pass (replaces the first pass's rejected
-## large side-by-side comparison panel): the on-hover visual for a
-## shop/reward gear box is two SMALL boxes side by side, each styled
-## identically to the default Godot tooltip (same TooltipPanel stylebox,
-## same TooltipLabel font color, default font size, tight padding) -- the
-## first carries the item's regular tooltip text unchanged, the second is
-## headed "Equipped" and carries the equipped item's regular tooltip-style
-## lines (or "Nothing equipped."). No stat-diff text anywhere. Returned
-## from GearCompareButton's _make_custom_tooltip() override; Godot handles
-## showing/hiding it like any other tooltip.
-func _build_gear_compare_tooltip(item_text: String, equipped: GearItem) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	row.add_child(_make_tooltip_box("", item_text))
-	var equipped_text := "\n".join(_gear_tooltip_lines(equipped)) if equipped != null else "Nothing equipped."
-	row.add_child(_make_tooltip_box("Equipped", equipped_text))
-	return row
-
-
-## One compact box of _build_gear_compare_tooltip()'s pair, deliberately
-## styled to be visually identical to a standard tooltip: the theme chain's
-## own TooltipPanel stylebox and TooltipLabel font color, default font and
-## size, no extra padding. `header`, when non-empty, renders as an
-## accent-colored first line ("Equipped").
-func _make_tooltip_box(header: String, body: String) -> Control:
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", get_theme_stylebox("panel", "TooltipPanel"))
-	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 0)
-	panel.add_child(vbox)
-
-	if header != "":
-		var header_label := Label.new()
-		header_label.text = header
-		header_label.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
-		vbox.add_child(header_label)
-
-	var body_label := Label.new()
-	body_label.text = body
-	body_label.add_theme_color_override("font_color", get_theme_color("font_color", "TooltipLabel"))
-	vbox.add_child(body_label)
-	return panel
-
-
-## Reads the currently equipped item for a gear slot. Mirrors
-## BuildState._equipped_item_for_slot()'s private lookup (that helper is
-## private to BuildState) -- used only to compare a shop/reward gear offer
-## against what the player already has equipped in the same slot.
-func _equipped_item_for_slot(slot: GearItem.SlotType) -> GearItem:
-	match slot:
-		GearItem.SlotType.WEAPON:
-			return BuildState.equipped_weapon
-		GearItem.SlotType.TRINKET:
-			return BuildState.equipped_trinket
-		GearItem.SlotType.CHARM:
-			return BuildState.equipped_charm
-	return null
 
 
 func _build_confirm_dialog() -> void:
@@ -2769,7 +1445,7 @@ func _on_fight_pressed() -> void:
 	var monster: Monster = _enemy_panel.monster()
 	var duration_ms: int = _enemy_panel.duration_ms()
 	var result: CombatResolver.CombatResult = CombatResolver.resolve(rotation, stats, monster, duration_ms, BuildState.current_combat_rng_seed())
-	_log_label.text = CombatResultFormatter.format(result, monster)
+	_log_overlay.set_result_text(CombatResultFormatter.format(result, monster))
 	if not instant_playback:
 		# Real-time playback path (user-requested combat-playback addition):
 		# every state mutation below is IDENTICAL to instant mode and happens
@@ -2874,7 +1550,7 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 	_status_label.visible = false
 	_recap_label.visible = false
 	# Stays visible (P2:R7 playtest feedback: it shouldn't disappear mid-fight)
-	# but disabled -- _log_label.text already holds the new fight's full
+	# but disabled -- the log overlay already holds the new fight's full
 	# result at this point (set synchronously before playback starts), so
 	# leaving it clickable here would let the log spoil the outcome before
 	# the animation finishes.
@@ -3212,20 +1888,20 @@ func _on_continue_pressed() -> void:
 
 func _on_shop_buy_pressed(offer: GearItem) -> void:
 	if BuildState.buy_shop_offer(offer):
-		_shop_status_label.text = ""
+		_shop_overlay.set_status_text("")
 		_autosave()
 	elif not BuildState.can_store_shop_offer(offer):
-		_shop_status_label.text = ""
+		_shop_overlay.set_status_text("")
 	else:
-		_shop_status_label.text = ""
-	_refresh_shop_overlay()
+		_shop_overlay.set_status_text("")
+	_shop_overlay.refresh()
 
 
 func _on_shop_reroll_pressed() -> void:
 	if BuildState.reroll_shop_offers():
-		_shop_status_label.text = "New offers."
+		_shop_overlay.set_status_text("New offers.")
 		_autosave()
-	_refresh_shop_overlay()
+	_shop_overlay.refresh()
 
 
 func _on_shop_continue_pressed() -> void:
@@ -3243,7 +1919,7 @@ func _on_secondary_tree_pressed(tree: SubclassTree) -> void:
 		_recap_label.visible = false
 		_reset_enemy_hud()
 		_status_label.text = "Second tree chosen: %s." % tree.display_name
-		_show_contract_overlay(ContractStep.CONTRACT_CHOICE)
+		_contract_overlay.show_contract_choice()
 		_autosave()
 
 
@@ -3277,7 +1953,7 @@ func _advance_after_reward_or_shop() -> void:
 	_reset_enemy_hud()
 	var advanced := BuildState.continue_after_win()
 	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
-		_show_contract_overlay(ContractStep.GREETING)
+		_contract_overlay.show_greeting()
 	elif BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE:
 		_status_label.text = "Choose the next route step."
 		_show_map_overlay(false)
@@ -3443,9 +2119,9 @@ func _apply_outcome_presentation(outcome: int) -> void:
 			# before a second loss becomes ADVENTURE_RESTART_REQUIRED, so the
 			# original wording stays accurate for them.
 			_status_label.text = (
-				"You can retry as many times as you need: adjust your build, then retry."
+				"You can retry as many times as you need. Adjust your build, then retry."
 				if BuildState.is_unlimited_retry_encounter()
-				else "One retry available: adjust your build, then retry this encounter."
+				else "%s. Adjust your build, then retry this encounter." % BuildState.current_attempts_text()
 			)
 			_retry_button.visible = true
 			_retry_button.disabled = false

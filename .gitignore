@@ -1,2 +1,5 @@
 .claude/
 Godot_v4.7-stable_export_templates.tpz
+*.log
+project/reports/balance/**/*.translation
+project/reports/balance/**/*.import

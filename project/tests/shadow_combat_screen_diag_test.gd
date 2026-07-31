@@ -34,9 +34,9 @@ func _initialize() -> void:
 	var story_proceed_button: Button = combat_screen._story_overlay.find_child("StoryProceedButton", true, false)
 	story_proceed_button.pressed.emit()
 	await process_frame
-	combat_screen._map_node_buttons[0].pressed.emit()
+	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
 	await process_frame
-	combat_screen._map_proceed_button.pressed.emit()
+	combat_screen._map_overlay._map_proceed_button.pressed.emit()
 	await process_frame
 
 	var available_skills_panel = combat_screen.find_child("AvailableSkillsPanel", true, false)
@@ -60,7 +60,7 @@ func _initialize() -> void:
 	enemy_panel.fight_pressed.emit()
 	await process_frame
 
-	var log_text: String = combat_screen._log_label.text
+	var log_text: String = combat_screen._log_overlay._log_label.text
 	print(log_text)
 	assert(not log_text.contains("[DIAG"))
 	assert(log_text.contains("Poison ticks for 8.0"))

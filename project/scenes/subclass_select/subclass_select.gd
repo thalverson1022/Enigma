@@ -60,14 +60,20 @@ func _populate_trees() -> void:
 		var select_button := Button.new()
 		select_button.text = "Select"
 		select_button.pressed.connect(_on_tree_selected.bind(tree))
-		_card_box.add_child(_build_card(tree.display_name, select_button))
+		_card_box.add_child(_build_card(tree, select_button))
 
 
 ## Card layout now lives in CardStyle.make_selection_card() (shared with
 ## combat_screen.gd's secondary Rogue tree chooser -- P2:R7 second
 ## playtest-feedback pass, item 5); only the flavor-text lookup stays here.
-func _build_card(tree_name_text: String, select_button: Button) -> PanelContainer:
-	return CardStyle.make_selection_card(tree_name_text, FLAVOR_TEXT.get(tree_name_text, ""), select_button)
+func _build_card(tree: SubclassTree, select_button: Button) -> PanelContainer:
+	return CardStyle.make_selection_card(
+		tree.display_name,
+		FLAVOR_TEXT.get(tree.display_name, ""),
+		select_button,
+		CardStyle.SELECTION_CARD_WIDTH,
+		tree.icon
+	)
 
 
 func _on_tree_selected(tree: SubclassTree) -> void:

@@ -55,20 +55,20 @@ tracking archive.
 Current milestone status:
 
 - Milestone 0: Complete
-- Milestone 1: In Progress
+- Milestone 1: Complete
 
 Milestone 1 planning, M1:T1 controlled playback scenarios, M1:T2 combat
 stage/actor layer, M1:T3 sprite configuration, M1:T4 fallback-compatible Rogue
 vs Mouthy Drunk animation prototype, M1:T5 cast animation language, M1:T6
 attack timing, M1:T7 start-of-fight readability, M1:T8 hit/crit feedback,
 M1:T9 poison feedback, M1:T10 persistent enemy state feedback, M1:T11
-proc/minimum-cast feedback, and M1:T12 victory/defeat reveal timing are
-complete. M1:T13 placeholder asset mapping has partial progress, including
-enemy sprite mappings and Rogue skill icon mapping.
+proc/minimum-cast feedback, M1:T12 victory/defeat reveal timing, and M1:T13
+placeholder asset mapping, and M1:T14 verification/documentation closeout are
+complete.
 
-Latest known pushed commit:
+Latest known pushed state:
 
-- `4fbb186 Close Milestone 0 planning`
+- Milestone 1 closeout committed and pushed on `phase-3-crystalmaiden`.
 
 ## Phase 3 Scope
 
@@ -214,7 +214,7 @@ Known caveat:
 - A fresh clone may need a headless editor/import run before tests can resolve
   imported fonts and global classes.
 
-## Current Milestone: Milestone 1
+## Completed Milestone: Milestone 1
 
 Milestone 1: Combat Playback Juice.
 
@@ -302,16 +302,18 @@ Current state:
   fast follow-up hit beat. The playback controller now interleaves cast-start
   callbacks and cast/tick events by timestamp while preserving prior
   cast-end-before-next-cast-start ordering at exact same-timestamp boundaries.
-- M1:T13 placeholder asset mapping is partially complete: current Tavern and
-  contract enemies have configured combat sprites, and the remaining current
-  fight targets reuse the Hired Goon visual until bespoke art is assigned.
-- M1:T13 also now includes a first Rogue skill icon pass: selected RPG Icon
-  Pack icons were copied into `project/assets/skill_icons/rogue/`, `Skill`
-  gained an optional `icon` texture field while preserving `icon_letter`
-  fallback behavior, the eight current Rogue skills were mapped to named icon
-  assets, Available Skills now shows icon+name buttons, and Skill Build macro
-  slots now render icon-backed skills without changing rotation behavior,
-  combat timing, or combat math.
+- M1:T13 placeholder asset mapping is complete for the current pass: current
+  Tavern and contract enemies have configured combat sprites, and the remaining
+  current fight targets reuse the Hired Goon visual until bespoke art is
+  assigned. Selected Rogue skill icons, Rogue subclass icons, combat/status
+  icons, and stable misc UI icons are wired into the relevant game surfaces.
+  `inventory.png` is intentionally deferred to the later Gear panel pass.
+  `CombatStage.configure()` now clears previous target status visuals so poison
+  tint and outcome pose state cannot leak onto the next pre-fight enemy sprite.
+- M1:T14 verification/documentation closeout is complete: final focused checks
+  passed, the Milestone 1 tasking document was closed, the Phase 3 milestone
+  tracker now marks Milestone 1 complete, and this onboarding handoff points to
+  Milestone 2 planning.
 - Documentation has been consolidated to one Phase 3 overview document and one
   document per started milestone. Avoid adding per-task docs; update the
   relevant milestone document instead.
@@ -349,10 +351,32 @@ Likely implementation files:
 
 Recommended next action:
 
-- M1:T13 placeholder asset mapping has useful partial progress. Continue with
-  remaining asset mapping/polish or M1:T14 verification/documentation cleanup.
+- Begin Milestone 2 Task 0 planning for Combat Recap And Failure Clarity.
 
 Latest focused checks:
+
+- M1:T14 final closeout checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion. The first sandboxed
+    run failed only on that known assertion.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/combat_stage_visual_reset_test.gd`: Pass.
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/run_outcome_presentation_test.gd`: Pass.
+  - `res://tests/combat_recap_test.gd`: Pass.
+  - `res://tests/rotation_cap_test.gd`: Pass.
+  - `res://tests/training_room_build_test.gd`: Pass.
+  - `res://tests/legendary_mechanics_test.gd`: Pass.
+
+- M1:T13 closeout checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_stage_visual_reset_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
 
 - M1:T13 Rogue skill icon focused checks passed on 2026-07-30 using
   `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit

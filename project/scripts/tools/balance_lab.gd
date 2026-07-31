@@ -38,46 +38,84 @@ static func status_counts(report: Dictionary) -> Dictionary:
 	return counts
 
 
+## Each Legendary's checks are gated behind their own resource-load guard, so
+## one missing/renamed .tres reports as a single failed check for that item
+## instead of crashing the whole suite -- the exact regression Balance Lab
+## exists to catch.
 static func _run_mechanics_checks() -> Array:
 	var rogue: ClassDef = load("res://data/classes/rogue.tres")
-	var bandit: GearItem = load("res://data/gear/bandit_blade.tres")
-	var wyvern: GearItem = load("res://data/gear/wyvern_kriss.tres")
-	var mithril: GearItem = load("res://data/gear/mithril_karambit.tres")
-	var umbral: GearItem = load("res://data/gear/umbral_stiletto.tres")
-	var bejeweled: GearItem = load("res://data/gear/bejeweled_push_dagger.tres")
-
-	var results := []
 	if rogue == null:
 		return [_check_result("rogue_resource", "Rogue class resource loads", "fail", "Missing res://data/classes/rogue.tres", {})]
 
+	var results := []
+	results.append_array(_bandit_blade_checks(rogue))
+	results.append_array(_wyvern_kriss_checks(rogue))
+	results.append_array(_mithril_karambit_checks(rogue))
+	results.append_array(_umbral_stiletto_checks(rogue))
+	results.append_array(_bejeweled_push_dagger_checks(rogue))
+	return results
+
+
+static func _bandit_blade_checks(rogue: ClassDef) -> Array:
+	var bandit: GearItem = load("res://data/gear/bandit_blade.tres")
+	if bandit == null:
+		return [_missing_resource_check("bandit_blade_resource", "Bandit Blade resource loads", "res://data/gear/bandit_blade.tres")]
 	var bandit_stats := BuildResolver.resolve_stats(rogue, [], [], [bandit], 100)
-	results.append(_numeric_check("bandit_physical_multiplier", "Bandit Blade physical multiplier", bandit_stats.physical_damage_multiplier, 1.2, 0.001))
-	results.append(_numeric_check("bandit_crit_chance", "Bandit Blade crit chance", bandit_stats.crit_chance, 0.35, 0.001))
-	results.append(_numeric_check("bandit_gold_scaling", "Bandit Blade gold scaling at 100g", bandit_stats.bonus_physical_damage, 10.0, 0.001))
+	return [
+		_numeric_check("bandit_physical_multiplier", "Bandit Blade physical multiplier", bandit_stats.physical_damage_multiplier, 1.2, 0.001),
+		_numeric_check("bandit_crit_chance", "Bandit Blade crit chance", bandit_stats.crit_chance, 0.35, 0.001),
+		_numeric_check("bandit_gold_scaling", "Bandit Blade gold scaling at 100g", bandit_stats.bonus_physical_damage, 10.0, 0.001),
+	]
 
+
+static func _wyvern_kriss_checks(rogue: ClassDef) -> Array:
+	var wyvern: GearItem = load("res://data/gear/wyvern_kriss.tres")
+	if wyvern == null:
+		return [_missing_resource_check("wyvern_kriss_resource", "Wyvern Kriss resource loads", "res://data/gear/wyvern_kriss.tres")]
 	var wyvern_stats := BuildResolver.resolve_stats(rogue, [], [], [wyvern])
-	results.append(_numeric_check("wyvern_bonus_poison_stacks", "Wyvern Kriss bonus poison stacks", float(wyvern_stats.bonus_poison_stacks), 2.0, 0.001))
-	results.append(_numeric_check("wyvern_poison_damage", "Wyvern Kriss poison damage multiplier", wyvern_stats.poison_damage_per_tick, 11.2, 0.001))
-	results.append(_numeric_check("wyvern_tick_interval", "Wyvern Kriss poison tick interval", wyvern_stats.poison_tick_interval_multiplier, 0.5, 0.001))
+	return [
+		_numeric_check("wyvern_bonus_poison_stacks", "Wyvern Kriss bonus poison stacks", float(wyvern_stats.bonus_poison_stacks), 2.0, 0.001),
+		_numeric_check("wyvern_poison_damage", "Wyvern Kriss poison damage multiplier", wyvern_stats.poison_damage_per_tick, 11.2, 0.001),
+		_numeric_check("wyvern_tick_interval", "Wyvern Kriss poison tick interval", wyvern_stats.poison_tick_interval_multiplier, 0.5, 0.001),
+	]
 
+
+static func _mithril_karambit_checks(rogue: ClassDef) -> Array:
+	var mithril: GearItem = load("res://data/gear/mithril_karambit.tres")
+	if mithril == null:
+		return [_missing_resource_check("mithril_karambit_resource", "Mithril Karambit resource loads", "res://data/gear/mithril_karambit.tres")]
 	var mithril_stats := BuildResolver.resolve_stats(rogue, [], [], [mithril])
-	results.append(_numeric_check("mithril_trigger_count", "Mithril Karambit trigger count", float(mithril_stats.triggered_skill_effects.size()), 2.0, 0.001))
+	var results := [
+		_numeric_check("mithril_trigger_count", "Mithril Karambit trigger count", float(mithril_stats.triggered_skill_effects.size()), 2.0, 0.001),
+	]
 	if mithril_stats.triggered_skill_effects.size() >= 2:
 		results.append(_numeric_check("mithril_trigger_chance_stab", "Mithril Karambit Stab retrigger chance", mithril_stats.triggered_skill_effects[0].chance, 0.2, 0.001))
 		results.append(_numeric_check("mithril_trigger_chance_heavy", "Mithril Karambit Heavy Slash retrigger chance", mithril_stats.triggered_skill_effects[1].chance, 0.2, 0.001))
+	return results
 
+
+static func _umbral_stiletto_checks(rogue: ClassDef) -> Array:
+	var umbral: GearItem = load("res://data/gear/umbral_stiletto.tres")
+	if umbral == null:
+		return [_missing_resource_check("umbral_stiletto_resource", "Umbral Stiletto resource loads", "res://data/gear/umbral_stiletto.tres")]
 	var umbral_skills := BuildResolver.resolve_unlocked_skills(rogue, [], [], [umbral])
 	var unlocks_death_strike := false
 	for skill in umbral_skills:
 		if skill.id == "skill.killers_mark":
 			unlocks_death_strike = true
-	results.append(_boolean_check("umbral_unlocks_death_strike", "Umbral Stiletto unlocks Death Strike", unlocks_death_strike))
+	return [_boolean_check("umbral_unlocks_death_strike", "Umbral Stiletto unlocks Death Strike", unlocks_death_strike)]
 
+
+static func _bejeweled_push_dagger_checks(rogue: ClassDef) -> Array:
+	var bejeweled: GearItem = load("res://data/gear/bejeweled_push_dagger.tres")
+	if bejeweled == null:
+		return [_missing_resource_check("bejeweled_push_dagger_resource", "Bejeweled Push Dagger resource loads", "res://data/gear/bejeweled_push_dagger.tres")]
 	var bejeweled_stats := BuildResolver.resolve_stats(rogue, [], [], [bejeweled])
-	results.append(_numeric_check("bejeweled_physical_multiplier", "Bejeweled Push Dagger physical multiplier", bejeweled_stats.physical_damage_multiplier, 1.2, 0.001))
-	results.append(_numeric_check("bejeweled_crit_chance", "Bejeweled Push Dagger crit chance", bejeweled_stats.crit_chance, 0.55, 0.001))
-	results.append(_numeric_check("bejeweled_min_cast_proc", "Bejeweled Push Dagger min-cast proc chance", bejeweled_stats.min_cast_time_proc_chance, 0.2, 0.001))
-	return results
+	return [
+		_numeric_check("bejeweled_physical_multiplier", "Bejeweled Push Dagger physical multiplier", bejeweled_stats.physical_damage_multiplier, 1.2, 0.001),
+		_numeric_check("bejeweled_crit_chance", "Bejeweled Push Dagger crit chance", bejeweled_stats.crit_chance, 0.55, 0.001),
+		_numeric_check("bejeweled_min_cast_proc", "Bejeweled Push Dagger min-cast proc chance", bejeweled_stats.min_cast_time_proc_chance, 0.2, 0.001),
+	]
 
 
 static func _scenario_specs() -> Array:
@@ -189,11 +227,15 @@ static func _scenario_specs() -> Array:
 
 static func _run_scenario(spec: Dictionary) -> Dictionary:
 	var class_def: ClassDef = load(spec["class"])
+	var monster: Monster = load(spec["monster"])
+	if class_def == null or monster == null:
+		var missing_path: String = spec["class"] if class_def == null else spec["monster"]
+		return _failed_scenario_result(spec, "Missing resource: %s" % missing_path)
+
 	var trees := _load_trees(spec.get("trees", []))
 	var talents := _load_talents(spec.get("talents", []))
 	var gear := _load_gear(spec.get("gear", []))
 	var requested_skills := _load_skills(spec.get("skills", []))
-	var monster: Monster = load(spec["monster"])
 	var stats := BuildResolver.resolve_stats(class_def, trees, talents, gear, int(spec.get("gold", 0)))
 	var unlocked := BuildResolver.resolve_unlocked_skills(class_def, trees, talents, gear)
 	var rotation := BuildResolver.resolve_rotation(requested_skills, unlocked)
@@ -360,6 +402,42 @@ static func _boolean_check(id: String, label: String, passed: bool) -> Dictionar
 
 static func _check_result(id: String, label: String, status: String, note: String, values: Dictionary) -> Dictionary:
 	return {"id": id, "label": label, "status": status, "note": note, "values": values}
+
+
+static func _missing_resource_check(id: String, label: String, path: String) -> Dictionary:
+	return _check_result(id, label, "fail", "Missing %s" % path, {})
+
+
+## Same dict shape _run_scenario() would otherwise return, so a missing
+## class/monster resource surfaces as one reported "fail" scenario -- with a
+## zeroed-out aggregate matching _distribution([])'s shape -- instead of
+## crashing report generation or the CSV/HTML writers that read this shape.
+static func _failed_scenario_result(spec: Dictionary, message: String) -> Dictionary:
+	var empty_aggregate := {
+		"dps": _distribution([]),
+		"total_damage": _distribution([]),
+		"physical_damage": _distribution([]),
+		"poison_damage": _distribution([]),
+		"poison_damage_ticks": _distribution([]),
+		"min_cast_proc_rate": _distribution([]),
+		"win_rate": 0.0,
+	}
+	return {
+		"id": spec["id"],
+		"label": spec["label"],
+		"status": "fail",
+		"notes": [message],
+		"seed_start": int(spec.get("seed_start", 1)),
+		"seed_count": 0,
+		"duration_ms": spec.get("duration_ms", 0),
+		"gold": spec.get("gold", 0),
+		"monster": spec["monster"],
+		"rotation": [],
+		"gear": [],
+		"thresholds": spec.get("thresholds", {}),
+		"aggregate": empty_aggregate,
+		"samples": [],
+	}
 
 
 static func _load_trees(paths: Array) -> Array[SubclassTree]:

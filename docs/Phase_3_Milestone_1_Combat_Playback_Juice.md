@@ -10,7 +10,7 @@ earlier per-task notes.
 
 ## Status
 
-In Progress.
+Complete.
 
 ## Milestone Goal
 
@@ -43,8 +43,8 @@ already-resolved combat timeline.
 | 10. Improve persistent enemy state feedback | Complete | Combat-window HP, current armor, current resistance, poison stacks, Shred stacks, and Decay stacks now use persistent icon/value language; floating combat text is unchanged. |
 | 11. Improve Legendary combat feedback | Complete | Triggered skills now read as a normal attack plus a fast follow-up, minimum-cast procs compress the source attack animation, damage popups wait for contact timing, the Skill Build strip highlights/fills each macro slot from cast start through contact, Bandit Blade adds a subtle coin spray, and Wyvern Kriss shrinks poison tick text. |
 | 12. Improve victory and defeat reveals | Complete | Natural playback now lands on an outcome pose/flash before reveal UI, skip still reveals instantly, and Adventure/Training Room ending beats are covered by focused checks. |
-| 13. Identify useful additional placeholder assets | In Progress | Tavern enemy sprite mappings are being expanded as useful assets are identified; Rogue skill icons from the RPG Icon Pack are now mapped into skill data and the build panels. |
-| 14. Verify and document | Ongoing | Run focused playback/HUD/Training Room checks after each presentation change. |
+| 13. Identify useful additional placeholder assets | Complete | Current Tavern/contract enemy sprite mappings, Rogue skill icons, subclass icons, combat/status icons, and stable misc UI icons are mapped for this pass; inventory/gear-panel icon language is intentionally deferred to the later gear pass. |
+| 14. Verify and document | Complete | Final focused playback, HUD, Training Room, outcome, recap, build-panel, rotation, and Legendary checks passed on 2026-07-31. |
 
 ## Completed Work
 
@@ -123,6 +123,32 @@ has a configured sprite while bespoke enemy art remains deferred.
   pulse, and cast-progress fill behavior.
 - The change is presentation-only and does not alter combat math, resolved
   timing, rotation ids, or skill effects.
+
+### Subclass And Misc UI Icons
+
+- Copied the selected Rogue subclass icons into
+  `project/assets/subclass_icons/rogue/` and mapped them onto the current
+  subclass tree data:
+  - Assassin: `Skills/Rogue/13.png`
+  - Thief: `Skills/Rogue/7.png`
+  - Shadow: `Skills/Rogue/23.png`
+- Active Talents and Talent Trees now use subclass icons so primary/secondary
+  subclass identity is visually distinct.
+- Copied the stable misc UI icons into `project/assets/ui/icons/`:
+  `gold.png`, `map.png`, `fight.png`, and `contract.png`.
+- Gold, Map, Fight/Proceed, and Contract surfaces now use these icons alongside
+  their existing text.
+- `inventory.png` was intentionally not wired in during T13 because the Gear
+  panel is planned for a larger later pass; inventory/gear visual language is
+  deferred rather than partially polished here.
+
+### Visual-State Reset
+
+- `CombatStage.configure()` now clears status-only actor visuals when a new
+  target is configured, preventing poison tint or outcome pose state from a
+  previous fight from leaking onto the next pre-fight enemy sprite.
+- Added `res://tests/combat_stage_visual_reset_test.gd` as a focused
+  regression check for this target-swap tint leak.
 
 ### Start-Of-Fight Readability
 
@@ -283,8 +309,32 @@ Focused checks used during this milestone:
 - `res://tests/build_panels_test.gd`
 - `res://tests/combat_screen_test.gd`
 
-Latest T13 skill-icon verification:
+Final T14 closeout verification:
 
+- Final Milestone 1 closeout checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion. The first sandboxed
+    run failed only on that known assertion.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/combat_stage_visual_reset_test.gd`: Pass.
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/run_outcome_presentation_test.gd`: Pass.
+  - `res://tests/combat_recap_test.gd`: Pass.
+  - `res://tests/rotation_cap_test.gd`: Pass.
+  - `res://tests/training_room_build_test.gd`: Pass.
+  - `res://tests/legendary_mechanics_test.gd`: Pass.
+
+Latest T13 asset/icon verification:
+
+- Final T13 closeout checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_stage_visual_reset_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
 - Skill icon import and focused checks passed on 2026-07-30 using
   `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
   workspace `--log-file` paths:

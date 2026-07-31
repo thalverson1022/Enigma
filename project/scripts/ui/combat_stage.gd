@@ -310,6 +310,7 @@ func configure(player_name: String, enemy_name: String) -> void:
 	_enemy_visual_key = _enemy_visual_key_for(enemy_name)
 	_set_player_animation("idle", true)
 	_apply_actor_visual(_enemy_sprite, _enemy_actor_card, _enemy_animation_paths_for(_enemy_visual_key), _enemy_animation_regions_for(_enemy_visual_key), "idle", PEASANT_FRAME_SIZE, PEASANT_SPRITE_SCALE, true)
+	_clear_status_visuals()
 
 
 func reset_state() -> void:
@@ -1083,6 +1084,17 @@ func _restore_actor_layout() -> void:
 	if enemy_actor_anchor != null:
 		enemy_actor_anchor.position = _enemy_base_position
 		enemy_actor_anchor.modulate = _enemy_poison_modulate()
+
+
+func _clear_status_visuals() -> void:
+	last_poison_stack_tint_stacks = 0
+	outcome_pose = ""
+	if player_actor_anchor != null:
+		player_actor_anchor.modulate = Color.WHITE
+	if enemy_actor_anchor != null:
+		enemy_actor_anchor.modulate = Color.WHITE
+	if _outcome_flash != null:
+		_outcome_flash.color.a = 0.0
 
 
 func _enemy_poison_modulate() -> Color:

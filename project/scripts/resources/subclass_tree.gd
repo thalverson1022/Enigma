@@ -3,6 +3,7 @@ extends Resource
 
 @export var id: String = ""
 @export var display_name: String = ""
+@export var icon: Texture2D
 @export_multiline var intrinsic_text: String = ""
 @export var talents: Array[Talent] = []
 @export var innate_modifiers: Array[StatModifier] = []

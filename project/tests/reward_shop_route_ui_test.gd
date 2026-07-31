@@ -35,15 +35,15 @@ func _initialize() -> void:
 	var offers: Array[GearItem] = [unaffordable_offer, affordable_offer]
 	build_state.shop_round_pending = true
 	build_state.shop_offers = offers
-	combat_screen._refresh_shop_overlay()
+	combat_screen._shop_overlay.refresh()
 	await process_frame
 
-	_require(combat_screen._shopkeeper_image != null, "Expected the shopkeeper image node to exist.")
-	_require(combat_screen._shopkeeper_image.texture != null, "Expected the shopkeeper image texture to be loaded.")
-	_require(combat_screen._shop_gold_label.text == "Gold: 20g", "Expected the shop overlay's own gold label to read the current gold, got: %s" % combat_screen._shop_gold_label.text)
-	_require(combat_screen._shop_offers_box.get_child_count() == 2, "Expected two shop offer boxes.")
+	_require(combat_screen._shop_overlay._shopkeeper_image != null, "Expected the shopkeeper image node to exist.")
+	_require(combat_screen._shop_overlay._shopkeeper_image.texture != null, "Expected the shopkeeper image texture to be loaded.")
+	_require(combat_screen._shop_overlay._shop_gold_label.text == "Gold: 20g", "Expected the shop overlay's own gold label to read the current gold, got: %s" % combat_screen._shop_overlay._shop_gold_label.text)
+	_require(combat_screen._shop_overlay._shop_offers_box.get_child_count() == 2, "Expected two shop offer boxes.")
 
-	var unaffordable_button: Button = combat_screen._shop_offers_box.get_child(0)
+	var unaffordable_button: Button = combat_screen._shop_overlay._shop_offers_box.get_child(0)
 	_require(unaffordable_button.disabled, "Expected the 32g Master offer to be disabled at 20 gold.")
 	# The offer box's icon lives in a child TextureRect (P2:R7 gear-art pass)
 	# -- see CardStyle.build_gear_box_content(). The caption text it used to
@@ -57,7 +57,7 @@ func _initialize() -> void:
 	_require(unaffordable_tooltip.contains("Price: 32g"), "Expected the price in the tooltip, got: %s" % unaffordable_tooltip)
 	_require(unaffordable_tooltip.contains("Not enough gold."), "Expected an explicit afford-state hint, got: %s" % unaffordable_tooltip)
 
-	var affordable_button: Button = combat_screen._shop_offers_box.get_child(1)
+	var affordable_button: Button = combat_screen._shop_overlay._shop_offers_box.get_child(1)
 	_require(not affordable_button.disabled, "Expected the 18g Basic offer to be affordable at 20 gold.")
 	var affordable_tooltip: String = affordable_button.tooltip_text
 	_require(affordable_tooltip.contains("Click to buy."), "Expected an explicit buy hint on an affordable offer, got: %s" % affordable_tooltip)
@@ -108,7 +108,7 @@ func _initialize() -> void:
 	# item's own regular tooltip lines in the second box -- still no diff
 	# text anywhere.
 	build_state.equipped_weapon = equipped_weapon
-	var candidate_row: Button = combat_screen._make_shop_offer_row(candidate_weapon)
+	var candidate_row: Button = combat_screen._shop_overlay._make_shop_offer_row(candidate_weapon)
 	var candidate_tooltip: Control = candidate_row._make_custom_tooltip("")
 	_require(candidate_tooltip.get_child_count() == 2, "Expected two tooltip boxes for the candidate weapon offer.")
 	var candidate_equipped_box: Control = candidate_tooltip.get_child(1)
@@ -133,14 +133,14 @@ func _initialize() -> void:
 	var cloaked := _find_route_node(contract.offer_node, "route.gilded_serpent.cloaked_watchmen")
 	_require(door_guard != null and portly_cook != null and sleeping != null and cloaked != null, "Expected to find all four route nodes.")
 
-	var opener_tradeoff: String = combat_screen._route_tradeoff_text(door_guard, portly_cook)
+	var opener_tradeoff: String = combat_screen._map_overlay._route_tradeoff_text(door_guard, portly_cook)
 	print(opener_tradeoff)
 	_require(
 		opener_tradeoff == "Door Guard is the harder branch. Door Guard reward: Master -- Portly Cook reward: Basic.",
 		"Expected the opener tradeoff sentence, got: %s" % opener_tradeoff
 	)
 
-	var second_layer_tradeoff: String = combat_screen._route_tradeoff_text(sleeping, cloaked)
+	var second_layer_tradeoff: String = combat_screen._map_overlay._route_tradeoff_text(sleeping, cloaked)
 	print(second_layer_tradeoff)
 	_require(
 		second_layer_tradeoff == "Cloaked Watchmen is the harder branch. Sleeping Henchman reward: Basic -- Cloaked Watchmen reward: Cursed.",
@@ -161,8 +161,8 @@ func _initialize() -> void:
 	build_state.run_phase = BuildState.RunPhase.CONTRACT_ROUTE
 	build_state.run_state_changed.emit()
 	await process_frame
-	print(combat_screen._map_story_label.text)
-	_require(combat_screen._map_story_label.text.contains("Door Guard is the harder branch."), "Expected the live route map story text to include the opener tradeoff sentence.")
+	print(combat_screen._map_overlay._map_story_label.text)
+	_require(combat_screen._map_overlay._map_story_label.text.contains("Door Guard is the harder branch."), "Expected the live route map story text to include the opener tradeoff sentence.")
 
 	# -- Reward-claim UI: Legendary reward tier/slot/affix rendering, using
 	# Knives' real authored gear_choice_rewards. --

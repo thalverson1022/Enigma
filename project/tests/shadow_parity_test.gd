@@ -30,7 +30,7 @@ func _initialize() -> void:
 	assert(rogue.trees.has(shadow))
 	assert(shadow.talents.size() == 5)
 	assert(shadow.skill_augments.size() == 2)
-	assert(shadow.intrinsic_text.contains("ticks for poison damage"))
+	assert(shadow.intrinsic_text == "Stab & Heavy Slash apply +1 poison stack")
 
 	build_state.set_class(rogue)
 	build_state.select_tree(shadow)

@@ -82,7 +82,7 @@ Status values:
 | Milestone | Name | Status | Notes |
 |---:|---|---|---|
 | 0 | Planning And Phase Setup | Complete | Git setup, plan approval, clean clone, audit, baseline checks, and Milestone 1 tasking setup are done. |
-| 1 | Combat Playback Juice | In Progress | M1:T0 through M1:T12 complete; M1:T13 has partial progress. Rogue animation, Tavern enemy sprite mappings, Rogue skill icon mapping, cast language, timing, cast windup/macro-fill alignment, start-of-fight readability, hit/crit contact feedback, poison stack/tick feedback, combat-window current defense values plus poison/Shred/Decay iconography, proc/min-cast readability, Legendary feedback, victory/defeat reveal timing, integrated combat-window victory transition, macro highlight/fill playback, and focused playback/HUD/Training Room checks are covered in the Milestone 1 document. |
+| 1 | Combat Playback Juice | Complete | M1:T0 through M1:T14 are complete. Rogue animation, Tavern/contract enemy sprite mappings, Rogue skill icons, subclass icons, stable misc UI icons, cast language, timing, cast windup/macro-fill alignment, start-of-fight readability, hit/crit contact feedback, poison stack/tick feedback, combat-window current defense values plus poison/Shred/Decay iconography, proc/min-cast readability, Legendary feedback, victory/defeat reveal timing, integrated combat-window victory transition, macro highlight/fill playback, final verification, and documentation closeout are covered in the Milestone 1 document. |
 | 2 | Combat Recap And Failure Clarity | Not Started | May stay separate from Milestone 1 or merge after review. |
 | 3 | Build Screen And Rotation UX Polish | Not Started |  |
 | 4 | Gear, Rewards, Shop, And Legendary Presentation | Not Started |  |

@@ -9,6 +9,7 @@ signal fight_pressed
 
 const CARD_TITLE_FONT_SIZE := 20
 const PANEL_MIN_HEIGHT := 190
+const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
 
 ## Data-derived thresholds for the "why this target pressures certain
 ## builds" line (P2:R7:T5). Not authored per-monster flavor text -- these
@@ -56,6 +57,7 @@ func _ready() -> void:
 	# still owns the button's disabled/tooltip state machine below.
 	_fight_button = Button.new()
 	_fight_button.text = "FIGHT!"
+	CardStyle.configure_icon_button(_fight_button, FIGHT_ICON)
 	_fight_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_fight_button.pressed.connect(func(): fight_pressed.emit())
 
@@ -96,6 +98,14 @@ func duration_ms() -> int:
 	return BuildState.current_target_duration_ms()
 
 
+## Public accessor so combat_screen.gd can reparent the button into its
+## centered Fight/Combat-Log row without reaching into the private
+## `_fight_button` field directly. This panel still owns the button's
+## disabled/tooltip state machine (see _update_fight_button()).
+func fight_button() -> Button:
+	return _fight_button
+
+
 func _refresh() -> void:
 	if BuildState.run_phase == BuildState.RunPhase.RUN_ENDED:
 		_set_empty_state("Run Complete", "This Adventure has ended.")
@@ -122,12 +132,12 @@ func _refresh() -> void:
 	_title_label.text = enemy.display_name
 	var lines: PackedStringArray = []
 	lines.append("HP: %d" % enemy.hp)
-	lines.append(_required_dps_text(enemy, duration))
 	lines.append("Armor: %d" % enemy.armor)
 	# Wrapped whole-line, so `.text.contains("Poison Resist: X%")` still
 	# finds the exact contiguous substring inside the bbcode tags.
 	lines.append("[color=#%s]Poison Resist: %.0f%%[/color]" % [UIColors.TEXT_POISON.to_html(false), enemy.poison_resistance * 100.0])
-	lines.append("Window: %.0fs" % (duration / 1000.0))
+	lines.append("Fight Window: %.0fs" % (duration / 1000.0))
+	lines.append(BuildState.current_attempts_text())
 	lines.append(_reward_preview_text(BuildState.current_reward()))
 	lines.append(_build_pressure_text(enemy))
 	_info_label.text = "\n".join(lines)
@@ -137,16 +147,6 @@ func _refresh() -> void:
 func _set_empty_state(title: String, body: String) -> void:
 	_title_label.text = title
 	_info_label.text = body
-
-
-## HP / fight-window-seconds -- the flat DPS a player needs to sustain to
-## kill the target inside its time limit, so it can be eyeballed against the
-## resolved DPS shown in character_stats_panel.gd without mental math.
-func _required_dps_text(enemy: Monster, window_ms: int) -> String:
-	if enemy == null or window_ms <= 0:
-		return "Required DPS: NONE"
-	var window_s := window_ms / 1000.0
-	return "Required DPS: %.1f" % (enemy.hp / window_s)
 
 
 ## Compact known-reward preview, read directly from the encounter/route
