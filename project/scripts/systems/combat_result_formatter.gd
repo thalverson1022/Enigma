@@ -9,26 +9,30 @@ extends RefCounted
 
 static func format(result: CombatResolver.CombatResult, monster: Monster) -> String:
 	var lines: PackedStringArray = []
-	lines.append("%s  --  %d HP, %d Armor, %.0f%% Poison Resist" % [
+	lines.append("Target:")
+	lines.append("  %s -- %d HP, %d Armor, %.0f%% Poison Resist" % [
 		monster.display_name, monster.hp, monster.armor, monster.poison_resistance * 100.0
 	])
-	lines.append("Combat window: %.0fs" % (result.duration_ms / 1000.0))
+	lines.append("  Combat window: %.0fs" % (result.duration_ms / 1000.0))
 	lines.append("")
+	lines.append("Timeline:")
 
 	var timeline := _timeline(result)
 	if timeline.is_empty():
-		lines.append("Nothing happened -- no skills were cast.")
+		lines.append("  Nothing happened -- no skills were cast.")
 	else:
-		lines.append_array(timeline)
+		for line in timeline:
+			lines.append("  %s" % line)
 
 	lines.append("")
-	lines.append("Dealt %.1f damage in %.0fs -- %.1f DPS." % [
+	lines.append("Summary:")
+	lines.append("  Damage: %.1f in %.0fs -- %.1f DPS." % [
 		result.total_damage, result.duration_ms / 1000.0, result.dps
 	])
 	if result.is_win:
-		lines.append("VICTORY! %s is defeated (needed %d damage)." % [monster.display_name, monster.hp])
+		lines.append("  Result: VICTORY! %s is defeated (needed %d damage)." % [monster.display_name, monster.hp])
 	else:
-		lines.append("DEFEAT -- fell %.1f damage short of the %d needed." % [
+		lines.append("  Result: DEFEAT -- fell %.1f damage short of the %d needed." % [
 			float(monster.hp) - result.total_damage, monster.hp
 		])
 	return "\n".join(lines)
@@ -41,20 +45,24 @@ static func format(result: CombatResolver.CombatResult, monster: Monster) -> Str
 ## UI-feedback pass removed the HP concept from Training Room entirely).
 static func format_practice(result: CombatResolver.CombatResult, monster: Monster) -> String:
 	var lines: PackedStringArray = []
-	lines.append("%s  --  %d Armor, %.0f%% Poison Resist" % [
+	lines.append("Practice Target:")
+	lines.append("  %s -- %d Armor, %.0f%% Poison Resist" % [
 		monster.display_name, monster.armor, monster.poison_resistance * 100.0
 	])
-	lines.append("Combat window: %.0fs" % (result.duration_ms / 1000.0))
+	lines.append("  Combat window: %.0fs" % (result.duration_ms / 1000.0))
 	lines.append("")
+	lines.append("Timeline:")
 
 	var timeline := _timeline(result)
 	if timeline.is_empty():
-		lines.append("Nothing happened -- no skills were cast.")
+		lines.append("  Nothing happened -- no skills were cast.")
 	else:
-		lines.append_array(timeline)
+		for line in timeline:
+			lines.append("  %s" % line)
 
 	lines.append("")
-	lines.append("Dealt %.1f damage in %.0fs -- %.1f DPS." % [
+	lines.append("Summary:")
+	lines.append("  Damage: %.1f in %.0fs -- %.1f DPS." % [
 		result.total_damage, result.duration_ms / 1000.0, result.dps
 	])
 	return "\n".join(lines)
@@ -88,8 +96,13 @@ static func _timeline(result: CombatResolver.CombatResult) -> PackedStringArray:
 ## while scanning the log instead of reading identically to an ordinary hit.
 static func _cast_line(event: CombatResolver.CastEvent) -> String:
 	var clauses: PackedStringArray = []
-	if event.physical_damage > 0.0:
-		clauses.append(("CRITS for %.1f" if event.is_crit else "hits for %.1f") % event.physical_damage)
+	var source_damage := _contribution_damage(event, "cast")
+	var source_crit := _contribution_crit(event, "cast")
+	if source_damage <= 0.0 and event.damage_contributions.is_empty():
+		source_damage = event.physical_damage
+		source_crit = event.is_crit
+	if source_damage > 0.0:
+		clauses.append(("CRITS for %.1f" if source_crit else "hits for %.1f") % source_damage)
 	if event.poison_stacks_applied > 0:
 		clauses.append("applies %d poison stack%s" % [
 			event.poison_stacks_applied, "" if event.poison_stacks_applied == 1 else "s"
@@ -100,14 +113,47 @@ static func _cast_line(event: CombatResolver.CastEvent) -> String:
 		clauses.append("reduces poison resistance by %d%%" % roundi(event.poison_resistance_reduction_applied * 100.0))
 	if event.min_cast_time_proc_applied:
 		clauses.append("procs at minimum cast speed")
-	if not event.triggered_skill_names.is_empty():
+	var trigger_clauses := _triggered_contribution_clauses(event)
+	if not trigger_clauses.is_empty():
+		clauses.append_array(trigger_clauses)
+	elif not event.triggered_skill_names.is_empty():
 		clauses.append("triggers %s" % ", ".join(event.triggered_skill_names))
 	if clauses.is_empty():
 		clauses.append("connects, to no effect")
 	var ending := "!" if event.is_crit else ""
 	var is_legendary_proc := event.min_cast_time_proc_applied or not event.triggered_skill_names.is_empty()
+	var event_type := "LEGENDARY" if is_legendary_proc else "CAST"
 	var marker := ">>> " if is_legendary_proc else ""
-	return "%s[%.1fs] %s %s%s" % [marker, event.time_ms / 1000.0, event.skill.display_name, _join_clauses(clauses), ending]
+	return "%s[%.1fs] %-9s %s %s%s" % [marker, event.time_ms / 1000.0, event_type, event.skill.display_name, _join_clauses(clauses), ending]
+
+
+static func _contribution_damage(event: CombatResolver.CastEvent, kind: String) -> float:
+	var total := 0.0
+	for contribution in event.damage_contributions:
+		if String(contribution.get("kind", "")) == kind:
+			total += float(contribution.get("damage", 0.0))
+	return total
+
+
+static func _contribution_crit(event: CombatResolver.CastEvent, kind: String) -> bool:
+	for contribution in event.damage_contributions:
+		if String(contribution.get("kind", "")) == kind and bool(contribution.get("is_crit", false)):
+			return true
+	return false
+
+
+static func _triggered_contribution_clauses(event: CombatResolver.CastEvent) -> PackedStringArray:
+	var clauses: PackedStringArray = []
+	for contribution in event.damage_contributions:
+		if String(contribution.get("kind", "")) != "proc":
+			continue
+		var name := String(contribution.get("name", "Triggered Skill"))
+		var damage := float(contribution.get("damage", 0.0))
+		var text := "triggers %s" % name
+		if damage > 0.0:
+			text += (" for %.1f" if not bool(contribution.get("is_crit", false)) else " for %.1f (crit)") % damage
+		clauses.append(text)
+	return clauses
 
 
 ## "a" / "a and b" / "a, b and c" -- reads as prose instead of a
@@ -121,4 +167,4 @@ static func _join_clauses(clauses: PackedStringArray) -> String:
 
 static func _tick_line(tick: CombatResolver.TickEvent) -> String:
 	var stacks_note := "1 stack remains" if tick.stacks_remaining == 1 else "%d stacks remain" % tick.stacks_remaining
-	return "[%.1fs] Poison ticks for %.1f -- %s" % [tick.time_ms / 1000.0, tick.damage, stacks_note]
+	return "[%.1fs] DOT       Poison ticks for %.1f -- %s" % [tick.time_ms / 1000.0, tick.damage, stacks_note]

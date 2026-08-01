@@ -15,13 +15,25 @@ func _initialize() -> void:
 	root.add_child(combat_screen)
 	await process_frame
 
-	print("first-loss retry outcome shows DEFEATED with retry available")
+	print("first-loss retry outcome shows DEFEATED with unlimited opener retry available")
+	build_state.current_encounter_index = 0
 	combat_screen._apply_outcome_presentation(BuildState.RunOutcome.FIGHT_LOSS_RETRY)
 	_require(combat_screen._outcome_title_label.visible, "Expected outcome title visible for retry outcome.")
 	_require(combat_screen._outcome_title_label.text == "DEFEATED", "Expected DEFEATED headline for retry outcome.")
 	_require(combat_screen._status_label.visible, "Expected status label visible for retry outcome.")
+	_require(combat_screen._status_label.text.contains("opener has unlimited retries"), "Expected opener retry copy to call out unlimited retries.")
 	_require(combat_screen._retry_button.visible and not combat_screen._retry_button.disabled, "Expected retry enabled.")
 	_require(not combat_screen._restart_adventure_button.visible, "Expected restart hidden during retry outcome.")
+
+	print("standard retry outcome shows one do-over copy")
+	build_state.current_encounter_index = 1
+	build_state.encounter_failure_counts["encounter:1"] = 1
+	combat_screen._apply_outcome_presentation(BuildState.RunOutcome.FIGHT_LOSS_RETRY)
+	_require(combat_screen._outcome_title_label.text == "DEFEATED", "Expected DEFEATED headline for standard retry outcome.")
+	_require(combat_screen._status_label.text.contains("One standard do-over is available"), "Expected standard retry copy to call out the one do-over rule.")
+	_require(combat_screen._status_label.text.contains("Attempts: 1/2 remaining"), "Expected standard retry copy to include remaining-attempt context.")
+	_require(combat_screen._retry_button.visible and not combat_screen._retry_button.disabled, "Expected retry enabled for standard do-over.")
+	_require(not combat_screen._restart_adventure_button.visible, "Expected restart hidden during standard retry outcome.")
 
 	print("contract-route loss outcome shows CONTRACT FAILED with restart available")
 	build_state.set_adventure_seed(4242)
@@ -30,6 +42,8 @@ func _initialize() -> void:
 	_require(not combat_screen._retry_button.visible, "Expected retry hidden after contract failure.")
 	_require(combat_screen._restart_adventure_button.visible and not combat_screen._restart_adventure_button.disabled, "Expected restart enabled after contract failure.")
 	_require(combat_screen._restart_adventure_button.text == "Restart Adventure", "Expected Restart Adventure label after contract failure.")
+	_require(combat_screen._status_label.text.contains("contract route has no retries remaining"), "Expected contract-failed body text to explain the route retry rule.")
+	_require(combat_screen._status_label.text.contains("fresh Adventure"), "Expected contract-failed body text to explain restart consequence.")
 	_require(combat_screen._status_label.text.contains("Seed 4242"), "Expected preserved seed called out in contract-failed body text.")
 
 	print("second-loss outcome shows ADVENTURE OVER with restart available")
@@ -38,6 +52,8 @@ func _initialize() -> void:
 	_require(not combat_screen._retry_button.visible, "Expected retry hidden after Adventure restart requirement.")
 	_require(combat_screen._restart_adventure_button.visible and not combat_screen._restart_adventure_button.disabled, "Expected restart enabled after Adventure restart requirement.")
 	_require(combat_screen._restart_adventure_button.text == "Restart Adventure", "Expected Restart Adventure label after Adventure restart requirement.")
+	_require(combat_screen._status_label.text.contains("Tavern encounter"), "Expected Adventure-over body text to distinguish Tavern terminal loss from contract failure.")
+	_require(combat_screen._status_label.text.contains("fresh Adventure"), "Expected Adventure-over body text to explain restart consequence.")
 	_require(combat_screen._status_label.text.contains("Seed 4242"), "Expected preserved seed called out in Adventure-over body text.")
 
 	print("contract victory outcome shows CONTRACT COMPLETE, offers a new Adventure, and is actually visible")
@@ -64,6 +80,7 @@ func _initialize() -> void:
 	_require(build_state.run_outcome == BuildState.RunOutcome.CONTRACT_VICTORY, "Expected contract victory outcome.")
 	_require(combat_screen._status_label.visible, "Expected status label visible after contract victory -- this was the T8 regression.")
 	_require(combat_screen._status_label.text.contains("Vyra is defeated"), "Expected Vyra defeat called out in victory body text.")
+	_require(combat_screen._status_label.text.contains("start a new Adventure"), "Expected victory body text to explain the new-Adventure action.")
 	_require(combat_screen._outcome_title_label.visible, "Expected outcome title visible for contract victory.")
 	_require(combat_screen._outcome_title_label.text == "CONTRACT COMPLETE", "Expected CONTRACT COMPLETE headline.")
 	_require(not combat_screen._retry_button.visible, "Expected retry hidden after contract victory.")

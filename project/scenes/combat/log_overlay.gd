@@ -6,7 +6,9 @@ extends Control
 ## its behavior before extraction.
 
 const CARD_TITLE_FONT_SIZE := 20
+const INSPECTOR_SCENE := preload("res://scenes/combat/combat_log_inspector.gd")
 
+var _inspector
 var _log_label: RichTextLabel
 
 
@@ -36,12 +38,30 @@ func _ready() -> void:
 	header.add_child(close_button)
 	content.add_child(header)
 
+	_inspector = INSPECTOR_SCENE.new()
+	_inspector.visible = false
+	content.add_child(_inspector)
+
+	var detail_title := Label.new()
+	detail_title.text = "Event Log"
+	detail_title.theme_type_variation = &"PanelHeader"
+	content.add_child(detail_title)
+
 	_log_label = RichTextLabel.new()
-	_log_label.custom_minimum_size = Vector2(600, 400)
+	_log_label.custom_minimum_size = Vector2(760, 180)
+	_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(_log_label)
 
 
 ## Public setter so combat_screen.gd never touches this overlay's internal
 ## RichTextLabel directly.
 func set_result_text(text: String) -> void:
+	if _inspector != null:
+		_inspector.clear()
+	_log_label.text = text
+
+
+func set_result(result: CombatResolver.CombatResult, monster: Monster, text: String) -> void:
+	_inspector.set_result(result, monster)
 	_log_label.text = text

@@ -88,6 +88,13 @@ func _make_monster(hp: int, armor: int, poison_resistance: float = 0.0) -> Monst
 	return monster
 
 
+func _damage_contribution(event: CombatResolver.CastEvent, name: String) -> Dictionary:
+	for contribution in event.damage_contributions:
+		if String(contribution.get("name", "")) == name:
+			return contribution
+	return {}
+
+
 func _initialize() -> void:
 	# -- Armor reduction persists across casts (skill effect, not stat modifier) --
 	# armor=100 -> mitigation 0.625; after -20 reduction, armor=80 -> mitigation 0.6667.
@@ -159,6 +166,11 @@ func _initialize() -> void:
 	assert(trigger_result.cast_events.size() == 1)
 	assert(trigger_result.cast_events[0].triggered_skill_names.has("Triggered Stab"))
 	assert(absf(trigger_result.cast_events[0].physical_damage - 11.0) < 0.001)
+	assert(trigger_result.cast_events[0].damage_contributions.size() == 2)
+	assert(_damage_contribution(trigger_result.cast_events[0], "Trigger Base")["kind"] == "cast")
+	assert(_damage_contribution(trigger_result.cast_events[0], "Triggered Stab")["kind"] == "proc")
+	assert(absf(float(_damage_contribution(trigger_result.cast_events[0], "Trigger Base")["damage"]) - 1.0) < 0.001)
+	assert(absf(float(_damage_contribution(trigger_result.cast_events[0], "Triggered Stab")["damage"]) - 10.0) < 0.001)
 
 	# -- poison resistance reduction persists for later poison ticks --
 	var resist_stats := _make_stats()

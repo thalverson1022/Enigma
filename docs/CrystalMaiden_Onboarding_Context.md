@@ -56,6 +56,7 @@ Current milestone status:
 
 - Milestone 0: Complete
 - Milestone 1: Complete
+- Milestone 2: Complete
 
 Milestone 1 planning, M1:T1 controlled playback scenarios, M1:T2 combat
 stage/actor layer, M1:T3 sprite configuration, M1:T4 fallback-compatible Rogue
@@ -66,9 +67,59 @@ proc/minimum-cast feedback, M1:T12 victory/defeat reveal timing, and M1:T13
 placeholder asset mapping, and M1:T14 verification/documentation closeout are
 complete.
 
-Latest known pushed state:
+Latest known state:
 
 - Milestone 1 closeout committed and pushed on `phase-3-crystalmaiden`.
+- Milestone 2 Tasks 0-9 are complete locally. The single Milestone 2 tasking doc
+  is `docs/Phase_3_Milestone_2_Combat_Recap_And_Failure_Clarity.md`; it
+  defines P3:M2:T0 through P3:M2:T9 and uses the Phase:Milestone:Task:Step
+  hierarchy requested for implementation planning. It also includes a
+  Milestone 1 carryover audit so M2 work starts from the existing recap,
+  outcome, Combat Log, and Training Room baselines rather than duplicating
+  M1 work. T1 verified the current result-surface/player-question audit. T2
+  expanded `CombatRecap.summarize(result, monster)` into the shared structured
+  recap data model and updated `combat_screen.gd` to render compact recaps from
+  that model instead of duplicating aggregation locally. T3 revised the
+  result-scanability direction after design review: the immediate result recap
+  stays light, while Adventure's `View Combat Log` modal now includes a
+  first-pass visual inspector with a compact summary strip, Gantt-like Skill
+  Timeline, and ranked Damage By Skill chart above the existing chronological
+  text log. Follow-up review changes replaced visual chart text labels with
+  skill/effect icons while preserving words in the Event Log, corrected the
+  timeline axis to use exact whole-second marks instead of rounded quarter
+  labels, and wired the same inspector into Training Room with practice-safe
+  summary language. A later T3 proc-attribution follow-up added
+  per-skill damage contributions to `CombatResolver.CastEvent` so triggered
+  skills such as Opportunity Strikes' Rending Slash still contribute to the
+  original cast total but now appear as their own damage source in the Combat
+  Log inspector's timeline, Damage By Skill chart, and prose Event Log. A
+  timeline scaling follow-up now computes fight-local max individual event
+  damage and scales timeline bar height plus poison tick dot radius relative
+  to that value, keeping width as cast timing while thickness/size communicates
+  relative damage; crit markers and armor-shred pips sit above the bars. T4
+  was rescoped after user design review: do not add more defeat-help/diagnosis
+  copy. Instead, live defeat results now use the same dimmed combat-window
+  result overlay rhythm as victory, retry remains functional from that overlay,
+  and the result overlay remains non-modal so dashboard controls such as
+  `View Combat Log` stay usable before claiming rewards, retrying, or
+  restarting. T5 clarified next-action and retry-rule messaging: retryable
+  losses now distinguish the unlimited Tavern opener from the standard one
+  do-over, terminal Tavern loss and contract route failure use distinct
+  no-retry language, and restart/new-Adventure copy makes the seed-preserving
+  fresh Adventure action explicit. T6 improved Combat Log text readability:
+  Adventure and Training Room logs now use clear target/timeline/summary
+  sections, `CAST`/`DOT`/`LEGENDARY` timeline labels, preserved `>>>`
+  Legendary proc scan markers, exact event ordering, zero-damage poison tick
+  omission, and practice-safe Training Room wording. T7 kept Training Room
+  result review in the Combat Log modal, reused the visual inspector in
+  practice mode, and invalidates completed practice result review whenever
+  build or fight setup inputs change so stale logs cannot look current after
+  target, seed, duration, gear, rarity, Legendary, talent, rotation, or
+  practice-gold edits. T8 added/updated focused assertions for recap facts,
+  result/action copy, log formatting, inspector wiring, practice-safe wording,
+  Training Room stale-result invalidation, and Adventure-state isolation. T9
+  final focused checks passed and closeout docs were updated. This closeout is
+  not yet committed/pushed as of 2026-07-31.
 - Phase 1-4 of the cross-cutting technical-debt cleanup (see
   `docs/Phase_3_Technical_Debt_Architecture_Cleanup.md`) are complete but not
   yet committed as of 2026-07-31. `combat_screen.gd` went from 3,564 to 1,825
@@ -196,6 +247,7 @@ Key docs:
 - `docs/Phase_3_CrystalMaiden_Milestones.md`
 - `docs/Phase_3_Milestone_0_Planning_And_Phase_Setup.md`
 - `docs/Phase_3_Milestone_1_Combat_Playback_Juice.md`
+- `docs/Phase_3_Milestone_2_Combat_Recap_And_Failure_Clarity.md`
 - `docs/Phase_3_Technical_Debt_Architecture_Cleanup.md`
 - `docs/Phase_3_Context/Game_Summary_And_Phase_3_Brief.md`
 - `docs/Phase_3_Context/Mechanics_And_Balance_Glossary.md`
@@ -369,9 +421,75 @@ Likely implementation files:
 
 Recommended next action:
 
-- Begin Milestone 2 Task 0 planning for Combat Recap And Failure Clarity.
+- Review and commit/push the Milestone 2 closeout work, then begin Milestone 3
+  Task 0 planning for Build Screen And Rotation UX Polish.
 
 Latest focused checks:
+
+- P3:M2:T9 final focused checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_recap_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/run_outcome_presentation_test.gd`: Pass.
+  - `res://tests/run_failure_state_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/training_room_fight_test.gd`: Pass.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+  - Balance Lab was not run for T7-T9 because the closeout pass did not change
+    combat math, resolver behavior, build resolution, skill/gear data, or
+    balance-relevant resources.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+
+- P3:M2:T6 focused checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_recap_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/training_room_fight_test.gd`: Pass.
+  - `res://tests/opportunity_strikes_test.gd`: Pass.
+  - `res://tests/training_room_combat_view_test.gd`: Pass.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+- P3:M2:T5 focused checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/run_outcome_presentation_test.gd`: Pass.
+  - `res://tests/run_failure_state_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+- P3:M2:T4 focused checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/run_outcome_presentation_test.gd`: Pass.
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion. The first sandboxed
+    run failed only on that known assertion.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+- P3:M2:T3 focused checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_recap_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/training_room_fight_test.gd`: Pass.
+  - `res://tests/opportunity_strikes_test.gd`: Pass.
+  - `res://tests/engine_mechanics_test.gd`: Pass.
+  - `res://tests/legendary_mechanics_test.gd`: Pass.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+- P3:M2:T2 focused checks passed on 2026-07-31 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/combat_recap_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
 
 - M1:T14 final closeout checks passed on 2026-07-31 using
   `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit

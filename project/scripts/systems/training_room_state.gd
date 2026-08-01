@@ -191,6 +191,10 @@ func unlocked_skills() -> Array[Skill]:
 	return BuildResolver.resolve_unlocked_skills(selected_class, selected_trees, selected_talents, equipped_gear())
 
 
+func can_run_fight() -> bool:
+	return build_locked and not rotation.is_empty()
+
+
 ## Direct Legendary equip for Training Room's Legendary-equip control
 ## (P2:R10:T3) -- bypasses reward/shop flow entirely. All 5 catalog
 ## Legendaries are weapon-slot items today, so this always fills
@@ -361,6 +365,8 @@ func set_practice_gold(amount: int) -> void:
 ## `BuildResolver.resolve_rotation()`), so it's ready to feed directly into
 ## `CombatResolver.resolve()`.
 func run_fight() -> void:
+	if not can_run_fight():
+		return
 	var stats := BuildResolver.resolve_stats(selected_class, selected_trees, selected_talents, equipped_gear(), gold)
 	last_result = CombatResolver.resolve(rotation, stats, selected_target, duration_ms, fight_seed)
 	fight_finished.emit()

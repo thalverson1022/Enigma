@@ -405,9 +405,15 @@ func _check_live_loss_and_retry_reset() -> void:
 	)
 
 	print("-- Retry resets the HUD --")
-	_require(combat_screen._retry_button.visible, "Expected the retry button after a first Tavern loss.")
-	combat_screen._retry_button.pressed.emit()
+	_require(combat_screen._victory_overlay.visible, "Expected the defeat overlay after a first Tavern loss.")
+	_require(combat_screen._view_log_button.visible, "Expected the row Combat Log button to remain visible during defeat.")
+	combat_screen._view_log_button.pressed.emit()
+	_require(combat_screen._log_overlay.visible, "Expected the row Combat Log button to open the log during defeat.")
+	combat_screen._log_overlay.visible = false
+	_require(combat_screen._outcome_retry_button.visible, "Expected the retry button after a first Tavern loss.")
+	combat_screen._outcome_retry_button.pressed.emit()
 	await process_frame
+	_require(not combat_screen._victory_overlay.visible, "Expected retry to dismiss the defeat overlay.")
 	_require(combat_screen._hud_result == null, "Expected the stored fight result cleared on retry.")
 	# RETRY BUG FIX (combat-playback adjustment round 2 + retry bug,
 	# 2026-07-19): retry_current_encounter() now restores

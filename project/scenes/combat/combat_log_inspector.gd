@@ -1,0 +1,285 @@
+class_name CombatLogInspector
+extends VBoxContainer
+## Static first-pass visual Combat Log inspector: compact result chips, a
+## Gantt-like skill timeline, and ranked damage-by-skill bars.
+
+
+const SUMMARY_FONT_SIZE := 18
+const SECTION_FONT_SIZE := 16
+const InspectorData := preload("res://scripts/systems/combat_log_inspector_data.gd")
+
+var _summary_row: HBoxContainer
+var _timeline_chart: TimelineChart
+var _damage_chart: DamageChart
+
+
+func _ready() -> void:
+	add_theme_constant_override("separation", 8)
+
+	_summary_row = HBoxContainer.new()
+	_summary_row.add_theme_constant_override("separation", 8)
+	add_child(_summary_row)
+
+	var timeline_title := _section_label("Skill Timeline")
+	add_child(timeline_title)
+	_timeline_chart = TimelineChart.new()
+	_timeline_chart.custom_minimum_size = Vector2(760, 230)
+	_timeline_chart.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(_timeline_chart)
+
+	var damage_title := _section_label("Damage By Skill")
+	add_child(damage_title)
+	_damage_chart = DamageChart.new()
+	_damage_chart.custom_minimum_size = Vector2(760, 160)
+	_damage_chart.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(_damage_chart)
+
+
+func set_result(result: CombatResolver.CombatResult, monster: Monster, practice_mode: bool = false) -> void:
+	var inspector := InspectorData.build(result, null if practice_mode else monster)
+	_set_summary(inspector, practice_mode)
+	_timeline_chart.set_rows(inspector["timeline_rows"], result.duration_ms, float(inspector["max_event_damage"]))
+	_damage_chart.set_rows(inspector["damage_rows"])
+	visible = true
+
+
+func clear() -> void:
+	for child in _summary_row.get_children():
+		child.queue_free()
+	_timeline_chart.set_rows([], 0)
+	_damage_chart.set_rows([])
+	visible = false
+
+
+func _set_summary(inspector: Dictionary, practice_mode: bool) -> void:
+	for child in _summary_row.get_children():
+		child.queue_free()
+	var summary: Dictionary = inspector["summary"]
+	var damage_text := "%.1f" % summary["total_damage"] if practice_mode else "%.1f / %d" % [summary["total_damage"], summary["damage_required"]]
+	var dps_text := "%.1f" % summary["actual_dps"] if practice_mode else "%.1f / %.1f" % [summary["actual_dps"], summary["required_dps"]]
+	_summary_row.add_child(_summary_chip("Damage", damage_text))
+	_summary_row.add_child(_summary_chip("DPS", dps_text))
+	var result_text := "Victory" if bool(inspector["is_win"]) else "Defeat"
+	if practice_mode:
+		result_text = "Practice"
+	_summary_row.add_child(_summary_chip("Result", result_text))
+
+
+func _summary_chip(label_text: String, value_text: String) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox())
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.add_child(row)
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", SUMMARY_FONT_SIZE - 2)
+	row.add_child(label)
+	var value := Label.new()
+	value.text = value_text
+	value.add_theme_font_size_override("font_size", SUMMARY_FONT_SIZE)
+	value.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
+	row.add_child(value)
+	return panel
+
+
+func _section_label(text: String) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.theme_type_variation = &"PanelHeader"
+	label.add_theme_font_size_override("font_size", SECTION_FONT_SIZE)
+	return label
+
+
+class TimelineChart:
+	extends Control
+
+	const LEFT_PAD := 78.0
+	const RIGHT_PAD := 28.0
+	const TOP_PAD := 26.0
+	const ROW_H := 34.0
+	const MIN_BAR_H := 4.0
+	const MAX_BAR_H := 22.0
+	const MIN_DOT_RADIUS := 3.0
+	const MAX_DOT_RADIUS := 8.0
+	const CAST_COLOR := Color(0.55, 0.64, 0.70, 0.92)
+	const POISON_COLOR := Color(0.47, 0.78, 0.30, 0.95)
+	const PROC_COLOR := Color(0.60, 0.32, 0.88, 0.95)
+	const GRID_COLOR := Color(0.75, 0.66, 0.50, 0.32)
+	const LINE_COLOR := Color(0.85, 0.78, 0.62, 0.36)
+	const TEXT_COLOR := Color(0.88, 0.82, 0.68, 1.0)
+	const CRIT_COLOR := Color(1.0, 0.78, 0.22, 1.0)
+	const CONTACT_COLOR := Color(0.82, 0.94, 1.0, 1.0)
+
+	var _rows: Array = []
+	var _duration_ms := 0
+	var _max_event_damage := 0.0
+
+	func set_rows(rows: Array, duration_ms: int, max_event_damage: float = 0.0) -> void:
+		_rows = rows
+		_duration_ms = duration_ms
+		_max_event_damage = max_event_damage
+		custom_minimum_size.y = TOP_PAD + max(1, _rows.size()) * ROW_H + 18.0
+		queue_redraw()
+
+	func _draw() -> void:
+		var chart_rect := Rect2(Vector2(LEFT_PAD, TOP_PAD), Vector2(maxf(size.x - LEFT_PAD - RIGHT_PAD, 1.0), maxf(size.y - TOP_PAD - 8.0, 1.0)))
+		var font := get_theme_default_font()
+		var font_size := get_theme_default_font_size()
+		_draw_time_axis(chart_rect, font, font_size)
+		if _rows.is_empty():
+			draw_string(font, Vector2(12, TOP_PAD + 28), "No skill casts to chart.", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, TEXT_COLOR)
+			return
+		for i in range(_rows.size()):
+			var row: Dictionary = _rows[i]
+			var y := TOP_PAD + float(i) * ROW_H + ROW_H * 0.5
+			draw_line(Vector2(0, y + ROW_H * 0.45), Vector2(size.x, y + ROW_H * 0.45), LINE_COLOR, 1.0)
+			_draw_row_icon(row, Vector2(24.0, y - 12.0), font, font_size)
+			var kind := String(row["kind"])
+			for entry in row["events"]:
+				if kind == InspectorData.KIND_POISON:
+					var tick_x := _x_for_time(chart_rect, int(entry["time_ms"]))
+					draw_circle(Vector2(tick_x, y), _dot_radius(float(entry["damage"])), POISON_COLOR)
+				else:
+					var start_x := _x_for_time(chart_rect, int(entry["start_ms"]))
+					var end_x := _x_for_time(chart_rect, int(entry["end_ms"]))
+					var color := PROC_COLOR if kind == InspectorData.KIND_PROC or bool(entry["min_cast_proc"]) else CAST_COLOR
+					if bool(entry["has_poison_apply"]):
+						color = POISON_COLOR
+					var bar_h := _bar_height(float(entry["damage"]))
+					var bar_rect := Rect2(Vector2(start_x, y - bar_h * 0.5), Vector2(maxf(end_x - start_x, 3.0), bar_h))
+					draw_rect(bar_rect, color, true)
+					draw_rect(bar_rect, Color(0.95, 0.90, 0.78, 0.32), false, 1.0)
+					draw_line(Vector2(end_x, y - maxf(bar_h * 0.7, 8.0)), Vector2(end_x, y + maxf(bar_h * 0.7, 8.0)), CONTACT_COLOR, 2.0)
+					if bool(entry["has_armor"]):
+						_draw_mechanic_pip(Vector2(end_x - 7.0, y - bar_h * 0.5 - 8.0), Color(0.45, 0.72, 1.0, 1.0))
+					if bool(entry["is_crit"]):
+						_draw_star(Vector2(end_x + 10.0, y - bar_h * 0.5 - 8.0), 6.0)
+
+	func _bar_height(damage: float) -> float:
+		if _max_event_damage <= 0.0 or damage <= 0.0:
+			return MIN_BAR_H
+		return lerpf(MIN_BAR_H, MAX_BAR_H, clampf(damage / _max_event_damage, 0.0, 1.0))
+
+	func _dot_radius(damage: float) -> float:
+		if _max_event_damage <= 0.0 or damage <= 0.0:
+			return MIN_DOT_RADIUS
+		return lerpf(MIN_DOT_RADIUS, MAX_DOT_RADIUS, clampf(damage / _max_event_damage, 0.0, 1.0))
+
+	func _draw_time_axis(chart_rect: Rect2, font: Font, font_size: int) -> void:
+		var seconds := maxf(float(_duration_ms) / 1000.0, 1.0)
+		var marks := _time_marks(seconds)
+		for mark in marks:
+			var x: float = chart_rect.position.x + (mark / seconds) * chart_rect.size.x
+			draw_line(Vector2(x, TOP_PAD - 6.0), Vector2(x, size.y), GRID_COLOR, 1.0)
+			draw_string(font, Vector2(x - 10.0, TOP_PAD - 8.0), "%ds" % roundi(mark), HORIZONTAL_ALIGNMENT_LEFT, 44, font_size, TEXT_COLOR)
+
+	func _time_marks(seconds: float) -> Array[float]:
+		var end_second := ceili(seconds)
+		var step := maxi(1, ceili(float(end_second) / 4.0))
+		var marks: Array[float] = [0.0]
+		var mark := step
+		while mark < end_second:
+			marks.append(float(mark))
+			mark += step
+		if not is_equal_approx(marks[marks.size() - 1], seconds):
+			marks.append(seconds)
+		return marks
+
+	func _x_for_time(chart_rect: Rect2, time_ms: int) -> float:
+		if _duration_ms <= 0:
+			return chart_rect.position.x
+		var pct := clampf(float(time_ms) / float(_duration_ms), 0.0, 1.0)
+		return chart_rect.position.x + pct * chart_rect.size.x
+
+	func _draw_star(center: Vector2, radius: float) -> void:
+		draw_circle(center, radius, CRIT_COLOR)
+		draw_circle(center, radius * 0.45, Color(0.35, 0.20, 0.05, 1.0))
+
+	func _draw_mechanic_pip(center: Vector2, color: Color) -> void:
+		var points := PackedVector2Array([
+			center + Vector2(0, -5),
+			center + Vector2(5, -1),
+			center + Vector2(3, 5),
+			center + Vector2(-3, 5),
+			center + Vector2(-5, -1),
+		])
+		draw_colored_polygon(points, color)
+
+	func _draw_row_icon(row: Dictionary, position: Vector2, font: Font, font_size: int) -> void:
+		var icon = row.get("icon", null)
+		if icon is Texture2D:
+			draw_texture_rect(icon, Rect2(position, Vector2(24, 24)), false)
+			return
+		var label := String(row["label"])
+		var glyph := label.left(1).to_upper() if label != "" else "?"
+		var fill := PROC_COLOR if String(row["kind"]) == InspectorData.KIND_PROC else CAST_COLOR
+		draw_rect(Rect2(position, Vector2(24, 24)), fill, true)
+		draw_rect(Rect2(position, Vector2(24, 24)), TEXT_COLOR, false, 1.0)
+		draw_string(font, position + Vector2(7, 17), glyph, HORIZONTAL_ALIGNMENT_LEFT, 24, font_size, Color(0.08, 0.08, 0.08, 1.0))
+
+
+class DamageChart:
+	extends Control
+
+	const LEFT_PAD := 78.0
+	const RIGHT_PAD := 70.0
+	const TOP_PAD := 6.0
+	const ROW_H := 28.0
+	const BAR_H := 14.0
+	const CAST_COLOR := Color(0.55, 0.64, 0.70, 0.92)
+	const POISON_COLOR := Color(0.47, 0.78, 0.30, 0.95)
+	const PROC_COLOR := Color(0.60, 0.32, 0.88, 0.95)
+	const TEXT_COLOR := Color(0.88, 0.82, 0.68, 1.0)
+	const VALUE_COLOR := Color(1.0, 0.78, 0.34, 1.0)
+	const LINE_COLOR := Color(0.85, 0.78, 0.62, 0.26)
+
+	var _rows: Array = []
+
+	func set_rows(rows: Array) -> void:
+		_rows = rows
+		custom_minimum_size.y = TOP_PAD + max(1, _rows.size()) * ROW_H + 8.0
+		queue_redraw()
+
+	func _draw() -> void:
+		var font := get_theme_default_font()
+		var font_size := get_theme_default_font_size()
+		if _rows.is_empty():
+			draw_string(font, Vector2(12, TOP_PAD + 22), "No damage dealt.", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, TEXT_COLOR)
+			return
+		var max_damage := maxf(float(_rows[0]["damage"]), 1.0)
+		var bar_width := maxf(size.x - LEFT_PAD - RIGHT_PAD, 1.0)
+		for i in range(_rows.size()):
+			var row: Dictionary = _rows[i]
+			var y := TOP_PAD + float(i) * ROW_H + ROW_H * 0.5
+			draw_line(Vector2(0, y + ROW_H * 0.45), Vector2(size.x, y + ROW_H * 0.45), LINE_COLOR, 1.0)
+			_draw_row_icon(row, Vector2(24.0, y - 12.0), font, font_size)
+			var damage := float(row["damage"])
+			var fill_width := maxf((damage / max_damage) * bar_width, 3.0)
+			var color := _color_for_kind(String(row["kind"]))
+			var rect := Rect2(Vector2(LEFT_PAD, y - BAR_H * 0.5), Vector2(fill_width, BAR_H))
+			draw_rect(Rect2(Vector2(LEFT_PAD, y - BAR_H * 0.5), Vector2(bar_width, BAR_H)), Color(0.08, 0.08, 0.08, 0.75), true)
+			draw_rect(rect, color, true)
+			draw_rect(rect, Color(0.95, 0.90, 0.78, 0.28), false, 1.0)
+			draw_string(font, Vector2(LEFT_PAD + bar_width + 12.0, y + 5), "%.0f" % damage, HORIZONTAL_ALIGNMENT_LEFT, RIGHT_PAD - 12.0, font_size, VALUE_COLOR)
+
+	func _color_for_kind(kind: String) -> Color:
+		if kind == InspectorData.KIND_POISON:
+			return POISON_COLOR
+		if kind == InspectorData.KIND_PROC:
+			return PROC_COLOR
+		return CAST_COLOR
+
+	func _draw_row_icon(row: Dictionary, position: Vector2, font: Font, font_size: int) -> void:
+		var icon = row.get("icon", null)
+		if icon is Texture2D:
+			draw_texture_rect(icon, Rect2(position, Vector2(24, 24)), false)
+			return
+		var label := String(row["name"])
+		var glyph := label.left(1).to_upper() if label != "" else "?"
+		var fill := _color_for_kind(String(row["kind"]))
+		draw_rect(Rect2(position, Vector2(24, 24)), fill, true)
+		draw_rect(Rect2(position, Vector2(24, 24)), TEXT_COLOR, false, 1.0)
+		draw_string(font, position + Vector2(7, 17), glyph, HORIZONTAL_ALIGNMENT_LEFT, 24, font_size, Color(0.08, 0.08, 0.08, 1.0))

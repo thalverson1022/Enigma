@@ -34,8 +34,28 @@ func _initialize() -> void:
 
 	var fight_button: Button = training_room.find_child("FightButton", true, false)
 	var result_log: RichTextLabel = training_room.find_child("ResultLog", true, false)
+	var view_log_button: Button = training_room.find_child("ViewLogButton", true, false)
+	var columns: HBoxContainer = training_room.find_child("Columns", true, false)
+	var left_column: VBoxContainer = training_room.find_child("LeftColumn", true, false)
+	var right_column: VBoxContainer = training_room.find_child("RightColumn", true, false)
 	assert(fight_button != null)
 	assert(result_log != null)
+	assert(view_log_button != null)
+	assert(columns != null)
+	assert(left_column != null)
+	assert(right_column != null)
+
+	# -- Layout regression check: Training Room should keep Adventure-like
+	# fixed side columns and modest centered action buttons, not oversized
+	# ratio columns/buttons or a page-level scroll that crowd the combat view.
+	assert(not (columns.get_parent() is ScrollContainer))
+	assert(columns.size_flags_vertical == Control.SIZE_EXPAND_FILL)
+	assert(left_column.custom_minimum_size == Vector2(training_room.SIDE_COLUMN_WIDTH, 0))
+	assert(right_column.custom_minimum_size == Vector2(training_room.SIDE_COLUMN_WIDTH, 0))
+	assert(fight_button.custom_minimum_size == training_room.FIGHT_BUTTON_SIZE)
+	assert(view_log_button.custom_minimum_size == training_room.LOG_BUTTON_SIZE)
+	assert(fight_button.get_theme_font_size("font_size") == training_room.ACTION_BUTTON_FONT_SIZE)
+	assert(view_log_button.get_theme_font_size("font_size") == training_room.ACTION_BUTTON_FONT_SIZE)
 
 	# -- Empty rotation: Fight is disabled, same guard as skill_build_panel's
 	# Lock button uses for the same reason (a guaranteed zero-damage loss) --
@@ -57,7 +77,16 @@ func _initialize() -> void:
 	var available_skills_panel = training_room.find_child("AvailableSkillsPanel", true, false)
 	available_skills_panel._on_skill_pressed(stab)
 	await process_frame
-	print("fight button disabled with non-empty rotation (expect false): %s" % fight_button.disabled)
+	print("fight button disabled with non-empty unlocked rotation (expect true): %s" % fight_button.disabled)
+	assert(fight_button.disabled)
+	assert(fight_button.tooltip_text.contains("Lock"))
+	training_room._on_fight_button_pressed()
+	await process_frame
+	assert(training_room._state.last_result == null)
+
+	training_room._state.set_locked(true)
+	await process_frame
+	print("fight button disabled with locked non-empty rotation (expect false): %s" % fight_button.disabled)
 	assert(not fight_button.disabled)
 
 	# -- Fixed setup: default 0-armor target, 10s, seed 1 --
@@ -83,6 +112,18 @@ func _initialize() -> void:
 		first_damage, expected_result.total_damage
 	])
 	assert(is_equal_approx(first_damage, expected_result.total_damage))
+	assert(training_room._log_inspector.visible)
+	assert(training_room._log_inspector._timeline_chart._rows.size() > 0)
+	assert(training_room._log_inspector._damage_chart._rows.size() > 0)
+	assert(not view_log_button.disabled)
+	assert(result_log.text.contains("Practice Target:"))
+	assert(result_log.text.contains("Summary:"))
+	var result_chip_text := ""
+	for node in training_room._log_inspector.find_children("*", "Label", true, false):
+		result_chip_text += node.text + "\n"
+	assert(result_chip_text.contains("Practice"))
+	assert(not result_chip_text.contains("Victory"))
+	assert(not result_chip_text.contains("Defeat"))
 
 	training_room._on_fight_button_pressed()
 	await process_frame
@@ -97,7 +138,10 @@ func _initialize() -> void:
 	# possible universe; assert on the result log text changing instead,
 	# which reflects the full timeline, not just total damage) --
 	var log_before_seed_change: String = result_log.text
+	training_room._log_overlay.visible = true
 	training_room._on_fight_seed_changed(2.0)
+	await process_frame
+	_assert_result_review_invalidated(training_room, result_log, view_log_button)
 	training_room._on_fight_button_pressed()
 	await process_frame
 	print("result log changed after seed change (expect true): %s" % (result_log.text != log_before_seed_change))
@@ -109,13 +153,19 @@ func _initialize() -> void:
 	# reduce total damage for an identical build/seed/duration) --
 	training_room._on_fight_seed_changed(1.0)
 	training_room._on_target_armor_changed(160)
+	await process_frame
 	assert(training_room._state.selected_target.armor == 160)
+	_assert_result_review_invalidated(training_room, result_log, view_log_button)
 	training_room._on_fight_button_pressed()
 	await process_frame
 	print("damage vs 160 armor=%.2f (expect less than vs 0 armor %.2f)" % [
 		training_room._state.last_result.total_damage, first_damage
 	])
 	assert(training_room._state.last_result.total_damage < first_damage)
+
+	training_room._on_practice_gold_changed(200.0)
+	await process_frame
+	_assert_result_review_invalidated(training_room, result_log, view_log_button)
 
 	# -- Isolation: none of the above ever touched the real BuildState's
 	# encounter/run-phase/gold, or called finish_fight() --
@@ -138,3 +188,10 @@ func _find_talent(tree: SubclassTree, talent_id: String) -> Talent:
 		if talent.id == talent_id:
 			return talent
 	return null
+
+
+func _assert_result_review_invalidated(training_room, result_log: RichTextLabel, view_log_button: Button) -> void:
+	assert(view_log_button.disabled)
+	assert(not training_room._log_overlay.visible)
+	assert(not training_room._log_inspector.visible)
+	assert(result_log.text == "")

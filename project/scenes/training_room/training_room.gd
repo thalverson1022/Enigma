@@ -48,6 +48,10 @@ signal back_pressed
 
 const HEADING_FONT_SIZE := 32
 const CARD_TITLE_FONT_SIZE := 20
+const SIDE_COLUMN_WIDTH := 300
+const ACTION_BUTTON_FONT_SIZE := 16
+const FIGHT_BUTTON_SIZE := Vector2(124, 38)
+const LOG_BUTTON_SIZE := Vector2(142, 38)
 const ROGUE_CLASS_PATH := "res://data/classes/rogue.tres"
 const BACKDROP_COLOR := UIColors.OVERLAY_BACKDROP
 const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
@@ -57,6 +61,7 @@ const TALENT_PANEL_SCENE := preload("res://scenes/combat/talent_panel.tscn")
 const AVAILABLE_SKILLS_PANEL_SCENE := preload("res://scenes/combat/available_skills_panel.tscn")
 const SKILL_BUILD_PANEL_SCENE := preload("res://scenes/combat/skill_build_panel.tscn")
 const CHARACTER_STATS_PANEL_SCENE := preload("res://scenes/combat/character_stats_panel.tscn")
+const COMBAT_LOG_INSPECTOR_SCRIPT := preload("res://scenes/combat/combat_log_inspector.gd")
 
 const RARITY_NAMES := {
 	GearItem.Tier.BASIC: "Basic",
@@ -92,6 +97,7 @@ var _skill_build_panel
 var _fight_button: Button
 var _view_log_button: Button
 var _log_overlay: Control
+var _log_inspector
 var _result_log: RichTextLabel
 var _talent_overlay: Control
 var _talent_panel
@@ -107,15 +113,11 @@ func _ready() -> void:
 		margin.add_theme_constant_override(side, 16)
 	add_child(margin)
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_child(scroll)
-
 	var vbox := VBoxContainer.new()
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_theme_constant_override("separation", 14)
-	scroll.add_child(vbox)
+	margin.add_child(vbox)
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 12)
@@ -147,17 +149,13 @@ func _ready() -> void:
 	columns.name = "Columns"
 	columns.add_theme_constant_override("separation", 12)
 	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(columns)
 
 	var left_column := VBoxContainer.new()
 	left_column.name = "LeftColumn"
 	left_column.add_theme_constant_override("separation", 8)
-	left_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# Roughly 1/4, 1/2, 1/4 (user feedback) -- the center column (combat view
-	# + skill strips) is the primary focus of the screen; Character Stats
-	# still fits every line at this width since the font/card padding is the
-	# same regardless of the exact ratio, just needs to not be squeezed.
-	left_column.size_flags_stretch_ratio = 1.0
+	left_column.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0)
 	columns.add_child(left_column)
 
 	var character_stats_panel := CHARACTER_STATS_PANEL_SCENE.instantiate()
@@ -196,14 +194,19 @@ func _ready() -> void:
 	_fight_button = Button.new()
 	_fight_button.name = "FightButton"
 	_fight_button.text = "Fight"
-	CardStyle.configure_icon_button(_fight_button, FIGHT_ICON)
-	_fight_button.custom_minimum_size = Vector2(180, 0)
+	CardStyle.configure_icon_button(_fight_button, FIGHT_ICON, 6)
+	_fight_button.custom_minimum_size = FIGHT_BUTTON_SIZE
+	_fight_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_fight_button.add_theme_font_size_override("font_size", ACTION_BUTTON_FONT_SIZE)
 	_fight_button.pressed.connect(_on_fight_button_pressed)
 	fight_button_row.add_child(_fight_button)
 
 	_view_log_button = Button.new()
 	_view_log_button.name = "ViewLogButton"
 	_view_log_button.text = "Combat Log"
+	_view_log_button.custom_minimum_size = LOG_BUTTON_SIZE
+	_view_log_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_view_log_button.add_theme_font_size_override("font_size", ACTION_BUTTON_FONT_SIZE)
 	_view_log_button.disabled = true
 	_view_log_button.pressed.connect(func(): _log_overlay.visible = true)
 	fight_button_row.add_child(_view_log_button)
@@ -220,8 +223,7 @@ func _ready() -> void:
 	var right_column := VBoxContainer.new()
 	right_column.name = "RightColumn"
 	right_column.add_theme_constant_override("separation", 8)
-	right_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_column.size_flags_stretch_ratio = 1.0
+	right_column.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0)
 	columns.add_child(right_column)
 
 	_target_panel = TrainingTargetPanel.new()
@@ -267,7 +269,10 @@ func _ready() -> void:
 	_state.build_changed.connect(_refresh_tree_dropdowns)
 	_state.build_changed.connect(_refresh_affix_columns)
 	_state.build_changed.connect(_refresh_fight_button)
+	_state.build_changed.connect(_invalidate_result_review)
+	_state.lock_changed.connect(_refresh_fight_button)
 	_state.fight_setup_changed.connect(_refresh_target_panel)
+	_state.fight_setup_changed.connect(_invalidate_result_review)
 	_state.fight_finished.connect(_on_state_fight_finished)
 	_refresh_tree_dropdowns()
 	_refresh_affix_columns()
@@ -645,10 +650,19 @@ func _on_practice_gold_changed(value: float) -> void:
 ## An empty macro is a guaranteed zero-damage loss -- same guard
 ## `skill_build_panel.gd`'s Lock button already uses for the same reason.
 func _refresh_fight_button() -> void:
-	_fight_button.disabled = _state.rotation.is_empty()
+	_fight_button.disabled = not _state.can_run_fight()
+	if _state.rotation.is_empty():
+		_fight_button.tooltip_text = "Slot at least one skill before fighting"
+	elif not _state.build_locked:
+		_fight_button.tooltip_text = "Lock your skill build to fight"
+	else:
+		_fight_button.tooltip_text = ""
 
 
 func _on_fight_button_pressed() -> void:
+	if not _state.can_run_fight():
+		_refresh_fight_button()
+		return
 	_state.run_fight()
 
 
@@ -666,8 +680,20 @@ func _on_state_fight_finished() -> void:
 ## _view_log_button/_log_overlay pattern (disabled until the first fight
 ## resolves, dismissible via Close or clicking the backdrop).
 func _on_combat_view_finished() -> void:
+	_log_inspector.set_result(_state.last_result, _state.selected_target, true)
 	_result_log.text = CombatResultFormatter.format_practice(_state.last_result, _state.selected_target)
 	_view_log_button.disabled = false
+
+
+func _invalidate_result_review() -> void:
+	if _view_log_button != null:
+		_view_log_button.disabled = true
+	if _log_overlay != null:
+		_log_overlay.visible = false
+	if _log_inspector != null:
+		_log_inspector.clear()
+	if _result_log != null:
+		_result_log.text = ""
 
 
 ## Dimmed backdrop (click to dismiss) + a centered card holding the actual
@@ -702,8 +728,19 @@ func _build_log_overlay() -> void:
 	header.add_child(close_button)
 	content.add_child(header)
 
+	_log_inspector = COMBAT_LOG_INSPECTOR_SCRIPT.new()
+	_log_inspector.visible = false
+	content.add_child(_log_inspector)
+
+	var detail_title := Label.new()
+	detail_title.text = "Event Log"
+	detail_title.theme_type_variation = &"PanelHeader"
+	content.add_child(detail_title)
+
 	_result_log = RichTextLabel.new()
 	_result_log.name = "ResultLog"
 	_result_log.bbcode_enabled = false
-	_result_log.custom_minimum_size = Vector2(600, 400)
+	_result_log.custom_minimum_size = Vector2(760, 180)
+	_result_log.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_result_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(_result_log)

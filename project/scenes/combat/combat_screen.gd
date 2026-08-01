@@ -101,7 +101,14 @@ var _victory_overlay: Control
 var _victory_center: Control
 var _victory_combat_dim: ColorRect
 var _victory_stack: Control
+var _victory_title_label: Label
+var _victory_top_rule: ColorRect
+var _outcome_message_label: Label
 var _victory_recap_label: Label
+var _victory_reward_row: HBoxContainer
+var _victory_button_row: HBoxContainer
+var _outcome_retry_button: Button
+var _outcome_restart_button: Button
 var _recap_label: Label
 # -- Enemy status HUD (user-requested combat-HUD addition, 2026-07-18):
 # compact enemy name/health-bar/status-row/info-line block anchored at the
@@ -447,13 +454,8 @@ func _build_combat_window() -> PanelContainer:
 	_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	content.add_child(_status_label)
 
-	# P2:R7:T7 loss recap -- the win path gets its own recap inside
-	# _victory_overlay (built below); the loss path has no overlay of its
-	# own (the outcome title/status/retry controls already occupy this same
-	# _combat_content column), so this label carries the same recap lines
-	# for a losing fight. Hidden until a losing fight actually resolves;
-	# cleared at every "start planning the next fight" transition alongside
-	# _status_label so a stale recap never lingers into an unrelated state.
+	# Kept for non-overlay outcome checks and legacy direct presentation calls;
+	# live fight results now use the combat-window overlay built below.
 	_recap_label = Label.new()
 	_recap_label.visible = false
 	_recap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -715,7 +717,7 @@ func _hud_post_fight_hp(result: CombatResolver.CombatResult, monster: Monster) -
 
 
 ## Sum of every cast's applied armor reduction -- the same per-event field
-## the T7 _armor_reduction_summary() reads.
+## CombatRecap uses for post-fight summaries.
 func _hud_total_armor_reduction(cast_events: Array) -> int:
 	var total := 0
 	for event in cast_events:
@@ -767,7 +769,7 @@ func _hud_final_poison_resist(result: CombatResolver.CombatResult, monster: Mons
 
 
 ## Highest concurrent poison stack count observed across the fight's ticks
-## -- the same stacks_remaining + 1 read the T7 _poison_summary_text() uses
+## -- the same stacks_remaining + 1 read that CombatRecap uses
 ## (TickEvent records the count after its own decrement).
 func _hud_peak_poison_stacks(tick_events: Array) -> int:
 	var peak := 0
@@ -789,28 +791,28 @@ func _hud_peak_poison_stacks(tick_events: Array) -> int:
 ## that VBox's required height by the whole reward panel's worth of content,
 ## pushing every later sibling down and, with no ScrollContainer anywhere in
 ## this screen, off the bottom of the viewport with no way to reach it).
-## Deliberately no backdrop-click-to-dismiss (unlike _log_overlay's) -- the
-## backdrop only blocks clicks from reaching the dashboard underneath;
-## Claim Rewards is the only intended way past this screen.
+## Deliberately non-modal: the visible result content sits over the combat
+## window, but dashboard controls such as View Combat Log remain usable.
 func _build_victory_overlay() -> void:
 	_victory_overlay = Control.new()
 	_victory_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_victory_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_victory_overlay.visible = false
 	add_child(_victory_overlay)
 
 	var backdrop := ColorRect.new()
 	backdrop.name = "VictoryClickBlocker"
 	backdrop.color = Color(0.0, 0.0, 0.0, 0.0)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_victory_overlay.add_child(backdrop)
 
 	# Deliberately positioned over the combat window only: the screen-level
-	# overlay still blocks clicks, but the visible victory state belongs to
-	# the fight stage instead of reading as a separate full-screen modal.
+	# overlay is non-modal, and the visible result state belongs to the fight
+	# stage instead of reading as a separate full-screen modal.
 	var center := Control.new()
 	center.name = "VictoryCombatWindowOverlay"
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.mouse_filter = Control.MOUSE_FILTER_PASS
 	_victory_center = center
 	_victory_overlay.add_child(center)
 
@@ -824,18 +826,20 @@ func _build_victory_overlay() -> void:
 
 	var content_center := CenterContainer.new()
 	content_center.name = "VictoryContentCenter"
-	content_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content_center.mouse_filter = Control.MOUSE_FILTER_PASS
 	content_center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.add_child(content_center)
 
 	var stack := VBoxContainer.new()
 	stack.name = "VictoryStack"
+	stack.mouse_filter = Control.MOUSE_FILTER_PASS
 	stack.custom_minimum_size = Vector2(430, 0)
-	stack.add_theme_constant_override("separation", 12)
+	stack.add_theme_constant_override("separation", 10)
 	_victory_stack = stack
 	content_center.add_child(stack)
 
 	var banner_title := Label.new()
+	_victory_title_label = banner_title
 	banner_title.text = "VICTORY!"
 	banner_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_title.theme_type_variation = &"PanelHeader"
@@ -845,15 +849,23 @@ func _build_victory_overlay() -> void:
 
 	var top_rule := ColorRect.new()
 	top_rule.name = "VictoryTopRule"
+	_victory_top_rule = top_rule
 	top_rule.color = Color(CardStyle.ACCENT_COLOR.r, CardStyle.ACCENT_COLOR.g, CardStyle.ACCENT_COLOR.b, 0.72)
 	top_rule.custom_minimum_size = Vector2(0, 2)
 	stack.add_child(top_rule)
+
+	_outcome_message_label = Label.new()
+	_outcome_message_label.visible = false
+	_outcome_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outcome_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(_outcome_message_label)
 
 	_victory_recap_label = Label.new()
 	_victory_recap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stack.add_child(_victory_recap_label)
 
 	var reward_row := HBoxContainer.new()
+	_victory_reward_row = reward_row
 	reward_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	reward_row.add_theme_constant_override("separation", 6)
 	reward_row.add_child(CardStyle.make_pixel_icon(UI_GOLD_ICON, CardStyle.UI_ICON_SIZE))
@@ -864,6 +876,7 @@ func _build_victory_overlay() -> void:
 	stack.add_child(reward_row)
 
 	var button_row := HBoxContainer.new()
+	_victory_button_row = button_row
 	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	button_row.add_theme_constant_override("separation", 12)
 
@@ -873,18 +886,67 @@ func _build_victory_overlay() -> void:
 	_continue_button = continue_button
 	button_row.add_child(_continue_button)
 
+	_outcome_retry_button = Button.new()
+	_outcome_retry_button.text = "Retry Encounter"
+	_outcome_retry_button.visible = false
+	_outcome_retry_button.pressed.connect(_on_retry_pressed)
+	button_row.add_child(_outcome_retry_button)
+
+	_outcome_restart_button = Button.new()
+	_outcome_restart_button.text = "Restart Adventure"
+	_outcome_restart_button.visible = false
+	_outcome_restart_button.pressed.connect(func(): adventure_restart_pressed.emit())
+	button_row.add_child(_outcome_restart_button)
+
 	stack.add_child(button_row)
 
 
 func _show_victory_banner(result: CombatResolver.CombatResult, monster: Monster) -> void:
 	_status_label.visible = false
+	_outcome_title_label.visible = false
 	_recap_label.visible = false
 	_view_log_button.visible = true
 	_retry_button.visible = false
 	_restart_adventure_button.visible = false
+	_victory_title_label.text = "VICTORY!"
+	_victory_title_label.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
+	_victory_top_rule.color = Color(CardStyle.ACCENT_COLOR.r, CardStyle.ACCENT_COLOR.g, CardStyle.ACCENT_COLOR.b, 0.72)
+	_outcome_message_label.visible = false
 	_victory_recap_label.text = "\n".join(_build_recap_lines(result, monster))
+	_victory_reward_row.visible = true
 	_reward_label.text = _reward_text()
 	_continue_button.disabled = BuildState.has_claimed_current_reward()
+	_continue_button.visible = true
+	_outcome_retry_button.visible = false
+	_outcome_restart_button.visible = false
+	_position_victory_center_over_combat_window()
+	_prepare_victory_reveal_animation()
+	_victory_overlay.visible = true
+	_play_victory_reveal_animation()
+
+
+func _show_defeat_banner(result: CombatResolver.CombatResult, monster: Monster) -> void:
+	var presentation := _outcome_presentation(BuildState.run_outcome)
+	_status_label.visible = false
+	_outcome_title_label.visible = false
+	_recap_label.visible = false
+	_view_log_button.visible = true
+	_retry_button.visible = false
+	_restart_adventure_button.visible = false
+	var title_color: Color = presentation["color"]
+	_victory_title_label.text = String(presentation["title"])
+	_victory_title_label.add_theme_color_override("font_color", title_color)
+	_victory_top_rule.color = Color(title_color.r, title_color.g, title_color.b, 0.72)
+	_outcome_message_label.text = String(presentation["body"])
+	_outcome_message_label.visible = _outcome_message_label.text != ""
+	_victory_recap_label.text = "\n".join(_build_recap_lines(result, monster))
+	_victory_reward_row.visible = false
+	_continue_button.visible = false
+	_outcome_retry_button.visible = bool(presentation["show_retry"])
+	_outcome_retry_button.disabled = false
+	_outcome_restart_button.visible = bool(presentation["show_restart"])
+	_outcome_restart_button.disabled = false
+	_outcome_restart_button.text = String(presentation["restart_text"])
 	_position_victory_center_over_combat_window()
 	_prepare_victory_reveal_animation()
 	_victory_overlay.visible = true
@@ -937,93 +999,57 @@ func _play_victory_reveal_animation() -> void:
 ## docs/Conventions.md's UI architecture principle.
 func _build_recap_lines(result: CombatResolver.CombatResult, monster: Monster) -> PackedStringArray:
 	var lines: PackedStringArray = []
-	var required_dps := _recap_required_dps(monster, result.duration_ms)
-	var required_damage := monster.hp if monster != null else 0
-	lines.append("Total Damage: %.1f (needed %d)" % [result.total_damage, required_damage])
-	lines.append("DPS: %.1f (needed %.1f)" % [result.dps, required_dps])
-	lines.append(_biggest_hit_text(result.cast_events))
-	lines.append(_damage_split_text(result.cast_events, result.tick_events))
-	lines.append(_crit_count_text(result.cast_events))
-	var armor_line := _armor_reduction_summary(result.cast_events)
+	var summary := CombatRecap.summarize(result, monster)
+	lines.append("Total Damage: %.1f (needed %d)" % [summary["total_damage"], summary["damage_required"]])
+	lines.append("DPS: %.1f (needed %.1f)" % [summary["actual_dps"], summary["required_dps"]])
+	lines.append(_biggest_hit_text(summary))
+	lines.append(_damage_split_text(summary))
+	lines.append(_crit_count_text(summary))
+	var armor_line := _armor_reduction_summary(summary)
 	if armor_line != "":
 		lines.append(armor_line)
-	var poison_line := _poison_summary_text(result.tick_events)
+	var poison_line := _poison_summary_text(summary)
 	if poison_line != "":
 		lines.append(poison_line)
 	return lines
 
 
-## HP / fight-window-seconds -- the recap still shows the exact post-fight
-## DPS comparison, while the pre-fight enemy card now uses softer
-## damage/window language. Kept as a small local mirror rather
-## than a cross-panel call to _enemy_panel's underscore-prefixed helper,
-## consistent with this file's existing convention of only calling panels'
-## explicitly public methods (monster()/duration_ms()) across panel
-## boundaries.
-func _recap_required_dps(monster: Monster, duration_ms: int) -> float:
-	if monster == null or duration_ms <= 0:
-		return 0.0
-	return float(monster.hp) / (float(duration_ms) / 1000.0)
-
-
 ## Largest single direct cast (poison ticks are damage-over-time, not a
 ## "hit"), naming the skill and whether that specific cast crit -- e.g.
 ## "Biggest Hit: Heavy Slash for 84.0 (crit)".
-func _biggest_hit_text(cast_events: Array) -> String:
-	var biggest := 0.0
-	var biggest_skill := ""
-	var biggest_crit := false
-	for event in cast_events:
-		if event.physical_damage > biggest:
-			biggest = event.physical_damage
-			biggest_skill = event.skill.display_name if event.skill != null else "Unknown"
-			biggest_crit = event.is_crit
-	if biggest_skill == "":
+func _biggest_hit_text(summary: Dictionary) -> String:
+	if String(summary["biggest_hit_skill"]) == "":
 		return "Biggest Hit: none."
-	var crit_note := " (crit)" if biggest_crit else ""
-	return "Biggest Hit: %s for %.1f%s" % [biggest_skill, biggest, crit_note]
+	var crit_note := " (crit)" if bool(summary["biggest_hit_was_crit"]) else ""
+	return "Biggest Hit: %s for %.1f%s" % [summary["biggest_hit_skill"], summary["biggest_hit"], crit_note]
 
 
 ## Physical (direct cast damage) vs. poison (tick damage) split, both as raw
 ## amounts and as a share of total damage -- Rogue's Assassin/Thief/Shadow
 ## identity hinges on this split per the Phase 1 reference docs.
-func _damage_split_text(cast_events: Array, tick_events: Array) -> String:
-	var physical := 0.0
-	for event in cast_events:
-		physical += event.physical_damage
-	var poison := 0.0
-	for tick in tick_events:
-		poison += tick.damage
-	var total := physical + poison
-	var physical_pct := (physical / total * 100.0) if total > 0.0 else 0.0
-	var poison_pct := (poison / total * 100.0) if total > 0.0 else 0.0
-	return "Physical: %.0f (%.0f%%) / Poison: %.0f (%.0f%%)" % [physical, physical_pct, poison, poison_pct]
+func _damage_split_text(summary: Dictionary) -> String:
+	return "Physical: %.0f (%.0f%%) / Poison: %.0f (%.0f%%)" % [
+		summary["physical_damage"], summary["physical_pct"], summary["poison_damage"], summary["poison_pct"]
+	]
 
 
 ## Counts crit occurrences across every direct cast (a triggered skill's own
 ## hit can also crit independently of its source cast).
-func _crit_count_text(cast_events: Array) -> String:
-	var count := 0
-	for event in cast_events:
-		if event.is_crit:
-			count += 1
-	return "Crits: %d" % count
+func _crit_count_text(summary: Dictionary) -> String:
+	return "Crits: %d" % summary["crit_count"]
 
 
 ## Only returns a non-empty line when at least one cast actually applied
 ## armor reduction (Rending Slash, Sunder, etc. via ArmorReductionEffect) --
 ## omitted entirely otherwise so a build with no armor shred doesn't show a
 ## dead "0" line.
-func _armor_reduction_summary(cast_events: Array) -> String:
-	var total := 0
-	var casts := 0
-	for event in cast_events:
-		if event.armor_reduction_applied > 0:
-			total += event.armor_reduction_applied
-			casts += 1
+func _armor_reduction_summary(summary: Dictionary) -> String:
+	var casts: int = summary["armor_reduction_casts"]
 	if casts == 0:
 		return ""
-	return "Armor reduced by %d (%d cast%s)" % [total, casts, "" if casts == 1 else "s"]
+	return "Armor reduced by %d (%d cast%s)" % [
+		summary["armor_reduction_total"], casts, "" if casts == 1 else "s"
+	]
 
 
 ## Only returns a non-empty line when poison actually ticked this fight --
@@ -1031,21 +1057,13 @@ func _armor_reduction_summary(cast_events: Array) -> String:
 ## reads the stack count immediately before each tick consumed one (i.e.
 ## TickEvent.stacks_remaining + 1 for any tick that actually dealt damage),
 ## since TickEvent only records the count left *after* the tick.
-func _poison_summary_text(tick_events: Array) -> String:
-	var ticks := 0
-	var peak_stacks := 0
-	var poison_damage := 0.0
-	for tick in tick_events:
-		if tick.damage <= 0.0:
-			continue
-		ticks += 1
-		poison_damage += tick.damage
-		var stacks_before_tick: int = tick.stacks_remaining + 1
-		if stacks_before_tick > peak_stacks:
-			peak_stacks = stacks_before_tick
+func _poison_summary_text(summary: Dictionary) -> String:
+	var ticks: int = summary["poison_tick_count"]
 	if ticks == 0:
 		return ""
-	return "Poison: %d ticks, peak %d stacks, %.1f tick damage" % [ticks, peak_stacks, poison_damage]
+	return "Poison: %d ticks, peak %d stacks, %.1f tick damage" % [
+		ticks, summary["peak_poison_stacks"], summary["poison_tick_damage"]
+	]
 
 
 func _reward_text() -> String:
@@ -1342,7 +1360,7 @@ func _on_fight_pressed() -> void:
 	var monster: Monster = _enemy_panel.monster()
 	var duration_ms: int = _enemy_panel.duration_ms()
 	var result: CombatResolver.CombatResult = CombatResolver.resolve(rotation, stats, monster, duration_ms, BuildState.current_combat_rng_seed())
-	_log_overlay.set_result_text(CombatResultFormatter.format(result, monster))
+	_log_overlay.set_result(result, monster, CombatResultFormatter.format(result, monster))
 	if not instant_playback:
 		# Real-time playback path (user-requested combat-playback addition):
 		# every state mutation below is IDENTICAL to instant mode and happens
@@ -1408,13 +1426,7 @@ func _reveal_fight_outcome(result: CombatResolver.CombatResult, monster: Monster
 		_restart_adventure_button.visible = false
 		_show_victory_banner(result, monster)
 	else:
-		_apply_outcome_presentation(BuildState.run_outcome)
-		# P2:R7:T7 -- the loss path has no overlay of its own, so the same
-		# recap lines the win banner shows go directly into _combat_content
-		# underneath _apply_outcome_presentation()'s outcome title/status
-		# text, right where _status_label already sits.
-		_recap_label.text = "\n".join(_build_recap_lines(result, monster))
-		_recap_label.visible = true
+		_show_defeat_banner(result, monster)
 
 
 ## Starts the real-time visual playback of an already-resolved fight. Locks
@@ -1598,10 +1610,12 @@ func _on_reward_choice_pressed(gear: GearItem) -> void:
 
 func _on_retry_pressed() -> void:
 	if BuildState.retry_current_encounter():
+		_victory_overlay.visible = false
 		_outcome_title_label.visible = false
 		_retry_button.visible = false
 		_restart_adventure_button.visible = false
 		_recap_label.visible = false
+		_view_log_button.visible = true
 		_reset_enemy_hud()
 		_status_label.text = "Retry ready. Adjust your build, lock in, then fight again."
 		_autosave()
@@ -1767,10 +1781,24 @@ func _next_action_text() -> String:
 ## reward, since a terminal win outcome is only known post-claim.
 func _apply_outcome_presentation(outcome: int) -> void:
 	_status_label.visible = true
-	_restart_adventure_button.text = "Restart Adventure"
+	var presentation := _outcome_presentation(outcome)
+	if String(presentation["title"]) == "":
+		_outcome_title_label.visible = false
+		_retry_button.visible = false
+		_restart_adventure_button.visible = false
+		return
+	_set_outcome_title(String(presentation["title"]), presentation["color"])
+	_status_label.text = String(presentation["body"])
+	_retry_button.visible = bool(presentation["show_retry"])
+	_retry_button.disabled = false
+	_restart_adventure_button.visible = bool(presentation["show_restart"])
+	_restart_adventure_button.disabled = false
+	_restart_adventure_button.text = String(presentation["restart_text"])
+
+
+func _outcome_presentation(outcome: int) -> Dictionary:
 	match outcome:
 		BuildState.RunOutcome.FIGHT_LOSS_RETRY:
-			_set_outcome_title("DEFEATED", OUTCOME_LOSS_COLOR)
 			# First-encounter revision (combat-playback adjustment round 2 +
 			# retry bug, 2026-07-19; corrected 2026-07-19): the first Tavern
 			# encounter gets unlimited retries, so "One retry available"
@@ -1778,45 +1806,68 @@ func _apply_outcome_presentation(outcome: int) -> void:
 			# encounter that reaches this outcome only ever gets it once
 			# before a second loss becomes ADVENTURE_RESTART_REQUIRED, so the
 			# original wording stays accurate for them.
-			_status_label.text = (
-				"You can retry as many times as you need. Adjust your build, then retry."
+			var body := (
+				"This opener has unlimited retries. Adjust your build, then retry this encounter."
 				if BuildState.is_unlimited_retry_encounter()
-				else "%s. Adjust your build, then retry this encounter." % BuildState.current_attempts_text()
+				else "One standard do-over is available (%s). Adjust your build, then retry this encounter." % BuildState.current_attempts_text()
 			)
-			_retry_button.visible = true
-			_retry_button.disabled = false
-			_restart_adventure_button.visible = false
+			return _make_outcome_presentation("DEFEATED", OUTCOME_LOSS_COLOR, body, true, false, "Restart Adventure")
 		BuildState.RunOutcome.CONTRACT_FAILED:
-			_set_outcome_title("CONTRACT FAILED", OUTCOME_LOSS_COLOR)
-			_status_label.text = "The route collapses here. Restart preserves Seed %d." % BuildState.adventure_seed
-			_retry_button.visible = false
-			_restart_adventure_button.visible = true
-			_restart_adventure_button.disabled = false
+			return _make_outcome_presentation(
+				"CONTRACT FAILED",
+				OUTCOME_LOSS_COLOR,
+				"This contract route has no retries remaining. Restart begins a fresh Adventure and preserves Seed %d." % BuildState.adventure_seed,
+				false,
+				true,
+				"Restart Adventure"
+			)
 		BuildState.RunOutcome.ADVENTURE_RESTART_REQUIRED:
-			_set_outcome_title("ADVENTURE OVER", OUTCOME_LOSS_COLOR)
-			_status_label.text = "No retries remain for this encounter. Restart preserves Seed %d." % BuildState.adventure_seed
-			_retry_button.visible = false
-			_restart_adventure_button.visible = true
-			_restart_adventure_button.disabled = false
+			return _make_outcome_presentation(
+				"ADVENTURE OVER",
+				OUTCOME_LOSS_COLOR,
+				"No retries remain for this Tavern encounter. Restart begins a fresh Adventure and preserves Seed %d." % BuildState.adventure_seed,
+				false,
+				true,
+				"Restart Adventure"
+			)
 		BuildState.RunOutcome.CONTRACT_VICTORY:
-			_set_outcome_title("CONTRACT COMPLETE", CardStyle.ACCENT_COLOR)
-			_status_label.text = "Vyra is defeated. Seed %d is preserved if you start a new Adventure." % BuildState.adventure_seed
-			_retry_button.visible = false
-			_restart_adventure_button.visible = true
-			_restart_adventure_button.disabled = false
-			_restart_adventure_button.text = "Start New Adventure"
+			return _make_outcome_presentation(
+				"CONTRACT COMPLETE",
+				CardStyle.ACCENT_COLOR,
+				"Vyra is defeated. Seed %d is preserved if you start a new Adventure." % BuildState.adventure_seed,
+				false,
+				true,
+				"Start New Adventure"
+			)
 		BuildState.RunOutcome.FIGHT_WIN:
 			# Only reached if the Tavern ladder ends without an active contract.
-			_set_outcome_title("RUN COMPLETE", CardStyle.ACCENT_COLOR)
-			_status_label.text = "Tavern sequence cleared. Seed %d is preserved if you start a new Adventure." % BuildState.adventure_seed
-			_retry_button.visible = false
-			_restart_adventure_button.visible = true
-			_restart_adventure_button.disabled = false
-			_restart_adventure_button.text = "Start New Adventure"
-		_:
-			_outcome_title_label.visible = false
-			_retry_button.visible = false
-			_restart_adventure_button.visible = false
+			return _make_outcome_presentation(
+				"RUN COMPLETE",
+				CardStyle.ACCENT_COLOR,
+				"Tavern sequence cleared. Seed %d is preserved if you start a new Adventure." % BuildState.adventure_seed,
+				false,
+				true,
+				"Start New Adventure"
+			)
+	return _make_outcome_presentation("", Color.WHITE, "", false, false, "Restart Adventure")
+
+
+func _make_outcome_presentation(
+	title: String,
+	color: Color,
+	body: String,
+	show_retry: bool,
+	show_restart: bool,
+	restart_text: String
+) -> Dictionary:
+	return {
+		"title": title,
+		"color": color,
+		"body": body,
+		"show_retry": show_retry,
+		"show_restart": show_restart,
+		"restart_text": restart_text,
+	}
 
 
 func _set_outcome_title(text: String, color: Color) -> void:

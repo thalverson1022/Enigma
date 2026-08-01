@@ -679,9 +679,10 @@ func _check_live_playback_loss() -> void:
 
 	combat_screen._skip_playback()
 	_require(not combat_screen._playback_active, "Expected playback finished after skip.")
-	_require(combat_screen._outcome_title_label.visible, "Expected the loss outcome title revealed after skip.")
-	_require(combat_screen._retry_button.visible, "Expected the retry do-over revealed after skip.")
-	_require(combat_screen._recap_label.visible, "Expected the loss recap revealed after skip.")
+	_require(combat_screen._victory_overlay.visible, "Expected the loss overlay revealed after skip.")
+	_require(combat_screen._victory_title_label.text == "DEFEATED", "Expected the loss outcome title revealed after skip.")
+	_require(combat_screen._outcome_retry_button.visible, "Expected the retry do-over revealed after skip.")
+	_require(combat_screen._victory_recap_label.text.contains("Total Damage:"), "Expected the loss recap revealed after skip.")
 	_require(
 		combat_screen._hud_hp_text_label.text == "%d/%d" % [monster.hp, monster.hp],
 		"Expected the enemy HP bar to end the loss playback still full (window expired, enemy alive)."
@@ -726,9 +727,10 @@ func _check_natural_playback_loss_reveal_timing() -> void:
 	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected natural defeat to play one outcome flash beat.")
 
 	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
-	_require(combat_screen._outcome_title_label.visible, "Expected the defeat title after the natural reveal hold.")
-	_require(combat_screen._retry_button.visible, "Expected retry after the natural reveal hold.")
-	_require(combat_screen._recap_label.visible, "Expected loss recap after the natural reveal hold.")
+	_require(combat_screen._victory_overlay.visible, "Expected the defeat overlay after the natural reveal hold.")
+	_require(combat_screen._victory_title_label.text == "DEFEATED", "Expected the defeat title after the natural reveal hold.")
+	_require(combat_screen._outcome_retry_button.visible, "Expected retry after the natural reveal hold.")
+	_require(combat_screen._victory_recap_label.text.contains("Total Damage:"), "Expected loss recap after the natural reveal hold.")
 	_require(not combat_screen._view_log_button.disabled, "Expected combat log unlocked after the natural loss reveal.")
 	_require(not combat_screen._map_button.disabled, "Expected map unlocked after the natural loss reveal.")
 
@@ -769,8 +771,8 @@ func _check_playback_speed_persists() -> void:
 	_require(combat_screen._playback_controls._speed_buttons[2].disabled, "Expected the 4x button to show as the active speed.")
 
 	combat_screen._skip_playback()
-	_require(combat_screen._retry_button.visible, "Expected the retry do-over after this Tavern loss.")
-	combat_screen._retry_button.pressed.emit()
+	_require(combat_screen._outcome_retry_button.visible, "Expected the retry do-over after this Tavern loss.")
+	combat_screen._outcome_retry_button.pressed.emit()
 	_require(build_state.run_phase == build_state.RunPhase.PLANNING, "Expected retry to return to planning.")
 	_require(not build_state.needs_tavern_map_choice(), "Expected the retry-bug fix to make the same encounter immediately fightable again.")
 	build_state.set_locked(true)
