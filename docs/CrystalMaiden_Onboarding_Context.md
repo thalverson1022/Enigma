@@ -57,6 +57,7 @@ Current milestone status:
 - Milestone 0: Complete
 - Milestone 1: Complete
 - Milestone 2: Complete
+- Milestone 3: Complete
 
 Milestone 1 planning, M1:T1 controlled playback scenarios, M1:T2 combat
 stage/actor layer, M1:T3 sprite configuration, M1:T4 fallback-compatible Rogue
@@ -70,6 +71,28 @@ complete.
 Latest known state:
 
 - Milestone 1 closeout committed and pushed on `phase-3-crystalmaiden`.
+- Milestone 3 Tasks 0-7 are complete locally. The single Milestone 3 tasking
+  doc is `docs/Phase_3_Milestone_3_Build_Screen_And_Rotation_UX_Polish.md`.
+  M3:T0 planned the buildcraft pass and recorded the boundary between M3,
+  M8, and later full art-direction work. M3:T1 confirmed the 10-slot Skill
+  Build cap/count layout, fixed far-right lock lane, and current add/remove
+  behavior, and added `res://tests/skill_build_geometry_test.gd` to guard
+  Adventure and Training Room fit at 1600x900. M3:T2 made Lock Build the
+  clear ready state and prevented empty rotations from becoming locked/ready
+  in Adventure or Training Room. M3:T3 audited Available Skills and deferred
+  broader comparison scaffolding until mechanics create real comparison
+  pressure. M3:T4 added dependency-aware blocked-deselect pulse feedback for
+  selected talents that support active dependent chains without changing
+  talent rules. M3:T5 audited Character Stats and deferred broader stat/change
+  presentation until class, stat, and gear changes settle. M3:T6 confirmed
+  shared Adventure/Training Room build language is aligned enough for current
+  Rogue mechanics and added Training Room assertions for shared Skill Build
+  behavior plus stale-result invalidation after rotation edits. M3:T7 closed
+  the milestone with focused tests, adjacent fixture updates, final
+  verification, and documentation closeout. Balance Lab was not run for M3:T7
+  because the closeout did not change combat math, resolver behavior,
+  build-resolution rules, skill/talent/gear resources, or balance-relevant
+  data.
 - Milestone 2 Tasks 0-9 are complete locally. The single Milestone 2 tasking doc
   is `docs/Phase_3_Milestone_2_Combat_Recap_And_Failure_Clarity.md`; it
   defines P3:M2:T0 through P3:M2:T9 and uses the Phase:Milestone:Task:Step
@@ -421,10 +444,168 @@ Likely implementation files:
 
 Recommended next action:
 
-- Review and commit/push the Milestone 2 closeout work, then begin Milestone 3
-  Task 0 planning for Build Screen And Rotation UX Polish.
+- Start Milestone 4 planning for Gear, Rewards, Shop, and Legendary
+  Presentation. Milestone 3 is complete: M3:T0 planning/audit, M3:T1 rotation
+  editing UX, M3:T2 fight readiness and build lock state, M3:T3
+  available-skill readability audit, M3:T4 talent tree clarity, M3:T5
+  character stats/change-feedback audit, M3:T6 shared Adventure/Training Room
+  build-language alignment, and M3:T7 focused tests/verification/docs closeout
+  are complete in
+  `docs/Phase_3_Milestone_3_Build_Screen_And_Rotation_UX_Polish.md`.
+  M3:T1 confirmed the 10-slot cap/lock layout direction (`Slots: x/10`, no
+  empty placeholder boxes, fixed far-right lock button), added
+  `res://tests/skill_build_geometry_test.gd` to guard that a full ten-slot
+  macro plus lock button fits inside Adventure and Training Room at the target
+  1600x900 viewport, and closed with user acceptance of the current add/remove
+  speed, duplicate readability, lock behavior, empty/cap language, and no
+  extra Clear All/reorder/duplicate helper controls for now. M3:T2 confirmed
+  that Lock Build is the ready action, kept the current grayed-out/disabled
+  visual treatment without adding more instruction copy, and tightened the
+  state model so empty rotations cannot become locked/ready in Adventure or
+  Training Room. M3:T3 audited the current Available Skills strip and made no
+  code changes: icon/name buttons, authored speed labels, live effect-summary
+  tooltips, locked/capped disabled states, and shared Adventure/Training Room
+  behavior are sufficient for current Rogue mechanics. Broader skill-comparison
+  scaffolding should be revisited when mechanics become more complex, such as
+  larger unlocked skill pools, sharper enemy build asks, proc chains,
+  gear-skill dependencies, mutually exclusive skill paths, or several similar
+  skills with materially different jobs. M3:T4 added a visual
+  dependency-aware blocked-deselect pulse feedback for selected talents that
+  support an active dependency chain, while keeping those protected talents
+  visually quiet at rest. The change is presentation-only and preserves
+  `PassiveAllocator`, talent rules, build resolution, Adventure progression,
+  save behavior, and Training Room isolation. M3:T5 audited the current
+  Character Stats panel and made no code changes: current live resolved stat
+  lines, physical/poison grouping, poison-color treatment, bonus stat lines,
+  and hover deltas against the class-only baseline are good enough for Phase 3.
+  Broader recent-change emphasis, enemy-relevance hints, deeper comparison
+  copy, or stat-panel restructuring should wait until later extensive changes
+  to classes, stats, and gear settle. M3:T6 audited the shared Adventure and
+  Training Room build language after user review confirmed the Training Room
+  is in a good state. No product UI changes were made: shared Skill Build,
+  Available Skills, Talent, and Character Stats vocabulary is aligned enough
+  for current Rogue mechanics, Training Room remains practice-safe, broad
+  practice workflow/target-control/gear-editor improvements stay deferred to
+  Milestone 6, and focused assertions now cover Training Room shared Skill
+  Build behavior plus stale-result invalidation after rotation edits. M3:T7
+  updated adjacent loss fixtures that previously depended on empty rotations,
+  verified the Training Room no-gear default and rarity-driven equip/unequip
+  behavior, recorded the final checks, and left broader whole-game visual
+  polish in Milestone 8 or a later art-direction phase.
 
 Latest focused checks:
+
+- P3:M3:T7 final focused checks passed on 2026-08-02 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/rotation_cap_test.gd`: Pass.
+  - `res://tests/skill_build_geometry_test.gd`: Pass.
+  - `res://tests/training_room_build_test.gd`: Pass.
+  - `res://tests/training_room_fight_test.gd`: Pass.
+  - `res://tests/training_room_fight_setup_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/combat_recap_test.gd`: Pass.
+  - `res://tests/contract_offer_flow_test.gd`: Pass.
+  - `res://tests/dashboard_header_test.gd`: Pass.
+  - `res://tests/run_failure_state_test.gd`: Pass.
+  - `res://tests/training_room_gear_editor_test.gd`: Pass.
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion. The first sandboxed
+    run failed only on that documented assertion.
+  - Balance Lab was not run because T7 did not change combat math, resolver
+    behavior, build-resolution rules, skill/talent/gear resources, or
+    balance-relevant data.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+
+- P3:M3:T6 shared Adventure/Training Room build-language checks passed on
+  2026-08-02 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/training_room_build_test.gd`: Pass.
+  - `res://tests/training_room_fight_test.gd`: Pass.
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/rotation_cap_test.gd`: Pass.
+  - `res://tests/skill_build_geometry_test.gd`: Pass.
+  - Balance Lab was not run because T6 changed only focused assertions and
+    documentation; it did not change combat math, build resolution,
+    skill/talent/gear resources, or balance-relevant data.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+
+- P3:M3:T5 character stats and change-feedback audit completed on 2026-08-02:
+  docs-only audit/defer decision, no code changes, no Godot checks required.
+  Current stat feedback is sufficient for Phase 3; broader stat/change
+  presentation is deferred until later class, stat, and gear changes settle.
+
+- P3:M3:T4 talent dependency visual-language checks passed on 2026-08-02 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/training_room_build_test.gd`: Pass.
+  - Balance Lab was not run because T4 changed only shared talent UI
+    presentation and focused assertions; it did not change combat math, build
+    resolution, skill/talent/gear resources, or balance-relevant data.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+
+- P3:M3:T2 lock-as-ready focused checks passed on 2026-08-02 using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/training_room_fight_test.gd`: Pass.
+  - `res://tests/run_failure_state_test.gd`: Pass.
+  - `res://tests/dashboard_header_test.gd`: Pass.
+  - `res://tests/contract_offer_flow_test.gd`: Pass.
+  - `res://tests/rotation_cap_test.gd`: Pass.
+  - `res://tests/skill_build_geometry_test.gd`: Pass.
+  - `res://tests/training_room_build_test.gd`: Pass.
+  - `res://tests/training_room_gear_editor_test.gd`: Pass.
+  - `res://tests/combat_screen_test.gd`: Pass.
+  - `res://tests/combat_recap_test.gd`: Pass.
+  - `res://tests/combat_hud_test.gd`: Pass.
+  - `res://tests/combat_playback_test.gd`: Pass after rerunning outside the
+    sandbox for the known autosave/user-data assertion. The first sandboxed
+    run failed only on that assertion after the empty-rotation loss fixtures
+    were updated.
+  - `res://tests/save_load_test.gd` was not counted for this closeout: a
+    sandboxed run hit its startup save-file assertion and timed out; rerunning
+    outside the sandbox was rejected because that test deletes the normal
+    Godot user save. An attempted isolated `--user-data-dir` rerun still saw
+    the existing save on this Godot invocation.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+
+- P3:M3:T1 closeout checks passed using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/rotation_cap_test.gd`: Pass.
+  - `res://tests/skill_build_geometry_test.gd`: Pass.
+  - `res://tests/training_room_build_test.gd`: Pass.
+  - `res://tests/training_room_fight_test.gd`: Pass.
+  - `res://tests/training_room_fight_setup_test.gd`: Pass.
+  - Balance Lab was not run because M3:T1 did not change combat math, build
+    resolution rules, skill/talent/gear resources, or balance-relevant data.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
+
+- P3:M3:T1 cap/lock geometry guardrail checks passed using
+  `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
+  workspace `--log-file` paths:
+  - `res://tests/build_panels_test.gd`: Pass.
+  - `res://tests/rotation_cap_test.gd`: Pass.
+  - `res://tests/skill_build_geometry_test.gd`: Pass.
+  - `res://tests/training_room_build_test.gd`: Pass.
+  - `res://tests/training_room_fight_test.gd`: Pass.
+  - `res://tests/training_room_fight_setup_test.gd`: Pass.
+  - A normal-renderer screenshot probe was used for manual review because
+    headless/dummy rendering cannot capture viewport textures on this
+    machine. Adventure and Training Room were reviewed at one slotted skill
+    and ten slotted skills; the temporary probe script was removed afterward.
+  - Godot still printed the known Windows root-certificate-store warning and
+    ObjectDB/resource cleanup warnings at exit despite passing exit code 0.
 
 - P3:M2:T9 final focused checks passed on 2026-07-31 using
   `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe` with explicit
@@ -625,6 +806,22 @@ Latest focused checks:
   playback, event formatting, or recap behavior.
 - Run Balance Lab when changing combat timing, event ordering, build
   resolution, skill/talent/gear resources, or balance-relevant data.
+- Use the installed `godot-ui` skill whenever working on Godot UI layout,
+  styling, Control nodes, containers, themes, HUDs, panels, buttons, or
+  responsive screen fit for Project CrystalMaiden.
+- Use the installed `godot` skill for broader Godot 4 development workflow:
+  Godot test/export/build guidance, GDScript project work, Godot automation,
+  deployment/export questions, or when a task spans engine workflow rather
+  than only code structure.
+- Use the installed `godot-gdscript-patterns` skill for Godot architecture and
+  GDScript implementation patterns: signals, scene composition, resources,
+  state management, state machines, performance-sensitive logic, or refactors.
+- Use the installed `game-design` skill for player-facing design assessment:
+  core loop, progression, reward pacing, difficulty curve, onboarding,
+  visual-language legibility, and whether a mechanic teaches itself.
+- Prefer the smallest relevant skill set for the task. If multiple skills
+  apply, load them in order from product/design intent to engine architecture
+  to UI/layout implementation, and state that order before acting.
 - Do not revert user changes or Phase 2 historical context unless explicitly
   asked.
 

@@ -118,10 +118,17 @@ func _initialize() -> void:
 	_require(stab_button.tooltip_text.contains(summary), "Expected Stab's tooltip to contain its effect summary, got: %s" % stab_button.tooltip_text)
 
 	# -- 4. Rotation order + explicit remove control --
+	_require(skill_build_panel._slot_count_label.text == "Slots: 0/10", "Expected empty Skill Build to advertise current macro capacity, got: %s" % skill_build_panel._slot_count_label.text)
+	var disabled_lock_style: StyleBoxFlat = skill_build_panel._lock_button.get_theme_stylebox("disabled")
+	_require(disabled_lock_style.bg_color == UIColors.PANEL_DISABLED, "Expected disabled Lock Build button to use the shared disabled fill.")
+	_require(disabled_lock_style.corner_radius_top_left == skill_build_panel.LOCK_BUTTON_CORNER_RADIUS, "Expected disabled Lock Build button to stay circular instead of falling back to a square style.")
+	build_state.set_locked(true)
+	_require(not build_state.build_locked, "Expected an empty Adventure macro to refuse the lock/ready state.")
 	for skill in build_state.unlocked_skills():
 		available_skills_panel._on_skill_pressed(skill)
 	await process_frame
 	_require(build_state.rotation.size() == 3, "Expected 3 unlocked skills in rotation (Stab, Heavy Slash, Quick Cut).")
+	_require(skill_build_panel._slot_count_label.text == "Slots: 3/10", "Expected Skill Build count to update after adding skills, got: %s" % skill_build_panel._slot_count_label.text)
 	_require(skill_build_panel._lock_button.text == "", "Expected lock toggle button to be icon-only, got: %s" % skill_build_panel._lock_button.text)
 	_require(skill_build_panel._lock_button.custom_minimum_size == skill_build_panel.LOCK_BUTTON_SIZE, "Expected lock toggle to keep a large fixed button size.")
 	_require(skill_build_panel._lock_button.icon == null, "Expected Lock Build button to use the custom child icon, not Button.icon.")
@@ -129,6 +136,7 @@ func _initialize() -> void:
 	_require(skill_build_panel._lock_button_icon.custom_minimum_size == skill_build_panel.LOCK_BUTTON_ICON_SIZE, "Expected Lock Build icon to keep a fixed readable size.")
 	_require(skill_build_panel._lock_button_icon.size == skill_build_panel.LOCK_BUTTON_ICON_SIZE, "Expected Lock Build icon rect to obey its fixed size, got: %s" % skill_build_panel._lock_button_icon.size)
 	var first_slot: Button = skill_build_panel._slots_box.get_child(0)
+	_require(first_slot.custom_minimum_size == skill_build_panel.SLOT_SIZE, "Expected macro slots to use the larger fixed M3 slot size.")
 	print("first slot tooltip (expect position 1 of 3): %s" % first_slot.tooltip_text)
 	_require(first_slot.tooltip_text.contains("cast position 1 of 3"), "Expected the slot tooltip to state its cast order, got: %s" % first_slot.tooltip_text)
 	var has_remove_badge := false
@@ -260,6 +268,44 @@ func _initialize() -> void:
 	_require(build_state.equipped_weapon == null, "Expected clicking the equipped weapon slot to unequip it.")
 	_require(build_state.has_inventory_item(dagger), "Expected the unequipped dagger to land back in the inventory.")
 
+	# -- 7. Talent dependency visual language: selected talents that support
+	# selected dependents keep the normal selected look, but pulse the
+	# dependent chain on a blocked deselect click. --
+	build_state.reset()
+	build_state.set_class(rogue)
+	build_state.select_tree(thief)
+	build_state.add_talent_points(4)
+	_require(build_state.select_talent(quick_hands), "Expected Quick Hands to be selectable.")
+	_require(build_state.select_talent(practiced_rhythm), "Expected Practiced Rhythm to be selectable.")
+	_require(build_state.select_talent(opportunity_strikes), "Expected Opportunity Strikes to be selectable.")
+	await process_frame
+
+	node_buttons = _talent_node_buttons(talent_panel)
+	var quick_hands_button: Button = node_buttons["talent.quick_hands"]
+	var practiced_rhythm_button: Button = node_buttons["talent.practiced_rhythm"]
+	var opportunity_button: Button = node_buttons["talent.opportunity_strikes"]
+	_require(quick_hands_button.get_meta("dependency_protected") == true, "Expected Quick Hands to carry the protected-selected marker while Practiced Rhythm depends on it.")
+	_require(practiced_rhythm_button.get_meta("dependency_protected") == true, "Expected Practiced Rhythm to carry the protected-selected marker while Opportunity Strikes depends on it.")
+	_require(opportunity_button.get_meta("dependency_protected") == false, "Expected the top selected talent without dependents to stay normally selected.")
+	var protected_style: StyleBoxFlat = quick_hands_button.get_theme_stylebox("normal")
+	_require(protected_style.border_color == UIColors.TEXT_POISON, "Expected protected selected talents to keep the normal selected border color until clicked.")
+
+	talent_panel._on_node_pressed(quick_hands)
+	_require(build_state.selected_talents.has(quick_hands), "Expected blocked deselect to leave Quick Hands selected.")
+	_require(talent_panel._last_dependency_blocked_talent == quick_hands, "Expected the clicked protected talent to be recorded as the blocked pulse source.")
+	_require(talent_panel._last_dependency_pulse_talents.has(practiced_rhythm), "Expected blocked deselect to pulse the direct dependent.")
+	_require(talent_panel._last_dependency_pulse_talents.has(opportunity_strikes), "Expected blocked deselect to pulse the selected chain above the direct dependent.")
+	_require(talent_panel._last_dependency_pulse_talents.size() == 2, "Expected only the selected dependent chain to pulse.")
+
+	build_state.add_talent_points(1)
+	_require(build_state.select_talent(piercing_blades), "Expected Piercing Blades to provide an alternate OR prerequisite.")
+	await process_frame
+	node_buttons = _talent_node_buttons(talent_panel)
+	quick_hands_button = node_buttons["talent.quick_hands"]
+	_require(quick_hands_button.get_meta("dependency_protected") == false, "Expected Quick Hands to stop reading as protected once Piercing Blades also satisfies the OR prerequisite.")
+	talent_panel._on_node_pressed(quick_hands)
+	_require(not build_state.selected_talents.has(quick_hands), "Expected Quick Hands to be removable once the selected chain has another support.")
+
 	build_state.reset()
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[0])
@@ -293,3 +339,11 @@ func _talent_panel_text(talent_panel) -> String:
 	for label in talent_panel.find_children("*", "Label", true, false):
 		parts.append(label.text)
 	return "\n".join(parts)
+
+
+func _talent_node_buttons(talent_panel) -> Dictionary:
+	var buttons := {}
+	for node in talent_panel.find_children("*", "Button", true, false):
+		if node.has_meta("talent_id"):
+			buttons[node.get_meta("talent_id")] = node
+	return buttons

@@ -6,14 +6,15 @@ extends PanelContainer
 ## happens in available_skills_panel.gd; both strips sync purely through
 ## state.rotation.
 
-const CARD_TITLE_FONT_SIZE := 20
-const SLOT_SIZE := Vector2(56, 56)
-const SLOT_FONT_SIZE := 22
-const SLOT_ICON_INSET := 5.0
-const SLOT_ICON_SIZE := Vector2(42, 42)
-const PANEL_MIN_HEIGHT := 132
-const ORDER_BADGE_FONT_SIZE := 10
-const REMOVE_BADGE_FONT_SIZE := 13
+const CARD_TITLE_FONT_SIZE := 28
+const SLOT_SIZE := Vector2(72, 72)
+const SLOT_FONT_SIZE := 26
+const SLOT_ICON_INSET := 7.0
+const SLOT_ICON_SIZE := Vector2(58, 58)
+const PANEL_MIN_HEIGHT := 184
+const ORDER_BADGE_FONT_SIZE := 11
+const REMOVE_BADGE_FONT_SIZE := 14
+const SLOT_COUNT_FONT_SIZE := 22
 const ACTIVE_SLOT_COLOR := Color(1.0, 0.86, 0.28, 1.0)
 const ACTIVE_SLOT_BG := Color(0.22, 0.17, 0.05, 0.94)
 const PULSE_SLOT_COLOR := UIColors.TEXT_MAGIC
@@ -22,16 +23,22 @@ const PROGRESS_FILL_COLOR := Color(1.0, 0.86, 0.28, 0.36)
 const PROC_PROGRESS_FILL_COLOR := Color(0.62, 0.45, 0.85, 0.48)
 const LOCK_ICON := preload("res://assets/ui/icons/build_lock.png")
 const UNLOCK_ICON := preload("res://assets/ui/icons/build_unlock.png")
-const LOCK_BUTTON_SIZE := Vector2(52, 52)
-const LOCK_BUTTON_ICON_SIZE := Vector2(34, 34)
+const LOCK_BUTTON_SIZE := Vector2(50, 50)
+const LOCK_BUTTON_ICON_SIZE := Vector2(32, 32)
+const LOCK_BUTTON_CORNER_RADIUS := 25
 
 ## P2:R10: see talent_panel.gd's `state` comment -- same pattern, same
 ## default, same untyped declaration reason.
 var state = BuildState
 
+var _content: VBoxContainer
+var _title_label: Label
+var _macro_row: HBoxContainer
 var _slots_box: HBoxContainer
+var _slot_count_label: Label
 var _lock_button: Button
 var _lock_button_icon: TextureRect
+var _lock_holder: CenterContainer
 var _slot_buttons: Array[Button] = []
 var _slot_fills: Array[ColorRect] = []
 var _active_index := -1
@@ -42,27 +49,37 @@ func _ready() -> void:
 	add_theme_stylebox_override("panel", CardStyle.make_stylebox())
 	custom_minimum_size = Vector2(0, PANEL_MIN_HEIGHT)
 
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 8)
-	add_child(content)
+	_content = VBoxContainer.new()
+	_content.add_theme_constant_override("separation", 8)
+	add_child(_content)
 
-	var title := Label.new()
-	title.text = "Skill Build"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title.theme_type_variation = &"PanelHeader"
-	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	content.add_child(title)
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 16)
+	_content.add_child(title_row)
 
-	_slots_box = HBoxContainer.new()
-	_slots_box.add_theme_constant_override("separation", 8)
-	_slots_box.custom_minimum_size = Vector2(0, SLOT_SIZE.y)
-	content.add_child(_slots_box)
+	_title_label = Label.new()
+	_title_label.text = "Skill Build"
+	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_title_label.theme_type_variation = &"PanelHeader"
+	_title_label.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
+	title_row.add_child(_title_label)
+
+	var title_spacer := Control.new()
+	title_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_row.add_child(title_spacer)
+
+	_slot_count_label = Label.new()
+	_slot_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_slot_count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_slot_count_label.add_theme_font_size_override("font_size", SLOT_COUNT_FONT_SIZE)
+	_slot_count_label.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
+	title_row.add_child(_slot_count_label)
 
 	_lock_button = Button.new()
 	_lock_button.custom_minimum_size = LOCK_BUTTON_SIZE
-	_lock_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_lock_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_lock_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_lock_button.pressed.connect(_on_lock_pressed)
-	content.add_child(_lock_button)
 
 	_lock_button_icon = TextureRect.new()
 	_lock_button_icon.name = "LockButtonIcon"
@@ -74,14 +91,29 @@ func _ready() -> void:
 	_lock_button_icon.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	_lock_button_icon.anchor_top = 0.5
 	_lock_button_icon.anchor_bottom = 0.5
-	_lock_button_icon.offset_left = (LOCK_BUTTON_SIZE.x - LOCK_BUTTON_ICON_SIZE.x) / 2.0
-	_lock_button_icon.offset_right = (LOCK_BUTTON_SIZE.x + LOCK_BUTTON_ICON_SIZE.x) / 2.0
-	_lock_button_icon.offset_top = -LOCK_BUTTON_ICON_SIZE.y / 2.0
-	_lock_button_icon.offset_bottom = LOCK_BUTTON_ICON_SIZE.y / 2.0
 	_lock_button.add_child(_lock_button_icon)
+
+	_macro_row = HBoxContainer.new()
+	_macro_row.add_theme_constant_override("separation", 2)
+	_content.add_child(_macro_row)
+
+	_slots_box = HBoxContainer.new()
+	_slots_box.add_theme_constant_override("separation", 6)
+	_slots_box.custom_minimum_size = Vector2(0, SLOT_SIZE.y)
+	_macro_row.add_child(_slots_box)
+
+	var lock_spacer := Control.new()
+	lock_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_macro_row.add_child(lock_spacer)
+
+	_lock_holder = CenterContainer.new()
+	_lock_holder.custom_minimum_size = Vector2(LOCK_BUTTON_SIZE.x, SLOT_SIZE.y)
+	_macro_row.add_child(_lock_holder)
+	_lock_holder.add_child(_lock_button)
 
 	state.build_changed.connect(_refresh)
 	state.lock_changed.connect(_refresh)
+	_update_lock_icon_rect()
 	_refresh()
 
 
@@ -90,6 +122,7 @@ func _on_lock_pressed() -> void:
 
 
 func _update_lock_button() -> void:
+	var disabled_empty_lock: bool = state.rotation.is_empty() and not state.build_locked
 	_lock_button.text = ""
 	_lock_button.icon = null
 	_lock_button.add_theme_constant_override("icon_max_width", 0)
@@ -103,16 +136,20 @@ func _update_lock_button() -> void:
 	_lock_button.tooltip_text = (
 		"Unlock your skill macro so you can edit it"
 		if state.build_locked
+		else "Slot at least one skill before locking your macro"
+		if disabled_empty_lock
 		else "Lock this skill macro so you can start the fight"
 	)
+	_lock_button_icon.modulate = Color(0.68, 0.64, 0.58, 1.0) if disabled_empty_lock else Color.WHITE
 	_apply_lock_button_style()
 	# Can't lock an empty macro -- fighting with no skills is a guaranteed
 	# zero-damage loss.
-	_lock_button.disabled = state.rotation.is_empty() and not state.build_locked
+	_lock_button.disabled = disabled_empty_lock
 
 
 func _refresh() -> void:
 	_update_lock_button()
+	_update_slot_count_label()
 	_slot_buttons = []
 	_slot_fills = []
 	for child in _slots_box.get_children():
@@ -284,8 +321,28 @@ func _apply_lock_button_style() -> void:
 		style.bg_color = fill
 		style.border_color = border
 		style.set_border_width_all(2)
-		style.set_corner_radius_all(26)
+		style.set_corner_radius_all(LOCK_BUTTON_CORNER_RADIUS)
 		_lock_button.add_theme_stylebox_override(state_name, style)
+	var disabled_style := StyleBoxFlat.new()
+	disabled_style.bg_color = UIColors.PANEL_DISABLED
+	disabled_style.border_color = UIColors.STRUCTURE_LINE_LIGHT
+	disabled_style.set_border_width_all(2)
+	disabled_style.set_corner_radius_all(LOCK_BUTTON_CORNER_RADIUS)
+	_lock_button.add_theme_stylebox_override("disabled", disabled_style)
+
+
+func _update_slot_count_label() -> void:
+	var count: int = state.rotation.size()
+	_slot_count_label.text = "Slots: %d/%d" % [count, BuildResolver.MAX_ROTATION_SIZE]
+	_slot_count_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD if count >= BuildResolver.MAX_ROTATION_SIZE else UIColors.TEXT_DISABLED)
+
+
+func _update_lock_icon_rect() -> void:
+	_lock_button_icon.custom_minimum_size = LOCK_BUTTON_ICON_SIZE
+	_lock_button_icon.offset_left = (LOCK_BUTTON_SIZE.x - LOCK_BUTTON_ICON_SIZE.x) / 2.0
+	_lock_button_icon.offset_right = (LOCK_BUTTON_SIZE.x + LOCK_BUTTON_ICON_SIZE.x) / 2.0
+	_lock_button_icon.offset_top = -LOCK_BUTTON_ICON_SIZE.y / 2.0
+	_lock_button_icon.offset_bottom = LOCK_BUTTON_ICON_SIZE.y / 2.0
 
 
 func _pulse_slot(slot: Button) -> void:

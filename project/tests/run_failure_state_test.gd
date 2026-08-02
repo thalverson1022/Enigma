@@ -12,6 +12,7 @@ func _initialize() -> void:
 	build_state.set_adventure_seed(8675309)
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
+	_set_basic_rotation(build_state)
 	build_state.choose_current_tavern_encounter()
 
 	print("first Tavern encounter (Mouthy Drunk) losses should grant unlimited retries")
@@ -105,6 +106,7 @@ func _initialize() -> void:
 	print("contract route loss should grant exactly one do-over, then mark the contract failed")
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
+	_set_basic_rotation(build_state)
 	_require(build_state.start_contract_offer(), "Expected contract offer to start.")
 	_require(build_state.accept_contract_offer(), "Expected contract offer accept to work.")
 	_require(build_state.choose_secondary_tree(rogue.trees[0]), "Expected secondary tree choice to work.")
@@ -134,6 +136,7 @@ func _initialize() -> void:
 	build_state.reset(true)
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
+	_set_basic_rotation(build_state)
 	_require(build_state.start_contract_offer(), "Expected contract offer to start for the Vyra control check.")
 	_require(build_state.accept_contract_offer(), "Expected contract offer accept for the Vyra control check.")
 	build_state.current_route_node = _find_route_node(build_state.active_contract.offer_node, "route.gilded_serpent.vyra")
@@ -173,6 +176,7 @@ func _initialize() -> void:
 	build_state.reset(true)
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
+	_set_basic_rotation(build_state)
 	_require(build_state.start_contract_offer(), "Expected contract offer to start for victory check.")
 	_require(build_state.accept_contract_offer(), "Expected contract offer accept for victory check.")
 	build_state.current_route_node = _find_route_node(build_state.active_contract.offer_node, "route.gilded_serpent.vyra")
@@ -202,6 +206,13 @@ func _find_route_node(root_node: ContractRouteNode, id: String) -> ContractRoute
 		if found != null:
 			return found
 	return null
+
+
+func _set_basic_rotation(build_state) -> void:
+	var unlocked: Array[Skill] = build_state.unlocked_skills()
+	_require(not unlocked.is_empty(), "Expected at least one unlocked skill for the lock-as-ready test setup.")
+	var rotation: Array[Skill] = [unlocked[0]]
+	build_state.set_rotation(rotation)
 
 
 ## Fixed to record-and-continue rather than quit(1) immediately (combat-

@@ -35,12 +35,16 @@ func _initialize() -> void:
 	var fight_button: Button = training_room.find_child("FightButton", true, false)
 	var result_log: RichTextLabel = training_room.find_child("ResultLog", true, false)
 	var view_log_button: Button = training_room.find_child("ViewLogButton", true, false)
+	var available_skills_panel = training_room.find_child("AvailableSkillsPanel", true, false)
+	var skill_build_panel = training_room.find_child("SkillBuildPanel", true, false)
 	var columns: HBoxContainer = training_room.find_child("Columns", true, false)
 	var left_column: VBoxContainer = training_room.find_child("LeftColumn", true, false)
 	var right_column: VBoxContainer = training_room.find_child("RightColumn", true, false)
 	assert(fight_button != null)
 	assert(result_log != null)
 	assert(view_log_button != null)
+	assert(available_skills_panel != null)
+	assert(skill_build_panel != null)
 	assert(columns != null)
 	assert(left_column != null)
 	assert(right_column != null)
@@ -61,6 +65,10 @@ func _initialize() -> void:
 	# Lock button uses for the same reason (a guaranteed zero-damage loss) --
 	print("fight button disabled with empty rotation (expect true): %s" % fight_button.disabled)
 	assert(fight_button.disabled)
+	training_room._state.set_locked(true)
+	await process_frame
+	assert(not training_room._state.build_locked)
+	assert(fight_button.disabled)
 
 	# -- Build a real practice rotation: Thief + Piercing Blades + Stab --
 	training_room._on_primary_tree_selected(rogue.trees[1])
@@ -74,7 +82,6 @@ func _initialize() -> void:
 		if skill.id == "skill.stab":
 			stab = skill
 	assert(stab != null)
-	var available_skills_panel = training_room.find_child("AvailableSkillsPanel", true, false)
 	available_skills_panel._on_skill_pressed(stab)
 	await process_frame
 	print("fight button disabled with non-empty unlocked rotation (expect true): %s" % fight_button.disabled)
@@ -124,6 +131,23 @@ func _initialize() -> void:
 	assert(result_chip_text.contains("Practice"))
 	assert(not result_chip_text.contains("Victory"))
 	assert(not result_chip_text.contains("Defeat"))
+
+	# -- Build edits through the shared SkillBuildPanel invalidate completed
+	# practice review, so stale result logs cannot survive a rotation change.
+	training_room._state.set_locked(false)
+	await process_frame
+	skill_build_panel._on_slot_pressed(0)
+	await process_frame
+	_assert_result_review_invalidated(training_room, result_log, view_log_button)
+	assert(training_room._state.rotation.is_empty())
+	available_skills_panel._on_skill_pressed(stab)
+	training_room._state.set_locked(true)
+	await process_frame
+	assert(not fight_button.disabled)
+	training_room._on_fight_button_pressed()
+	await process_frame
+	assert(training_room._state.last_result != null)
+	assert(not view_log_button.disabled)
 
 	training_room._on_fight_button_pressed()
 	await process_frame

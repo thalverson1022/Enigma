@@ -19,6 +19,7 @@ func _initialize() -> void:
 	var rogue: ClassDef = load("res://data/classes/rogue.tres")
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
+	_set_basic_rotation(build_state)
 
 	_require(RunFlow.tavern_encounter_count() == 4, "Tavern route should stop after four encounters.")
 
@@ -152,3 +153,10 @@ func _require(condition: bool, message: String) -> void:
 		return
 	push_error(message)
 	quit(1)
+
+
+func _set_basic_rotation(build_state) -> void:
+	var unlocked: Array[Skill] = build_state.unlocked_skills()
+	_require(not unlocked.is_empty(), "Expected at least one unlocked skill for contract readiness setup.")
+	var rotation: Array[Skill] = [unlocked[0]]
+	build_state.set_rotation(rotation)

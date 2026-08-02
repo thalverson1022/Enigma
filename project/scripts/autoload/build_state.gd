@@ -83,6 +83,8 @@ func _clear_lock_on_change() -> void:
 
 
 func set_locked(locked: bool) -> void:
+	if locked and rotation.is_empty():
+		locked = false
 	if build_locked == locked:
 		return
 	build_locked = locked
@@ -179,6 +181,7 @@ func current_combat_rng_seed() -> int:
 func can_start_current_fight() -> bool:
 	return (
 		build_locked
+		and not rotation.is_empty()
 		and run_phase == RunPhase.PLANNING
 		and current_target_monster() != null
 		and current_target_duration_ms() > 0

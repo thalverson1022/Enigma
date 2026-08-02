@@ -43,11 +43,12 @@ var equipped_trinket: GearItem = null
 var equipped_charm: GearItem = null
 
 ## P2:R10:T4 -- freeform, hand-editable practice gear, one per slot.
-## `equipped_weapon` starts pointed at `practice_weapon` (Custom mode);
-## `equip_legendary()` (T3) points it at a fixed catalog item instead
-## (read-only in the UI), and `use_custom_weapon()` points it back. Trinket/
-## charm have no Legendary items today, so they're always their practice
-## item -- no mode toggle needed for those two slots.
+## Training Room starts with no gear equipped; choosing Basic/Master/Cursed
+## equips the corresponding practice item, and choosing None unequips it.
+## `equip_legendary()` points the weapon slot at a fixed catalog item instead
+## (read-only in the UI), and `use_custom_weapon()` points it back to the
+## editable practice weapon. Trinket/charm have no Legendary items today, so
+## they are only controlled by the rarity dropdown.
 var practice_weapon: GearItem
 var practice_trinket: GearItem
 var practice_charm: GearItem
@@ -73,9 +74,6 @@ func _init() -> void:
 	practice_weapon = _make_practice_item(GearItem.SlotType.WEAPON, "Custom Weapon")
 	practice_trinket = _make_practice_item(GearItem.SlotType.TRINKET, "Custom Trinket")
 	practice_charm = _make_practice_item(GearItem.SlotType.CHARM, "Custom Charm")
-	equipped_weapon = practice_weapon
-	equipped_trinket = practice_trinket
-	equipped_charm = practice_charm
 	# Not a seeded roster entry (P2:R10:T5 reworked this into adjustable
 	# Armor/Poison Resist values, post-R10 UI-feedback pass) -- a plain
 	# in-memory Monster this state owns and mutates directly, never a .tres.
@@ -84,12 +82,10 @@ func _init() -> void:
 	selected_target.hp = PRACTICE_TARGET_HP
 	selected_target.armor = DEFAULT_TARGET_ARMOR
 	selected_target.poison_resistance = DEFAULT_TARGET_POISON_RESIST
-	# Start every practice item as a real Basic-tier item (1 real affix)
-	# rather than an empty shell -- matches the rarity-first gear editor's
-	# "rarity always implies a real affix count" invariant from the start.
-	set_slot_rarity(practice_weapon, GearItem.Tier.BASIC)
-	set_slot_rarity(practice_trinket, GearItem.Tier.BASIC)
-	set_slot_rarity(practice_charm, GearItem.Tier.BASIC)
+	# Practice items begin as empty shells so entering Training Room has no
+	# equipped gear. The rarity-first invariant still applies once a player
+	# picks Basic/Master/Cursed: that choice equips the item and fills the
+	# real GearGenerator-shaped affix count.
 
 
 func _make_practice_item(slot: GearItem.SlotType, display_name: String) -> GearItem:
@@ -107,6 +103,8 @@ func _clear_lock_on_change() -> void:
 
 
 func set_locked(locked: bool) -> void:
+	if locked and rotation.is_empty():
+		locked = false
 	if build_locked == locked:
 		return
 	build_locked = locked
@@ -215,7 +213,7 @@ func use_custom_weapon() -> void:
 ## editable practice item -- the affix editor reads this to know whether to
 ## render itself as read-only.
 func is_weapon_legendary() -> bool:
-	return equipped_weapon != practice_weapon
+	return equipped_weapon != null and equipped_weapon != practice_weapon
 
 
 ## "None" rarity choice (user-requested) -- empties the slot entirely, no
@@ -223,6 +221,7 @@ func is_weapon_legendary() -> bool:
 ## "no item" value to represent this; the UI reads an empty `affixes` array
 ## as "None" currently selected (see training_room.gd's _refresh_gear_slot()).
 func clear_slot(item: GearItem) -> void:
+	_unequip_practice_item(item)
 	item.affixes.clear()
 	build_changed.emit()
 
@@ -235,6 +234,7 @@ func clear_slot(item: GearItem) -> void:
 ## practice_charm -- never a Legendary (those are handled entirely by
 ## equip_legendary()/use_custom_weapon(), never passed here).
 func set_slot_rarity(item: GearItem, tier: GearItem.Tier) -> void:
+	_equip_practice_item(item)
 	item.tier = tier
 	var target_count := _affix_slot_count(tier)
 	while item.affixes.size() > target_count:
@@ -257,6 +257,29 @@ func set_slot_rarity(item: GearItem, tier: GearItem.Tier) -> void:
 		modifier.operation = GearGenerator.OPERATION[modifier.stat]
 		modifier.value = _tier_value(modifier.stat, tier, i, target_count)
 	build_changed.emit()
+
+
+func _equip_practice_item(item: GearItem) -> void:
+	match item.slot:
+		GearItem.SlotType.WEAPON:
+			equipped_weapon = item
+		GearItem.SlotType.TRINKET:
+			equipped_trinket = item
+		GearItem.SlotType.CHARM:
+			equipped_charm = item
+
+
+func _unequip_practice_item(item: GearItem) -> void:
+	match item.slot:
+		GearItem.SlotType.WEAPON:
+			if equipped_weapon == item:
+				equipped_weapon = null
+		GearItem.SlotType.TRINKET:
+			if equipped_trinket == item:
+				equipped_trinket = null
+		GearItem.SlotType.CHARM:
+			if equipped_charm == item:
+				equipped_charm = null
 
 
 ## Re-picks one affix slot's stat (the player's dropdown choice) and

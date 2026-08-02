@@ -45,6 +45,8 @@ func _check_training_room_ui_cap() -> void:
 	assert(stab != null)
 
 	var available_skills_panel = training_room.find_child("AvailableSkillsPanel", true, false)
+	var skill_build_panel = training_room.find_child("SkillBuildPanel", true, false)
+	assert(skill_build_panel != null)
 	for i in BuildResolver.MAX_ROTATION_SIZE:
 		available_skills_panel._on_skill_pressed(stab)
 	await process_frame
@@ -52,6 +54,7 @@ func _check_training_room_ui_cap() -> void:
 		BuildResolver.MAX_ROTATION_SIZE, BuildResolver.MAX_ROTATION_SIZE, training_room._state.rotation.size()
 	])
 	assert(training_room._state.rotation.size() == BuildResolver.MAX_ROTATION_SIZE)
+	assert(skill_build_panel._slot_count_label.text == "Slots: 10/10")
 
 	# One more press past the cap must not grow the rotation, and the
 	# button itself should now be disabled (clear UX signal, not just a

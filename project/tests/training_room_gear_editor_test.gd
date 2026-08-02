@@ -34,14 +34,21 @@ func _initialize() -> void:
 	var character_stats_panel = training_room.find_child("CharacterStatsPanel", true, false)
 	assert(character_stats_panel != null)
 
-	# -- Every practice slot starts as a real Basic item (1 affix), not an
-	# empty shell -- the rarity-first editor's core invariant. --
-	print("weapon starts Basic with 1 affix (expect true): %s" % (
-		training_room._state.practice_weapon.tier == GearItem.Tier.BASIC
-		and training_room._state.practice_weapon.affixes.size() == 1
+	# -- Entering Training Room starts with no gear equipped. Rarity-first
+	# defaults are applied only after the player chooses Basic/Master/Cursed. --
+	print("Training Room starts with no equipped items (expect true): %s" % (
+		training_room._state.equipped_gear().is_empty()
 	))
-	assert(training_room._state.practice_weapon.tier == GearItem.Tier.BASIC)
-	assert(training_room._state.practice_weapon.affixes.size() == 1)
+	assert(training_room._state.equipped_weapon == null)
+	assert(training_room._state.equipped_trinket == null)
+	assert(training_room._state.equipped_charm == null)
+	assert(training_room._state.equipped_gear().is_empty())
+	assert(training_room._state.practice_weapon.affixes.is_empty())
+	assert(training_room._state.practice_trinket.affixes.is_empty())
+	assert(training_room._state.practice_charm.affixes.is_empty())
+	assert(training_room._weapon_rarity_option.get_selected_id() == training_room.NONE_RARITY_ID)
+	assert(training_room._trinket_rarity_option.get_selected_id() == training_room.NONE_RARITY_ID)
+	assert(training_room._charm_rarity_option.get_selected_id() == training_room.NONE_RARITY_ID)
 	assert(not training_room._state.is_weapon_legendary())
 
 	# -- Rarity -> Master resizes to 2 affixes --
@@ -51,6 +58,7 @@ func _initialize() -> void:
 	)
 	await process_frame
 	print("weapon affixes after Master=%d (expect 2)" % training_room._state.practice_weapon.affixes.size())
+	assert(training_room._state.equipped_weapon == training_room._state.practice_weapon)
 	assert(training_room._state.practice_weapon.affixes.size() == 2)
 
 	# -- Picking a stat auto-fills the real Master value for that stat --
@@ -126,6 +134,7 @@ func _initialize() -> void:
 		training_room._state.practice_weapon.tier == GearItem.Tier.BASIC
 		and training_room._state.practice_weapon.affixes.size() == 1
 	))
+	assert(training_room._state.equipped_weapon == training_room._state.practice_weapon)
 	assert(training_room._state.practice_weapon.tier == GearItem.Tier.BASIC)
 	assert(training_room._state.practice_weapon.affixes.size() == 1)
 
@@ -139,6 +148,7 @@ func _initialize() -> void:
 	)
 	await process_frame
 	print("trinket affixes after Master=%d (expect 2)" % training_room._state.practice_trinket.affixes.size())
+	assert(training_room._state.equipped_trinket == training_room._state.practice_trinket)
 	assert(training_room._state.practice_trinket.affixes.size() == 2)
 
 	# -- Rarity -> None (user-requested) empties the slot entirely and the
@@ -149,6 +159,7 @@ func _initialize() -> void:
 	)
 	await process_frame
 	print("trinket affixes after None=%d (expect 0)" % training_room._state.practice_trinket.affixes.size())
+	assert(training_room._state.equipped_trinket == null)
 	assert(training_room._state.practice_trinket.affixes.is_empty())
 	print("trinket rarity dropdown shows None selected (expect true): %s" % (
 		training_room._trinket_rarity_option.get_selected_id() == training_room.NONE_RARITY_ID

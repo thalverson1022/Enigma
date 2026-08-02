@@ -48,6 +48,19 @@ func _initialize() -> void:
 	assert(available_skills_panel.state != build_state)
 	assert(skill_build_panel.state != build_state)
 	assert(character_stats_panel.state != build_state)
+	assert(skill_build_panel._slot_count_label.text == "Slots: 0/10")
+	assert(skill_build_panel._lock_button.disabled)
+	assert(skill_build_panel._lock_button.tooltip_text.contains("Slot at least one skill"))
+	assert(not skill_build_panel._lock_button.tooltip_text.contains("Adventure"))
+	assert(not skill_build_panel._lock_button.tooltip_text.contains("reward"))
+	training_room._state.set_locked(true)
+	await process_frame
+	assert(not training_room._state.build_locked)
+	assert(skill_build_panel._lock_button.disabled)
+	assert(training_room._state.equipped_weapon == null)
+	assert(training_room._state.equipped_trinket == null)
+	assert(training_room._state.equipped_charm == null)
+	assert(training_room._state.equipped_gear().is_empty())
 
 	# -- Freeform tree dropdowns: pick 2 of the 3 real trees --
 	assert(rogue.trees.size() == 3)
@@ -76,6 +89,13 @@ func _initialize() -> void:
 	print("practice rotation size=%d (expect 1)" % training_room._state.rotation.size())
 	assert(training_room._state.rotation.size() == 1)
 	assert(skill_build_panel._slots_box.get_child_count() == 1)
+	assert(skill_build_panel._slot_count_label.text == "Slots: 1/10")
+	assert(not skill_build_panel._lock_button.disabled)
+	assert(skill_build_panel._lock_button.tooltip_text == "Lock this skill macro so you can start the fight")
+	training_room._state.set_locked(true)
+	await process_frame
+	assert(training_room._state.build_locked)
+	assert(skill_build_panel._lock_button.tooltip_text == "Unlock your skill macro so you can edit it")
 
 	# -- Direct Legendary equip --
 	var wyvern: GearItem = load("res://data/gear/wyvern_kriss.tres")

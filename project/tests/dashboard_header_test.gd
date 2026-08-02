@@ -40,6 +40,7 @@ func _initialize() -> void:
 	build_state.set_adventure_seed(555)
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
+	_set_basic_rotation(build_state)
 	build_state.choose_current_tavern_encounter()
 	await process_frame
 	print("Tavern encounter chosen, build not yet locked")
@@ -96,6 +97,7 @@ func _initialize() -> void:
 	build_state.reset(true)
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
+	_set_basic_rotation(build_state)
 	_require(build_state.start_contract_offer(), "Expected contract offer to start.")
 	await process_frame
 	print("contract offer header")
@@ -174,3 +176,10 @@ func _require(condition: bool, message: String) -> void:
 		return
 	push_error(message)
 	quit(1)
+
+
+func _set_basic_rotation(build_state) -> void:
+	var unlocked: Array[Skill] = build_state.unlocked_skills()
+	_require(not unlocked.is_empty(), "Expected at least one unlocked skill for dashboard readiness setup.")
+	var rotation: Array[Skill] = [unlocked[0]]
+	build_state.set_rotation(rotation)

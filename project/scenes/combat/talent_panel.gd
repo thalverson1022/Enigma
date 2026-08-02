@@ -25,6 +25,9 @@ const TREE_COLUMN_SEPARATION := 24
 const CONNECTOR_COLOR := UIColors.STRUCTURE_LINE_LIGHT
 const UNAVAILABLE_ALPHA := 0.45
 const TREE_ICON_SIZE := Vector2(54, 54)
+const SELECTED_NODE_FILL := Color(0.24, 0.32, 0.15, 0.96)
+const DEPENDENCY_PULSE_SCALE := Vector2(1.06, 1.06)
+const DEPENDENCY_PULSE_COLOR := Color(1.0, 0.95, 0.68, 1.0)
 
 ## P2:R10: the reused build-panel state source. Defaults to the real
 ## `BuildState` singleton (Adventure's actual behavior, unchanged), but
@@ -36,6 +39,10 @@ var state = BuildState
 
 var _talent_box: VBoxContainer
 var _points_label: Label
+var _talent_buttons: Dictionary = {}
+var _talent_pulse_tweens: Dictionary = {}
+var _last_dependency_blocked_talent: Talent = null
+var _last_dependency_pulse_talents: Array[Talent] = []
 
 
 ## One circle per point of cost; filled green when selected, outline when
@@ -100,6 +107,9 @@ func _ready() -> void:
 
 
 func _refresh() -> void:
+	_talent_buttons.clear()
+	_last_dependency_blocked_talent = null
+	_last_dependency_pulse_talents.clear()
 	for child in _talent_box.get_children():
 		child.queue_free()
 	if state.selected_trees.is_empty():
@@ -261,6 +271,7 @@ func _build_node(talent: Talent) -> Button:
 	var selectable: bool = PassiveAllocator.can_select_talent(
 		state.selected_trees, state.selected_talents, talent, state.earned_talent_points
 	)
+	var dependency_protected := selected and not PassiveAllocator.can_deselect_talent(state.selected_talents, talent)
 	var lock_reason: String = "" if (selected or selectable) else _talent_lock_reason(talent)
 
 	var node_col := VBoxContainer.new()
@@ -292,6 +303,7 @@ func _build_node(talent: Talent) -> Button:
 
 	var button := Button.new()
 	button.set_meta("talent_id", talent.id)
+	button.set_meta("dependency_protected", dependency_protected)
 	button.tooltip_text = _talent_tooltip(talent, lock_reason)
 	button.pressed.connect(_on_node_pressed.bind(talent))
 	button.add_child(node_col)
@@ -309,12 +321,13 @@ func _build_node(talent: Talent) -> Button:
 	elif selected:
 		name_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
 		detail_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
-		_apply_node_style(button, Color(0.24, 0.32, 0.15, 0.96), UIColors.TEXT_POISON, 3)
+		_apply_node_style(button, SELECTED_NODE_FILL, UIColors.TEXT_POISON, 3)
 	else:
 		name_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
 		detail_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
 		_apply_node_style(button, UIColors.PANEL_DEEP, CardStyle.ACCENT_COLOR, 2)
 
+	_talent_buttons[talent] = button
 	return button
 
 
@@ -369,13 +382,80 @@ func _talent_lock_reason(talent: Talent) -> String:
 
 
 func _on_node_pressed(talent: Talent) -> void:
-	# Rejected selects/deselects (budget, prereqs, dependents) return false
-	# and change nothing; build_changed only fires -- and the tree only
-	# redraws -- on success.
 	if state.selected_talents.has(talent):
-		state.deselect_talent(talent)
+		if not state.deselect_talent(talent):
+			_pulse_dependency_block(talent)
 	else:
 		state.select_talent(talent)
+
+
+func _pulse_dependency_block(talent: Talent) -> void:
+	var dependents := _dependency_blocked_dependents(talent)
+	_last_dependency_blocked_talent = talent
+	_last_dependency_pulse_talents = dependents.duplicate()
+	_pulse_talent_button(talent, true)
+	for dependent in dependents:
+		_pulse_talent_button(dependent, false)
+
+
+func _pulse_talent_button(talent: Talent, is_clicked_talent: bool) -> void:
+	if not _talent_buttons.has(talent):
+		return
+	var button: Button = _talent_buttons[talent]
+	if button == null or not is_instance_valid(button):
+		return
+	if _talent_pulse_tweens.has(button):
+		var previous: Tween = _talent_pulse_tweens[button]
+		if previous != null and previous.is_valid():
+			previous.kill()
+	button.pivot_offset = button.size * 0.5
+	var original_scale := button.scale
+	var original_modulate := button.modulate
+	var pulse_color := UIColors.TEXT_WARNING if is_clicked_talent else DEPENDENCY_PULSE_COLOR
+	button.modulate = pulse_color
+	var tween := create_tween()
+	_talent_pulse_tweens[button] = tween
+	tween.tween_property(button, "scale", DEPENDENCY_PULSE_SCALE, 0.08)
+	tween.parallel().tween_property(button, "modulate", pulse_color, 0.08)
+	tween.tween_property(button, "scale", original_scale, 0.18)
+	tween.parallel().tween_property(button, "modulate", original_modulate, 0.18)
+	tween.finished.connect(
+		_on_dependency_pulse_finished.bind(weakref(button), original_scale, original_modulate)
+	)
+
+
+func _on_dependency_pulse_finished(button_ref: WeakRef, original_scale: Vector2, original_modulate: Color) -> void:
+	var button: Button = button_ref.get_ref()
+	if button == null:
+		return
+	button.scale = original_scale
+	button.modulate = original_modulate
+	_talent_pulse_tweens.erase(button)
+
+
+func _dependency_blocked_dependents(talent: Talent) -> Array[Talent]:
+	var dependents: Array[Talent] = []
+	var frontier: Array[Talent] = [talent]
+	while not frontier.is_empty():
+		var support: Talent = frontier.pop_front()
+		for selected_talent in state.selected_talents:
+			if selected_talent == support or dependents.has(selected_talent):
+				continue
+			if _selected_talent_requires_support(selected_talent, support):
+				dependents.append(selected_talent)
+				frontier.append(selected_talent)
+	return dependents
+
+
+func _selected_talent_requires_support(selected_talent: Talent, support: Talent) -> bool:
+	for group in selected_talent.prerequisites:
+		if not group.options.has(support):
+			continue
+		for option in group.options:
+			if option != support and state.selected_talents.has(option):
+				return false
+		return true
+	return false
 
 
 ## Everything the tree grants just for being selected, with no talent

@@ -380,8 +380,8 @@ func _check_live_win_recap() -> void:
 	combat_screen.queue_free()
 
 
-## Live end-to-end check: a real losing fight (guaranteed by an empty
-## rotation, which deals zero damage) shows the recap inside the same
+## Live end-to-end check: a real losing fight (guaranteed by an intentionally
+## impossible HP target, not an empty macro) shows the recap inside the same
 ## combat-window result overlay shape as victory.
 func _check_live_loss_recap() -> void:
 	var build_state = root.get_node("BuildState")
@@ -390,33 +390,33 @@ func _check_live_loss_recap() -> void:
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
 	build_state.choose_current_tavern_encounter()
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var loss_rotation: Array[Skill] = [stab]
+	build_state.rotation = loss_rotation
 
 	var combat_screen := _instantiate_combat_screen()
 	await process_frame
-	# Deliberately leave the rotation empty so the fight is a guaranteed
-	# loss (zero damage dealt) without depending on any particular monster
-	# HP/window tuning value.
-	build_state.rotation.clear()
 	build_state.set_locked(true)
 
 	var fight_enemy_panel = combat_screen._enemy_panel
 	var monster: Monster = fight_enemy_panel.monster()
+	monster.hp = 100000
 	var duration_ms: int = fight_enemy_panel.duration_ms()
 	var expected_required_dps := float(monster.hp) / (float(duration_ms) / 1000.0)
 
 	print("-- Live loss recap --")
 	fight_enemy_panel.fight_pressed.emit()
 	await process_frame
-	_require(not build_state.last_fight_won, "Expected an empty rotation to guarantee a loss.")
+	_require(not build_state.last_fight_won, "Expected the impossible-HP target to guarantee a loss.")
 	_require(combat_screen._victory_overlay.visible, "Expected the result overlay to be visible after a loss.")
 	_require(combat_screen._victory_title_label.text == "DEFEATED", "Expected the shared result overlay to present the defeat title.")
 	var recap_text: String = combat_screen._victory_recap_label.text
 	print(recap_text)
-	_require(recap_text.contains("Total Damage: 0.0 (needed %d)" % monster.hp), "Expected the loss recap to show zero damage against the required amount.")
+	_require(recap_text.contains("(needed %d)" % monster.hp), "Expected the loss recap to show damage against the required amount.")
 	_require(recap_text.contains("(needed %.1f)" % expected_required_dps), "Expected the loss recap to restate required DPS.")
-	_require(recap_text.contains("Biggest Hit: none."), "Expected the loss recap to report no hits landed.")
+	_require(recap_text.contains("Biggest Hit: Stab"), "Expected the loss recap to report the best landed hit.")
 	_require(not recap_text.contains("Armor reduced"), "Expected no armor reduction line for a no-op rotation.")
-	_require(not recap_text.contains("ticks"), "Expected no poison summary line for a no-op rotation.")
+	_require(not recap_text.contains("ticks"), "Expected no poison summary line for a physical-only rotation.")
 	_require(not combat_screen._recap_label.visible, "Expected the legacy inline recap label to stay hidden on a live defeat overlay.")
 
 	combat_screen.queue_free()

@@ -646,9 +646,9 @@ func _check_natural_playback_win_reveal_timing() -> void:
 	await process_frame
 
 
-## Live check: a real losing fight (empty rotation) with playback enabled --
-## the timeline spans the full window (the timer visibly runs out), and the
-## reveal shows the loss outcome with the enemy's HP intact.
+## Live check: a real losing fight with playback enabled -- the timeline spans
+## the full window (the timer visibly runs out), and the reveal shows the loss
+## outcome with the enemy alive.
 func _check_live_playback_loss() -> void:
 	var build_state = root.get_node("BuildState")
 	build_state.reset()
@@ -656,15 +656,18 @@ func _check_live_playback_loss() -> void:
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
 	build_state.choose_current_tavern_encounter()
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var loss_rotation: Array[Skill] = [stab]
+	build_state.rotation = loss_rotation
 
 	var combat_screen := _instantiate_combat_screen()
 	await process_frame
 	combat_screen.instant_playback = false
-	build_state.rotation.clear()
 	build_state.set_locked(true)
 
 	var fight_enemy_panel = combat_screen._enemy_panel
 	var monster: Monster = fight_enemy_panel.monster()
+	monster.hp = 100000
 	var duration_ms: int = fight_enemy_panel.duration_ms()
 
 	print("-- Live playback loss --")
@@ -683,9 +686,10 @@ func _check_live_playback_loss() -> void:
 	_require(combat_screen._victory_title_label.text == "DEFEATED", "Expected the loss outcome title revealed after skip.")
 	_require(combat_screen._outcome_retry_button.visible, "Expected the retry do-over revealed after skip.")
 	_require(combat_screen._victory_recap_label.text.contains("Total Damage:"), "Expected the loss recap revealed after skip.")
+	var expected_remaining: int = maxi(0, roundi(float(monster.hp) - combat_screen._hud_result.total_damage))
 	_require(
-		combat_screen._hud_hp_text_label.text == "%d/%d" % [monster.hp, monster.hp],
-		"Expected the enemy HP bar to end the loss playback still full (window expired, enemy alive)."
+		combat_screen._hud_hp_text_label.text == "%d/%d" % [expected_remaining, monster.hp],
+		"Expected the enemy HP bar to end the loss playback with the resolved damage applied."
 	)
 	_require(
 		combat_screen._playback_controls._time_label.text == "%.1fs / %.0fs" % [duration_ms / 1000.0, duration_ms / 1000.0],
@@ -707,12 +711,15 @@ func _check_natural_playback_loss_reveal_timing() -> void:
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
 	build_state.choose_current_tavern_encounter()
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var loss_rotation: Array[Skill] = [stab]
+	build_state.rotation = loss_rotation
 
 	var combat_screen := _instantiate_combat_screen()
 	await process_frame
 	combat_screen.instant_playback = false
-	build_state.rotation.clear()
 	build_state.set_locked(true)
+	combat_screen._enemy_panel.monster().hp = 100000
 
 	print("-- Natural playback loss reveal timing --")
 	combat_screen._enemy_panel.fight_pressed.emit()
@@ -751,12 +758,15 @@ func _check_playback_speed_persists() -> void:
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
 	build_state.choose_current_tavern_encounter()
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var loss_rotation: Array[Skill] = [stab]
+	build_state.rotation = loss_rotation
 
 	var combat_screen := _instantiate_combat_screen()
 	await process_frame
 	combat_screen.instant_playback = false
-	build_state.rotation.clear()
 	build_state.set_locked(true)
+	combat_screen._enemy_panel.monster().hp = 100000
 
 	var fight_enemy_panel = combat_screen._enemy_panel
 
@@ -776,6 +786,7 @@ func _check_playback_speed_persists() -> void:
 	_require(build_state.run_phase == build_state.RunPhase.PLANNING, "Expected retry to return to planning.")
 	_require(not build_state.needs_tavern_map_choice(), "Expected the retry-bug fix to make the same encounter immediately fightable again.")
 	build_state.set_locked(true)
+	combat_screen._enemy_panel.monster().hp = 100000
 
 	fight_enemy_panel.fight_pressed.emit()
 	_require(combat_screen._playback_active, "Expected the second fight to also enter playback.")

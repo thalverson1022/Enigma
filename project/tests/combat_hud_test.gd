@@ -370,10 +370,10 @@ func _check_live_pre_fight_and_win() -> void:
 	combat_screen.queue_free()
 
 
-## Live end-to-end: a guaranteed loss (empty rotation, zero damage) leaves
-## remaining HP consistent with monster HP minus the result's total damage,
-## and pressing the real Retry button resets the HUD back to the pre-fight
-## display.
+## Live end-to-end: a guaranteed loss (real rotation against an impossible
+## HP target) leaves remaining HP consistent with monster HP minus the
+## result's total damage, and pressing the real Retry button resets the HUD
+## back to the pre-fight display.
 func _check_live_loss_and_retry_reset() -> void:
 	var build_state = root.get_node("BuildState")
 	build_state.reset()
@@ -381,19 +381,22 @@ func _check_live_loss_and_retry_reset() -> void:
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
 	build_state.choose_current_tavern_encounter()
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var loss_rotation: Array[Skill] = [stab]
+	build_state.rotation = loss_rotation
 
 	var combat_screen := _instantiate_combat_screen()
 	await process_frame
-	build_state.rotation.clear()
 	build_state.set_locked(true)
 
 	var fight_enemy_panel = combat_screen._enemy_panel
 	var monster: Monster = fight_enemy_panel.monster()
+	monster.hp = 100000
 
 	print("-- Live loss HUD --")
 	fight_enemy_panel.fight_pressed.emit()
 	await process_frame
-	_require(not build_state.last_fight_won, "Expected an empty rotation to guarantee a loss.")
+	_require(not build_state.last_fight_won, "Expected the impossible-HP target to guarantee a loss.")
 	_require(combat_screen._enemy_hud.visible, "Expected the HUD visible after a loss.")
 	_require(combat_screen._hud_result != null, "Expected the HUD to hold the resolved fight after a loss.")
 	var expected_remaining: float = float(monster.hp) - combat_screen._hud_result.total_damage
