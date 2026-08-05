@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless check for the new UI restructure. Drives the real scene tree the
-## same way real clicks would: title -> Adventure Mode -> class select
+## same way real clicks would: title -> New Adventure -> class select
 ## (Rogue) -> subclass select (Thief) -> spend real talent points in
 ## talent_panel -> add real skills to the macro in skill_macro_panel ->
 ## press FIGHT -> confirm the combat log renders and character_stats_panel
@@ -19,7 +19,7 @@ func _initialize() -> void:
 	root.add_child(game_root)
 	await process_frame
 
-	# -- Title -> Adventure Mode --
+	# -- Title -> New Adventure --
 	var title = game_root._current_screen
 	title.adventure_pressed.emit()
 	await process_frame
@@ -81,8 +81,25 @@ func _initialize() -> void:
 	var gear_panel = combat_screen.find_child("GearPanel", true, false)
 	assert(talent_panel != null and available_skills_panel != null and skill_build_panel != null and character_stats_panel != null and gear_panel != null)
 	await process_frame
-	assert(build_state.adventure_seed == build_state.DEFAULT_ADVENTURE_SEED)
-	assert(combat_screen._seed_label.text == "Seed: 1")
+	assert(combat_screen._combat_stage.get_node_or_null("StageFloor") == null)
+	assert(not combat_screen._combat_stage.player_actor_anchor.visible)
+	assert(not combat_screen._combat_stage.enemy_actor_anchor.visible)
+	assert(not combat_screen._combat_stage._player_actor_card.visible)
+	assert(not combat_screen._combat_stage._enemy_actor_card.visible)
+	assert(combat_screen._fight_button_row.get_parent() == combat_screen._combat_content)
+	assert(combat_screen._fight_button_row.get_global_rect().position.y >= combat_screen._combat_stage.play_area_global_rect().end.y - 1.0)
+	assert(absf(available_skills_panel.get_global_rect().position.y - combat_screen._combat_window.get_global_rect().end.y - combat_screen.PANEL_SEPARATION) < 1.5)
+	assert(combat_screen._combat_stage._player_contact_shadow != null)
+	assert(combat_screen._combat_stage._enemy_contact_shadow != null)
+	assert(combat_screen._combat_stage._player_contact_shadow.visible == combat_screen._combat_stage._player_sprite.visible)
+	assert(combat_screen._combat_stage._enemy_contact_shadow.visible == combat_screen._combat_stage._enemy_sprite.visible)
+	assert(combat_screen._combat_stage._player_contact_shadow.z_index < combat_screen._combat_stage._player_sprite.z_index)
+	assert(combat_screen._combat_stage._enemy_contact_shadow.z_index < combat_screen._combat_stage._enemy_sprite.z_index)
+	assert(combat_screen._view_log_button.text == "Combat Log")
+	assert(combat_screen._view_log_button.custom_minimum_size.x == combat_screen._enemy_panel.fight_button().custom_minimum_size.x)
+	assert(build_state.adventure_seed >= 0)
+	assert(build_state.adventure_seed <= 2147483647)
+	assert(combat_screen._seed_label.text == "Seed: %d" % build_state.adventure_seed)
 	build_state.set_adventure_seed(37)
 	await process_frame
 	assert(combat_screen._seed_label.text == "Seed: 37")
@@ -95,14 +112,15 @@ func _initialize() -> void:
 	assert(not combat_screen._map_overlay._map_close_button.visible)
 
 	# -- Clicking a node only previews its flavor text; Proceed commits it.
-	# The current node isn't highlighted until clicked, and Proceed is
-	# always visible while a choice is pending, just disabled until then --
-	# both deliberately mirror the Contract Window's own
-	# select-then-Proceed pattern, to teach the player that structure early. --
+	# The current node is highlighted as available before the click, then
+	# receives the stronger selected border once previewed. Proceed remains
+	# visible while a choice is pending, just disabled until preview. --
 	assert(combat_screen._map_overlay._map_proceed_button.visible)
 	assert(combat_screen._map_overlay._map_proceed_button.disabled)
 	var mouthy_drunk_style_before: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
-	assert(mouthy_drunk_style_before.border_color != CardStyle.ACCENT_COLOR)
+	assert(mouthy_drunk_style_before.bg_color == UIColors.PANEL)
+	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernAvailablePulse", true, false) != null)
+	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernDefeatedMarker", true, false) == null)
 	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
 	await process_frame
 	assert(combat_screen._map_overlay.visible)
@@ -113,10 +131,27 @@ func _initialize() -> void:
 	assert(mouthy_drunk_style_after.border_color == CardStyle.ACCENT_COLOR)
 	print("previewed flavor text (expect Mouthy Drunk's): %s" % combat_screen._map_overlay._map_story_label.text)
 	assert(combat_screen._map_overlay._map_story_label.text == "A red-faced patron decides your quiet corner is somehow his business.")
+	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
+	await process_frame
+	assert(combat_screen._map_overlay._map_proceed_button.disabled)
+	var mouthy_drunk_style_deselected: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
+	assert(mouthy_drunk_style_deselected.bg_color == UIColors.PANEL)
+	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernAvailablePulse", true, false) != null)
+	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
+	await process_frame
+	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
 	combat_screen._map_overlay._map_proceed_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay.visible)
 	assert(build_state.tavern_map_choice_made)
+	assert(combat_screen._combat_stage.player_actor_anchor.visible)
+	assert(combat_screen._combat_stage.enemy_actor_anchor.visible)
+	assert(not combat_screen._combat_stage._player_actor_card.visible)
+	assert(not combat_screen._combat_stage._enemy_actor_card.visible)
+	var player_anchor_point: Vector2 = combat_screen._combat_stage._sprite_anchor_point(combat_screen._combat_stage.player_actor_anchor, combat_screen._combat_stage._player_sprite, combat_screen._combat_stage._player_current_anchor_point)
+	var enemy_anchor_point: Vector2 = combat_screen._combat_stage._sprite_anchor_point(combat_screen._combat_stage.enemy_actor_anchor, combat_screen._combat_stage._enemy_sprite, combat_screen._combat_stage.PEASANT_ANCHOR_POINT)
+	assert(absf(player_anchor_point.x - (combat_screen._combat_stage._stage_point_for_grid(combat_screen._combat_stage.PLAYER_STAGE_GRID).x + combat_screen._combat_stage.ACTOR_GROUP_STAGE_OFFSET_PX.x)) < 1.5)
+	assert(absf(enemy_anchor_point.x - (combat_screen._combat_stage._stage_point_for_grid(combat_screen._combat_stage.ENEMY_STAGE_GRID).x + combat_screen._combat_stage.ACTOR_GROUP_STAGE_OFFSET_PX.x)) < 1.5)
 
 	# -- Sizing: Character Stats/Enemy Stats shrink to content; Subclass/Gear
 	# absorb the leftover column height instead. --
@@ -140,7 +175,12 @@ func _initialize() -> void:
 	assert(build_state.inventory.is_empty())
 	assert(gear_panel._inventory_grid.get_child_count() == build_state.INVENTORY_CAPACITY)
 	assert(gear_panel._inventory_grid.get_child(0).disabled)
+	assert(gear_panel._inventory_grid.get_child(0).tooltip_text == "Empty inventory slot")
 	assert(gear_panel._inventory_grid.get_child(0).custom_minimum_size == Vector2(88, 88))
+	assert(gear_panel._gold_label.text == "0g")
+	assert(gear_panel._gold_row.find_child("Icon", true, false) != null)
+	var inventory_header: Label = gear_panel._inventory_grid.get_parent().get_parent().get_parent().get_child(4)
+	assert(inventory_header.text == "Inventory")
 	for child in gear_panel.find_children("*", "Button", true, false):
 		assert(child.text != "Reroll Gear")
 
@@ -162,9 +202,10 @@ func _initialize() -> void:
 	print("assassin intrinsic (expect None): %s" % talent_panel._intrinsic_description(rogue.trees[0]))
 	assert(talent_panel._intrinsic_description(rogue.trees[0]) == "None")
 
-	# -- Points footer: "Points: spent/earned" budget readout.
-	print("points label (expect Points: 0/0): %s" % talent_panel._points_label.text)
-	assert(talent_panel._points_label.text == "Points: 0/0")
+	# -- Points footer: star icon + "spent/earned" budget readout.
+	print("points label (expect : 0/0): %s" % talent_panel._points_label.text)
+	assert(talent_panel._points_label.text == ": 0/0")
+	assert(talent_panel._points_label.get_parent().find_child("Icon", true, false) != null)
 
 	# -- Tree structure: base tier has the two no-prereq talents side by
 	# side; deeper talents (Sunder) start disabled/dimmed until their
@@ -341,6 +382,7 @@ func _initialize() -> void:
 	assert(is_equal_approx(combat_screen._log_overlay._inspector._timeline_chart._dot_radius(100.0), combat_screen._log_overlay._inspector._timeline_chart.MAX_DOT_RADIUS))
 	print("status label: %s" % combat_screen._status_label.text)
 	assert(combat_screen._status_label.text.begins_with("Fight complete:"))
+	assert(not combat_screen._status_label.visible)
 	assert(not combat_screen._view_log_button.disabled)
 
 	# -- Victory banner: auto-shown on win, with recap numbers. This fight
@@ -361,8 +403,12 @@ func _initialize() -> void:
 	var combat_dim = combat_screen._victory_overlay.find_child("VictoryCombatDim", true, false)
 	assert(combat_dim != null)
 	assert(combat_dim.get_parent() == combat_screen._victory_center)
+	assert(combat_screen._victory_center.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	assert(combat_screen._victory_overlay.find_child("VictoryContentCenter", true, false).mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	assert(victory_stack.mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	assert(combat_screen._victory_center.get_global_rect().position.distance_to(combat_screen._combat_window.get_global_rect().position) < 1.0)
 	assert(combat_screen._victory_center.size.distance_to(combat_screen._combat_window.size) < 1.0)
+	assert(combat_screen._fight_button_row.z_index > combat_screen._victory_overlay.z_index)
 	assert(combat_screen._combat_stage.visible)
 	assert(combat_screen._combat_stage.outcome_pose == "victory")
 	assert(combat_screen._view_log_button.visible)
@@ -371,17 +417,22 @@ func _initialize() -> void:
 	var recap_text: String = combat_screen._victory_recap_label.text
 	print("-- Victory recap --")
 	print(recap_text)
-	var expected_required_dps := float(expected_monster.hp) / (float(expected_duration_ms) / 1000.0)
 	assert(recap_text.contains("Total Damage:"))
 	assert(recap_text.contains("(needed %d)" % expected_monster.hp))
-	assert(recap_text.contains("DPS:"))
-	assert(recap_text.contains("(needed %.1f)" % expected_required_dps))
 	assert(recap_text.contains("Biggest Hit:"))
 	assert(recap_text.contains("(100%) / Poison: 0 (0%)"))
-	assert(recap_text.contains("Crits:"))
+	assert(not recap_text.contains("DPS:"))
+	assert(not recap_text.contains("Crits:"))
+	assert(not recap_text.contains("Armor reduced"))
+	assert(not recap_text.contains("ticks"))
 	print("reward after first win: %s" % combat_screen._reward_label.text)
-	assert(combat_screen._reward_label.text.contains("Rewards: 12g"))
-	assert(combat_screen._reward_label.text.contains("1 talent point"))
+	assert(not _reward_row_text(combat_screen).contains("Rewards:"))
+	assert(_reward_row_text(combat_screen).contains(": 12g"))
+	assert(_reward_row_text(combat_screen).contains("x 1"))
+	assert(_reward_row_text(combat_screen).find("x 1") < _reward_row_text(combat_screen).find(": 12g"))
+	assert(_reward_row_icon_count(combat_screen) >= 2)
+	assert(_reward_row_icon_size(combat_screen) == Vector2(34, 34))
+	assert(_reward_row_font_size(combat_screen) == 24)
 	var reward_title_found := false
 	for node in combat_screen._victory_overlay.find_children("*", "Label", true, false):
 		if node.text == "Rewards":
@@ -395,10 +446,15 @@ func _initialize() -> void:
 		if node.text == "Claim Rewards":
 			banner_claim = node
 	assert(banner_claim != null)
+	assert(banner_claim.get_global_rect().end.y < combat_screen._fight_button_row.get_global_rect().position.y)
 	for node in combat_screen._victory_overlay.find_children("*", "Button", true, false):
 		assert(node.text != "View Combat Log")
 
-	# -- Log overlay: View Combat Log opens it, Close and backdrop-click both dismiss it --
+	# -- Log overlay: Combat Log remains accessible while the result overlay is visible;
+	# Close and backdrop-click both dismiss it without dismissing the result overlay. --
+	assert(combat_screen._victory_overlay.visible)
+	assert(combat_screen._view_log_button.visible)
+	assert(not combat_screen._view_log_button.disabled)
 	combat_screen._view_log_button.pressed.emit()
 	print("log overlay visible after View Combat Log (expect true): %s" % combat_screen._log_overlay.visible)
 	assert(combat_screen._log_overlay.visible)
@@ -428,7 +484,7 @@ func _initialize() -> void:
 	# the next Tavern encounter, and clears the build lock so the player
 	# returns to planning. --
 	banner_claim.pressed.emit()
-	await process_frame
+	await _wait_reward_gold_flight()
 	print("victory overlay visible after Claim Rewards (expect false): %s" % combat_screen._victory_overlay.visible)
 	assert(not combat_screen._victory_overlay.visible)
 	assert(build_state.gold == 12)
@@ -454,8 +510,29 @@ func _initialize() -> void:
 	# Text, not the intro line again, until the next node is previewed. --
 	print("map story text after Mouthy Drunk win (expect his Victory Text): %s" % combat_screen._map_overlay._map_story_label.text)
 	assert(combat_screen._map_overlay._map_story_label.text == "You easily dispatch him with a few well-placed strikes. He falls into a heap on the floor. However, this has caused quite the commotion.")
+	var defeated_mouthy_button: Button = combat_screen._map_overlay._map_node_buttons[0]
+	var next_drunk_buddy_button: Button = combat_screen._map_overlay._map_node_buttons[1]
+	assert(defeated_mouthy_button.disabled)
+	assert(defeated_mouthy_button.find_child("TavernDefeatedMarker", true, false) != null)
+	assert(defeated_mouthy_button.tooltip_text.contains("defeated"))
+	assert(not next_drunk_buddy_button.disabled)
+	assert(next_drunk_buddy_button.find_child("TavernDefeatedMarker", true, false) == null)
+	var next_drunk_buddy_style_before: StyleBoxFlat = next_drunk_buddy_button.get_theme_stylebox("normal")
+	assert(next_drunk_buddy_style_before.bg_color == UIColors.PANEL)
+	assert(next_drunk_buddy_button.find_child("TavernAvailablePulse", true, false) != null)
+	assert(combat_screen._map_overlay._map_proceed_button.disabled)
 	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
 	await process_frame
+	var next_drunk_buddy_style_after: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[1].get_theme_stylebox("normal")
+	assert(next_drunk_buddy_style_after.border_color == CardStyle.ACCENT_COLOR)
+	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
+	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
+	await process_frame
+	assert(combat_screen._map_overlay._map_proceed_button.disabled)
+	assert(combat_screen._map_overlay._map_node_buttons[1].find_child("TavernAvailablePulse", true, false) != null)
+	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
+	await process_frame
+	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
 	print("previewed flavor text (expect Drunk Buddy's): %s" % combat_screen._map_overlay._map_story_label.text)
 	assert(combat_screen._map_overlay._map_story_label.text == "Leaping to his fallen companion's aid, another drunk patron wants to try his hand.")
 	combat_screen._map_overlay._map_proceed_button.pressed.emit()
@@ -485,7 +562,7 @@ func _initialize() -> void:
 	talent_panel._on_node_pressed(piercing_blades)
 	await process_frame
 	assert(build_state.selected_talents.size() == 1)
-	assert(talent_panel._points_label.text == "Points: 1/1")
+	assert(talent_panel._points_label.text == ": 1/1")
 	unlocked = build_state.unlocked_skills()
 	assert(unlocked.size() == 4)
 	for skill in unlocked:
@@ -519,16 +596,18 @@ func _initialize() -> void:
 	await process_frame
 	assert(combat_screen._victory_overlay.visible)
 	assert(combat_screen._log_overlay._log_label.text.contains("Drunk Buddy"))
-	assert(combat_screen._reward_label.text.contains("18g"))
-	assert(combat_screen._reward_label.text.contains("Lucky Coin"))
-	assert(combat_screen._reward_label.text.contains("shop access"))
+	assert(_reward_row_text(combat_screen).contains(": 18g"))
+	assert(_reward_row_text(combat_screen).contains("Lucky Coin"))
+	assert(_reward_row_text(combat_screen).contains("shop access"))
+	assert(not _reward_row_text(combat_screen).contains("Rewards:"))
+	assert(_reward_row_text(combat_screen).find("Lucky Coin") < _reward_row_text(combat_screen).find(": 18g"))
 	assert(build_state.gold == 12)
 	assert(build_state.current_encounter_index == 1)
 	assert(build_state.run_phase == BuildState.RunPhase.RESULT)
 	var inventory_count_before_buddy_claim: int = build_state.inventory.size()
 	var lucky_coin: GearItem = load("res://data/gear/lucky_coin.tres")
 	banner_claim.pressed.emit()
-	await process_frame
+	await _wait_reward_gold_flight()
 	print("victory overlay visible after second Claim Rewards (expect false): %s" % combat_screen._victory_overlay.visible)
 	assert(not combat_screen._victory_overlay.visible)
 	assert(build_state.gold == 30)
@@ -538,7 +617,8 @@ func _initialize() -> void:
 	await process_frame
 	assert(gear_panel._inventory_grid.get_child_count() == build_state.INVENTORY_CAPACITY)
 	assert(not gear_panel._inventory_grid.get_child(0).disabled)
-	assert(gear_panel._inventory_grid.get_child(0).tooltip_text.contains("Sell for"))
+	assert(not gear_panel._inventory_grid.get_child(0).tooltip_text.contains("Left-click to equip"))
+	assert(not gear_panel._inventory_grid.get_child(0).tooltip_text.contains("Sell available in shop"))
 	assert(build_state.shop_unlocked)
 	assert(build_state.claimed_reward_encounter_indices == [0, 1])
 	assert(build_state.current_encounter_index == 1)
@@ -559,14 +639,21 @@ func _initialize() -> void:
 	assert(GearGenerator.price_for_tier(first_offer.tier) == 18)
 	assert(combat_screen._shop_overlay._shop_offer_text(first_offer).contains("Price: 18g"))
 	assert(combat_screen._shop_overlay._shop_offer_text(first_offer).begins_with("%s - " % GearGenerator.SLOT_TAGS[first_offer.slot]))
-	assert(combat_screen._shop_overlay._shop_reroll_button.text == "Reroll (1)")
+	assert(build_state.shop_reroll_cost == 5)
+	assert(combat_screen._shop_overlay._shop_reroll_button.text == "Reroll 5g")
+	assert(not combat_screen._shop_overlay._shop_reroll_button.disabled)
+	assert(combat_screen._shop_overlay._shop_reroll_button.tooltip_text.contains("Spend 5g"))
 
 	var offers_before_reroll: Array[String] = []
 	for offer in build_state.shop_offers:
 		offers_before_reroll.append(offer.id)
+	var gold_before_reroll: int = build_state.gold
 	combat_screen._shop_overlay._shop_reroll_button.pressed.emit()
+	await create_timer(1.0).timeout
 	assert(build_state.shop_reroll_used)
-	assert(not build_state.reroll_shop_offers())
+	assert(build_state.shop_reroll_count == 1)
+	assert(build_state.shop_reroll_cost == 10)
+	assert(build_state.gold == gold_before_reroll - 5)
 	var offers_after_reroll: Array[String] = []
 	for offer in build_state.shop_offers:
 		offers_after_reroll.append(offer.id)
@@ -574,8 +661,8 @@ func _initialize() -> void:
 	assert(offers_before_reroll != offers_after_reroll)
 	combat_screen._shop_overlay.refresh()
 	await process_frame
-	assert(combat_screen._shop_overlay._shop_reroll_button.disabled)
-	assert(combat_screen._shop_overlay._shop_reroll_button.text == "Reroll (0)")
+	assert(not combat_screen._shop_overlay._shop_reroll_button.disabled)
+	assert(combat_screen._shop_overlay._shop_reroll_button.text == "Reroll 10g")
 
 	var bought_offer: GearItem = build_state.shop_offers[0]
 	var inventory_before_purchase: int = build_state.inventory.size()
@@ -587,6 +674,8 @@ func _initialize() -> void:
 	assert(first_offer_button.custom_minimum_size == Vector2(88, 88))
 	assert(first_offer_button.tooltip_text.contains(bought_offer.display_name))
 	assert(first_offer_button.tooltip_text.begins_with("%s - " % GearGenerator.SLOT_TAGS[bought_offer.slot]))
+	assert(first_offer_button.find_child("PriceLabel", true, false).text == "18g")
+	assert(first_offer_button.find_child("PriceLabel", true, false).get_theme_font_size("font_size") == 16)
 	first_offer_button.pressed.emit()
 	assert(build_state.gold == gold_before_purchase - 18)
 	assert(build_state.inventory.size() == inventory_before_purchase + 1)
@@ -606,13 +695,33 @@ func _initialize() -> void:
 	assert(not build_state.can_add_inventory_item())
 	assert(build_state.shop_offers.size() > 0)
 	var blocked_offer: GearItem = build_state.shop_offers[0]
+	build_state.gold = max(build_state.gold, GearGenerator.price_for_tier(blocked_offer.tier))
 	var gold_before_blocked_buy: int = build_state.gold
+	combat_screen._shop_overlay.refresh()
+	await process_frame
+	var blocked_offer_button: Button = combat_screen._shop_overlay._shop_offers_box.get_child(0)
+	assert(not blocked_offer_button.disabled)
+	assert(blocked_offer_button.tooltip_text.contains("Inventory full -- make space first."))
+	blocked_offer_button.pressed.emit()
+	assert(combat_screen._last_inventory_blocked_source == blocked_offer_button)
+	assert(blocked_offer_button.get_meta("inventory_blocked_pulse") == true)
+	await process_frame
+	assert(build_state.gold == gold_before_blocked_buy)
+	assert(build_state.shop_offers.has(blocked_offer))
 	assert(not build_state.buy_shop_offer(blocked_offer))
 	assert(build_state.gold == gold_before_blocked_buy)
 	assert(build_state.shop_offers.has(blocked_offer))
 	var sold_during_shop: GearItem = build_state.inventory[build_state.inventory.size() - 1]
 	var sale_value: int = build_state.sell_value_for(sold_during_shop)
-	gear_panel._on_inventory_slot_pressed(sold_during_shop)
+	var shop_right_click_event := InputEventMouseButton.new()
+	shop_right_click_event.button_index = MOUSE_BUTTON_RIGHT
+	shop_right_click_event.pressed = true
+	gear_panel._on_inventory_slot_gui_input(shop_right_click_event, sold_during_shop)
+	await process_frame
+	assert(gear_panel._pending_inventory_action_item == sold_during_shop)
+	assert(gear_panel._inventory_action_menu.get_item_text(gear_panel._inventory_action_menu.get_item_index(gear_panel.ACTION_SELL_ID)) == "Sell for %dg" % sale_value)
+	assert(not gear_panel._inventory_action_menu.is_item_disabled(gear_panel._inventory_action_menu.get_item_index(gear_panel.ACTION_SELL_ID)))
+	gear_panel._on_inventory_action_selected(gear_panel.ACTION_SELL_ID)
 	await process_frame
 	assert(gear_panel._sell_dialog.visible)
 	gear_panel._on_sell_confirmed()
@@ -633,10 +742,49 @@ func _initialize() -> void:
 	print("inventory purchase leaves stats unchanged (expect false): %s" % purchased_gear_changed_stats)
 	assert(not purchased_gear_changed_stats)
 
-	assert(build_state.equip_from_inventory(bought_offer))
+	assert(build_state.has_inventory_item(bought_offer))
+	gear_panel._on_inventory_slot_pressed(bought_offer)
+	await process_frame
+	assert(build_state.equipped_item_for_slot(bought_offer.slot) == bought_offer)
+	assert(not build_state.has_inventory_item(bought_offer))
+
+	var replacement_offer: GearItem = null
+	for item in build_state.inventory:
+		if item != null and item != lucky_coin and item.slot == bought_offer.slot:
+			replacement_offer = item
+			break
+	if replacement_offer != null:
+		assert(build_state.shop_round_pending)
+		gear_panel._on_inventory_slot_pressed(replacement_offer)
+		await process_frame
+		assert(build_state.equipped_item_for_slot(replacement_offer.slot) == replacement_offer)
+
 	var equipped_sale_slot: GearItem.SlotType = bought_offer.slot
-	var equipped_sale_value: int = build_state.sell_value_for(bought_offer)
-	gear_panel._confirm_sell_equipped_item(equipped_sale_slot)
+	var equipped_item_for_sale: GearItem = build_state.equipped_item_for_slot(equipped_sale_slot)
+	var gold_before_equipped_left_click: int = build_state.gold
+	var equipped_left_click_event := InputEventMouseButton.new()
+	equipped_left_click_event.button_index = MOUSE_BUTTON_LEFT
+	equipped_left_click_event.pressed = true
+	gear_panel._on_equipped_slot_gui_input(equipped_left_click_event, equipped_sale_slot)
+	await process_frame
+	assert(build_state.has_open_equipment_slot(equipped_sale_slot))
+	assert(build_state.has_inventory_item(equipped_item_for_sale))
+	assert(build_state.gold == gold_before_equipped_left_click)
+	gear_panel._on_inventory_slot_pressed(equipped_item_for_sale)
+	await process_frame
+	assert(build_state.equipped_item_for_slot(equipped_sale_slot) == equipped_item_for_sale)
+
+	var equipped_sale_value: int = build_state.sell_value_for(equipped_item_for_sale)
+	var equipped_right_click_event := InputEventMouseButton.new()
+	equipped_right_click_event.button_index = MOUSE_BUTTON_RIGHT
+	equipped_right_click_event.pressed = true
+	gear_panel._on_equipped_slot_gui_input(equipped_right_click_event, equipped_sale_slot)
+	await process_frame
+	assert(gear_panel._pending_equipped_action_slot == equipped_sale_slot)
+	assert(gear_panel._equipped_action_menu.get_item_text(gear_panel._equipped_action_menu.get_item_index(gear_panel.ACTION_SELL_ID)) == "Sell for %dg" % equipped_sale_value)
+	assert(not gear_panel._equipped_action_menu.is_item_disabled(gear_panel._equipped_action_menu.get_item_index(gear_panel.ACTION_UNEQUIP_ID)))
+	assert(not gear_panel._equipped_action_menu.is_item_disabled(gear_panel._equipped_action_menu.get_item_index(gear_panel.ACTION_SELL_ID)))
+	gear_panel._on_equipped_action_selected(gear_panel.ACTION_SELL_ID)
 	await process_frame
 	assert(gear_panel._sell_dialog.visible)
 	var gold_before_equipped_sale: int = build_state.gold
@@ -709,41 +857,19 @@ func _initialize() -> void:
 	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE)
 	assert(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree")
-	assert(not combat_screen._contract_overlay.visible)
-	assert(combat_screen._secondary_subclass_overlay.visible)
-	assert(combat_screen._secondary_subclass_overlay._body_label.text == combat_screen._secondary_subclass_overlay.CONTRACT_SUBCLASS_PROMPT_TEXT)
-	assert(combat_screen._secondary_subclass_overlay._options.get_child_count() == 2)
-	# Each option is now a selection card matching the primary subclass
-	# select screen (P2:R7 second playtest-feedback pass, item 5):
-	# card -> vbox -> [icon+title row, intrinsic Label, Choose Button].
-	var secondary_card_0_vbox: VBoxContainer = combat_screen._secondary_subclass_overlay._options.get_child(0).get_child(0)
-	var secondary_card_1_vbox: VBoxContainer = combat_screen._secondary_subclass_overlay._options.get_child(1).get_child(0)
-	assert(secondary_card_0_vbox.find_child("Title", true, false).text.contains("Assassin"))
-	assert(secondary_card_0_vbox.find_child("Icon", true, false) != null)
-	assert(secondary_card_1_vbox.find_child("Title", true, false).text.contains("Shadow"))
-	assert(secondary_card_1_vbox.find_child("Icon", true, false) != null)
-	assert(secondary_card_1_vbox.get_child(1).text.contains("apply +1 poison stack"))
-	assert(secondary_card_0_vbox.get_child(2) is Button)
-	assert(secondary_card_0_vbox.get_child(2).text == "Choose")
-	secondary_card_0_vbox.get_child(2).pressed.emit()
-	await process_frame
-	assert(build_state.selected_trees.size() == 2)
-	assert(not combat_screen._secondary_subclass_overlay.visible)
-
-	# -- Contract Window reopens as a hub with a single contract card for
-	# now (Vyra) -- a larger toggleable rectangle naming the contract and its
-	# gold reward, not a plain button. Selecting it only enables Proceed;
-	# Proceed then previews her, and her own Accept finally reveals the
-	# (unchanged) interactive route schematic. --
 	assert(combat_screen._contract_overlay.visible)
+	assert(not combat_screen._secondary_subclass_overlay.visible)
 	assert(combat_screen._contract_overlay._contract_options_box.get_child_count() == 1)
 	var vyra_button: Button = combat_screen._contract_overlay._contract_options_box.get_child(0)
 	assert(vyra_button.text.contains(combat_screen._contract_overlay.CONTRACT_VYRA_NAME))
 	assert(vyra_button.text.contains("Reward: 120g"))
 	assert(combat_screen._contract_overlay._contract_action_button.disabled)
-	vyra_button.button_pressed = true
+	assert(vyra_button.find_child("ContractChoicePulse", true, false) != null)
+	vyra_button.pressed.emit()
 	await process_frame
+	vyra_button = combat_screen._contract_overlay._contract_options_box.get_child(0)
 	assert(not combat_screen._contract_overlay._contract_action_button.disabled)
+	assert(vyra_button.find_child("ContractChoicePulse", true, false) == null)
 	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
 	assert(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_VYRA_DETAIL_TEXT)
@@ -751,6 +877,7 @@ func _initialize() -> void:
 	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._contract_overlay.visible)
+	assert(not combat_screen._talent_overlay.visible)
 	assert(combat_screen._map_overlay.visible)
 	assert(combat_screen._map_overlay._map_node_buttons.size() == 8)
 	assert(combat_screen._map_overlay._map_node_buttons[0].text.contains("Door Guard"))
@@ -770,11 +897,22 @@ func _initialize() -> void:
 	assert(combat_screen._map_overlay._map_node_buttons[2].disabled)
 	assert(enemy_panel._title_label.text == "Choose Route")
 	assert(enemy_panel._info_label.text.contains("Choose the next contract route on the map."))
+	assert(combat_screen._map_overlay._map_proceed_button.visible)
+	assert(combat_screen._map_overlay._map_proceed_button.disabled)
+	assert(combat_screen._map_overlay._map_node_buttons[1].find_child("ContractAvailablePulse", true, false) != null)
 
 	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
 	await process_frame
+	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE)
+	assert(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree")
+	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
+	assert(combat_screen._map_overlay._map_node_buttons[1].find_child("ContractAvailablePulse", true, false) == null)
+	combat_screen._map_overlay._map_proceed_button.pressed.emit()
+	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.PLANNING)
 	assert(build_state.current_route_node.id == "route.gilded_serpent.portly_cook")
+	assert(combat_screen._status_label.text.contains("Portly Cook"))
+	assert(not combat_screen._status_label.visible)
 	assert(enemy_panel._title_label.text == "Portly Cook")
 	assert(enemy_panel._info_label.text.contains("Fight Window: 20s"))
 	assert(not enemy_panel._info_label.text.contains("Contract:"))
@@ -785,6 +923,28 @@ func _initialize() -> void:
 	assert(enemy_panel._info_label.text.contains("Pressure: No notable defensive pressure."))
 	assert(enemy_panel._info_label.text.contains("Reward: 26g, Basic Gear"))
 	assert(enemy_panel._fight_button.disabled)
+	assert(build_state.needs_secondary_subclass_choice())
+	combat_screen._show_talent_overlay()
+	await process_frame
+	var secondary_choices: VBoxContainer = combat_screen._talent_overlay.find_child("SecondaryTreeChoices", true, false)
+	assert(secondary_choices != null)
+	assert(secondary_choices.get_child_count() == 2)
+	var secondary_card_0_vbox: VBoxContainer = secondary_choices.get_child(0).get_child(0)
+	var secondary_card_1_vbox: VBoxContainer = secondary_choices.get_child(1).get_child(0)
+	assert(secondary_card_0_vbox.find_child("Title", true, false).text.contains("Assassin"))
+	assert(secondary_card_0_vbox.find_child("Icon", true, false) != null)
+	assert(secondary_card_1_vbox.find_child("Title", true, false).text.contains("Shadow"))
+	assert(secondary_card_1_vbox.find_child("Icon", true, false) != null)
+	assert(secondary_card_1_vbox.get_child(1).text.contains("apply +1 poison stack"))
+	assert(secondary_card_0_vbox.get_child(2) is Button)
+	assert(secondary_card_0_vbox.get_child(2).text == "Choose")
+	secondary_card_0_vbox.get_child(2).pressed.emit()
+	await process_frame
+	assert(build_state.selected_trees.size() == 2)
+	assert(combat_screen._talent_overlay.visible)
+	assert(combat_screen._status_label.text.contains("Second tree chosen"))
+	assert(not combat_screen._status_label.visible)
+	combat_screen._talent_overlay.visible = false
 	build_state.set_locked(true)
 	await process_frame
 	assert(not enemy_panel._fight_button.disabled)
@@ -800,17 +960,22 @@ func _initialize() -> void:
 	# surface before driving the reward/shop branch.
 	if build_state.run_outcome == BuildState.RunOutcome.CONTRACT_FAILED:
 		assert(build_state.run_phase == BuildState.RunPhase.RUN_ENDED)
+		assert(enemy_panel._title_label.text == "Portly Cook")
+		assert(enemy_panel._info_label.text.contains("HP:"))
+		assert(not enemy_panel._info_label.text.contains("This Adventure has ended."))
+		assert(combat_screen._tavern_background.visible)
 		build_state.run_phase = BuildState.RunPhase.RESULT
 		build_state.run_outcome = BuildState.RunOutcome.FIGHT_WIN
 	build_state.last_fight_won = true
 	combat_screen._on_continue_pressed()
-	await process_frame
+	await _wait_reward_gold_flight()
 	assert(combat_screen._reward_choice_overlay.visible)
 	assert(build_state.has_pending_reward_choice())
 	var contract_reward_button: Button = combat_screen._reward_choice_overlay.options_container().get_child(0)
 	contract_reward_button.pressed.emit()
 	await process_frame
 	assert(combat_screen._shop_overlay.visible)
+	assert(combat_screen._fight_button_row.z_index == combat_screen.COMBAT_BUTTON_ROW_DEFAULT_Z_INDEX)
 	assert(build_state.shop_round_pending)
 	combat_screen._on_shop_continue_pressed()
 	await process_frame
@@ -852,3 +1017,38 @@ func _initialize() -> void:
 	print("")
 	print("P2 UI restructure end-to-end check: OK")
 	quit()
+
+
+func _wait_reward_gold_flight() -> void:
+	await create_timer(1.05).timeout
+	await process_frame
+
+
+func _reward_row_text(combat_screen) -> String:
+	var parts: PackedStringArray = []
+	for child in combat_screen._victory_reward_row.get_children():
+		if child is Label:
+			parts.append(child.text)
+	return " ".join(parts)
+
+
+func _reward_row_icon_count(combat_screen) -> int:
+	var count := 0
+	for child in combat_screen._victory_reward_row.get_children():
+		if child is TextureRect:
+			count += 1
+	return count
+
+
+func _reward_row_icon_size(combat_screen) -> Vector2:
+	for child in combat_screen._victory_reward_row.get_children():
+		if child is TextureRect:
+			return child.custom_minimum_size
+	return Vector2.ZERO
+
+
+func _reward_row_font_size(combat_screen) -> int:
+	for child in combat_screen._victory_reward_row.get_children():
+		if child is Label:
+			return child.get_theme_font_size("font_size")
+	return 0

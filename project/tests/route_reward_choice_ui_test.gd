@@ -34,20 +34,56 @@ func _initialize() -> void:
 	_require(combat_screen._reward_choice_overlay.visible, "Expected generated reward choice overlay.")
 	_require(build_state.has_pending_reward_choice(), "Expected generated reward choices pending.")
 	_require(build_state.pending_reward_choices.size() == 2, "Expected two generated reward choices.")
-	_require(build_state.pending_reward_choices[0].slot == GearItem.SlotType.WEAPON, "Expected first generated reward to be weapon.")
-	_require(build_state.pending_reward_choices[1].slot == GearItem.SlotType.CHARM, "Expected second generated reward to be charm.")
+	for choice in build_state.pending_reward_choices:
+		_require(portly_cook.reward.generated_gear_slots.has(choice.slot), "Expected generated reward slot to come from Portly Cook's slot pool.")
+	_require(_unique_stat_signature_count(build_state.pending_reward_choices) == build_state.pending_reward_choices.size(), "Expected generated rewards not to duplicate the same stat package.")
 	_require(combat_screen._reward_choice_overlay.options_container().get_child_count() == 2, "Expected two generated reward buttons.")
 
 	var generated_choice_button: Button = combat_screen._reward_choice_overlay.options_container().get_child(0)
 	_require(generated_choice_button.tooltip_text.contains("Basic"), "Expected Basic generated reward tooltip.")
+	var generated_choice: GearItem = build_state.pending_reward_choices[0]
 	var fill_rng := RandomNumberGenerator.new()
 	fill_rng.seed = 570
 	while build_state.inventory.size() < build_state.INVENTORY_CAPACITY:
 		_require(build_state.add_inventory_item(GearGenerator.generate(GearItem.Tier.BASIC, GearItem.SlotType.CHARM, fill_rng)), "Expected inventory filler item.")
 	generated_choice_button.pressed.emit()
 	await process_frame
-	_require(not combat_screen._reward_choice_overlay.visible, "Expected generated reward overlay hidden after choice.")
-	_require(build_state.equipped_weapon != null, "Expected generated reward to auto-equip when inventory is full.")
+	_require(combat_screen._reward_choice_overlay.visible, "Expected generated reward overlay to stay visible when inventory is full.")
+	_require(build_state.equipped_weapon == null, "Expected generated reward not to auto-equip when inventory is full.")
+	_require(build_state.has_pending_reward_choice(), "Expected generated reward choices to remain pending after a full-inventory block.")
+	_require(build_state.run_phase == BuildState.RunPhase.RESULT, "Expected route reward result phase to remain pending after a full-inventory block.")
+	_require(not combat_screen._map_overlay.visible, "Expected route map to stay hidden after a blocked reward choice.")
+	_require(combat_screen._last_inventory_blocked_source == generated_choice_button, "Expected blocked reward choice to record the pulsed button.")
+	_require(generated_choice_button.get_meta("inventory_blocked_pulse") == true, "Expected blocked reward choice to pulse like a protected talent.")
+	_require(combat_screen._reward_choice_overlay._status_label.text.contains("Inventory full"), "Expected reward overlay status to explain the full inventory block.")
+
+	build_state.inventory.clear()
+	combat_screen._reward_choice_overlay._skip_button.pressed.emit()
+	await process_frame
+	_require(not combat_screen._reward_choice_overlay.visible, "Expected generated reward overlay hidden after skipping gear reward.")
+	_require(not build_state.has_pending_reward_choice(), "Expected pending reward choices cleared after skipping.")
+	_require(not build_state.has_inventory_item(generated_choice), "Expected skipped generated reward not to enter inventory.")
+	_require(build_state.equipped_weapon == null, "Expected skipped generated reward not to equip.")
+	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected route choice phase after skipping generated reward.")
+	_require(combat_screen._map_overlay.visible, "Expected route map after skipping generated reward.")
+
+	var regenerated_choices: Array[GearItem] = [generated_choice]
+	build_state.pending_reward_choices = regenerated_choices
+	build_state.current_route_node = portly_cook
+	build_state.run_phase = BuildState.RunPhase.RESULT
+	build_state.last_fight_won = true
+	build_state.run_state_changed.emit()
+	combat_screen._show_reward_choice_overlay()
+	await process_frame
+	generated_choice_button = combat_screen._reward_choice_overlay.options_container().get_child(0)
+
+	build_state.inventory.clear()
+	generated_choice_button.pressed.emit()
+	await process_frame
+	await process_frame
+	_require(not combat_screen._reward_choice_overlay.visible, "Expected generated reward overlay hidden after choice once space exists.")
+	_require(build_state.has_inventory_item(generated_choice), "Expected generated reward to land in inventory once space exists.")
+	_require(not build_state.has_pending_reward_choice(), "Expected pending choices cleared after choosing reward.")
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected route choice phase after generated reward.")
 	_require(combat_screen._map_overlay.visible, "Expected route map after generated reward.")
 
@@ -61,6 +97,7 @@ func _initialize() -> void:
 	build_state.run_state_changed.emit()
 
 	combat_screen._on_continue_pressed()
+	await process_frame
 	await process_frame
 	_require(combat_screen._reward_choice_overlay.visible, "Expected Legendary reward choice overlay.")
 	# P2:R9:T5 -- Knives now offers a seeded random choice of 2 of 5
@@ -105,6 +142,13 @@ func _initialize() -> void:
 	_require(combat_screen._map_overlay._map_node_buttons.size() == 8, "Expected full route schematic after Legendary reward.")
 	_require(not combat_screen._map_overlay._map_node_buttons[7].disabled, "Expected Vyra selectable after Knives.")
 	_require(combat_screen._map_overlay._map_node_buttons[7].text.contains("Vyra"), "Expected Vyra node after Knives.")
+	_require(combat_screen._map_overlay._map_proceed_button.text == "Mark Route", "Expected late-route commit button to say Mark Route.")
+	_require(combat_screen._map_overlay._map_proceed_button.disabled, "Expected Mark Route disabled before selecting Vyra.")
+	combat_screen._map_overlay._map_node_buttons[7].pressed.emit()
+	await process_frame
+	_require(not combat_screen._map_overlay._map_proceed_button.disabled, "Expected Mark Route enabled after selecting Vyra.")
+	_require(combat_screen._map_overlay._map_story_label.text == "Selected route: Vyra. Mark it to tune your build, lock in, and fight.", "Expected selected Vyra story text to explain the final-route handoff.")
+	_require(combat_screen._map_overlay._map_proceed_button.tooltip_text == "Mark Vyra as your next fight.", "Expected selected Vyra tooltip to name the committed fight.")
 
 	print("Route reward choice UI check: OK")
 	quit()
@@ -121,6 +165,21 @@ func _find_route_node(node: ContractRouteNode, id: String, visited: Array[String
 		if found != null:
 			return found
 	return null
+
+
+func _unique_stat_signature_count(items: Array[GearItem]) -> int:
+	var seen := {}
+	for item in items:
+		seen[_stat_signature(item)] = true
+	return seen.size()
+
+
+func _stat_signature(item: GearItem) -> String:
+	var affix_parts: PackedStringArray = []
+	for affix in item.affixes:
+		affix_parts.append("%03d:%03d:%0.4f" % [affix.stat, affix.operation, affix.value])
+	affix_parts.sort()
+	return "%d|%s" % [item.tier, ",".join(affix_parts)]
 
 
 func _require(condition: bool, message: String) -> void:

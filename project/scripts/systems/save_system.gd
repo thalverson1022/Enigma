@@ -22,18 +22,25 @@ extends RefCounted
 const SAVE_PATH := "user://save.json"
 const SAVE_VERSION := 1
 
+static var save_path := SAVE_PATH
+
 
 static func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+	return FileAccess.file_exists(save_path)
 
 
 static func delete_save() -> void:
 	if has_save():
-		DirAccess.remove_absolute(SAVE_PATH)
+		if save_path.begins_with("user://"):
+			var user_dir := DirAccess.open("user://")
+			if user_dir != null:
+				user_dir.remove(save_path.trim_prefix("user://"))
+		else:
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
 
 
 static func save_run(state) -> bool:
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
 	if file == null:
 		return false
 	file.store_string(JSON.stringify(_serialize(state), "\t"))
@@ -47,7 +54,7 @@ static func save_run(state) -> bool:
 static func load_run(state) -> bool:
 	if not has_save():
 		return false
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var file := FileAccess.open(save_path, FileAccess.READ)
 	if file == null:
 		return false
 	var text := file.get_as_text()
@@ -75,6 +82,8 @@ static func _serialize(state) -> Dictionary:
 		"shop_unlocked": state.shop_unlocked,
 		"shop_round_pending": state.shop_round_pending,
 		"shop_reroll_used": state.shop_reroll_used,
+		"shop_reroll_count": state.shop_reroll_count,
+		"shop_reroll_cost": state.shop_reroll_cost,
 		"shop_round_index": state.shop_round_index,
 		"shop_offers": _gear_list_to_data(state.shop_offers),
 		"pending_reward_choices": _gear_list_to_data(state.pending_reward_choices),
@@ -146,6 +155,11 @@ static func _deserialize(data: Dictionary, state) -> bool:
 	state.shop_unlocked = bool(data.get("shop_unlocked", false))
 	state.shop_round_pending = bool(data.get("shop_round_pending", false))
 	state.shop_reroll_used = bool(data.get("shop_reroll_used", false))
+	state.shop_reroll_count = int(data.get("shop_reroll_count", 1 if state.shop_reroll_used else 0))
+	state.shop_reroll_cost = int(data.get(
+		"shop_reroll_cost",
+		state.SHOP_REROLL_INITIAL_COST + (state.shop_reroll_count * state.SHOP_REROLL_COST_STEP)
+	))
 	state.shop_round_index = int(data.get("shop_round_index", 0))
 	state.shop_offers = _gear_list_from_data(data.get("shop_offers", []))
 	state.pending_reward_choices = _gear_list_from_data(data.get("pending_reward_choices", []))

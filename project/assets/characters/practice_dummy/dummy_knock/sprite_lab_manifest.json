@@ -1,0 +1,121 @@
+{
+  "format": "sprite-lab-godot",
+  "version": 1,
+  "source_sheet": "Training Dummy Sprite Sheet",
+  "export_scale": 1,
+  "export_canvas": {
+    "w": 32,
+    "h": 64
+  },
+  "frames": [
+    {
+      "id": "frame_c1992w2",
+      "name": "frame_009",
+      "file": "frames/frame_009.png",
+      "source_rect": {
+        "x": 0,
+        "y": 32,
+        "w": 32,
+        "h": 32
+      },
+      "source_pivot": {
+        "x": 16,
+        "y": 32
+      },
+      "export_pivot": {
+        "x": 16,
+        "y": 32
+      },
+      "duration_ms": 100
+    },
+    {
+      "id": "frame_i80kqr4",
+      "name": "frame_010",
+      "file": "frames/frame_010.png",
+      "source_rect": {
+        "x": 32,
+        "y": 32,
+        "w": 32,
+        "h": 32
+      },
+      "source_pivot": {
+        "x": 16,
+        "y": 32
+      },
+      "export_pivot": {
+        "x": 16,
+        "y": 32
+      },
+      "duration_ms": 100
+    },
+    {
+      "id": "frame_6b8axn2",
+      "name": "frame_012",
+      "file": "frames/frame_012.png",
+      "source_rect": {
+        "x": 96,
+        "y": 32,
+        "w": 32,
+        "h": 32
+      },
+      "source_pivot": {
+        "x": 16,
+        "y": 32
+      },
+      "export_pivot": {
+        "x": 16,
+        "y": 32
+      },
+      "duration_ms": 100
+    },
+    {
+      "id": "frame_kv0nyvb",
+      "name": "frame_013",
+      "file": "frames/frame_013.png",
+      "source_rect": {
+        "x": 128,
+        "y": 32,
+        "w": 32,
+        "h": 32
+      },
+      "source_pivot": {
+        "x": 16,
+        "y": 32
+      },
+      "export_pivot": {
+        "x": 16,
+        "y": 32
+      },
+      "duration_ms": 100
+    }
+  ],
+  "animations": [
+    {
+      "name": "idle",
+      "fps": 8,
+      "loop": true,
+      "frames": [
+        {
+          "frame": "frame_009",
+          "file": "frames/frame_009.png",
+          "duration_ms": 100
+        },
+        {
+          "frame": "frame_010",
+          "file": "frames/frame_010.png",
+          "duration_ms": 100
+        },
+        {
+          "frame": "frame_012",
+          "file": "frames/frame_012.png",
+          "duration_ms": 100
+        },
+        {
+          "frame": "frame_013",
+          "file": "frames/frame_013.png",
+          "duration_ms": 100
+        }
+      ]
+    }
+  ]
+}

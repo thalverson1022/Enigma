@@ -1,6 +1,6 @@
 extends SceneTree
 ## M3:T1 geometry guardrail: the 10-slot macro plus fixed lock button must
-## fit inside the shared SkillBuildPanel in both Adventure and Training Room.
+## fit inside the shared SkillBuildPanel in both Adventure and Practice Room.
 ## This catches the layout regression screenshots exposed: slot 10 or the
 ## lock button pushing out of the panel/host at the target 1600x900 viewport.
 
@@ -41,7 +41,7 @@ func _check_adventure_macro_geometry() -> void:
 
 
 func _check_training_room_macro_geometry() -> void:
-	print("-- Training Room Skill Build: 10-slot macro geometry --")
+	print("-- Practice Room Skill Build: 10-slot macro geometry --")
 	var training_scene: PackedScene = load("res://scenes/training_room/training_room.tscn")
 	var training_room: Control = training_scene.instantiate()
 	root.add_child(training_room)
@@ -51,8 +51,8 @@ func _check_training_room_macro_geometry() -> void:
 	await _settle_layout()
 
 	var skill_build_panel = training_room.find_child("SkillBuildPanel", true, false)
-	_require(skill_build_panel != null, "Expected Training Room SkillBuildPanel.")
-	_assert_full_macro_fits("Training Room", training_room, skill_build_panel)
+	_require(skill_build_panel != null, "Expected Practice Room SkillBuildPanel.")
+	_assert_full_macro_fits("Practice Room", training_room, skill_build_panel)
 	training_room.queue_free()
 	await process_frame
 

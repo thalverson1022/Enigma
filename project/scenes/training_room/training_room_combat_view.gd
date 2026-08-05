@@ -1,6 +1,6 @@
 class_name TrainingRoomCombatView
 extends PanelContainer
-## Training Room's own animated combat area (user-requested "blank area where
+## Practice Room's own animated combat area (user-requested "blank area where
 ## we show the combat animations, like in Adventure mode"). Built directly on
 ## `CombatPlayback` (project/scripts/ui/combat_playback.gd -- already
 ## logic-only and BuildState-free) as a fresh, self-contained rendering
@@ -17,16 +17,16 @@ extends PanelContainer
 ## combat still resolves synchronously and completely inside
 ## `CombatResolver.resolve()` before `play()` is ever called; this class only
 ## re-plays the recorded timeline in real time. Unlike combat_screen.gd,
-## there's no HP bar here at all (post-R10 UI-feedback pass) -- Training Room
+## there's no HP bar here at all (post-R10 UI-feedback pass) -- Practice Room
 ## only measures damage dealt in a fixed window, never whether the target is
 ## "killed", so a running Damage Dealt readout replaces it.
 
 signal finished
 
-## Taller than the original 220px (user-requested) -- more room for
-## animations, with Available Skills/Skill Build simply pushed further down
-## the center column below it.
-const PANEL_MIN_HEIGHT := 420
+## Tall enough to match Adventure's M5 combat-window treatment: the fight/log
+## action row now lives inside this panel, with the animation stage reserved
+## above it instead of letting controls sit below the window.
+const PANEL_MIN_HEIGHT := 520
 const POPUP_FONT := preload("res://assets/fonts/PirataOne-Regular.ttf")
 const POPUP_LIFETIME_SEC := 1.35
 const POPUP_RISE_PX := 60.0
@@ -50,10 +50,10 @@ const OUTCOME_REVEAL_HOLD_SEC := 0.35
 ## User-supplied background art, replacing the earlier black placeholder.
 ## Same TextureRect+tint approach as combat_screen.gd's tavern background
 ## (EXPAND_IGNORE_SIZE/STRETCH_KEEP_ASPECT_COVERED so it fills the panel
-## without distortion, plus the same 0.42-alpha black tint so HUD text stays
-## readable over whatever the art looks like).
+## without distortion). Practice Room uses a slightly darker black tint than
+## Adventure because the workshop background is busier behind the actors.
 const BACKGROUND_TEXTURE := preload("res://assets/backgrounds/Training_Room_background.jpg")
-const BACKGROUND_TINT := Color(0, 0, 0, 0.42)
+const BACKGROUND_TINT := Color(0, 0, 0, 0.56)
 const COMBAT_STAGE_SCRIPT := preload("res://scripts/ui/combat_stage.gd")
 const COMBAT_STATUS_ICONS := preload("res://scripts/ui/combat_status_icons.gd")
 const COMBAT_STATUS_ICON_SIZE := Vector2(22, 22)
@@ -71,7 +71,7 @@ var _playback: CombatPlayback = null
 var _playback_intro_remaining_sec := 0.0
 var _playback_intro_duration_sec := 0.0
 ## Running damage total for the current fight (post-R10 UI-feedback pass:
-## Training Room only measures damage dealt in a fixed window, it never
+## Practice Room only measures damage dealt in a fixed window, it never
 ## tracks the target's remaining HP -- there's no "killing" it here at all).
 var _damage_dealt := 0.0
 ## Real-time armor/poison-resist/poison-stack tracking (user-requested,
@@ -96,6 +96,7 @@ var _resist_label: Label
 var _status_row: HBoxContainer
 var _combat_stage
 var _popup_layer: Control
+var _content: VBoxContainer
 var _controls_row: HBoxContainer
 var _time_label: Label
 var _speed_buttons: Array[Button] = []
@@ -104,6 +105,7 @@ var _last_speed: float = SPEED_OPTIONS[0]
 var _popup_generation := 0
 var _wyvern_kriss_effect_active := false
 var _playback_skipping := false
+var _pending_action_row: Control = null
 var skill_build_panel = null
 
 
@@ -137,16 +139,19 @@ func _ready() -> void:
 	_combat_stage = COMBAT_STAGE_SCRIPT.new()
 	_combat_stage.name = "CombatStage"
 	_combat_stage.safe_top_px = 92.0
-	_combat_stage.safe_bottom_px = 34.0
+	_combat_stage.safe_bottom_px = 96.0
 	add_child(_combat_stage)
 	_combat_stage.configure("Rogue", "Practice Target")
 	_combat_stage.reset_state()
 
 	var content := VBoxContainer.new()
+	content.set_anchors_preset(Control.PRESET_FULL_RECT)
 	content.add_theme_constant_override("separation", 6)
 	add_child(content)
+	_content = content
 
 	var hud_row := HBoxContainer.new()
+	hud_row.name = "CombatNameRow"
 	content.add_child(hud_row)
 
 	_name_label = Label.new()
@@ -155,14 +160,14 @@ func _ready() -> void:
 	_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hud_row.add_child(_name_label)
 
+	var values_row := HBoxContainer.new()
+	values_row.name = "CombatValuesRow"
+	values_row.add_theme_constant_override("separation", 14)
+	hud_row.add_child(values_row)
+
 	_damage_label = Label.new()
 	_damage_label.name = "DamageLabel"
-	hud_row.add_child(_damage_label)
-
-	var info_row := HBoxContainer.new()
-	info_row.name = "InfoRow"
-	info_row.add_theme_constant_override("separation", 14)
-	content.add_child(info_row)
+	values_row.add_child(_damage_label)
 
 	var armor_icon := TextureRect.new()
 	armor_icon.name = "ArmorIcon"
@@ -171,12 +176,12 @@ func _ready() -> void:
 	armor_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	armor_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	armor_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	info_row.add_child(armor_icon)
+	values_row.add_child(armor_icon)
 
 	_info_label = Label.new()
 	_info_label.name = "InfoLabel"
 	_info_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
-	info_row.add_child(_info_label)
+	values_row.add_child(_info_label)
 
 	var poison_resist_icon := TextureRect.new()
 	poison_resist_icon.name = "PoisonResistIcon"
@@ -185,17 +190,22 @@ func _ready() -> void:
 	poison_resist_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	poison_resist_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	poison_resist_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	info_row.add_child(poison_resist_icon)
+	values_row.add_child(poison_resist_icon)
 
 	_resist_label = Label.new()
 	_resist_label.name = "ResistText"
 	_resist_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
-	info_row.add_child(_resist_label)
+	values_row.add_child(_resist_label)
 
 	_status_row = HBoxContainer.new()
 	_status_row.name = "StatusRow"
+	_status_row.alignment = BoxContainer.ALIGNMENT_END
+	_status_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_status_row.custom_minimum_size = Vector2(0, 26)
 	_status_row.add_theme_constant_override("separation", 8)
 	content.add_child(_status_row)
+	_update_damage_label()
+	_update_status_readout()
 
 	# Popups spawn and animate here, over the background art -- no
 	# character/monster sprites yet (no such assets exist in the project;
@@ -230,6 +240,24 @@ func _ready() -> void:
 	_skip_button.text = "Skip"
 	_skip_button.pressed.connect(_skip)
 	_controls_row.add_child(_skip_button)
+	if _pending_action_row != null:
+		add_action_row(_pending_action_row)
+		_pending_action_row = null
+
+
+func add_action_row(row: Control) -> void:
+	if row == null:
+		return
+	if _content == null:
+		_pending_action_row = row
+		return
+	if row.get_parent() != null:
+		row.get_parent().remove_child(row)
+	_content.add_child(row)
+	var bottom_spacer := Control.new()
+	bottom_spacer.name = "ActionRowBottomSpacer"
+	bottom_spacer.custom_minimum_size = Vector2(0, 14)
+	_content.add_child(bottom_spacer)
 
 
 ## Starts animating `result` against `monster`'s Armor/Poison Resist --
@@ -365,8 +393,8 @@ func _on_playback_finished() -> void:
 	set_process(false)
 	_controls_row.visible = false
 	var was_skipping := _playback_skipping
-	if _combat_stage != null and _playback != null and _monster != null and _monster.hp > 0:
-		_combat_stage.play_outcome_pose(_playback.damage_dealt() >= float(_monster.hp), not _instant_playback)
+	if _combat_stage != null and _combat_stage.has_method("restore_practice_idle_pose"):
+		_combat_stage.restore_practice_idle_pose()
 	_playback = null
 	_playback_intro_remaining_sec = 0.0
 	_playback_intro_duration_sec = 0.0

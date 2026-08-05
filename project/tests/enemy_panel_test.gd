@@ -98,6 +98,12 @@ func _initialize() -> void:
 	_require(vyra_text.contains("Attempts: 2/2 remaining"), "Expected Vyra to show two attempts available.")
 	_require(vyra_text.contains("Reward: 120g"), "Expected Vyra's authored reward preview before the fight.")
 	_require(vyra_text.contains("Pressure: Heavy armor and poison resistance -- physical and poison builds both struggle."), "Expected Vyra to be flagged as armor-heavy/poison-resistant.")
+	build_state.run_phase = BuildState.RunPhase.RUN_ENDED
+	build_state.run_state_changed.emit()
+	await process_frame
+	_require(enemy_panel._title_label.text == "Vyra", "Expected run-ended enemy panel to keep showing enemy info, not a status title.")
+	_require(enemy_panel._info_label.text.contains("HP: 600"), "Expected run-ended enemy panel to keep showing enemy stats.")
+	_require(not enemy_panel._info_label.text.contains("This Adventure has ended."), "Expected run-ended state to avoid replacing enemy info with a status message.")
 
 	print("live Cloaked Watchmen route panel text")
 	var cloaked_node := _find_route_node(contract.offer_node, "route.gilded_serpent.cloaked_watchmen")

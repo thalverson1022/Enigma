@@ -1,6 +1,6 @@
 class_name CombatStage
 extends Control
-## Shared presentation-only combat stage for Adventure and Training Room.
+## Shared presentation-only combat stage for Adventure and Practice Room.
 ## It defines stable actor/effect/status anchors so later sprite animation
 ## work has a physical layer to target without touching combat resolution.
 
@@ -48,11 +48,29 @@ class DebugGridOverlay:
 		draw_rect(frame_rect, Color(1.0, 0.0, 0.0, 0.9), false, 2.0)
 
 
+class ContactShadow:
+	extends Control
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var radius := size.x * 0.5
+		if radius <= 0.0:
+			return
+		draw_set_transform(size * 0.5, 0.0, Vector2(1.0, 0.32))
+		for index in 5:
+			var progress := float(index) / 4.0
+			var layer_radius := lerpf(radius, radius * 0.36, progress)
+			var alpha := lerpf(0.04, 0.22, progress)
+			draw_circle(Vector2.ZERO, layer_radius, Color(0.0, 0.0, 0.0, alpha), true, -1.0, true)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 const ACTOR_SIZE := Vector2(160, 148)
 const ACTOR_LOCAL_ANCHOR := Vector2(80, 140)
 const CONTACT_SIZE := Vector2(96, 96)
 const STATUS_SIZE := Vector2(150, 42)
-const FLOOR_HEIGHT := 72.0
 const ROGUE_FRAME_SIZE := Vector2i(48, 48)
 const PEASANT_FRAME_SIZE := Vector2i(32, 32)
 const ROGUE_VISIBLE_BOUNDS := Rect2(Vector2(15, 9), Vector2(22, 28))
@@ -61,6 +79,13 @@ const ROGUE_ANCHOR_POINT := Vector2(24, 24)
 const PEASANT_ANCHOR_POINT := Vector2(16, 16)
 const ROGUE_SPRITE_SCALE := 4.0
 const PEASANT_SPRITE_SCALE := 5.0
+const PRACTICE_DUMMY_SPRITE_SCALE := 4.15
+const PRACTICE_DUMMY_ANCHOR_POINT := Vector2(16, 32)
+const PRACTICE_DUMMY_STAGE_GRID := Vector2(0.62, 1.0)
+const PRACTICE_DUMMY_STAGE_OFFSET := Vector2(38.0, 0.0)
+const PRACTICE_ROGUE_SPRITE_OFFSET := Vector2(0.0, -28.0)
+const PRACTICE_DUMMY_SPRITE_OFFSET := Vector2(0.0, 88.0)
+const PRACTICE_DUMMY_SHADOW_OFFSET := Vector2(0.0, -16.0)
 const PLAYER_VISUAL_KEY := "rogue"
 const MOUTHY_DRUNK_VISUAL_KEY := "mouthy_drunk"
 const DRUNK_BUDDY_VISUAL_KEY := "drunk_buddy"
@@ -68,6 +93,7 @@ const TAVERN_BOUNCER_VISUAL_KEY := "tavern_bouncer"
 const HIRED_GOON_VISUAL_KEY := "hired_goon"
 const VYRA_VISUAL_KEY := "vyra"
 const KNIVES_VISUAL_KEY := "knives"
+const PRACTICE_DUMMY_VISUAL_KEY := "practice_dummy"
 const ANIMATION_PHYSICAL := "physical"
 const ANIMATION_POISON := "poison"
 const ANIMATION_TICK := "poison_tick"
@@ -80,6 +106,9 @@ const STAGE_GRID_MAX := 5.0
 const STAGE_GRID_MARGIN_PX := 12.0
 const PLAYER_STAGE_GRID := Vector2(-1.0, 2.0)
 const ENEMY_STAGE_GRID := Vector2(1.0, 1.0)
+const ACTOR_GROUP_STAGE_OFFSET_PX := Vector2(38.0, 0.0)
+const CONTACT_SHADOW_MIN_SIZE := Vector2(54.0, 18.0)
+const CONTACT_SHADOW_WIDTH_SCALE := 1.24
 const MIN_CAST_ANIMATION_SEC := 0.18
 const MAX_CAST_ANIMATION_SEC := 0.42
 const TRIGGERED_FOLLOWUP_ANIMATION_SEC := 0.18
@@ -107,9 +136,14 @@ const PLAYER_ANIMATION_MANIFEST_PATHS := {
 	"attack_physical": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/attack1/animation_manifest.json",
 	"attack_poison": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/attack2/animation_manifest.json",
 	"hurt": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/idle/animation_manifest.json",
-	"defeat": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/idle/animation_manifest.json",
+	"defeat": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/death/animation_manifest.json",
 }
 const ENEMY_ANIMATION_PATHS := {
+	PRACTICE_DUMMY_VISUAL_KEY: {
+		"idle": "res://assets/characters/practice_dummy/dummy_bounce/frames/frame_001.png",
+		"hurt": "res://assets/characters/practice_dummy/dummy_bounce/frames/frame_001.png",
+		"defeat": "res://assets/characters/practice_dummy/dummy_bounce/frames/frame_001.png",
+	},
 	MOUTHY_DRUNK_VISUAL_KEY: {
 		"idle": "res://assets/placeholder_combat_sprites/townsfolk/peasants_sprite_sheet.png",
 		"hurt": "res://assets/placeholder_combat_sprites/townsfolk/peasants_sprite_sheet.png",
@@ -142,6 +176,11 @@ const ENEMY_ANIMATION_PATHS := {
 	},
 }
 const ENEMY_ANIMATION_REGIONS := {
+	PRACTICE_DUMMY_VISUAL_KEY: {
+		"idle": Rect2(Vector2(0, 0), Vector2(32, 32)),
+		"hurt": Rect2(Vector2(0, 0), Vector2(32, 32)),
+		"defeat": Rect2(Vector2(0, 0), Vector2(32, 32)),
+	},
 	MOUTHY_DRUNK_VISUAL_KEY: {
 		"idle": Rect2(Vector2(0, 0), Vector2(32, 32)),
 		"hurt": Rect2(Vector2(0, 64), Vector2(32, 32)),
@@ -190,11 +229,39 @@ const ENEMY_VISUAL_KEYS_BY_NAME := {
 	"Placeholder Dummy": HIRED_GOON_VISUAL_KEY,
 	"Vyra": VYRA_VISUAL_KEY,
 	"Knives": KNIVES_VISUAL_KEY,
-	"Practice Target": MOUTHY_DRUNK_VISUAL_KEY,
+	"Practice Target": PRACTICE_DUMMY_VISUAL_KEY,
 }
+const PRACTICE_DUMMY_REACTION_FRAME_PATHS := [
+	[
+		"res://assets/characters/practice_dummy/dummy_bounce/frames/frame_001.png",
+		"res://assets/characters/practice_dummy/dummy_bounce/frames/frame_002.png",
+		"res://assets/characters/practice_dummy/dummy_bounce/frames/frame_003.png",
+		"res://assets/characters/practice_dummy/dummy_bounce/frames/frame_004.png",
+	],
+	[
+		"res://assets/characters/practice_dummy/dummy_knock/frames/frame_009.png",
+		"res://assets/characters/practice_dummy/dummy_knock/frames/frame_010.png",
+		"res://assets/characters/practice_dummy/dummy_knock/frames/frame_012.png",
+		"res://assets/characters/practice_dummy/dummy_knock/frames/frame_013.png",
+	],
+	[
+		"res://assets/characters/practice_dummy/dummy_spin/frames/frame_017.png",
+		"res://assets/characters/practice_dummy/dummy_spin/frames/frame_018.png",
+		"res://assets/characters/practice_dummy/dummy_spin/frames/frame_019.png",
+		"res://assets/characters/practice_dummy/dummy_spin/frames/frame_020.png",
+		"res://assets/characters/practice_dummy/dummy_spin/frames/frame_021.png",
+		"res://assets/characters/practice_dummy/dummy_spin/frames/frame_022.png",
+		"res://assets/characters/practice_dummy/dummy_spin/frames/frame_023.png",
+	],
+]
+const PRACTICE_DUMMY_REACTION_FRAME_SEC := 0.075
 
 var safe_top_px := 96.0
 var safe_bottom_px := 36.0
+var reserved_bottom_px := 0.0:
+	set(value):
+		reserved_bottom_px = maxf(value, 0.0)
+		_layout_stage()
 
 var player_actor_anchor: Control
 var enemy_actor_anchor: Control
@@ -209,6 +276,8 @@ var _player_actor_card: PanelContainer
 var _enemy_actor_card: PanelContainer
 var _player_sprite: TextureRect
 var _enemy_sprite: TextureRect
+var _player_contact_shadow: ContactShadow
+var _enemy_contact_shadow: ContactShadow
 var _debug_grid_overlay: DebugGridOverlay
 var _player_animation_cache := {}
 var _player_animation_key := ""
@@ -253,8 +322,12 @@ var outcome_flash_count := 0
 var last_outcome_flash_was_victory := false
 var last_player_animation_key := ""
 var last_player_animation_frame_count := 0
+var last_player_animation_frame_path := ""
 var bandit_coin_spray_count := 0
 var last_bandit_coin_count := 0
+var practice_dummy_reaction_count := 0
+var last_practice_dummy_reaction_index := -1
+var last_practice_dummy_reaction_frame_count := 0
 var debug_grid_visible := false:
 	set(value):
 		debug_grid_visible = value
@@ -291,6 +364,12 @@ func _process(delta: float) -> void:
 		if _player_animation_loop:
 			_player_animation_frame_index = 0
 		else:
+			if _player_animation_key == "defeat":
+				_player_animation_frame_index = frames.size() - 1
+				_apply_player_animation_frame()
+				_player_animation_playing = false
+				set_process(false)
+				return
 			_set_player_animation("idle", true)
 			return
 	_apply_player_animation_frame()
@@ -302,6 +381,10 @@ func _notification(what: int) -> void:
 
 
 func configure(player_name: String, enemy_name: String) -> void:
+	if player_actor_anchor != null:
+		player_actor_anchor.visible = true
+	if enemy_actor_anchor != null:
+		enemy_actor_anchor.visible = true
 	if _player_name_label != null:
 		_player_name_label.text = player_name
 	if _enemy_name_label != null:
@@ -309,8 +392,26 @@ func configure(player_name: String, enemy_name: String) -> void:
 	_player_visual_key = PLAYER_VISUAL_KEY
 	_enemy_visual_key = _enemy_visual_key_for(enemy_name)
 	_set_player_animation("idle", true)
-	_apply_actor_visual(_enemy_sprite, _enemy_actor_card, _enemy_animation_paths_for(_enemy_visual_key), _enemy_animation_regions_for(_enemy_visual_key), "idle", PEASANT_FRAME_SIZE, PEASANT_SPRITE_SCALE, true)
+	_apply_enemy_visual("idle")
 	_clear_status_visuals()
+
+
+func clear_target() -> void:
+	_kill_actor_tweens()
+	_clear_status_visuals()
+	outcome_pose = ""
+	if player_actor_anchor != null:
+		player_actor_anchor.visible = false
+	if enemy_actor_anchor != null:
+		enemy_actor_anchor.visible = false
+	if _player_actor_card != null:
+		_player_actor_card.visible = false
+	if _enemy_actor_card != null:
+		_enemy_actor_card.visible = false
+	if _player_contact_shadow != null:
+		_player_contact_shadow.visible = false
+	if _enemy_contact_shadow != null:
+		_enemy_contact_shadow.visible = false
 
 
 func reset_state() -> void:
@@ -343,10 +444,14 @@ func reset_state() -> void:
 	last_outcome_flash_was_victory = false
 	last_player_animation_key = ""
 	last_player_animation_frame_count = 0
+	last_player_animation_frame_path = ""
 	bandit_coin_spray_count = 0
 	last_bandit_coin_count = 0
+	practice_dummy_reaction_count = 0
+	last_practice_dummy_reaction_index = -1
+	last_practice_dummy_reaction_frame_count = 0
 	_set_player_animation("idle", true)
-	_apply_actor_visual(_enemy_sprite, _enemy_actor_card, _enemy_animation_paths_for(_enemy_visual_key), _enemy_animation_regions_for(_enemy_visual_key), "idle", PEASANT_FRAME_SIZE, PEASANT_SPRITE_SCALE, true)
+	_apply_enemy_visual("idle")
 	_restore_actor_layout()
 
 
@@ -359,6 +464,8 @@ func play_fight_intro(animate: bool = true) -> float:
 	_restore_actor_layout()
 	if not animate:
 		return 0.0
+	if _is_practice_dummy_target():
+		return FIGHT_INTRO_SEC
 	player_actor_anchor.position = _player_base_position + FIGHT_INTRO_PLAYER_OFFSET
 	enemy_actor_anchor.position = _enemy_base_position + FIGHT_INTRO_ENEMY_OFFSET
 	player_actor_anchor.modulate = Color(1.0, 1.0, 1.0, 0.72)
@@ -372,6 +479,14 @@ func play_fight_intro(animate: bool = true) -> float:
 	_player_tween = tween
 	_enemy_tween = tween
 	return FIGHT_INTRO_SEC
+
+
+func restore_practice_idle_pose() -> void:
+	_kill_actor_tweens()
+	_set_player_animation("idle", true)
+	_set_enemy_animation("idle")
+	_restore_actor_layout()
+	outcome_pose = ""
 
 
 func play_cast_presentation(cast: CombatResolver.CastEvent, playback_speed: float = 1.0, animate: bool = true) -> float:
@@ -515,14 +630,20 @@ func play_outcome_pose(victory: bool, animate: bool = true) -> void:
 	if victory:
 		_set_enemy_animation("defeat")
 	else:
-		_set_player_animation("hurt", animate)
+		_set_player_animation("defeat", animate)
 	if not animate:
 		return
 	_kill_actor_tweens()
 	_play_outcome_flash(victory)
+	if victory and _is_practice_dummy_target():
+		_set_enemy_animation("idle")
+		if enemy_actor_anchor != null:
+			enemy_actor_anchor.position = _enemy_base_position
+			enemy_actor_anchor.modulate = _enemy_poison_modulate()
+		return
 	var target_anchor := enemy_actor_anchor if victory else player_actor_anchor
 	var target_position := (_enemy_base_position if victory else _player_base_position) + Vector2(0.0, 10.0)
-	var target_modulate := Color(1.0, 1.0, 1.0, 0.62) if victory else Color(1.0, 0.72, 0.72, 1.0)
+	var target_modulate := Color(1.0, 1.0, 1.0, 0.62) if victory else Color.WHITE
 	var tween := create_tween()
 	if victory:
 		_enemy_tween = tween
@@ -585,6 +706,12 @@ func enemy_popup_global_position() -> Vector2:
 	return enemy_actor_anchor.global_position + ACTOR_SIZE * Vector2(0.5, 0.32)
 
 
+func play_area_global_rect() -> Rect2:
+	var stage_rect := get_global_rect()
+	stage_rect.size.y = _effective_stage_size().y
+	return stage_rect
+
+
 func expected_player_sprite_paths() -> PackedStringArray:
 	var paths := PackedStringArray()
 	for animation_key in PLAYER_ANIMATION_MANIFEST_PATHS.keys():
@@ -602,12 +729,6 @@ func expected_enemy_sprite_region(enemy_name: String, animation_key: String) -> 
 
 
 func _build_stage() -> void:
-	var floor := ColorRect.new()
-	floor.name = "StageFloor"
-	floor.color = Color(UIColors.STRUCTURE_LINE.r, UIColors.STRUCTURE_LINE.g, UIColors.STRUCTURE_LINE.b, 0.72)
-	floor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(floor)
-
 	_outcome_flash = ColorRect.new()
 	_outcome_flash.name = "OutcomeFlash"
 	_outcome_flash.color = Color(1.0, 1.0, 1.0, 0.0)
@@ -616,18 +737,24 @@ func _build_stage() -> void:
 	add_child(_outcome_flash)
 
 	player_actor_anchor = _make_anchor("PlayerActorAnchor", ACTOR_SIZE)
+	player_actor_anchor.z_index = 3
 	add_child(player_actor_anchor)
 	_player_actor_card = _make_actor_card("PlayerActor", "Rogue", UIColors.TEXT_NORMAL)
 	player_actor_anchor.add_child(_player_actor_card)
 	_player_name_label = _player_actor_card.find_child("ActorLabel", true, false) as Label
+	_player_contact_shadow = _make_contact_shadow("PlayerContactShadow")
+	player_actor_anchor.add_child(_player_contact_shadow)
 	_player_sprite = _make_actor_sprite("PlayerSprite", false)
 	player_actor_anchor.add_child(_player_sprite)
 
 	enemy_actor_anchor = _make_anchor("EnemyActorAnchor", ACTOR_SIZE)
+	enemy_actor_anchor.z_index = 2
 	add_child(enemy_actor_anchor)
 	_enemy_actor_card = _make_actor_card("EnemyActor", "Enemy", UIColors.TEXT_WARNING)
 	enemy_actor_anchor.add_child(_enemy_actor_card)
 	_enemy_name_label = _enemy_actor_card.find_child("ActorLabel", true, false) as Label
+	_enemy_contact_shadow = _make_contact_shadow("EnemyContactShadow")
+	enemy_actor_anchor.add_child(_enemy_contact_shadow)
 	_enemy_sprite = _make_actor_sprite("EnemySprite", true)
 	enemy_actor_anchor.add_child(_enemy_sprite)
 
@@ -648,7 +775,7 @@ func _build_stage() -> void:
 	_debug_grid_overlay.combat_stage = self
 	_debug_grid_overlay.visible = debug_grid_visible
 	add_child(_debug_grid_overlay)
-	configure("Rogue", "Enemy")
+	clear_target()
 
 
 func _make_anchor(anchor_name: String, anchor_size: Vector2) -> Control:
@@ -700,6 +827,15 @@ func _make_actor_sprite(sprite_name: String, flip_h: bool) -> TextureRect:
 	return sprite
 
 
+func _make_contact_shadow(shadow_name: String) -> ContactShadow:
+	var shadow := ContactShadow.new()
+	shadow.name = shadow_name
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow.z_index = -1
+	shadow.visible = false
+	return shadow
+
+
 func _enemy_visual_key_for(enemy_name: String) -> String:
 	return ENEMY_VISUAL_KEYS_BY_NAME.get(enemy_name, "")
 
@@ -712,7 +848,7 @@ func _enemy_animation_regions_for(visual_key: String) -> Dictionary:
 	return ENEMY_ANIMATION_REGIONS.get(visual_key, {})
 
 
-func _apply_actor_visual(sprite: TextureRect, fallback_card: PanelContainer, animation_paths: Dictionary, animation_regions: Dictionary, animation_key: String, frame_size: Vector2i, sprite_scale: float, flip_h: bool) -> void:
+func _apply_actor_visual(sprite: TextureRect, fallback_card: PanelContainer, animation_paths: Dictionary, animation_regions: Dictionary, animation_key: String, frame_size: Vector2i, sprite_scale: float, flip_h: bool, anchor_point: Vector2 = PEASANT_ANCHOR_POINT) -> void:
 	if sprite == null or fallback_card == null:
 		return
 	var region := _animation_region_for(animation_regions, animation_key, frame_size)
@@ -722,9 +858,15 @@ func _apply_actor_visual(sprite: TextureRect, fallback_card: PanelContainer, ani
 	sprite.size = region.size
 	sprite.scale = Vector2(sprite_scale, sprite_scale)
 	sprite.pivot_offset = region.size * 0.5
-	sprite.position = _sprite_position_for_anchor(region.size, PEASANT_ANCHOR_POINT, sprite_scale)
+	sprite.position = _sprite_position_for_anchor(region.size, anchor_point, sprite_scale)
+	if sprite == _enemy_sprite and _is_practice_dummy_target():
+		sprite.position += PRACTICE_DUMMY_SPRITE_OFFSET
 	sprite.visible = texture != null
-	fallback_card.visible = texture == null
+	fallback_card.visible = false
+	if sprite == _enemy_sprite:
+		_update_contact_shadow(_enemy_contact_shadow, sprite, PEASANT_VISIBLE_BOUNDS)
+		if _is_practice_dummy_target():
+			_enemy_contact_shadow.position += PRACTICE_DUMMY_SHADOW_OFFSET
 
 
 func _sprite_position_for(frame_size: Vector2, sprite_scale: float) -> Vector2:
@@ -739,6 +881,26 @@ func _sprite_position_for_anchor(frame_size: Vector2, anchor_point: Vector2, spr
 	var pivot_offset := frame_size * 0.5
 	var render_offset := pivot_offset - pivot_offset * sprite_scale
 	return ACTOR_LOCAL_ANCHOR - render_offset - anchor_point * sprite_scale
+
+
+func _update_contact_shadow(shadow: ContactShadow, sprite: TextureRect, visible_bounds: Rect2) -> void:
+	if shadow == null or sprite == null:
+		return
+	shadow.visible = sprite.visible and sprite.texture != null
+	if not shadow.visible:
+		return
+	var render_top_left := _sprite_render_top_left(sprite)
+	var bounds := visible_bounds
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		bounds = Rect2(Vector2.ZERO, sprite.size)
+	var shadow_size := Vector2(
+		maxf(bounds.size.x * sprite.scale.x * CONTACT_SHADOW_WIDTH_SCALE, CONTACT_SHADOW_MIN_SIZE.x),
+		CONTACT_SHADOW_MIN_SIZE.y
+	)
+	var foot_center := render_top_left + Vector2((bounds.position.x + bounds.size.x * 0.5) * sprite.scale.x, (bounds.position.y + bounds.size.y) * sprite.scale.y)
+	shadow.size = shadow_size
+	shadow.position = foot_center - shadow_size * 0.5 + Vector2(0.0, 2.0)
+	shadow.queue_redraw()
 
 
 func _actor_position_for_grid(stage_size: Vector2, grid_position: Vector2, frame_size: Vector2, anchor_point: Vector2, sprite_scale: float, stage_offset_px: Vector2 = Vector2.ZERO) -> Vector2:
@@ -768,10 +930,15 @@ func _actor_position_for_grid(stage_size: Vector2, grid_position: Vector2, frame
 
 func _stage_point_for_grid(grid_position: Vector2) -> Vector2:
 	var grid_range := STAGE_GRID_MAX - STAGE_GRID_MIN
+	var stage_size := _effective_stage_size()
 	return Vector2(
-		(clampf(grid_position.x, STAGE_GRID_MIN, STAGE_GRID_MAX) - STAGE_GRID_MIN) / grid_range * size.x,
-		(clampf(grid_position.y, STAGE_GRID_MIN, STAGE_GRID_MAX) - STAGE_GRID_MIN) / grid_range * size.y
+		(clampf(grid_position.x, STAGE_GRID_MIN, STAGE_GRID_MAX) - STAGE_GRID_MIN) / grid_range * stage_size.x,
+		(clampf(grid_position.y, STAGE_GRID_MIN, STAGE_GRID_MAX) - STAGE_GRID_MIN) / grid_range * stage_size.y
 	)
+
+
+func _effective_stage_size() -> Vector2:
+	return Vector2(size.x, maxf(size.y - reserved_bottom_px, 1.0))
 
 
 func _sprite_anchor_point(anchor: Control, sprite: TextureRect, anchor_point: Vector2) -> Vector2:
@@ -793,15 +960,26 @@ func _animation_region_for(animation_regions: Dictionary, animation_key: String,
 
 
 func _frame_texture(path: String, region: Rect2) -> Texture2D:
-	if path == "" or not ResourceLoader.exists(path):
+	if path == "":
 		return null
-	var source := load(path) as Texture2D
+	var source := _texture_from_path(path)
 	if source == null:
 		return null
 	var atlas := AtlasTexture.new()
 	atlas.atlas = source
 	atlas.region = region
 	return atlas
+
+
+func _texture_from_path(path: String) -> Texture2D:
+	if path == "":
+		return null
+	if ResourceLoader.exists(path):
+		return load(path) as Texture2D
+	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if image == null:
+		return null
+	return ImageTexture.create_from_image(image)
 
 
 func _player_animation_frame_paths(animation_key: String) -> PackedStringArray:
@@ -871,12 +1049,14 @@ func _apply_player_animation_frame() -> void:
 	var frames: Array = animation.get("frames", [])
 	if frames.is_empty():
 		_player_sprite.visible = false
-		_player_actor_card.visible = true
+		_player_actor_card.visible = false
+		_update_contact_shadow(_player_contact_shadow, _player_sprite, _player_current_visible_bounds)
 		return
 	_player_animation_frame_index = clampi(_player_animation_frame_index, 0, frames.size() - 1)
 	var frame: Dictionary = frames[_player_animation_frame_index]
 	var path: String = frame.get("path", "")
-	var texture := load(path) as Texture2D if ResourceLoader.exists(path) else null
+	last_player_animation_frame_path = path
+	var texture := _texture_from_path(path)
 	_player_sprite.texture = texture
 	if texture != null:
 		_player_sprite.size = texture.get_size()
@@ -886,10 +1066,13 @@ func _apply_player_animation_frame() -> void:
 	_player_sprite.pivot_offset = _player_sprite.size * 0.5
 	_player_current_anchor_point = animation.get("anchor_point", ROGUE_ANCHOR_POINT)
 	_player_sprite.position = _sprite_position_for_anchor(_player_sprite.size, _player_current_anchor_point, ROGUE_SPRITE_SCALE)
+	if _is_practice_dummy_target():
+		_player_sprite.position += PRACTICE_ROGUE_SPRITE_OFFSET
 	_player_sprite.flip_h = false
 	_player_sprite.visible = texture != null
-	_player_actor_card.visible = texture == null
+	_player_actor_card.visible = false
 	_player_current_visible_bounds = frame.get("visible_bounds", ROGUE_VISIBLE_BOUNDS)
+	_update_contact_shadow(_player_contact_shadow, _player_sprite, _player_current_visible_bounds)
 	if _debug_grid_overlay != null:
 		_debug_grid_overlay.queue_redraw()
 
@@ -935,6 +1118,10 @@ func _player_animation_duration_sec(animation_key: String) -> float:
 	return duration_sec
 
 
+func player_defeat_animation_duration_sec() -> float:
+	return _player_animation_duration_sec("defeat")
+
+
 func _player_animation_contact_sec(animation_key: String) -> float:
 	var animation := _player_animation_for_key(animation_key)
 	var frames: Array = animation.get("frames", [])
@@ -954,7 +1141,49 @@ func _set_enemy_animation(kind: String) -> void:
 		animation_key = "hurt"
 	elif kind == "defeat":
 		animation_key = "defeat"
-	_apply_actor_visual(_enemy_sprite, _enemy_actor_card, _enemy_animation_paths_for(_enemy_visual_key), _enemy_animation_regions_for(_enemy_visual_key), animation_key, PEASANT_FRAME_SIZE, PEASANT_SPRITE_SCALE, true)
+	_apply_enemy_visual(animation_key)
+
+
+func _apply_enemy_visual(animation_key: String) -> void:
+	_apply_actor_visual(_enemy_sprite, _enemy_actor_card, _enemy_animation_paths_for(_enemy_visual_key), _enemy_animation_regions_for(_enemy_visual_key), animation_key, PEASANT_FRAME_SIZE, _enemy_sprite_scale(), _enemy_flip_h(), _enemy_anchor_point())
+
+
+func _is_practice_dummy_target() -> bool:
+	return _enemy_visual_key == PRACTICE_DUMMY_VISUAL_KEY
+
+
+func _enemy_sprite_scale() -> float:
+	return PRACTICE_DUMMY_SPRITE_SCALE if _is_practice_dummy_target() else PEASANT_SPRITE_SCALE
+
+
+func _enemy_anchor_point() -> Vector2:
+	return PRACTICE_DUMMY_ANCHOR_POINT if _is_practice_dummy_target() else PEASANT_ANCHOR_POINT
+
+
+func _enemy_flip_h() -> bool:
+	return false if _is_practice_dummy_target() else true
+
+
+func _apply_enemy_frame_path(path: String) -> void:
+	if _enemy_sprite == null or _enemy_actor_card == null:
+		return
+	var texture := _texture_from_path(path)
+	_enemy_sprite.texture = texture
+	_enemy_sprite.size = texture.get_size() if texture != null else Vector2(PEASANT_FRAME_SIZE)
+	var sprite_scale := _enemy_sprite_scale()
+	_enemy_sprite.scale = Vector2(sprite_scale, sprite_scale)
+	_enemy_sprite.pivot_offset = _enemy_sprite.size * 0.5
+	_enemy_sprite.position = _sprite_position_for_anchor(_enemy_sprite.size, _enemy_anchor_point(), sprite_scale)
+	if _is_practice_dummy_target():
+		_enemy_sprite.position += PRACTICE_DUMMY_SPRITE_OFFSET
+	_enemy_sprite.flip_h = _enemy_flip_h()
+	_enemy_sprite.visible = texture != null
+	_enemy_actor_card.visible = false
+	_update_contact_shadow(_enemy_contact_shadow, _enemy_sprite, PEASANT_VISIBLE_BOUNDS)
+	if _is_practice_dummy_target():
+		_enemy_contact_shadow.position += PRACTICE_DUMMY_SHADOW_OFFSET
+	if _debug_grid_overlay != null:
+		_debug_grid_overlay.queue_redraw()
 
 
 func _presentation_duration_for_cast(cast: CombatResolver.CastEvent, playback_speed: float, animation_key: String = "") -> float:
@@ -989,6 +1218,9 @@ func _play_enemy_recoil(delay_sec: float, is_crit: bool) -> void:
 	last_contact_feedback_delay_sec = delay_sec
 	last_contact_feedback_was_crit = is_crit
 	contact_feedback_count += 1
+	if _is_practice_dummy_target():
+		_play_practice_dummy_reaction(delay_sec)
+		return
 	var recoil_distance := RECOIL_DISTANCE_PX * (1.45 if is_crit else 1.0)
 	var recoil_out_sec := 0.09 if is_crit else 0.07
 	var recoil_back_sec := 0.16 if is_crit else 0.13
@@ -1001,6 +1233,30 @@ func _play_enemy_recoil(delay_sec: float, is_crit: bool) -> void:
 	_enemy_tween.parallel().tween_property(enemy_actor_anchor, "modulate", hurt_color, recoil_out_sec)
 	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position, recoil_back_sec)
 	_enemy_tween.parallel().tween_property(enemy_actor_anchor, "modulate", _enemy_poison_modulate(), recoil_back_sec)
+	_enemy_tween.tween_callback(func(): _set_enemy_animation("idle"))
+
+
+func _play_practice_dummy_reaction(delay_sec: float) -> void:
+	if PRACTICE_DUMMY_REACTION_FRAME_PATHS.is_empty():
+		return
+	var reaction_index := _effect_rng.randi_range(0, PRACTICE_DUMMY_REACTION_FRAME_PATHS.size() - 1)
+	var frames: Array = PRACTICE_DUMMY_REACTION_FRAME_PATHS[reaction_index]
+	if frames.is_empty():
+		return
+	practice_dummy_reaction_count += 1
+	last_practice_dummy_reaction_index = reaction_index
+	last_practice_dummy_reaction_frame_count = frames.size()
+	_enemy_tween = create_tween()
+	if delay_sec > 0.0:
+		_enemy_tween.tween_interval(delay_sec)
+	_enemy_tween.tween_callback(func():
+		if enemy_actor_anchor != null:
+			enemy_actor_anchor.position = _enemy_base_position
+	)
+	for frame_path in frames:
+		var path := String(frame_path)
+		_enemy_tween.tween_callback(_apply_enemy_frame_path.bind(path))
+		_enemy_tween.tween_interval(PRACTICE_DUMMY_REACTION_FRAME_SEC)
 	_enemy_tween.tween_callback(func(): _set_enemy_animation("idle"))
 
 
@@ -1124,24 +1380,23 @@ func _kill_enemy_tween() -> void:
 func _layout_stage() -> void:
 	if player_actor_anchor == null:
 		return
-	var stage_size := size
+	var stage_size := _effective_stage_size()
 	if stage_size.x <= 0.0 or stage_size.y <= 0.0:
 		return
-	var floor := get_node_or_null("StageFloor") as ColorRect
-	if floor != null:
-		floor.position = Vector2(0.0, maxf(stage_size.y - FLOOR_HEIGHT, safe_top_px))
-		floor.size = Vector2(stage_size.x, minf(FLOOR_HEIGHT, stage_size.y))
 
-	var player_position := _actor_position_for_grid(stage_size, PLAYER_STAGE_GRID, Vector2(ROGUE_FRAME_SIZE), ROGUE_ANCHOR_POINT, ROGUE_SPRITE_SCALE)
-	var enemy_position := _actor_position_for_grid(stage_size, ENEMY_STAGE_GRID, Vector2(PEASANT_FRAME_SIZE), PEASANT_ANCHOR_POINT, PEASANT_SPRITE_SCALE)
+	var practice_dummy := _is_practice_dummy_target()
+	var enemy_offset := PRACTICE_DUMMY_STAGE_OFFSET if practice_dummy else ACTOR_GROUP_STAGE_OFFSET_PX
+	var enemy_grid := PRACTICE_DUMMY_STAGE_GRID if practice_dummy else ENEMY_STAGE_GRID
+	var player_position := _actor_position_for_grid(stage_size, PLAYER_STAGE_GRID, Vector2(ROGUE_FRAME_SIZE), ROGUE_ANCHOR_POINT, ROGUE_SPRITE_SCALE, ACTOR_GROUP_STAGE_OFFSET_PX)
+	var enemy_position := _actor_position_for_grid(stage_size, enemy_grid, Vector2(PEASANT_FRAME_SIZE), _enemy_anchor_point(), _enemy_sprite_scale(), enemy_offset)
 	var actor_y := minf(player_position.y, enemy_position.y)
 
 	player_actor_anchor.position = player_position
 	enemy_actor_anchor.position = enemy_position
 	_player_base_position = player_actor_anchor.position
 	_enemy_base_position = enemy_actor_anchor.position
-	contact_effect_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5, actor_y + ACTOR_SIZE.y * 0.35)
-	floating_text_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5, maxf(safe_top_px, actor_y - CONTACT_SIZE.y * 0.75))
+	contact_effect_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5 + ACTOR_GROUP_STAGE_OFFSET_PX.x, actor_y + ACTOR_SIZE.y * 0.35)
+	floating_text_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5 + ACTOR_GROUP_STAGE_OFFSET_PX.x, maxf(safe_top_px, actor_y - CONTACT_SIZE.y * 0.75))
 	player_status_anchor.position = Vector2(player_position.x + ACTOR_SIZE.x * 0.5 - STATUS_SIZE.x * 0.5, maxf(safe_top_px, player_position.y - STATUS_SIZE.y - 8.0))
 	enemy_status_anchor.position = Vector2(enemy_position.x + ACTOR_SIZE.x * 0.5 - STATUS_SIZE.x * 0.5, maxf(safe_top_px, enemy_position.y - STATUS_SIZE.y - 8.0))
 	if _debug_grid_overlay != null:

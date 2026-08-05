@@ -34,7 +34,7 @@ func _show_title() -> void:
 	_current_screen = screen
 
 
-## Training Room is a separate practice mode (P2:R10) -- it deliberately
+## Practice Room is a separate practice mode (P2:R10) -- it deliberately
 ## never touches BuildState/save data, unlike every other screen swap here,
 ## so entering or leaving it can never affect a real Adventure run.
 func _show_training_room() -> void:
@@ -107,7 +107,7 @@ func _on_main_menu_pressed() -> void:
 ## fresh start from Title. Without this, a player who restarts/starts a new
 ## Adventure from combat_screen's terminal-state button and then quits
 ## before the next autosave point (class/subclass select) would see
-## "Continue Adventure" on Title offer to resume the OLD, already-ended run
+## "Resume Adventure" on Title offer to resume the OLD, already-ended run
 ## instead of the new one they just chose to start.
 func _on_adventure_restart_pressed() -> void:
 	SaveSystem.delete_save()

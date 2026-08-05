@@ -93,7 +93,9 @@ func _initialize() -> void:
 	_require(combat_screen._phase_label.text == "Phase: Run Failed", "Expected run-failed phase text, got: %s" % combat_screen._phase_label.text)
 	_require(combat_screen._next_action_label.text == "Next: Restart your Adventure.", "Expected restart next action, got: %s" % combat_screen._next_action_label.text)
 
-	# -- Contract offer, secondary subclass choice, and contract route --
+	# -- Contract offer and contract route. The secondary subclass choice
+	# stays available in Talent Trees, but no longer owns the dashboard
+	# header during the contract-picking flow. --
 	build_state.reset(true)
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
@@ -106,9 +108,9 @@ func _initialize() -> void:
 
 	_require(build_state.accept_contract_offer(), "Expected contract offer accept to work.")
 	await process_frame
-	print("secondary subclass choice header")
-	_require(combat_screen._phase_label.text == "Phase: Subclass Choice", "Expected subclass choice phase text, got: %s" % combat_screen._phase_label.text)
-	_require(combat_screen._next_action_label.text == "Next: Choose your second subclass tree.", "Expected subclass-choice next action, got: %s" % combat_screen._next_action_label.text)
+	print("contract route choice header before second tree")
+	_require(combat_screen._phase_label.text == "Phase: Contract Route - Choose Path", "Expected contract route phase text before second tree, got: %s" % combat_screen._phase_label.text)
+	_require(combat_screen._next_action_label.text == "Next: Choose your next route on the map.", "Expected route-choice next action before second tree, got: %s" % combat_screen._next_action_label.text)
 
 	_require(build_state.choose_secondary_tree(rogue.trees[0]), "Expected secondary tree choice to work.")
 	await process_frame

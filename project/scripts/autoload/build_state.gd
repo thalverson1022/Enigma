@@ -31,6 +31,8 @@ const SELL_VALUE_RATIO := 0.5
 const GILDED_SERPENT_CONTRACT_PATH := "res://data/contracts/the_gilded_serpent.tres"
 const DEFAULT_ADVENTURE_SEED := 1
 const RunRngSystem = preload("res://scripts/systems/run_rng.gd")
+const SHOP_REROLL_INITIAL_COST := 5
+const SHOP_REROLL_COST_STEP := 5
 
 var selected_class: ClassDef = null
 var selected_trees: Array[SubclassTree] = []
@@ -44,6 +46,8 @@ var claimed_reward_encounter_indices: Array[int] = []
 var shop_unlocked: bool = false
 var shop_round_pending: bool = false
 var shop_reroll_used: bool = false
+var shop_reroll_count: int = 0
+var shop_reroll_cost: int = SHOP_REROLL_INITIAL_COST
 var shop_round_index: int = 0
 var shop_offers: Array[GearItem] = []
 const SHOP_OFFER_COUNT := 6
@@ -105,6 +109,8 @@ func reset(preserve_adventure_seed: bool = false) -> void:
 	shop_unlocked = false
 	shop_round_pending = false
 	shop_reroll_used = false
+	shop_reroll_count = 0
+	shop_reroll_cost = SHOP_REROLL_INITIAL_COST
 	shop_round_index = 0
 	shop_offers = []
 	pending_reward_choices = []
@@ -243,9 +249,8 @@ func accept_contract_offer() -> bool:
 
 func needs_secondary_subclass_choice() -> bool:
 	return (
-		run_phase == RunPhase.CONTRACT_ROUTE
-		and current_route_node != null
-		and current_route_node.node_type == ContractRouteNode.NodeType.SUBCLASS_CHOICE
+		active_contract != null
+		and run_phase in [RunPhase.CONTRACT_ROUTE, RunPhase.PLANNING]
 		and selected_trees.size() < PassiveAllocator.MAX_TREES
 	)
 
@@ -394,6 +399,8 @@ func claim_current_reward() -> bool:
 	if has_claimed_current_reward():
 		return false
 	var reward := current_reward()
+	if not can_claim_current_reward():
+		return false
 	if is_contract_fight_active():
 		claimed_route_reward_ids.append(current_route_node.id)
 	else:
@@ -414,16 +421,44 @@ func claim_current_reward() -> bool:
 	return true
 
 
+func can_claim_current_reward() -> bool:
+	if run_phase != RunPhase.RESULT or not last_fight_won:
+		return false
+	if has_claimed_current_reward():
+		return false
+	var reward := current_reward()
+	if reward == null:
+		return true
+	return inventory_space_available() >= _fixed_reward_inventory_slots_needed(reward)
+
+
 func has_pending_reward_choice() -> bool:
 	return not pending_reward_choices.is_empty()
 
 
-func choose_pending_reward_gear(gear: GearItem) -> bool:
+func can_choose_pending_reward_gear(gear: GearItem) -> bool:
 	if gear == null or not pending_reward_choices.has(gear):
 		return false
-	var should_auto_equip := gear.tier == GearItem.Tier.LEGENDARY or not can_add_inventory_item()
+	if gear.tier == GearItem.Tier.LEGENDARY:
+		return true
+	return can_add_inventory_item()
+
+
+func choose_pending_reward_gear(gear: GearItem) -> bool:
+	if not can_choose_pending_reward_gear(gear):
+		return false
+	var should_auto_equip := gear.tier == GearItem.Tier.LEGENDARY
 	var granted := grant_gear(gear, should_auto_equip)
 	if not granted:
+		return false
+	pending_reward_choices = []
+	build_changed.emit()
+	run_state_changed.emit()
+	return true
+
+
+func skip_pending_reward_gear() -> bool:
+	if not has_pending_reward_choice():
 		return false
 	pending_reward_choices = []
 	build_changed.emit()
@@ -451,17 +486,28 @@ func open_shop_round() -> bool:
 		return false
 	shop_round_pending = true
 	shop_reroll_used = false
+	shop_reroll_count = 0
+	shop_reroll_cost = SHOP_REROLL_INITIAL_COST
 	shop_offers = _generate_tavern_shop_offers(shop_round_index, false)
 	build_changed.emit()
 	run_state_changed.emit()
 	return true
 
 
+func can_reroll_shop_offers() -> bool:
+	return shop_round_pending and gold >= shop_reroll_cost
+
+
 func reroll_shop_offers() -> bool:
-	if not shop_round_pending or shop_reroll_used:
+	if not can_reroll_shop_offers():
 		return false
+	var paid_cost := shop_reroll_cost
+	if not spend_gold(paid_cost):
+		return false
+	shop_reroll_count += 1
 	shop_reroll_used = true
-	shop_offers = _generate_tavern_shop_offers(shop_round_index, true)
+	shop_offers = _generate_tavern_shop_offers(shop_round_index, shop_reroll_count)
+	shop_reroll_cost = SHOP_REROLL_INITIAL_COST + (shop_reroll_count * SHOP_REROLL_COST_STEP)
 	build_changed.emit()
 	run_state_changed.emit()
 	return true
@@ -496,6 +542,9 @@ func close_shop_round() -> bool:
 	shop_round_pending = false
 	shop_round_index += 1
 	shop_offers = []
+	shop_reroll_used = false
+	shop_reroll_count = 0
+	shop_reroll_cost = SHOP_REROLL_INITIAL_COST
 	run_state_changed.emit()
 	return true
 
@@ -527,12 +576,13 @@ func continue_after_win() -> bool:
 	return has_next
 
 
-func _generate_tavern_shop_offers(round_index: int, is_reroll: bool) -> Array[GearItem]:
+func _generate_tavern_shop_offers(round_index: int, reroll_key: Variant) -> Array[GearItem]:
 	var shop_context := _current_reward_context_key()
+	var roll_key := _shop_offer_roll_key(reroll_key)
 	var rng := RunRngSystem.rng_for_context(
 		adventure_seed,
 		RunRngSystem.CONTEXT_SHOP_OFFER,
-		[shop_context, round_index, "reroll" if is_reroll else "initial"]
+		[shop_context, round_index, roll_key]
 	)
 	var offers: Array[GearItem] = []
 	var seen_signatures := {}
@@ -541,10 +591,17 @@ func _generate_tavern_shop_offers(round_index: int, is_reroll: bool) -> Array[Ge
 			"gear.generated.shop",
 			adventure_seed,
 			RunRngSystem.CONTEXT_SHOP_OFFER,
-			[shop_context, round_index, "reroll" if is_reroll else "initial", i]
+			[shop_context, round_index, roll_key, i]
 		)
 		offers.append(_generate_unique_shop_offer(rng, stable_id, seen_signatures))
 	return offers
+
+
+func _shop_offer_roll_key(reroll_key: Variant) -> String:
+	if typeof(reroll_key) == TYPE_BOOL:
+		return "reroll:1" if bool(reroll_key) else "initial"
+	var reroll_index := int(reroll_key)
+	return "initial" if reroll_index <= 0 else "reroll:%d" % reroll_index
 
 
 func _generate_unique_shop_offer(rng: RandomNumberGenerator, stable_id: String, seen_signatures: Dictionary) -> GearItem:
@@ -652,21 +709,50 @@ func _gear_choices_for_reward(reward: EncounterReward) -> Array[GearItem]:
 		RunRngSystem.CONTEXT_REWARD_CHOICE,
 		[reward_context, reward.generated_gear_tier, reward.generated_gear_choice_count]
 	)
-	var slots := reward.generated_gear_slots
+	var slots: Array = reward.generated_gear_slots if not reward.generated_gear_slots.is_empty() else GearGenerator.ALL_SLOTS
+	var seen_stat_signatures := {}
 	for i in reward.generated_gear_choice_count:
-		var slot: GearItem.SlotType
-		if i < slots.size():
-			slot = slots[i]
-		else:
-			slot = GearGenerator.ALL_SLOTS[rng.randi_range(0, GearGenerator.ALL_SLOTS.size() - 1)]
+		var generated := _generate_reward_choice_item(reward.generated_gear_tier, slots, rng, reward_context, i, seen_stat_signatures)
+		choices.append(generated)
+	return choices
+
+
+func _generate_reward_choice_item(
+	tier: GearItem.Tier,
+	slots: Array,
+	rng: RandomNumberGenerator,
+	reward_context: String,
+	choice_index: int,
+	seen_stat_signatures: Dictionary
+) -> GearItem:
+	var max_attempts := 64
+	var fallback: GearItem = null
+	for attempt in max_attempts:
+		var slot: GearItem.SlotType = slots[rng.randi_range(0, slots.size() - 1)]
 		var stable_id := RunRngSystem.id_for_context(
 			"gear.generated.reward",
 			adventure_seed,
 			RunRngSystem.CONTEXT_REWARD_CHOICE,
-			[reward_context, reward.generated_gear_tier, i, slot]
+			[reward_context, tier, choice_index, attempt, slot]
 		)
-		choices.append(GearGenerator.generate(reward.generated_gear_tier, slot, rng, stable_id))
-	return choices
+		var item := GearGenerator.generate(tier, slot, rng, stable_id)
+		if fallback == null:
+			fallback = item
+		var stat_signature := _generated_reward_stat_signature(item)
+		if not seen_stat_signatures.has(stat_signature):
+			seen_stat_signatures[stat_signature] = true
+			return item
+	return fallback
+
+
+func _generated_reward_stat_signature(item: GearItem) -> String:
+	if item == null:
+		return ""
+	var affix_parts: PackedStringArray = []
+	for affix in item.affixes:
+		affix_parts.append("%03d:%03d:%0.4f" % [affix.stat, affix.operation, affix.value])
+	affix_parts.sort()
+	return "%d|%s" % [item.tier, ",".join(affix_parts)]
 
 
 ## Picks `count` distinct entries from `pool` using seeded `rng`, without
@@ -752,6 +838,20 @@ func add_inventory_item(gear: GearItem) -> bool:
 
 func can_add_inventory_item() -> bool:
 	return inventory.size() < INVENTORY_CAPACITY
+
+
+func inventory_space_available() -> int:
+	return max(0, INVENTORY_CAPACITY - inventory.size())
+
+
+func _fixed_reward_inventory_slots_needed(reward: EncounterReward) -> int:
+	if reward == null:
+		return 0
+	var needed := 0
+	for gear in reward.fixed_gear_rewards:
+		if gear != null:
+			needed += 1
+	return needed
 
 
 func remove_inventory_item(gear: GearItem) -> bool:

@@ -38,7 +38,10 @@ signal route_requested
 
 enum Step { GREETING, PITCH, CONTRACT_CHOICE, VYRA_DETAIL }
 
+const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 const CARD_TITLE_FONT_SIZE := 20
+const CONTRACT_CHOICE_CARD_WIDTH := 340
+const CONTRACT_CHOICE_PULSE_DURATION_SEC := 0.72
 const CONTRACT_PORTRAIT_TEXTURE := preload("res://assets/backgrounds/Ghit_Guud.jpg")
 const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
 
@@ -62,8 +65,10 @@ const VYRA_ROUTE_NODE_ID := "route.gilded_serpent.vyra"
 
 var _contract_step: Step = Step.GREETING
 var _contract_body_label: Label
-var _contract_options_box: HBoxContainer
+var _contract_options_box: VBoxContainer
+var _contract_footer_spacer: Control
 var _contract_action_button: Button
+var _selected_contract_id := ""
 
 
 func _ready() -> void:
@@ -115,17 +120,19 @@ func _ready() -> void:
 	_contract_body_label = Label.new()
 	_contract_body_label.name = "ContractBodyLabel"
 	_contract_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_contract_body_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	contract_content.add_child(_contract_body_label)
 
 	# Empty/hidden except during Step.CONTRACT_CHOICE -- one option today
-	# (Vyra), but a row rather than a single fixed button since the user's
-	# stated plan is for this step to grow into a real multi-contract picker.
-	_contract_options_box = HBoxContainer.new()
+	# (Vyra), stacked vertically so future contracts naturally form a list.
+	_contract_options_box = VBoxContainer.new()
 	_contract_options_box.name = "ContractOptionsBox"
-	_contract_options_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_contract_options_box.alignment = BoxContainer.ALIGNMENT_BEGIN
 	_contract_options_box.add_theme_constant_override("separation", 12)
 	contract_content.add_child(_contract_options_box)
+
+	_contract_footer_spacer = Control.new()
+	_contract_footer_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	contract_content.add_child(_contract_footer_spacer)
 
 	var button_row := HBoxContainer.new()
 	button_row.alignment = BoxContainer.ALIGNMENT_END
@@ -145,6 +152,7 @@ func show_greeting() -> void:
 ## Opens the window at the post-subclass-choice contract picker. Reached after
 ## the secondary-tree choice, not by advancing from PITCH.
 func show_contract_choice() -> void:
+	_selected_contract_id = ""
 	_show_step(Step.CONTRACT_CHOICE)
 
 
@@ -173,15 +181,14 @@ func refresh() -> void:
 			CardStyle.configure_icon_button(_contract_action_button, CONTRACT_ICON)
 		Step.CONTRACT_CHOICE:
 			_contract_body_label.text = CONTRACT_CHOICE_PROMPT_TEXT
-			_contract_action_button.text = "Proceed"
+			_contract_action_button.text = FLOW_TEXT.ACTION_PROCEED
 			CardStyle.configure_icon_button(_contract_action_button, CONTRACT_ICON)
-			_contract_action_button.disabled = true
+			_contract_action_button.disabled = _selected_contract_id == ""
 			_contract_options_box.visible = true
 			var vyra_node: ContractRouteNode = null
 			if BuildState.active_contract != null:
 				vyra_node = ContractRouteNode.find_by_id(BuildState.active_contract.offer_node, VYRA_ROUTE_NODE_ID)
-			var choice_group := ButtonGroup.new()
-			_contract_options_box.add_child(_build_contract_choice_card(CONTRACT_VYRA_NAME, vyra_node, choice_group))
+			_contract_options_box.add_child(_build_contract_choice_card(VYRA_ROUTE_NODE_ID, CONTRACT_VYRA_NAME, vyra_node))
 		Step.VYRA_DETAIL:
 			_contract_body_label.text = CONTRACT_VYRA_DETAIL_TEXT
 			_contract_action_button.text = "Accept"
@@ -194,24 +201,18 @@ func refresh() -> void:
 ## CONTRACT_CHOICE_PROMPT_TEXT's step is meant to grow into a real
 ## multi-contract picker later. `group` keeps future cards mutually
 ## exclusive; harmless with today's single card.
-func _build_contract_choice_card(display_name: String, node: ContractRouteNode, group: ButtonGroup) -> Button:
+func _build_contract_choice_card(contract_id: String, display_name: String, node: ContractRouteNode) -> Button:
 	var card := Button.new()
 	card.name = "VyraContractButton"
-	card.custom_minimum_size = Vector2(340, 110)
-	card.toggle_mode = true
-	card.button_group = group
+	card.custom_minimum_size = Vector2(CONTRACT_CHOICE_CARD_WIDTH, 110)
 	CardStyle.configure_icon_button(card, CONTRACT_ICON)
 	card.text = "%s\n%s" % [display_name, _contract_choice_reward_text(node)]
-	var normal_style := CardStyle.make_stylebox()
-	var selected_style := CardStyle.make_stylebox()
-	selected_style.border_color = CardStyle.ACCENT_COLOR
-	selected_style.set_border_width_all(3)
-	card.add_theme_stylebox_override("normal", normal_style)
-	card.add_theme_stylebox_override("hover", normal_style)
-	card.add_theme_stylebox_override("pressed", selected_style)
-	card.add_theme_stylebox_override("hover_pressed", selected_style)
-	card.add_theme_stylebox_override("focus", selected_style)
-	card.toggled.connect(_on_contract_choice_toggled)
+	card.pressed.connect(_on_contract_choice_pressed.bind(contract_id))
+	if _selected_contract_id == contract_id:
+		_style_contract_choice_selected(card)
+	else:
+		_style_contract_choice_available(card)
+		_add_contract_choice_pulse(card)
 	return card
 
 
@@ -221,8 +222,47 @@ func _contract_choice_reward_text(node: ContractRouteNode) -> String:
 	return "Reward: %dg" % node.reward.gold_amount
 
 
-func _on_contract_choice_toggled(pressed: bool) -> void:
-	_contract_action_button.disabled = not pressed
+func _on_contract_choice_pressed(contract_id: String) -> void:
+	_selected_contract_id = "" if _selected_contract_id == contract_id else contract_id
+	refresh()
+
+
+func _style_contract_choice_available(card: Button) -> void:
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := CardStyle.make_stylebox()
+		style.bg_color = UIColors.PANEL
+		style.border_color = UIColors.STRUCTURE_LINE_LIGHT
+		style.set_border_width_all(3)
+		card.add_theme_stylebox_override(state_name, style)
+
+
+func _style_contract_choice_selected(card: Button) -> void:
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := CardStyle.make_stylebox()
+		style.bg_color = UIColors.MAP_NODE_CURRENT
+		style.border_color = CardStyle.ACCENT_COLOR
+		style.set_border_width_all(5)
+		card.add_theme_stylebox_override(state_name, style)
+
+
+func _add_contract_choice_pulse(card: Button) -> void:
+	var pulse := PanelContainer.new()
+	pulse.name = "ContractChoicePulse"
+	pulse.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pulse.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var pulse_style := StyleBoxFlat.new()
+	pulse_style.bg_color = Color(0, 0, 0, 0)
+	pulse_style.border_color = UIColors.TEXT_GOLD
+	pulse_style.set_border_width_all(5)
+	pulse_style.set_corner_radius_all(8)
+	pulse.add_theme_stylebox_override("panel", pulse_style)
+	card.add_child(pulse)
+
+	pulse.modulate.a = 0.35
+	var tween := pulse.create_tween()
+	tween.set_loops()
+	tween.tween_property(pulse, "modulate:a", 1.0, CONTRACT_CHOICE_PULSE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(pulse, "modulate:a", 0.35, CONTRACT_CHOICE_PULSE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
 ## The single action button means something different at each step:
@@ -235,6 +275,7 @@ func _on_action_button_pressed() -> void:
 		Step.PITCH:
 			accept_requested.emit()
 		Step.CONTRACT_CHOICE:
-			_show_step(Step.VYRA_DETAIL)
+			if _selected_contract_id != "":
+				_show_step(Step.VYRA_DETAIL)
 		Step.VYRA_DETAIL:
 			route_requested.emit()

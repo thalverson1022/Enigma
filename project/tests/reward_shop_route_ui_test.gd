@@ -35,16 +35,31 @@ func _initialize() -> void:
 	var offers: Array[GearItem] = [unaffordable_offer, affordable_offer]
 	build_state.shop_round_pending = true
 	build_state.shop_offers = offers
+	build_state.build_changed.emit()
 	combat_screen._shop_overlay.refresh()
 	await process_frame
 
 	_require(combat_screen._shop_overlay._shopkeeper_image != null, "Expected the shopkeeper image node to exist.")
 	_require(combat_screen._shop_overlay._shopkeeper_image.texture != null, "Expected the shopkeeper image texture to be loaded.")
-	_require(combat_screen._shop_overlay._shop_gold_label.text == "Gold: 20g", "Expected the shop overlay's own gold label to read the current gold, got: %s" % combat_screen._shop_overlay._shop_gold_label.text)
+	_require(combat_screen._shop_overlay.z_index > combat_screen._combat_stage.player_actor_anchor.z_index, "Expected the shop overlay to render above combat actor sprites.")
+	_require(combat_screen._shop_overlay.z_index > combat_screen.COMBAT_BUTTON_ROW_Z_INDEX, "Expected the shop overlay to render above the raised combat button row.")
+	_require(combat_screen.find_child("GearPanel", true, false)._gold_label.text == "20g", "Expected the Gear panel to be the primary gold stash readout.")
+	_require(combat_screen._shop_overlay._shop_reroll_button.text == "Reroll 5g", "Expected reroll to show its current gold cost.")
+	_require(not combat_screen._shop_overlay._shop_reroll_button.disabled, "Expected 20g to afford the initial 5g reroll.")
+	_require(combat_screen._shop_overlay._shop_reroll_button.tooltip_text.contains("Spend 5g"), "Expected reroll tooltip to explain the gold spend.")
+	var found_shop_gold_label := false
+	for label in combat_screen._shop_overlay.find_children("*", "Label", true, false):
+		if label.text == "Gold: 20g":
+			found_shop_gold_label = true
+	_require(not found_shop_gold_label, "Expected the shop overlay to avoid a duplicate Gold row.")
 	_require(combat_screen._shop_overlay._shop_offers_box.get_child_count() == 2, "Expected two shop offer boxes.")
 
 	var unaffordable_button: Button = combat_screen._shop_overlay._shop_offers_box.get_child(0)
 	_require(unaffordable_button.disabled, "Expected the 32g Master offer to be disabled at 20 gold.")
+	_require(unaffordable_button.find_child("PriceBadge", true, false) != null, "Expected the unaffordable offer to show an always-visible price badge.")
+	_require(unaffordable_button.find_child("PriceLabel", true, false).text == "32g", "Expected the unaffordable offer price badge to show 32g.")
+	_require(unaffordable_button.find_child("PriceLabel", true, false).get_theme_font_size("font_size") == 16, "Expected the price badge value font to be larger.")
+	_require(unaffordable_button.find_child("GoldIcon", true, false).custom_minimum_size == Vector2(11, 11), "Expected the price badge gold icon to be smaller.")
 	# The offer box's icon lives in a child TextureRect (P2:R7 gear-art pass)
 	# -- see CardStyle.build_gear_box_content(). The caption text it used to
 	# carry alongside the icon was dropped as redundant once the icon art +
@@ -59,6 +74,9 @@ func _initialize() -> void:
 
 	var affordable_button: Button = combat_screen._shop_overlay._shop_offers_box.get_child(1)
 	_require(not affordable_button.disabled, "Expected the 18g Basic offer to be affordable at 20 gold.")
+	_require(affordable_button.find_child("PriceBadge", true, false) != null, "Expected the affordable offer to show an always-visible price badge.")
+	_require(affordable_button.find_child("PriceLabel", true, false).text == "18g", "Expected the affordable offer price badge to show 18g.")
+	_require(affordable_button.find_child("PriceLabel", true, false).get_theme_font_size("font_size") == 16, "Expected the affordable price badge value font to be larger.")
 	var affordable_tooltip: String = affordable_button.tooltip_text
 	_require(affordable_tooltip.contains("Click to buy."), "Expected an explicit buy hint on an affordable offer, got: %s" % affordable_tooltip)
 	_require(not affordable_tooltip.contains("vs. equipped"), "Expected no stat-diff comparison text in the tooltip anymore, got: %s" % affordable_tooltip)
@@ -123,6 +141,15 @@ func _initialize() -> void:
 	candidate_row.free()
 	build_state.equipped_weapon = null
 
+	build_state.gold = 4
+	combat_screen._shop_overlay.refresh()
+	await process_frame
+	_require(combat_screen._shop_overlay._shop_reroll_button.disabled, "Expected reroll to disable below its current gold cost.")
+	_require(combat_screen._shop_overlay._shop_reroll_button.tooltip_text.contains("Need 5g"), "Expected reroll tooltip to explain the unaffordable cost.")
+	build_state.gold = 20
+	combat_screen._shop_overlay.refresh()
+	await process_frame
+
 	# -- Route tradeoff text: differs between two real Gilded Serpent branch
 	# pairs, derived from real Monster/EncounterReward data. --
 	print("route tradeoff text checks")
@@ -164,6 +191,21 @@ func _initialize() -> void:
 	print(combat_screen._map_overlay._map_story_label.text)
 	_require(combat_screen._map_overlay._map_story_label.text.contains("Door Guard is the harder branch."), "Expected the live route map story text to include the opener tradeoff sentence.")
 
+	print("contract reward-row summary checks")
+	build_state.current_route_node = door_guard
+	build_state.run_phase = BuildState.RunPhase.RESULT
+	build_state.last_fight_won = true
+	build_state.run_state_changed.emit()
+	combat_screen._populate_reward_row()
+	await process_frame
+	var door_reward_row_text := _reward_row_text(combat_screen)
+	print(door_reward_row_text)
+	_require(door_reward_row_text.contains("Choice of Master Gear"), "Expected Door Guard result reward row to show the compact generated-gear label.")
+	_require(door_reward_row_text.contains(": 22g"), "Expected Door Guard result reward row to show the gold icon value.")
+	_require(not door_reward_row_text.contains("weapon or ring"), "Expected Door Guard result reward row to omit route-preview slot copy.")
+	_require(not door_reward_row_text.contains("22g and"), "Expected Door Guard result reward row not to duplicate gold in prose.")
+	_require(_reward_row_icon_count(combat_screen) == 1, "Expected Door Guard reward row to show only the gold icon.")
+
 	# -- Reward-claim UI: Legendary reward tier/slot/affix rendering, using
 	# Knives' real authored gear_choice_rewards. --
 	print("Legendary reward-claim tier/slot/affix checks")
@@ -193,6 +235,22 @@ func _find_route_node(node: ContractRouteNode, id: String, visited: Array[String
 		if found != null:
 			return found
 	return null
+
+
+func _reward_row_text(combat_screen) -> String:
+	var parts: PackedStringArray = []
+	for child in combat_screen._victory_reward_row.get_children():
+		if child is Label:
+			parts.append(child.text)
+	return " ".join(parts)
+
+
+func _reward_row_icon_count(combat_screen) -> int:
+	var count := 0
+	for child in combat_screen._victory_reward_row.get_children():
+		if child is TextureRect:
+			count += 1
+	return count
 
 
 func _require(condition: bool, message: String) -> void:

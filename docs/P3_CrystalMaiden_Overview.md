@@ -54,7 +54,7 @@ Completed:
 - `Project-CrystalMaiden` set up as the clean Phase 3 local clone.
 - Phase 3 docs cleaned to the handoff and planning set.
 - Current-state audit completed for Milestone 0.
-- Focused playback, HUD, recap, Training Room combat view, and Balance Lab
+- Focused playback, HUD, recap, Practice Room combat view, and Balance Lab
   baseline checks passed.
 - Milestone 1 tasking document created.
 
@@ -83,11 +83,11 @@ Status values:
 |---:|---|---|---|
 | 0 | Planning And Phase Setup | Complete | Git setup, plan approval, clean clone, audit, baseline checks, and Milestone 1 tasking setup are done. |
 | 1 | Combat Playback Juice | Complete | M1:T0 through M1:T14 are complete. Rogue animation, Tavern/contract enemy sprite mappings, Rogue skill icons, subclass icons, stable misc UI icons, cast language, timing, cast windup/macro-fill alignment, start-of-fight readability, hit/crit contact feedback, poison stack/tick feedback, combat-window current defense values plus poison/Shred/Decay iconography, proc/min-cast readability, Legendary feedback, victory/defeat reveal timing, integrated combat-window victory transition, macro highlight/fill playback, final verification, and documentation closeout are covered in the Milestone 1 document. |
-| 2 | Combat Recap And Failure Clarity | Complete | M2:T0 through M2:T9 are complete in `Phase_3_Milestone_2_Combat_Recap_And_Failure_Clarity.md`; the shared recap model, first-pass Combat Log inspector, victory/defeat result overlay parity, retry fix, non-modal result overlays that leave dashboard controls usable, clearer retry/restart/action-state copy, readable structured Combat Log text, Training Room practice-result invalidation, focused tests, and final verification are covered. |
-| 3 | Build Screen And Rotation UX Polish | Complete | M3:T0 through M3:T7 are complete in `Phase_3_Milestone_3_Build_Screen_And_Rotation_UX_Polish.md`; the 10-slot Skill Build cap/count layout, fixed lock lane geometry, lock-as-ready empty-rotation guard, available-skill readability audit, talent dependency blocked-deselect pulse, character-stats/change-feedback audit, shared Adventure/Training Room build-language audit, focused tests, final verification, and documentation closeout are covered. |
-| 4 | Gear, Rewards, Shop, And Legendary Presentation | Not Started |  |
-| 5 | Adventure Flow And Transition Polish | Not Started |  |
-| 6 | Training Room Usability Pass | Not Started |  |
+| 2 | Combat Recap And Failure Clarity | Complete | M2:T0 through M2:T9 are complete in `P3M2_Combat_Recap_And_Failure_Clarity.md`; the shared recap model, first-pass Combat Log inspector, victory/defeat result overlay parity, retry fix, non-modal result overlays that leave dashboard controls usable, clearer retry/restart/action-state copy, readable structured Combat Log text, Practice Room practice-result invalidation, focused tests, and final verification are covered. |
+| 3 | Build Screen And Rotation UX Polish | Complete | M3:T0 through M3:T7 are complete in `P3M3_Build_Screen_And_Rotation_UX_Polish.md`; the 10-slot Skill Build cap/count layout, fixed lock lane geometry, lock-as-ready empty-rotation guard, available-skill readability audit, talent dependency blocked-deselect pulse, character-stats/change-feedback audit, shared Adventure/Practice Room build-language audit, focused tests, final verification, and documentation closeout are covered. |
+| 4 | Shop And Inventory Management UX | Complete | M4T0 through M4T7 are complete in `P3M4_Shop_And_Inventory_Management_UX.md`. Shop-phase buying, selling, equipping, unequipping, rerolling, and full-inventory reward clarity are covered without redesigning the underlying gear system. |
+| 5 | Adventure Flow And Transition Polish | Complete | M5:T0 through M5:T10 are complete in `P3M5_Adventure_Flow_And_Transition_Polish.md`; reusable Adventure flow language, lightweight select-then-commit patterns, title/entry cleanup, tutorial-path audits, reward/shop/build/talent handoffs, terminal-state clarity, late current-contract triage, focused regression checks, deferred Phase 4 notes, and final closeout are recorded. |
+| 6 | Practice Room Usability Pass | Complete | M6:T0 through M6:T6 are complete in `P3M6_Practice_Room_Usability_Pass.md`. The low-effort finish pass replaced Practice Room framing copy, fixed Practice Target floor/scale presentation, closed setup/playback/log audits with no extra redesign, verified Practice Room isolation, and recorded final focused checks. |
 | 7 | Testing Suite And Balance Lab Hardening | Not Started | External mechanics testing package needs review and polish. |
 | 8 | Audio, Feedback, And Polish Sweep | Not Started | Placeholder audio still needs approval. |
 | 9 | Regression, Export, And Phase 3 Closeout | Not Started |  |
@@ -104,7 +104,7 @@ In scope:
 - UI layout polish and clearer information hierarchy.
 - Better hover, focus, disabled, selected, and comparison states.
 - Better transitions between major adventure states.
-- Training Room usability and visualization improvements.
+- Practice Room usability and visualization improvements.
 - Testing-suite and Balance Lab hardening for future mechanics and balance work.
 - Lightweight placeholder audio if it supports interaction clarity.
 - Documentation and UX checklists for future art, animation, and mechanics work.
@@ -212,72 +212,122 @@ Expected outputs:
 - Clearer talent and stat feedback.
 - Better player confidence in why a build works or fails.
 
-## Milestone 4: Gear, Rewards, Shop, And Legendary Presentation
+## Milestone 4: Shop And Inventory Management UX
 
-Goal: make gear and reward decisions more exciting, readable, and easy to
-compare.
+Goal: make the shop phase the clear home for gear management. The player should
+be able to buy, sell, equip, unequip, compare, and reroll shop offers with clear
+costs, destinations, disabled states, and consequences, while inventory
+capacity remains an intentional strategic constraint.
+
+Status: Complete.
 
 Tasks:
 
-- Improve gear card hierarchy.
-- Polish rarity visuals without turning the milestone into a full art pass.
-- Make Legendary gear feel special in rewards, shop, inventory, equipped slots,
-  and combat moments.
-- Improve shop offer readability.
-- Improve gear comparison states.
-- Improve reward-choice moments.
-- Reduce ambiguity around equip, buy, reroll, skip, and continue actions.
+- Audit current shop, inventory, equipped gear, reward, and reroll flows.
+- Improve inventory capacity and shop-phase management readability.
+- Allow equip and unequip while the shop is open.
+- Add shop-phase selling from inventory.
+- Clarify that `Buy` sends items to inventory, with clear affordability and
+  capacity states.
+- Replace reroll count with a scaling gold cost that starts at 5 gold and
+  increases by 5 after each reroll in the current shop phase.
+- Improve reroll refresh feedback.
+- Clarify full-inventory gear reward blocking, especially for contract kill
+  rewards, with distinct full-inventory feedback instead of the unaffordable
+  gray state.
+- Verify, document, and close the milestone.
 
 Expected outputs:
 
-- Stronger reward moments.
-- Clearer gear comparisons.
-- More satisfying Legendary presentation.
-- Easier shop and inventory decisions.
+- Clearer shop-phase gear management.
+- Shop-only selling from inventory.
+- Click-based equip and unequip during shop phases.
+- Predictable buy-to-inventory behavior.
+- Rerolling that uses scaling gold costs and has clearer payment/refresh
+  feedback.
+- Clearer inventory-capacity consequences with safe reward blocking.
 
 ## Milestone 5: Adventure Flow And Transition Polish
 
-Goal: make the full Rogue adventure feel more coherent and game-like from start
-to finish.
+Goal: make the current Rogue Adventure easier to move through by reducing
+transition friction, clarifying immediate next actions, and establishing
+reusable flow patterns that can support the future town-map and
+procedural-contract redesign. Preserve the Tavern and first-contract path as
+useful tutorial scaffolding, while avoiding heavy polish on contract-specific
+structures likely to be replaced in the next phase.
+
+Status: Complete. M5:T0 planning, M5:T1 reusable flow language, M5:T2 lightweight transition pattern, M5:T3 title/Adventure entry cleanup, M5:T4 Rogue selection/early tutorial flow audit, M5:T5 Tavern/first-contract tutorial flow audit, M5:T6 reward/shop/build/talent handoff cleanup, M5:T7 failure/restart/resume/victory state cleanup, M5:T8 late current-contract triage, M5:T9 focused tests/regression checks, and M5:T10 closeout are complete. T7 includes the imported Rogue death-animation loss beat for both natural and skipped defeats. T8 kept the late contract path serviceable with clearer route commit copy/status feedback while leaving larger late-contract presentation work deferred. T9 verified the core M5 state-flow suite plus adjacent Practice Room and combat playback checks. T10 recorded reusable Phase 4 flow patterns and deferred contract/town-map redesign work.
+
+Design direction:
+
+- The next phase is expected to substantially revamp the contract engine.
+- The Tavern and possibly the first contract may remain as a mini-tutorial.
+- Later contract structure is expected to move toward procedurally generated
+  contracts, a town map, and a more open-world-feeling introduction.
+- Milestone 5 should focus on durable flow clarity rather than treating the
+  current linear contract arc as a final adventure format.
 
 Tasks:
 
-- Polish title-to-adventure flow.
-- Improve subclass selection presentation.
-- Improve tavern ladder, map, and route transitions.
-- Improve contract offer and route-choice moments.
-- Polish the Knives Legendary reward moment.
-- Polish the Vyra climax presentation.
-- Improve victory, failure, restart, and resume states.
-- Add small transitions where they improve clarity or momentum.
+- Plan and audit the current Adventure flow. Status: Complete.
+- Define reusable Adventure flow language. Status: Complete.
+- Add a lightweight transition pattern. Status: Complete.
+- Clean up title and Adventure entry. Status: Complete.
+- Polish Rogue selection and early tutorial flow. Status: Complete as
+  audit/check.
+- Polish Tavern and first-contract tutorial flow. Status: Complete as
+  audit/check.
+- Clean up reward, shop, build, and talent handoffs. Status: Complete.
+- Clean up adventure failure, restart, resume, and victory states. Status:
+  Complete.
+- Triage late current-contract flow only. Status: Complete.
+- Run focused tests and regression checks. Status: Complete.
+- Verify, document, and close the milestone. Status: Complete.
 
 Expected outputs:
 
-- Smoother adventure flow.
-- Clearer route and contract beats.
-- Better major story and reward moments.
-- Less friction between screens and states.
+- Smoother Adventure flow without over-investing in soon-to-change contract
+  structure.
+- Clearer route, tutorial, restart, resume, failure, and victory beats.
+- Reusable flow language and transition patterns for the Phase 4 town-map and
+  procedural-contract redesign.
+- Less friction between combat, reward, shop, build, talent, route, and result
+  states.
 
-## Milestone 6: Training Room Usability Pass
+## Milestone 6: Practice Room Usability Pass
 
-Goal: make the Training Room a better tool for testing builds, animation,
-combat reads, and future balance work.
+Goal: make the Practice Room a better tool for learning mechanics through
+experimentation with builds, animation, combat reads, and future balance work.
+
+Status: Complete. M6:T0 planning, M6:T1 Practice Room framing copy, M6:T2
+training dummy floor/scale alignment, M6:T3 setup-friction audit, M6:T4
+playback/recap/Combat Log audit, M6:T5 focused isolation/regression checks, and
+M6:T6 closeout are complete. Because the largest Practice Room improvements
+were already pulled forward during M5, M6 closed as a low-effort audit and
+finish pass rather than a broad new feature milestone.
 
 Tasks:
 
-- Improve target controls.
-- Improve gear editor clarity.
-- Improve direct Legendary selection flow.
-- Improve talent and rotation setup speed.
-- Improve combat playback testing controls.
-- Improve combat log and recap usefulness in practice mode.
-- Confirm Training Room remains isolated from Adventure state and save data.
+- Audit the pulled-forward Practice Room slice and mark what is already
+  complete. Status: Complete.
+- Replace the current post-failure subtitle with learning-oriented Practice
+  Room copy. Status: Complete.
+- Fix the training dummy floor read by keeping the shadow in place, lowering
+  the dummy sprite to meet it, and slightly reducing dummy scale if needed.
+  Status: Complete.
+- Audit remaining target, Legendary, talent, rotation, gear-editor, playback,
+  recap, and Combat Log friction. Status: Complete as audit/check.
+- Confirm Practice Room remains isolated from Adventure state and save data.
+  Status: Complete.
+- Verify, document, and close the milestone. Status: Complete.
 
 Expected outputs:
 
 - Faster build testing.
 - Better controlled combat review.
-- Clearer Training Room controls.
+- Clearer Practice Room controls.
+- Practice Room combat presentation intentionally aligned with Adventure where
+  useful, instead of drifting because Adventure received earlier layout polish.
 - Preserved separation between practice mode and Adventure mode.
 
 ## Milestone 7: Testing Suite And Balance Lab Hardening
@@ -367,7 +417,7 @@ Reasons:
 - Combat playback already exists, so improvements can build on current
   infrastructure.
 - Better combat event language will inform the rest of the UI polish.
-- The Training Room can be used to test combat presentation in controlled
+- The Practice Room can be used to test combat presentation in controlled
   scenarios.
 
 ## Open Approval Questions

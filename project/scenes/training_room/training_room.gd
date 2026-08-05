@@ -1,5 +1,5 @@
 extends Control
-## Training Room: freeform practice mode (P2:R10), distinct from the locked
+## Practice Room: freeform practice mode (P2:R10), distinct from the locked
 ## Adventure flow. Deliberately touches no BuildState/save fields -- practice
 ## builds, gear, and results here must never affect or be affected by a real
 ## Adventure run, per the P2:R10 scope decision. Owns its own
@@ -13,15 +13,16 @@ extends Control
 ## Talents panel, backed by TrainingRoomState.set_primary_tree()/
 ## set_secondary_tree() (post-R10 UI-feedback pass).
 ##
-## P2:R10:T4 scope, reworked into a rarity-first gear editor (post-R10
-## UI-feedback pass): each slot's Rarity dropdown (Basic/Master/Cursed, plus
-## Legendary for the weapon slot) fixes a real GearGenerator-shaped affix
-## slot count rather than letting the player freely add/remove any number of
-## affixes; each slot then gets a stat-choice dropdown that auto-fills the
-## real tier value (still editable afterward). Choosing Legendary swaps the
-## weapon's affix rows for a Legendary-name dropdown instead
-## (TrainingRoomState.equip_legendary()/use_custom_weapon()); trinket/charm
-## have no Legendary items today, so they're always the rarity-driven editor.
+## P2:R10:T4 scope, reworked into a compact paper-doll gear editor after
+## Practice Room overflow feedback: the right panel shows equipment slots only,
+## and clicking a slot opens its focused Rarity/stat popup. Each slot's Rarity
+## dropdown (Basic/Master/Cursed, plus Legendary for the weapon slot) fixes a
+## real GearGenerator-shaped affix slot count; each affix then gets a
+## stat-choice dropdown that auto-fills the real tier value while staying
+## editable. Choosing Legendary swaps the weapon's affix rows for a
+## Legendary-name dropdown instead (TrainingRoomState.equip_legendary()/
+## use_custom_weapon()); trinket/charm have no Legendary items today, so
+## they're always the rarity-driven editor.
 ##
 ## P2:R10:T5 scope: fight-setup controls -- a target stats card
 ## (TrainingTargetPanel, styled like Adventure's enemy_panel.gd), a direct
@@ -29,7 +30,7 @@ extends Control
 ## practice-gold input (feeds `BuildResolver.resolve_stats()`'s
 ## `current_gold` parameter so Bandit Blade's gold-scaling damage is actually
 ## testable here). Reworked post-R10 (UI-feedback pass): the target card no
-## longer picks between 3 preset monsters -- Training Room only measures
+## longer picks between 3 preset monsters -- Practice Room only measures
 ## damage dealt in a fixed window, never whether the target dies, so it's
 ## just adjustable Armor/Poison Resist values on a single practice target
 ## with no HP concept anywhere in the UI.
@@ -50,11 +51,18 @@ const HEADING_FONT_SIZE := 32
 const CARD_TITLE_FONT_SIZE := 20
 const SIDE_COLUMN_WIDTH := 300
 const ACTION_BUTTON_FONT_SIZE := 16
-const FIGHT_BUTTON_SIZE := Vector2(124, 38)
-const LOG_BUTTON_SIZE := Vector2(142, 38)
+const FIGHT_BUTTON_SIZE := Vector2(148, 52)
+const LOG_BUTTON_SIZE := Vector2(148, 52)
+const PRACTICE_SKILL_BUILD_MIN_HEIGHT := 148
+const PAPER_DOLL_HELM_SLOT_SIZE := Vector2(66, 66)
+const PAPER_DOLL_ARMOR_SLOT_SIZE := Vector2(96, 96)
+const PAPER_DOLL_WEAPON_SLOT_SIZE := Vector2(78, 78)
+const PAPER_DOLL_SMALL_SLOT_SIZE := Vector2(56, 56)
+const GEAR_EDITOR_POPUP_SIZE := Vector2(390, 285)
 const ROGUE_CLASS_PATH := "res://data/classes/rogue.tres"
 const BACKDROP_COLOR := UIColors.OVERLAY_BACKDROP
 const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
+const PRACTICE_LOGO_PATH := "res://assets/ui/logos/peak_deeps_logo_mountain_crest.png"
 
 const ACTIVE_TALENTS_PANEL_SCENE := preload("res://scenes/combat/active_talents_panel.tscn")
 const TALENT_PANEL_SCENE := preload("res://scenes/combat/talent_panel.tscn")
@@ -81,13 +89,18 @@ const NONE_RARITY_ID := 100
 var _state: TrainingRoomState
 var _primary_tree_option: OptionButton
 var _secondary_tree_option: OptionButton
-var _weapon_affix_column: VBoxContainer
-var _trinket_affix_column: VBoxContainer
-var _charm_affix_column: VBoxContainer
-var _weapon_rarity_option: OptionButton
-var _trinket_rarity_option: OptionButton
-var _charm_rarity_option: OptionButton
-var _weapon_legendary_option: OptionButton
+var _weapon_slot_button: Button
+var _trinket_slot_button: Button
+var _charm_slot_button: Button
+var _gear_slot_buttons: Dictionary = {}
+var _gear_editor_overlay: Control
+var _gear_editor_title: Label
+var _gear_rarity_option: OptionButton
+var _gear_legendary_option: OptionButton
+var _gear_affix_column: VBoxContainer
+var _editing_gear_item: GearItem = null
+var _editing_gear_slot_name := ""
+var _editing_gear_is_weapon := false
 var _target_panel: TrainingTargetPanel
 var _duration_spin: SpinBox
 var _seed_spin: SpinBox
@@ -116,7 +129,7 @@ func _ready() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", 14)
+	vbox.add_theme_constant_override("separation", 10)
 	margin.add_child(vbox)
 
 	var header := HBoxContainer.new()
@@ -124,7 +137,7 @@ func _ready() -> void:
 	vbox.add_child(header)
 
 	var heading := Label.new()
-	heading.text = "Training Room"
+	heading.text = "Practice Room"
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.theme_type_variation = &"TitleHeading"
 	heading.add_theme_font_size_override("font_size", HEADING_FONT_SIZE)
@@ -137,24 +150,24 @@ func _ready() -> void:
 	header.add_child(back_button)
 
 	var subtitle := Label.new()
-	subtitle.text = "Freeform build practice -- never touches your real Adventure save."
+	subtitle.text = "Where questionable builds go to become slightly less questionable."
 	vbox.add_child(subtitle)
 
 	# Three-column layout mirroring Adventure's real combat_screen.gd column
 	# structure (Left: character stats + talents, Center: combat view +
 	# skill strips, Right: target/fight-setup + gear), per user feedback
-	# that Training Room should read as a variant of Adventure mode rather
+	# that Practice Room should read as a variant of Adventure mode rather
 	# than a flat stack of sections.
 	var columns := HBoxContainer.new()
 	columns.name = "Columns"
-	columns.add_theme_constant_override("separation", 12)
+	columns.add_theme_constant_override("separation", 10)
 	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(columns)
 
 	var left_column := VBoxContainer.new()
 	left_column.name = "LeftColumn"
-	left_column.add_theme_constant_override("separation", 8)
+	left_column.add_theme_constant_override("separation", 6)
 	left_column.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0)
 	columns.add_child(left_column)
 
@@ -166,13 +179,14 @@ func _ready() -> void:
 	var active_talents_panel := ACTIVE_TALENTS_PANEL_SCENE.instantiate()
 	active_talents_panel.name = "ActiveTalentsPanel"
 	active_talents_panel.state = _state
+	active_talents_panel.enable_open_button_attention = false
 	active_talents_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	active_talents_panel.open_talents_pressed.connect(_show_talent_overlay)
 	left_column.add_child(active_talents_panel)
 
 	var center_column := VBoxContainer.new()
 	center_column.name = "CenterColumn"
-	center_column.add_theme_constant_override("separation", 8)
+	center_column.add_theme_constant_override("separation", 6)
 	center_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center_column.size_flags_stretch_ratio = 2.0
 	columns.add_child(center_column)
@@ -182,14 +196,14 @@ func _ready() -> void:
 	_combat_view.finished.connect(_on_combat_view_finished)
 	center_column.add_child(_combat_view)
 
-	# Fight + Combat Log, centered under the combat view rather than
-	# spanning the full screen width.
+	# Fight + Combat Log live inside the combat view's lower band, matching
+	# Adventure's M5 combat-window treatment.
 	var fight_button_row := HBoxContainer.new()
 	fight_button_row.name = "FightButtonRow"
 	fight_button_row.add_theme_constant_override("separation", 8)
 	fight_button_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fight_button_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	center_column.add_child(fight_button_row)
+	_combat_view.add_action_row(fight_button_row)
 
 	_fight_button = Button.new()
 	_fight_button.name = "FightButton"
@@ -219,10 +233,11 @@ func _ready() -> void:
 	_skill_build_panel.state = _state
 	_combat_view.skill_build_panel = _skill_build_panel
 	center_column.add_child(_skill_build_panel)
+	_skill_build_panel.custom_minimum_size = Vector2(0, PRACTICE_SKILL_BUILD_MIN_HEIGHT)
 
 	var right_column := VBoxContainer.new()
 	right_column.name = "RightColumn"
-	right_column.add_theme_constant_override("separation", 8)
+	right_column.add_theme_constant_override("separation", 6)
 	right_column.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0)
 	columns.add_child(right_column)
 
@@ -232,42 +247,17 @@ func _ready() -> void:
 	_target_panel.poison_resist_changed.connect(_on_target_poison_resist_changed)
 	right_column.add_child(_target_panel)
 
-	var fight_setup_title := Label.new()
-	fight_setup_title.text = "Fight Setup"
-	fight_setup_title.theme_type_variation = &"PanelHeader"
-	right_column.add_child(fight_setup_title)
+	_build_fight_setup_panel(right_column)
 
-	# A VBoxContainer of stacked label+control rows, not one flat HBoxContainer
-	# -- this column is too narrow for 3 label/spinbox pairs side by side.
-	var fight_setup_column := VBoxContainer.new()
-	fight_setup_column.name = "FightSetupRow"
-	fight_setup_column.add_theme_constant_override("separation", 6)
-	right_column.add_child(fight_setup_column)
-
-	_build_fight_setup_controls(fight_setup_column)
-
-	var gear_editor_title := Label.new()
-	gear_editor_title.text = "Gear Editor"
-	gear_editor_title.theme_type_variation = &"PanelHeader"
-	right_column.add_child(gear_editor_title)
-
-	# Slot columns stack vertically here (not side by side) -- a single
-	# "Gear" card in the mockup, and this column is too narrow for 3 slots
-	# side by side.
-	var gear_editor_column := VBoxContainer.new()
-	gear_editor_column.name = "GearEditorRow"
-	gear_editor_column.add_theme_constant_override("separation", 12)
-	right_column.add_child(gear_editor_column)
-
-	_weapon_affix_column = _build_gear_slot_column(gear_editor_column, "Weapon", true)
-	_trinket_affix_column = _build_gear_slot_column(gear_editor_column, "Trinket", false)
-	_charm_affix_column = _build_gear_slot_column(gear_editor_column, "Charm", false)
+	_build_gear_paper_doll(right_column)
+	_build_practice_logo(right_column)
 
 	_build_talent_overlay()
+	_build_gear_editor_overlay()
 	_build_log_overlay()
 
 	_state.build_changed.connect(_refresh_tree_dropdowns)
-	_state.build_changed.connect(_refresh_affix_columns)
+	_state.build_changed.connect(_refresh_gear_editor)
 	_state.build_changed.connect(_refresh_fight_button)
 	_state.build_changed.connect(_invalidate_result_review)
 	_state.lock_changed.connect(_refresh_fight_button)
@@ -275,7 +265,7 @@ func _ready() -> void:
 	_state.fight_setup_changed.connect(_invalidate_result_review)
 	_state.fight_finished.connect(_on_state_fight_finished)
 	_refresh_tree_dropdowns()
-	_refresh_affix_columns()
+	_refresh_gear_editor()
 	_refresh_fight_button()
 	_refresh_target_panel()
 
@@ -303,7 +293,7 @@ func _build_tree_option(parent: HBoxContainer, label_text: String, on_selected: 
 
 
 ## Freeform, up to 2 of the class's real trees -- distinct from Adventure's
-## "pick exactly one, then a second one later" flow, since Training Room lets
+## "pick exactly one, then a second one later" flow, since Practice Room lets
 ## the player freely choose either tree into either slot at will.
 func _refresh_tree_dropdowns() -> void:
 	_select_tree_option(_primary_tree_option, _state.tree_at_slot(0))
@@ -386,67 +376,201 @@ func _build_talent_overlay() -> void:
 	scroll.add_child(_talent_panel)
 
 
-## Builds one gear slot's column: a title, a Rarity dropdown (Basic/Master/
-## Cursed, plus a Legendary entry for the weapon slot only, reusing
-## GearItem.Tier's own enum values as the OptionButton item ids so no
-## separate sentinel is needed), an affix-rows container (sized to the
-## chosen rarity's real GearGenerator slot count), and -- weapon only -- a
-## Legendary-name dropdown shown instead of the affix rows when Legendary is
-## the chosen rarity. Returns the affix-rows container; `_refresh_affix_columns()`
-## repopulates it (and the rarity/legendary dropdowns' selection) on every
-## `build_changed`, matching every other panel's `_refresh()` pattern in this
-## codebase.
-func _build_gear_slot_column(parent: Container, slot_name: String, is_weapon: bool) -> VBoxContainer:
-	var column := VBoxContainer.new()
-	column.name = "%sAffixColumn" % slot_name
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.add_theme_constant_override("separation", 4)
-	parent.add_child(column)
+func _build_gear_paper_doll(parent: Container) -> void:
+	var panel := PanelContainer.new()
+	panel.name = "PracticeGearPanel"
+	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox(12))
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(panel)
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 8)
+	panel.add_child(content)
 
 	var title := Label.new()
-	title.text = slot_name
-	column.add_child(title)
+	title.text = "Gear"
+	title.theme_type_variation = &"PanelHeader"
+	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
+	content.add_child(title)
 
-	var item: GearItem = _state.practice_weapon if is_weapon else (
-		_state.practice_trinket if slot_name == "Trinket" else _state.practice_charm
-	)
+	var equipment_label := Label.new()
+	equipment_label.text = "Equipment"
+	equipment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	equipment_label.add_theme_font_size_override("font_size", 15)
+	content.add_child(equipment_label)
 
-	var rarity_option := OptionButton.new()
-	rarity_option.name = "RarityOption"
-	rarity_option.add_item("None", NONE_RARITY_ID)
+	var doll := VBoxContainer.new()
+	doll.name = "PracticeGearDoll"
+	doll.add_theme_constant_override("separation", 6)
+	content.add_child(doll)
+
+	var helm_slot := _make_gear_slot_button(PAPER_DOLL_HELM_SLOT_SIZE)
+	helm_slot.name = "HelmSlot"
+	helm_slot.disabled = true
+	helm_slot.tooltip_text = "Helm: Future slot"
+	helm_slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_style_gear_slot_button(helm_slot, null, true)
+	doll.add_child(helm_slot)
+
+	var middle_row := HBoxContainer.new()
+	middle_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	middle_row.add_theme_constant_override("separation", 8)
+	doll.add_child(middle_row)
+
+	_weapon_slot_button = _make_gear_slot_button(PAPER_DOLL_WEAPON_SLOT_SIZE)
+	_weapon_slot_button.name = "WeaponSlot"
+	_weapon_slot_button.pressed.connect(_show_gear_slot_editor.bind("Weapon", _state.practice_weapon, true))
+	middle_row.add_child(_weapon_slot_button)
+
+	var armor_slot := _make_gear_slot_button(PAPER_DOLL_ARMOR_SLOT_SIZE)
+	armor_slot.name = "ArmorSlot"
+	armor_slot.disabled = true
+	armor_slot.tooltip_text = "Armor: Future slot"
+	_style_gear_slot_button(armor_slot, null, true)
+	middle_row.add_child(armor_slot)
+
+	var right_stack := VBoxContainer.new()
+	right_stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	right_stack.add_theme_constant_override("separation", 6)
+	middle_row.add_child(right_stack)
+
+	_trinket_slot_button = _make_gear_slot_button(PAPER_DOLL_SMALL_SLOT_SIZE)
+	_trinket_slot_button.name = "TrinketSlot"
+	_trinket_slot_button.pressed.connect(_show_gear_slot_editor.bind("Trinket", _state.practice_trinket, false))
+	right_stack.add_child(_trinket_slot_button)
+
+	_charm_slot_button = _make_gear_slot_button(PAPER_DOLL_SMALL_SLOT_SIZE)
+	_charm_slot_button.name = "CharmSlot"
+	_charm_slot_button.pressed.connect(_show_gear_slot_editor.bind("Charm", _state.practice_charm, false))
+	right_stack.add_child(_charm_slot_button)
+
+	_gear_slot_buttons = {
+		_state.practice_weapon: _weapon_slot_button,
+		_state.practice_trinket: _trinket_slot_button,
+		_state.practice_charm: _charm_slot_button,
+	}
+
+
+func _build_practice_logo(parent: Container) -> void:
+	var holder := CenterContainer.new()
+	holder.name = "PracticeLogoHolder"
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	parent.add_child(holder)
+
+	var logo := TextureRect.new()
+	logo.name = "PracticeLogo"
+	logo.texture = _texture_from_path(PRACTICE_LOGO_PATH)
+	logo.custom_minimum_size = Vector2(270, 170)
+	logo.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	logo.modulate = Color(1, 1, 1, 0.92)
+	holder.add_child(logo)
+
+
+func _texture_from_path(path: String) -> Texture2D:
+	var image := Image.new()
+	if image.load(path) != OK:
+		return null
+	return ImageTexture.create_from_image(image)
+
+
+func _make_gear_slot_button(slot_size: Vector2) -> Button:
+	var slot := Button.new()
+	slot.text = ""
+	slot.custom_minimum_size = slot_size
+	slot.focus_mode = Control.FOCUS_NONE
+	slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
+	var icon := TextureRect.new()
+	icon.name = "Icon"
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot.add_child(icon)
+	return slot
+
+
+func _build_gear_editor_overlay() -> void:
+	_gear_editor_overlay = Control.new()
+	_gear_editor_overlay.name = "GearEditorOverlay"
+	_gear_editor_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_gear_editor_overlay.visible = false
+	add_child(_gear_editor_overlay)
+
+	var panel := CardStyle.build_modal_panel(_gear_editor_overlay, true)
+	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox())
+
+	var content := VBoxContainer.new()
+	content.custom_minimum_size = GEAR_EDITOR_POPUP_SIZE
+	content.add_theme_constant_override("separation", 10)
+	panel.add_child(content)
+
+	var header := HBoxContainer.new()
+	_gear_editor_title = Label.new()
+	_gear_editor_title.text = "Edit Gear"
+	_gear_editor_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_gear_editor_title.theme_type_variation = &"PanelHeader"
+	_gear_editor_title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
+	header.add_child(_gear_editor_title)
+
+	var close_button := Button.new()
+	close_button.text = "Done"
+	close_button.pressed.connect(func(): _gear_editor_overlay.visible = false)
+	header.add_child(close_button)
+	content.add_child(header)
+
+	var rarity_row := _build_labeled_row(content, "Rarity")
+	_gear_rarity_option = OptionButton.new()
+	_gear_rarity_option.name = "RarityOption"
+	_gear_rarity_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_gear_rarity_option.item_selected.connect(_on_editor_rarity_selected)
+	rarity_row.add_child(_gear_rarity_option)
+
+	_gear_legendary_option = OptionButton.new()
+	_gear_legendary_option.name = "LegendaryOption"
+	_gear_legendary_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_gear_legendary_option.item_selected.connect(_on_weapon_legendary_selected)
+	content.add_child(_gear_legendary_option)
+
+	var separator := HSeparator.new()
+	content.add_child(separator)
+
+	_gear_affix_column = VBoxContainer.new()
+	_gear_affix_column.name = "AffixRows"
+	_gear_affix_column.add_theme_constant_override("separation", 4)
+	content.add_child(_gear_affix_column)
+
+
+func _show_gear_slot_editor(slot_name: String, item: GearItem, is_weapon: bool) -> void:
+	_editing_gear_slot_name = slot_name
+	_editing_gear_item = item
+	_editing_gear_is_weapon = is_weapon
+	_gear_editor_title.text = "%s Gear" % slot_name
+	_populate_rarity_option(is_weapon)
+	_refresh_gear_editor()
+	_gear_editor_overlay.visible = true
+
+
+func _populate_rarity_option(is_weapon: bool) -> void:
+	_gear_rarity_option.clear()
+	_gear_rarity_option.add_item("None", NONE_RARITY_ID)
 	for tier in [GearItem.Tier.BASIC, GearItem.Tier.MASTER, GearItem.Tier.CURSED]:
-		rarity_option.add_item(RARITY_NAMES[tier], tier)
+		_gear_rarity_option.add_item(RARITY_NAMES[tier], tier)
 	if is_weapon:
-		rarity_option.add_item("Legendary", GearItem.Tier.LEGENDARY)
-		_weapon_rarity_option = rarity_option
-	elif slot_name == "Trinket":
-		_trinket_rarity_option = rarity_option
-	else:
-		_charm_rarity_option = rarity_option
-	rarity_option.item_selected.connect(_on_rarity_selected.bind(rarity_option, item, is_weapon))
-	column.add_child(rarity_option)
-
-	if is_weapon:
-		_weapon_legendary_option = OptionButton.new()
-		_weapon_legendary_option.name = "LegendaryOption"
-		for legendary_item in LegendaryCatalog.all_items():
-			_weapon_legendary_option.add_item(legendary_item.display_name)
-		_weapon_legendary_option.item_selected.connect(_on_weapon_legendary_selected)
-		column.add_child(_weapon_legendary_option)
-
-	var rows := VBoxContainer.new()
-	rows.name = "AffixRows"
-	rows.add_theme_constant_override("separation", 2)
-	column.add_child(rows)
-
-	return rows
+		_gear_rarity_option.add_item("Legendary", GearItem.Tier.LEGENDARY)
 
 
-## Rarity dropdown -> Legendary swaps the weapon slot into Legendary mode
-## (equipping whatever's currently shown there, or the first catalog item);
-## -> None empties the slot entirely (no stats); any other rarity choice
-## edits the practice item's slot count. Any choice switches back out of
-## Legendary mode first if needed.
+func _on_editor_rarity_selected(index: int) -> void:
+	if _editing_gear_item == null:
+		return
+	_on_rarity_selected(index, _gear_rarity_option, _editing_gear_item, _editing_gear_is_weapon)
+
+
 func _on_rarity_selected(index: int, option: OptionButton, item: GearItem, is_weapon: bool) -> void:
 	var tier: int = option.get_item_id(index)
 	if is_weapon and tier == GearItem.Tier.LEGENDARY:
@@ -466,66 +590,91 @@ func _on_weapon_legendary_selected(index: int) -> void:
 	_state.equip_legendary(LegendaryCatalog.all_items()[index])
 
 
-## Mirrors gear_panel.gd's private _gear_tooltip() format for the header and
-## plain-stat lines (slot tag + name, then one line per affix via
-## StatModifierFormatter.format()), then appends a flavor-text line for the
-## item's special Legendary mechanic (per the user's requested "stat 1, stat
-## 2, then legendary effect" order) instead of a raw formula -- Wyvern
-## Kriss's tick-rate affix in particular read as an opaque "x0.50 Poison
-## Tick Interval" rather than the "poison ticks twice as fast" it actually
-## means. Duplicated from gear_panel.gd's private helper rather than shared,
-## since this is the only place Training Room needs it. A hover tooltip is
-## the only way to see a Legendary's stats here now that equipping one hides
-## the affix rows entirely in favor of this dropdown (user-reported gap).
-func _legendary_tooltip(item: GearItem) -> String:
-	return "\n".join(LegendaryCatalog.tooltip_lines(item))
+func _refresh_gear_editor() -> void:
+	_refresh_paper_doll_slots()
+	if _editing_gear_item == null or _gear_affix_column == null:
+		return
+	_refresh_popup_slot(_editing_gear_item, _editing_gear_is_weapon and _state.is_weapon_legendary())
 
 
-## Human flavor text for each Legendary's special mechanic -- never a raw
-## stat formula. Keyed by the item's stable `id` (same convention as
-## available_skills_panel.gd's SPEED_LABEL_BY_SKILL_ID), since each of the 5
-## catalog Legendaries has a different, hand-authored special effect that
-## doesn't reduce to a shared formula. Percentages/multipliers are still
-## read off the item's real fields rather than hardcoded, so this can't
-## silently drift out of sync if a Legendary's numbers are ever retuned.
-func _legendary_effect_text(item: GearItem) -> String:
-	return LegendaryCatalog.effect_text(item)
+func _refresh_paper_doll_slots() -> void:
+	_update_paper_doll_slot(_weapon_slot_button, "Weapon", _state.equipped_weapon)
+	_update_paper_doll_slot(_trinket_slot_button, "Trinket", _state.equipped_trinket)
+	_update_paper_doll_slot(_charm_slot_button, "Charm", _state.equipped_charm)
 
 
-func _refresh_affix_columns() -> void:
-	_refresh_gear_slot(_weapon_affix_column, _weapon_rarity_option, _state.practice_weapon, _state.is_weapon_legendary())
-	_refresh_gear_slot(_trinket_affix_column, _trinket_rarity_option, _state.practice_trinket, false)
-	_refresh_gear_slot(_charm_affix_column, _charm_rarity_option, _state.practice_charm, false)
-	_weapon_legendary_option.visible = _state.is_weapon_legendary()
-	if _state.is_weapon_legendary():
-		_weapon_legendary_option.select(LegendaryCatalog.all_items().find(_state.equipped_weapon))
-		_weapon_legendary_option.tooltip_text = _legendary_tooltip(_state.equipped_weapon)
+func _update_paper_doll_slot(slot: Button, slot_name: String, gear: GearItem) -> void:
+	if slot == null:
+		return
+	_style_gear_slot_button(slot, gear)
+	(slot.get_node("Icon") as TextureRect).texture = GearIcons.icon_for(gear)
+	slot.tooltip_text = "%s: Empty" % slot_name if gear == null else _gear_tooltip(gear)
 
 
-## `showing_legendary` is true only for the weapon slot while a Legendary is
-## equipped -- the affix rows (which always describe `item`, the practice
-## item, never the Legendary itself) hide entirely in favor of the
-## Legendary-name dropdown built alongside this column. The rarity dropdown
-## itself stays enabled even in Legendary mode (bug fix: disabling it here
-## left no way back to Basic/Master/Cursed once Legendary was chosen, since
-## the old separate "Custom Weapon" button was removed in favor of picking a
-## rarity from this same dropdown) -- re-selecting any real rarity switches
-## back out of Legendary mode via _on_rarity_selected().
-func _refresh_gear_slot(rows: VBoxContainer, rarity_option: OptionButton, item: GearItem, showing_legendary: bool) -> void:
+func _style_gear_slot_button(slot: Button, gear: GearItem, future_slot: bool = false) -> void:
+	var fill := UIColors.SLOT_EMPTY
+	if future_slot:
+		fill = UIColors.SLOT_EMPTY.darkened(0.25)
+	elif gear != null:
+		match gear.tier:
+			GearItem.Tier.BASIC:
+				fill = UIColors.TIER_BASIC
+			GearItem.Tier.MASTER:
+				fill = UIColors.TIER_MASTER
+			GearItem.Tier.CURSED:
+				fill = UIColors.TIER_CURSED
+			GearItem.Tier.LEGENDARY:
+				fill = UIColors.TIER_LEGENDARY
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = fill.darkened(0.35) if state == "disabled" else fill
+		style.border_color = CardStyle.ACCENT_COLOR if gear != null else UIColors.SLOT_BORDER
+		style.set_border_width_all(3 if gear != null else 2)
+		style.set_corner_radius_all(6)
+		slot.add_theme_stylebox_override(state, style)
+
+
+func _refresh_popup_slot(item: GearItem, showing_legendary: bool) -> void:
+	if _gear_rarity_option.item_count == 0:
+		_populate_rarity_option(_editing_gear_is_weapon)
 	if showing_legendary:
-		rarity_option.select(rarity_option.get_item_index(GearItem.Tier.LEGENDARY))
+		_gear_rarity_option.select(_gear_rarity_option.get_item_index(GearItem.Tier.LEGENDARY))
 	elif item.affixes.is_empty():
-		rarity_option.select(rarity_option.get_item_index(NONE_RARITY_ID))
+		_gear_rarity_option.select(_gear_rarity_option.get_item_index(NONE_RARITY_ID))
 	else:
-		rarity_option.select(rarity_option.get_item_index(item.tier))
-	rows.visible = not showing_legendary
+		_gear_rarity_option.select(_gear_rarity_option.get_item_index(item.tier))
 
-	for child in rows.get_children():
+	_gear_legendary_option.visible = showing_legendary
+	_gear_affix_column.visible = not showing_legendary
+	for child in _gear_affix_column.get_children():
 		child.queue_free()
+
 	if showing_legendary:
+		_refresh_legendary_option()
 		return
 	for i in item.affixes.size():
-		rows.add_child(_build_affix_row(item, i))
+		_gear_affix_column.add_child(_build_affix_row(item, i))
+	if item.affixes.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "No gear equipped."
+		empty_label.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
+		_gear_affix_column.add_child(empty_label)
+
+
+func _refresh_legendary_option() -> void:
+	_gear_legendary_option.clear()
+	var items := LegendaryCatalog.all_items()
+	for legendary_item in items:
+		_gear_legendary_option.add_item(legendary_item.display_name)
+	var current_index := items.find(_state.equipped_weapon)
+	_gear_legendary_option.select(maxi(current_index, 0))
+	_gear_legendary_option.tooltip_text = _gear_tooltip(_state.equipped_weapon)
+
+
+func _gear_tooltip(gear: GearItem) -> String:
+	if gear == null:
+		return ""
+	return "\n".join(CardStyle.gear_tooltip_lines(gear))
 
 
 func _build_affix_row(item: GearItem, index: int) -> HBoxContainer:
@@ -566,6 +715,31 @@ func _on_affix_stat_selected(index: int, item: GearItem, affix_index: int, stat_
 func _on_affix_value_changed(new_value: float, modifier: StatModifier) -> void:
 	modifier.value = new_value
 	_state.notify_gear_edited()
+
+
+func _build_fight_setup_panel(parent: Container) -> void:
+	var panel := PanelContainer.new()
+	panel.name = "FightSetupPanel"
+	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox(12))
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(panel)
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 8)
+	panel.add_child(content)
+
+	var title := Label.new()
+	title.text = "Fight Setup"
+	title.theme_type_variation = &"PanelHeader"
+	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
+	content.add_child(title)
+
+	var controls := VBoxContainer.new()
+	controls.name = "FightSetupRow"
+	controls.add_theme_constant_override("separation", 6)
+	content.add_child(controls)
+
+	_build_fight_setup_controls(controls)
 
 
 ## Duration/seed/practice-gold (P2:R10:T5; target now lives in its own

@@ -10,7 +10,7 @@ agreement that implementation work should start with Task 0 planning and keep
 its tasking doc updated as it progresses.
 
 This work is cross-cutting technical debt, not new player-facing content. It
-does not have a milestone number in `Phase_3_CrystalMaiden_Milestones.md`
+does not have a milestone number in `P3_CrystalMaiden_Overview.md`
 because it cuts across whichever milestone happens to be active. Treat it as
 an interstitial track: pick up pieces of it opportunistically between/within
 milestones rather than blocking milestone work on it, except where a phase

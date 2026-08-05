@@ -20,10 +20,10 @@ already-resolved combat timeline.
 ## Constraints
 
 - Presentation changes must not alter combat math, timeline order, damage,
-  poison, armor, proc behavior, Adventure state, or Training Room state.
+  poison, armor, proc behavior, Adventure state, or Practice Room state.
 - Animation can add feel, anticipation, and readability, but it must not become
   a second combat simulator.
-- Training Room should stay useful as the controlled scenario surface for
+- Practice Room should stay useful as the controlled scenario surface for
   combat feedback.
 
 ## Tasking
@@ -37,14 +37,14 @@ already-resolved combat timeline.
 | 4. Prototype Rogue vs. Mouthy Drunk animation | Complete | Added first shared actor presentation language, enemy recoil, tick pulse, and outcome poses. |
 | 5. Map cast events to attack animation language | Complete | Physical casts use `attack1`; poison-damage/poison-themed casts use `attack2`; poison ticks remain enemy-side pulses. |
 | 6. Fit attack timing to animation duration | Complete | Attack presentation now lasts long enough for selected Rogue attack frames to finish. |
-| 7. Improve start-of-fight readability | Complete | Added a shared visual fight-intro beat before the resolved combat timeline advances in Adventure and Training Room. |
-| 8. Improve hit and crit feedback | Complete | Enemy reaction starts on the second-to-last Rogue attack frame; shared contact flashes now distinguish regular hits from larger gold crits, and Training Room crit popups use Adventure's gold emphasis. |
+| 7. Improve start-of-fight readability | Complete | Added a shared visual fight-intro beat before the resolved combat timeline advances in Adventure and Practice Room. |
+| 8. Improve hit and crit feedback | Complete | Enemy reaction starts on the second-to-last Rogue attack frame; shared contact flashes now distinguish regular hits from larger gold crits, and Practice Room crit popups use Adventure's gold emphasis. |
 | 9. Improve poison feedback | Complete | Poison stacks now deepen the enemy's green tint and remain tracked in the HUD; damaging poison ticks use smaller enemy-centered green damage-over-time text. |
 | 10. Improve persistent enemy state feedback | Complete | Combat-window HP, current armor, current resistance, poison stacks, Shred stacks, and Decay stacks now use persistent icon/value language; floating combat text is unchanged. |
 | 11. Improve Legendary combat feedback | Complete | Triggered skills now read as a normal attack plus a fast follow-up, minimum-cast procs compress the source attack animation, damage popups wait for contact timing, the Skill Build strip highlights/fills each macro slot from cast start through contact, Bandit Blade adds a subtle coin spray, and Wyvern Kriss shrinks poison tick text. |
-| 12. Improve victory and defeat reveals | Complete | Natural playback now lands on an outcome pose/flash before reveal UI, skip still reveals instantly, and Adventure/Training Room ending beats are covered by focused checks. |
+| 12. Improve victory and defeat reveals | Complete | Natural playback now lands on an outcome pose/flash before reveal UI, skip still reveals instantly, and Adventure/Practice Room ending beats are covered by focused checks. |
 | 13. Identify useful additional placeholder assets | Complete | Current Tavern/contract enemy sprite mappings, Rogue skill icons, subclass icons, combat/status icons, and stable misc UI icons are mapped for this pass; inventory/gear-panel icon language is intentionally deferred to the later gear pass. |
-| 14. Verify and document | Complete | Final focused playback, HUD, Training Room, outcome, recap, build-panel, rotation, and Legendary checks passed on 2026-07-31. |
+| 14. Verify and document | Complete | Final focused playback, HUD, Practice Room, outcome, recap, build-panel, rotation, and Legendary checks passed on 2026-07-31. |
 
 ## Completed Work
 
@@ -64,7 +64,7 @@ already-resolved combat timeline.
   and status anchors.
 - Added named `PlayerSprite` and `EnemySprite` slots.
 - Preserved fallback actor cards when sprites are missing or not imported.
-- Removed the Training Room debug grid after sprite placement tuning, keeping
+- Removed the Practice Room debug grid after sprite placement tuning, keeping
   the shared actor anchors and sprite slots available without showing debug
   artifacts in normal play.
 
@@ -153,7 +153,7 @@ has a configured sprite while bespoke enemy art remains deferred.
 ### Start-Of-Fight Readability
 
 - Added a shared `CombatStage.play_fight_intro()` presentation beat.
-- Adventure and Training Room now reset actors to idle and play a short
+- Adventure and Practice Room now reset actors to idle and play a short
   pre-roll before advancing the already-resolved combat timeline.
 - The combat clock and HUD remain at pre-fight values during the intro, so the
   countdown stays faithful to the authored DPS window.
@@ -171,7 +171,7 @@ has a configured sprite while bespoke enemy art remains deferred.
   longer hurt timing.
 - The shared feedback stays presentation-only and is driven by resolved
   `CastEvent` data.
-- Training Room cast popups now mirror Adventure's crit language with gold,
+- Practice Room cast popups now mirror Adventure's crit language with gold,
   larger crit text while preserving magic-colored proc popups.
 
 ### Poison Feedback
@@ -203,7 +203,7 @@ has a configured sprite while bespoke enemy art remains deferred.
 - Poison, Shred, and Decay counters are always visible and display `x0` before
   any stack/application is active, keeping the combat status area stable while
   the fight runs.
-- Training Room combat playback mirrors the combat-window status chip language
+- Practice Room combat playback mirrors the combat-window status chip language
   for poison stacks, Shred stacks, and Decay stacks.
 - Shred and Decay are presentation keywords for now, matching planned future
   mechanics language without changing combat math.
@@ -214,7 +214,7 @@ has a configured sprite while bespoke enemy art remains deferred.
 - Added `CastEvent.cast_start_ms` and `CastEvent.rotation_index` as
   presentation metadata so playback can point at the exact Skill Build macro
   slot when that cast starts.
-- The Adventure and Training Room Skill Build strips now expose a combat
+- The Adventure and Practice Room Skill Build strips now expose a combat
   highlight API. During playback, the highlight moves left-to-right through
   the macro at cast-start timing rather than waiting for the cast-end damage
   event.
@@ -244,7 +244,7 @@ has a configured sprite while bespoke enemy art remains deferred.
 - Playback resolves same-timestamp cast-end/proc presentation before the next
   cast-start highlight wins, so a Karambit retrigger pulse does not make the
   following macro slot look skipped.
-- Adventure and Training Room cast damage popups now wait for the stage's
+- Adventure and Practice Room cast damage popups now wait for the stage's
   contact timing instead of appearing immediately when the playback event
   fires. For triggered-skill events, the popup waits for the fast follow-up's
   hit beat.
@@ -292,11 +292,11 @@ has a configured sprite while bespoke enemy art remains deferred.
 - Adventure skip still flushes the remaining timeline and reveals the result
   immediately, while snapping actors to the correct outcome pose without
   delayed popups.
-- Training Room realtime playback now mirrors the end beat with a short
+- Practice Room realtime playback now mirrors the end beat with a short
   outcome hold before emitting `finished`; its Skip button bypasses that hold
   and finishes immediately.
 - The changes are presentation-only and do not alter combat math, resolved
-  event order, BuildState mutation timing, autosave timing, or Training Room
+  event order, BuildState mutation timing, autosave timing, or Practice Room
   damage accounting.
 
 ## Verification
@@ -433,6 +433,6 @@ Milestone 1 is complete when:
 - Major combat event types have distinct presentation language.
 - Hit, crit, poison, armor/resist reduction, proc, victory, and defeat moments
   are readable at normal playback speed.
-- Adventure and Training Room use consistent combat presentation language.
-- Focused playback, HUD, and Training Room checks pass.
+- Adventure and Practice Room use consistent combat presentation language.
+- Focused playback, HUD, and Practice Room checks pass.
 - Any remaining visual limitations are documented as future art/polish notes.

@@ -136,6 +136,66 @@ func _initialize() -> void:
 	assert(build_state.grant_gear(cursed_ledger, true))
 	assert(build_state.modified_gold_reward(100) == 0)
 
+	print("full inventory blocks fixed gear reward claim without mutating reward state")
+	build_state.reset()
+	build_state.current_encounter_index = 1
+	var full_reward_rng := RandomNumberGenerator.new()
+	full_reward_rng.seed = 91
+	while build_state.inventory.size() < build_state.INVENTORY_CAPACITY:
+		assert(build_state.add_inventory_item(GearGenerator.generate(GearItem.Tier.BASIC, GearItem.SlotType.CHARM, full_reward_rng)))
+	build_state.finish_fight(true)
+	assert(not build_state.can_claim_current_reward())
+	assert(not build_state.claim_current_reward())
+	assert(build_state.gold == 0)
+	assert(build_state.earned_talent_points == 0)
+	assert(build_state.claimed_reward_encounter_indices.is_empty())
+	assert(not build_state.has_pending_reward_choice())
+	var freed_reward_slot: GearItem = build_state.inventory[0]
+	assert(build_state.remove_inventory_item(freed_reward_slot))
+	assert(build_state.can_claim_current_reward())
+	assert(build_state.claim_current_reward())
+	assert(build_state.gold > 0)
+	assert(build_state.inventory.size() == build_state.INVENTORY_CAPACITY)
+	assert(build_state.claimed_reward_encounter_indices == [1])
+
+	print("skip pending gear reward clears choices without granting gear")
+	build_state.reset()
+	var skip_reward_choice := GearGenerator.generate(GearItem.Tier.BASIC, GearItem.SlotType.WEAPON, full_reward_rng, "gear.test.skip_reward")
+	var skip_choices: Array[GearItem] = [skip_reward_choice]
+	build_state.pending_reward_choices = skip_choices
+	assert(build_state.has_pending_reward_choice())
+	assert(build_state.skip_pending_reward_gear())
+	assert(not build_state.has_pending_reward_choice())
+	assert(not build_state.has_inventory_item(skip_reward_choice))
+	assert(build_state.equipped_item_for_slot(skip_reward_choice.slot) != skip_reward_choice)
+	assert(not build_state.skip_pending_reward_gear())
+
+	print("shop reroll spends scaling gold and resets per shop")
+	build_state.reset()
+	build_state.shop_unlocked = true
+	build_state.gold = 16
+	assert(build_state.open_shop_round())
+	assert(build_state.shop_reroll_cost == 5)
+	assert(build_state.can_reroll_shop_offers())
+	var first_shop_ids := _offer_ids(build_state.shop_offers)
+	assert(build_state.reroll_shop_offers())
+	assert(build_state.gold == 11)
+	assert(build_state.shop_reroll_used)
+	assert(build_state.shop_reroll_count == 1)
+	assert(build_state.shop_reroll_cost == 10)
+	var second_shop_ids := _offer_ids(build_state.shop_offers)
+	assert(first_shop_ids != second_shop_ids)
+	assert(build_state.reroll_shop_offers())
+	assert(build_state.gold == 1)
+	assert(build_state.shop_reroll_count == 2)
+	assert(build_state.shop_reroll_cost == 15)
+	assert(not build_state.can_reroll_shop_offers())
+	assert(not build_state.reroll_shop_offers())
+	assert(build_state.close_shop_round())
+	assert(build_state.open_shop_round())
+	assert(build_state.shop_reroll_count == 0)
+	assert(build_state.shop_reroll_cost == 5)
+
 	print("")
 	print("Inventory model check: OK")
 	quit()
@@ -154,3 +214,10 @@ func _make_gold_reward_item(id: String, display_name: String, slot: GearItem.Slo
 	item.tier = GearItem.Tier.BASIC
 	item.affixes = [modifier]
 	return item
+
+
+func _offer_ids(offers: Array[GearItem]) -> PackedStringArray:
+	var ids: PackedStringArray = []
+	for offer in offers:
+		ids.append(offer.id)
+	return ids

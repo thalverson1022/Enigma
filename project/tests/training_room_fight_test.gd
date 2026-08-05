@@ -49,7 +49,7 @@ func _initialize() -> void:
 	assert(left_column != null)
 	assert(right_column != null)
 
-	# -- Layout regression check: Training Room should keep Adventure-like
+	# -- Layout regression check: Practice Room should keep Adventure-like
 	# fixed side columns and modest centered action buttons, not oversized
 	# ratio columns/buttons or a page-level scroll that crowd the combat view.
 	assert(not (columns.get_parent() is ScrollContainer))
@@ -115,7 +115,7 @@ func _initialize() -> void:
 	var expected_result := CombatResolver.resolve(
 		training_room._state.rotation, expected_stats, training_room._state.selected_target, 10000, 1
 	)
-	print("Training Room fight damage=%.2f, direct CombatResolver call=%.2f (expect equal)" % [
+	print("Practice Room fight damage=%.2f, direct CombatResolver call=%.2f (expect equal)" % [
 		first_damage, expected_result.total_damage
 	])
 	assert(is_equal_approx(first_damage, expected_result.total_damage))
@@ -203,7 +203,7 @@ func _initialize() -> void:
 	assert(build_state.gold == real_gold_before)
 
 	print("")
-	print("Training Room fight check: OK")
+	print("Practice Room fight check: OK")
 	quit()
 
 

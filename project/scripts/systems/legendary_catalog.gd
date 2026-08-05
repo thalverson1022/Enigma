@@ -2,7 +2,7 @@ class_name LegendaryCatalog
 extends RefCounted
 ## Single source of truth for the full set of Phase 1 Rogue Legendary gear
 ## paths (P2:R9). Both the Tavern shop's low-chance Legendary roll
-## (`build_state.gd`'s `SHOP_LEGENDARY_PATHS`) and Training Room's direct
+## (`build_state.gd`'s `SHOP_LEGENDARY_PATHS`) and Practice Room's direct
 ## Legendary-equip control (`P2:R10:T3`) need "all 5 Legendaries" -- this
 ## exists so that list is authored once, not duplicated in two places.
 

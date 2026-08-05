@@ -9,11 +9,17 @@ signal open_talents_pressed
 const CARD_TITLE_FONT_SIZE := 20
 const POINTS_FONT_SIZE := 18
 const OPEN_BUTTON_SIZE := Vector2(176, 36)
+const TALENT_GHOST_DURATION_SEC := 0.28
+const TALENT_GHOST_ARC_HEIGHT := 26.0
+const TALENT_GHOST_SETTLE_SEC := 0.10
 
 ## Same pattern as talent_panel.gd: defaults to Adventure's BuildState but
 ## stays untyped so a future practice state can reuse this panel.
 var state = BuildState
+var enable_open_button_attention := true
 
+var _points_row: HBoxContainer
+var _points_icon: TextureRect
 var _points_label: Label
 var _talents_box: VBoxContainer
 var _open_button: Button
@@ -34,9 +40,18 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
 	content.add_child(title)
 
+	_points_row = HBoxContainer.new()
+	_points_row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	_points_row.add_theme_constant_override("separation", 5)
+	_points_row.tooltip_text = "Talent points spent / earned"
+	_points_icon = CardStyle.make_pixel_icon(CardStyle.talent_point_icon(), Vector2(18, 18))
+	_points_row.add_child(_points_icon)
+	content.add_child(_points_row)
+
 	_points_label = Label.new()
+	_points_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_points_label.add_theme_font_size_override("font_size", POINTS_FONT_SIZE)
-	content.add_child(_points_label)
+	_points_row.add_child(_points_label)
 
 	_talents_box = VBoxContainer.new()
 	_talents_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -61,13 +76,13 @@ func _refresh() -> void:
 	var spent: int = PassiveAllocator.points_spent(state.selected_talents)
 	var earned: int = state.earned_talent_points
 	var remaining: int = earned - spent
-	_points_label.text = "Points: %d/%d" % [spent, earned]
+	_points_label.text = ": %d/%d" % [spent, earned]
 	_points_label.add_theme_color_override(
 		"font_color", UIColors.TEXT_GOLD if remaining > 0 else UIColors.TEXT_NORMAL
 	)
 	_open_button.text = "Talent Trees"
 	_open_button.tooltip_text = "Open Talent Trees to spend earned points" if remaining > 0 else "Open Talent Trees"
-	_set_open_button_attention(remaining > 0)
+	_set_open_button_attention(enable_open_button_attention and remaining > 0)
 
 	for child in _talents_box.get_children():
 		child.queue_free()
@@ -230,3 +245,72 @@ func _talent_summary(talent: Talent) -> String:
 	if lines.is_empty():
 		return "No effect yet"
 	return ", ".join(lines)
+
+
+func animate_talent_points_from_rect(source_rect: Rect2, amount: int, wait_for_completion: bool = false) -> void:
+	if amount <= 0:
+		return
+	await get_tree().process_frame
+	var played := _play_talent_point_motion(source_rect, _global_rect_for(_points_icon), amount)
+	_pulse_points_row()
+	if wait_for_completion and played:
+		await get_tree().create_timer(TALENT_GHOST_DURATION_SEC + TALENT_GHOST_SETTLE_SEC).timeout
+
+
+func _play_talent_point_motion(from_rect: Rect2, to_rect: Rect2, amount: int) -> bool:
+	if from_rect.size == Vector2.ZERO or to_rect.size == Vector2.ZERO:
+		return false
+	var ghost := HBoxContainer.new()
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.modulate = Color(1, 1, 1, 0.88)
+	ghost.z_index = 220
+	ghost.top_level = true
+	ghost.add_theme_constant_override("separation", 4)
+	ghost.add_child(CardStyle.make_pixel_icon(CardStyle.talent_point_icon(), Vector2(22, 22)))
+	var label := Label.new()
+	label.text = "x %d" % amount
+	label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	label.add_theme_constant_override("outline_size", 3)
+	label.add_theme_font_size_override("font_size", 18)
+	ghost.add_child(label)
+	add_child(ghost)
+	ghost.global_position = from_rect.get_center() - Vector2(18, 12)
+
+	var target := to_rect.get_center() - Vector2(18, 12)
+	var midpoint := (ghost.global_position + target) * 0.5 + Vector2(0, -TALENT_GHOST_ARC_HEIGHT)
+	var start := ghost.global_position
+	var motion := func(t: float) -> void:
+		if is_instance_valid(ghost):
+			ghost.global_position = _quadratic_bezier(start, midpoint, target, t)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_method(motion, 0.0, 1.0, TALENT_GHOST_DURATION_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ghost, "scale", Vector2(0.85, 0.85), TALENT_GHOST_DURATION_SEC).from(Vector2(1.12, 1.12))
+	tween.tween_property(ghost, "modulate:a", 0.0, TALENT_GHOST_DURATION_SEC).from(0.88).set_delay(TALENT_GHOST_DURATION_SEC * 0.58)
+	tween.set_parallel(false)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(ghost):
+			ghost.queue_free()
+	)
+	return true
+
+
+func _pulse_points_row() -> void:
+	if _points_row == null or not _points_row.is_inside_tree():
+		return
+	var tween := create_tween()
+	tween.tween_property(_points_row, "scale", Vector2(1.08, 1.08), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_points_row, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+func _global_rect_for(node: Control) -> Rect2:
+	if node == null or not node.is_inside_tree():
+		return Rect2()
+	return node.get_global_rect()
+
+
+func _quadratic_bezier(a: Vector2, b: Vector2, c: Vector2, t: float) -> Vector2:
+	var first := a.lerp(b, t)
+	var second := b.lerp(c, t)
+	return first.lerp(second, t)

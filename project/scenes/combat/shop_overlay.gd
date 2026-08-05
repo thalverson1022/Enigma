@@ -14,16 +14,21 @@ extends Control
 ## shop-internal -- this scene only owns its own construction, its own
 ## refresh, and the buy/reroll/continue signals combat_screen.gd reacts to.
 
-signal buy_pressed(offer: GearItem)
+signal buy_pressed(offer: GearItem, source: Control)
 signal reroll_pressed
 signal continue_pressed
 
+const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 const CARD_TITLE_FONT_SIZE := 20
+const REROLL_OUT_DURATION_SEC := 0.16
+const REROLL_IN_DURATION_SEC := 0.2
+const REROLL_STAGGER_SEC := 0.045
+const REROLL_COST_PULSE_SEC := 0.22
+const SHOP_OVERLAY_Z_INDEX := 40
 const SHOPKEEPER_TEXTURE := preload("res://assets/backgrounds/shop_dummy_background_2.jpg")
 const GOLD_ICON := preload("res://assets/ui/icons/gold.png")
 
 var _shopkeeper_image: TextureRect
-var _shop_gold_label: Label
 var _shop_status_label: Label
 var _shop_reroll_button: Button
 var _shop_offers_box: GridContainer
@@ -33,6 +38,7 @@ var _shop_leave_button: Button
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	z_index = SHOP_OVERLAY_Z_INDEX
 	visible = false
 
 	var center := CenterContainer.new()
@@ -87,22 +93,10 @@ func _ready() -> void:
 	header.add_child(title)
 
 	_shop_reroll_button = Button.new()
+	_shop_reroll_button.icon = GOLD_ICON
+	_shop_reroll_button.expand_icon = true
 	_shop_reroll_button.pressed.connect(func(): reroll_pressed.emit())
 	header.add_child(_shop_reroll_button)
-
-	# P2:R7:T6: gold must be visible inside the shop overlay itself, not only
-	# via the T3 header (the header stays on-screen during a shop round, but
-	# this makes the afford-state readable without looking away from the
-	# shop card).
-	var gold_row := HBoxContainer.new()
-	gold_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	gold_row.add_theme_constant_override("separation", 6)
-	gold_row.add_child(CardStyle.make_pixel_icon(GOLD_ICON, CardStyle.UI_ICON_SIZE))
-	shop_content.add_child(gold_row)
-
-	_shop_gold_label = Label.new()
-	_shop_gold_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
-	gold_row.add_child(_shop_gold_label)
 
 	_shop_status_label = Label.new()
 	_shop_status_label.visible = false
@@ -124,7 +118,7 @@ func _ready() -> void:
 	shop_content.add_child(button_row)
 
 	_shop_leave_button = Button.new()
-	_shop_leave_button.text = "Leave Shop"
+	_shop_leave_button.text = FLOW_TEXT.ACTION_LEAVE_SHOP
 	_shop_leave_button.pressed.connect(func(): continue_pressed.emit())
 	button_row.add_child(_shop_leave_button)
 
@@ -134,6 +128,48 @@ func _ready() -> void:
 ## can set feedback text without reaching into the private label.
 func set_status_text(text: String) -> void:
 	_shop_status_label.text = text
+	_shop_status_label.visible = text != ""
+
+
+func reroll_action_rect() -> Rect2:
+	if _shop_reroll_button == null or not _shop_reroll_button.is_inside_tree():
+		return Rect2()
+	return _shop_reroll_button.get_global_rect()
+
+
+func set_reroll_enabled(enabled: bool) -> void:
+	_shop_reroll_button.disabled = not enabled
+
+
+func play_reroll_offers_out() -> void:
+	for child in _shop_offers_box.get_children():
+		if child is Control:
+			var control := child as Control
+			control.pivot_offset = control.size * 0.5
+			var tween := create_tween()
+			tween.set_parallel(true)
+			tween.tween_property(control, "scale", Vector2(0.9, 0.9), REROLL_OUT_DURATION_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tween.tween_property(control, "modulate:a", 0.0, REROLL_OUT_DURATION_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await get_tree().create_timer(REROLL_OUT_DURATION_SEC).timeout
+
+
+func play_reroll_offers_in() -> void:
+	var max_delay := 0.0
+	for i in _shop_offers_box.get_child_count():
+		var child := _shop_offers_box.get_child(i)
+		if child is Control:
+			var control := child as Control
+			var delay := float(i) * REROLL_STAGGER_SEC
+			max_delay = maxf(max_delay, delay)
+			control.pivot_offset = control.size * 0.5
+			control.scale = Vector2(0.9, 0.9)
+			control.modulate = Color(1.25, 1.18, 0.82, 0.0)
+			var tween := create_tween()
+			tween.set_parallel(true)
+			tween.tween_property(control, "modulate", Color.WHITE, REROLL_IN_DURATION_SEC).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			tween.tween_property(control, "scale", Vector2.ONE, REROLL_IN_DURATION_SEC).set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_pulse_reroll_cost()
+	await get_tree().create_timer(max_delay + REROLL_IN_DURATION_SEC).timeout
 
 
 ## Rebuilds gold/status/reroll-button/offers-grid from current BuildState.
@@ -141,10 +177,11 @@ func set_status_text(text: String) -> void:
 ## BuildState changes while the shop is visible (gear can be sold from the
 ## dashboard's Gear panel while the shop stays open).
 func refresh() -> void:
-	_shop_gold_label.text = "Gold: %dg" % BuildState.gold
 	_shop_status_label.text = ""
-	_shop_reroll_button.text = "Reroll (%d)" % (0 if BuildState.shop_reroll_used else 1)
-	_shop_reroll_button.disabled = BuildState.shop_reroll_used
+	_shop_status_label.visible = false
+	_shop_reroll_button.text = "Reroll %dg" % BuildState.shop_reroll_cost
+	_shop_reroll_button.disabled = not BuildState.can_reroll_shop_offers()
+	_shop_reroll_button.tooltip_text = _reroll_tooltip()
 	for child in _shop_offers_box.get_children():
 		child.queue_free()
 	for offer in BuildState.shop_offers:
@@ -156,11 +193,48 @@ func _make_shop_offer_row(offer: GearItem) -> Control:
 	item_box.custom_minimum_size = Vector2(88, 88)
 	item_box.tooltip_text = _shop_offer_text(offer)
 	item_box.tooltip_builder = func(): return CardStyle.build_gear_compare_tooltip(self, _shop_offer_text(offer), BuildState.equipped_item_for_slot(offer.slot))
-	item_box.disabled = GearGenerator.price_for_tier(offer.tier) > BuildState.gold or not BuildState.can_store_shop_offer(offer)
-	item_box.pressed.connect(func(): buy_pressed.emit(offer))
+	item_box.disabled = GearGenerator.price_for_tier(offer.tier) > BuildState.gold
+	item_box.pressed.connect(func(): buy_pressed.emit(offer, item_box))
 	CardStyle.style_shop_item_box(item_box, offer)
 	CardStyle.build_gear_box_content(item_box, offer)
+	_add_price_badge(item_box, offer)
 	return item_box
+
+
+func _add_price_badge(item_box: Button, offer: GearItem) -> void:
+	var price := GearGenerator.price_for_tier(offer.tier)
+	var badge := PanelContainer.new()
+	badge.name = "PriceBadge"
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	badge.offset_left = -66
+	badge.offset_top = -30
+	badge.offset_right = -4
+	badge.offset_bottom = -4
+	var badge_style := StyleBoxFlat.new()
+	badge_style.bg_color = Color(0, 0, 0, 0.72)
+	badge_style.border_color = UIColors.TEXT_DISABLED if item_box.disabled else UIColors.TEXT_GOLD
+	badge_style.set_border_width_all(1)
+	badge_style.set_corner_radius_all(4)
+	badge_style.set_content_margin_all(3)
+	badge.add_theme_stylebox_override("panel", badge_style)
+	item_box.add_child(badge)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 3)
+	badge.add_child(row)
+	var price_icon := CardStyle.make_pixel_icon(GOLD_ICON, Vector2(11, 11))
+	price_icon.name = "GoldIcon"
+	row.add_child(price_icon)
+	var label := Label.new()
+	label.name = "PriceLabel"
+	label.text = "%dg" % price
+	label.add_theme_color_override("font_color", UIColors.TEXT_DISABLED if item_box.disabled else UIColors.TEXT_GOLD)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	label.add_theme_constant_override("outline_size", 2)
+	label.add_theme_font_size_override("font_size", 16)
+	row.add_child(label)
 
 
 ## The shop-offer gear box's regular tooltip text: slot/name, tier, affixes,
@@ -180,9 +254,27 @@ func _shop_offer_footer_lines(offer: GearItem) -> PackedStringArray:
 	var lines: PackedStringArray = []
 	lines.append("Price: %dg" % GearGenerator.price_for_tier(offer.tier))
 	if not BuildState.can_store_shop_offer(offer):
-		lines.append("Inventory full -- can't buy.")
+		lines.append("Inventory full -- make space first.")
 	elif GearGenerator.price_for_tier(offer.tier) > BuildState.gold:
 		lines.append("Not enough gold.")
 	else:
 		lines.append("Click to buy.")
 	return lines
+
+
+func _reroll_tooltip() -> String:
+	var cost := BuildState.shop_reroll_cost
+	if not BuildState.shop_round_pending:
+		return "Reroll is only available while the shop is open."
+	if BuildState.gold < cost:
+		return "Need %dg to reroll shop offers." % cost
+	return "Spend %dg to refresh the shop offers." % cost
+
+
+func _pulse_reroll_cost() -> void:
+	if _shop_reroll_button == null or not _shop_reroll_button.is_inside_tree():
+		return
+	var original_modulate := _shop_reroll_button.modulate
+	_shop_reroll_button.modulate = Color(1.28, 1.18, 0.72, 1.0)
+	var tween := create_tween()
+	tween.tween_property(_shop_reroll_button, "modulate", original_modulate, REROLL_COST_PULSE_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)

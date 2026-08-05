@@ -1,0 +1,72 @@
+{
+  "format": "crystalmaiden-animation",
+  "version": 2,
+  "source_manifest": "F:\\Data\\Junk\\DPS Game\\Rogue Animations\\death\\sprite_lab_manifest.json",
+  "frame_size": {
+    "w": 52,
+    "h": 52
+  },
+  "pivot": {
+    "x": 26,
+    "y": 26
+  },
+  "fps": 8,
+  "loop": false,
+  "frames": [
+    {
+      "name": "frame_001",
+      "file": "frames/frame_001.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 5,
+        "y": 5,
+        "w": 42,
+        "h": 42
+      }
+    },
+    {
+      "name": "frame_002",
+      "file": "frames/frame_002.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 5,
+        "y": 5,
+        "w": 42,
+        "h": 42
+      }
+    },
+    {
+      "name": "frame_003",
+      "file": "frames/frame_003.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 5,
+        "y": 5,
+        "w": 42,
+        "h": 42
+      }
+    },
+    {
+      "name": "frame_004",
+      "file": "frames/frame_004.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 5,
+        "y": 5,
+        "w": 42,
+        "h": 42
+      }
+    },
+    {
+      "name": "frame_005",
+      "file": "frames/frame_005.png",
+      "duration_ms": 100,
+      "visible_bounds": {
+        "x": 5,
+        "y": 5,
+        "w": 42,
+        "h": 42
+      }
+    }
+  ]
+}

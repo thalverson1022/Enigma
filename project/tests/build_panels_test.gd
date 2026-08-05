@@ -58,13 +58,15 @@ func _initialize() -> void:
 	print("Quick Hands lock reason at 0 points (expect budget): %s" % budget_reason)
 	_require(budget_reason.contains("Needs"), "Expected a budget-based reason for a no-prereq talent with no points, got: %s" % budget_reason)
 
-	# -- 2. Points budget display: "Points: spent/earned", kept stable even
-	# when points are unspent so the warning state comes from color/button
-	# treatment instead of changing sentence structure. --
-	_require(talent_panel._points_label.text == "Points: 0/0", "Expected zero-budget points label, got: %s" % talent_panel._points_label.text)
+	# -- 2. Points budget display: star icon + "spent/earned", kept stable
+	# even when points are unspent so the warning state comes from
+	# color/button treatment instead of changing sentence structure. --
+	_require(talent_panel._points_label.text == ": 0/0", "Expected zero-budget points label, got: %s" % talent_panel._points_label.text)
+	_require(talent_panel._points_label.get_parent().find_child("Icon", true, false) != null, "Expected Talent Trees points readout to include the talent-point star icon.")
 	_require(_talent_panel_text(talent_panel).contains("Second Subclass"), "Expected one-tree Talent panel to explain the future second subclass slot.")
 	_require(not _talent_panel_text(talent_panel).contains("Secondary"), "Expected unchosen secondary subclass teaser to omit the tiny Secondary label.")
-	_require(active_talents_panel._points_label.text == "Points: 0/0", "Expected active talent summary to show zero points, got: %s" % active_talents_panel._points_label.text)
+	_require(active_talents_panel._points_label.text == ": 0/0", "Expected active talent summary to show zero points, got: %s" % active_talents_panel._points_label.text)
+	_require(active_talents_panel._points_label.get_parent().find_child("Icon", true, false) != null, "Expected Active Talents points readout to include the talent-point star icon.")
 	_require(_active_talents_text(active_talents_panel).contains("Thief"), "Expected active talent summary to show the selected tree name.")
 	_require(active_talents_panel.find_child("Icon", true, false) != null, "Expected active talent summary to show the selected tree icon.")
 	_require(_active_talents_text(active_talents_panel).contains("Intrinsic: Unlocks Quick Cut"), "Expected active talent summary to show the selected tree intrinsic.")
@@ -72,8 +74,8 @@ func _initialize() -> void:
 	_require(_active_talents_text(active_talents_panel).contains("No Thief talents selected."), "Expected active talent summary to show empty state for the selected tree.")
 	build_state.add_talent_points(1)
 	await process_frame
-	_require(talent_panel._points_label.text == "Points: 0/1", "Expected unspent-but-earned points label, got: %s" % talent_panel._points_label.text)
-	_require(active_talents_panel._points_label.text == "Points: 0/1", "Expected active talent summary to show unspent point budget, got: %s" % active_talents_panel._points_label.text)
+	_require(talent_panel._points_label.text == ": 0/1", "Expected unspent-but-earned points label, got: %s" % talent_panel._points_label.text)
+	_require(active_talents_panel._points_label.text == ": 0/1", "Expected active talent summary to show unspent point budget, got: %s" % active_talents_panel._points_label.text)
 	_require(active_talents_panel._open_button.text == "Talent Trees", "Expected Active Talents button copy to stay stable when points are unspent.")
 	_require(active_talents_panel._open_button.custom_minimum_size == active_talents_panel.OPEN_BUTTON_SIZE, "Expected Talent Trees button to keep a fixed minimum size.")
 	_require(active_talents_panel._button_blink_tween != null and active_talents_panel._button_blink_tween.is_running(), "Expected Active Talents button to blink when points are unspent.")
@@ -82,8 +84,8 @@ func _initialize() -> void:
 	_require(quick_hands.display_name == "Quick Hands", "Expected thief.talents[0] to be Quick Hands.")
 	_require(build_state.select_talent(quick_hands), "Expected Quick Hands to be selectable with 1 earned point.")
 	await process_frame
-	_require(talent_panel._points_label.text == "Points: 1/1", "Expected spent count to increase, got: %s" % talent_panel._points_label.text)
-	_require(active_talents_panel._points_label.text == "Points: 1/1", "Expected active talent summary to update spent points, got: %s" % active_talents_panel._points_label.text)
+	_require(talent_panel._points_label.text == ": 1/1", "Expected spent count to increase, got: %s" % talent_panel._points_label.text)
+	_require(active_talents_panel._points_label.text == ": 1/1", "Expected active talent summary to update spent points, got: %s" % active_talents_panel._points_label.text)
 	_require(active_talents_panel._open_button.text == "Talent Trees", "Expected Active Talents button to return to neutral copy when all points are spent.")
 	_require(active_talents_panel._button_blink_tween == null, "Expected Active Talents button blink to stop when all points are spent.")
 	_require(_active_talents_text(active_talents_panel).contains("Quick Hands"), "Expected active talent summary to list Quick Hands.")
@@ -215,8 +217,19 @@ func _initialize() -> void:
 	# -- 6. Equipped vs inventory gear clarity --
 	var dagger: GearItem = load("res://data/gear/placeholder_dagger.tres")
 	var lucky_coin: GearItem = load("res://data/gear/lucky_coin.tres")
+	var test_inventory_weapon := GearItem.new()
+	test_inventory_weapon.id = "test.inventory.weapon_compare"
+	test_inventory_weapon.display_name = "Test Inventory Dagger"
+	test_inventory_weapon.slot = GearItem.SlotType.WEAPON
+	test_inventory_weapon.tier = GearItem.Tier.BASIC
+	var test_inventory_mod := StatModifier.new()
+	test_inventory_mod.stat = StatModifier.StatType.ATTACK_SPEED
+	test_inventory_mod.operation = StatModifier.OperationType.ADD
+	test_inventory_mod.value = 0.04
+	test_inventory_weapon.affixes = [test_inventory_mod]
 	_require(build_state.grant_gear(dagger, true), "Expected the dagger to be granted and auto-equipped.")
 	_require(build_state.grant_gear(lucky_coin, false), "Expected Lucky Coin to land in inventory.")
+	_require(build_state.grant_gear(test_inventory_weapon, false), "Expected the test comparison weapon to land in inventory.")
 	await process_frame
 
 	var equipped_style: StyleBoxFlat = gear_panel._weapon_slot.get_theme_stylebox("panel")
@@ -249,13 +262,59 @@ func _initialize() -> void:
 	var empty_inventory_slot: Button = gear_panel._inventory_grid.get_child(2)
 	_require(empty_inventory_slot.get_node_or_null("Icon") == null, "Expected empty inventory slots to stay icon-free.")
 
-	_require(gear_panel._weapon_slot.tooltip_text.contains("Equipped -- Unequip to inventory"), "Expected the equipped-slot tooltip to explain the unequip action, got: %s" % gear_panel._weapon_slot.tooltip_text)
-	_require(inventory_slot.tooltip_text.contains("In inventory -- Equip"), "Expected the inventory-slot tooltip to explain the equip action, got: %s" % inventory_slot.tooltip_text)
+	_require(not gear_panel._weapon_slot.tooltip_text.contains("Left-click to unequip"), "Expected the equipped-slot tooltip to omit the old left-click instruction block, got: %s" % gear_panel._weapon_slot.tooltip_text)
+	_require(not gear_panel._weapon_slot.tooltip_text.contains("Right-click for actions"), "Expected the equipped-slot tooltip to omit the old right-click instruction block, got: %s" % gear_panel._weapon_slot.tooltip_text)
+	_require(not inventory_slot.tooltip_text.contains("Left-click to equip"), "Expected the inventory-slot tooltip to omit the old control-instruction block, got: %s" % inventory_slot.tooltip_text)
+	_require(not inventory_slot.tooltip_text.contains("Right-click for actions"), "Expected the inventory-slot tooltip to omit the old right-click instruction block, got: %s" % inventory_slot.tooltip_text)
+	var inventory_compare_slot: Button = gear_panel._inventory_button_for_item(test_inventory_weapon)
+	_require(inventory_compare_slot is GearCompareButton, "Expected filled inventory slots to use the same custom comparison tooltip button as shop/reward gear.")
+	var inventory_compare_tooltip: Control = inventory_compare_slot._make_custom_tooltip("")
+	_require(inventory_compare_tooltip is HBoxContainer, "Expected the inventory comparison tooltip to be a compact HBox.")
+	_require(inventory_compare_tooltip.get_child_count() == 2, "Expected inventory comparison tooltip to show item and Equipped boxes.")
+	var equipped_tooltip_box: Control = inventory_compare_tooltip.get_child(1)
+	var equipped_tooltip_body: String = equipped_tooltip_box.get_child(0).get_child(1).text
+	_require(equipped_tooltip_body.contains(dagger.display_name), "Expected the inventory weapon tooltip to compare against the currently equipped dagger, got: %s" % equipped_tooltip_body)
+	inventory_compare_tooltip.free()
+
+	var right_click_event := InputEventMouseButton.new()
+	right_click_event.button_index = MOUSE_BUTTON_RIGHT
+	right_click_event.pressed = true
+	gear_panel._on_inventory_slot_gui_input(right_click_event, lucky_coin)
+	await process_frame
+	_require(gear_panel._pending_inventory_action_item == lucky_coin, "Expected right-click to target the clicked inventory item.")
+	_require(gear_panel._inventory_action_menu.get_item_count() == 2, "Expected inventory action menu to contain Equip and Sell.")
+	_require(gear_panel._inventory_action_menu.get_item_text(0) == "Equip", "Expected first inventory action to be Equip.")
+	_require(gear_panel._inventory_action_menu.get_item_text(1) == "Sell", "Expected second inventory action to be Sell.")
+	_require(gear_panel._inventory_action_menu.is_item_disabled(gear_panel._inventory_action_menu.get_item_index(gear_panel.ACTION_SELL_ID)), "Expected Sell to be disabled outside shop.")
+	_require(gear_panel._gold_label.text.ends_with("g"), "Expected the Gear-panel gold stash readout to keep the 'g' suffix, got: %s" % gear_panel._gold_label.text)
+	_require(not gear_panel._gold_label.text.contains("Gold:"), "Expected the Gear-panel gold stash readout to use icon + value instead of repeating 'Gold:', got: %s" % gear_panel._gold_label.text)
+	_require(gear_panel._gold_row.find_child("Icon", true, false) != null, "Expected the Gear-panel gold stash readout to include the gold icon.")
+	_require(gear_panel._gold_icon != null and gear_panel._gold_icon.is_inside_tree(), "Expected reward/sale gold motion to target the visible gold icon, not the stretched gold row.")
+	gear_panel._inventory_action_menu.hide()
+	gear_panel._pending_inventory_action_item = null
+	gear_panel._show_inventory_action_menu(null)
+	_require(gear_panel._pending_inventory_action_item == null, "Expected empty inventory slots to leave the action-menu target unset.")
+
+	gear_panel._on_inventory_slot_pressed(lucky_coin)
+	await process_frame
+	_require(build_state.equipped_trinket == lucky_coin, "Expected left-clicking an inventory item to equip it outside the shop.")
+	_require(not build_state.has_inventory_item(lucky_coin), "Expected equipped Lucky Coin to leave inventory after left-click equip.")
 
 	var bandit_blade: GearItem = load("res://data/gear/bandit_blade.tres")
 	build_state.equip(bandit_blade)
 	await process_frame
 	_require(gear_panel._weapon_slot.tooltip_text.contains("+1 physical damage per 10 gold in stash"), "Expected equipped Bandit Blade tooltip to include Legendary flavor text, got: %s" % gear_panel._weapon_slot.tooltip_text)
+
+	gear_panel._on_equipped_slot_gui_input(right_click_event, GearItem.SlotType.WEAPON)
+	await process_frame
+	_require(gear_panel._pending_equipped_action_slot == GearItem.SlotType.WEAPON, "Expected right-click to target the equipped weapon slot.")
+	_require(gear_panel._equipped_action_menu.get_item_count() == 2, "Expected equipped action menu to contain Unequip and Sell.")
+	_require(gear_panel._equipped_action_menu.get_item_text(0) == "Unequip", "Expected first equipped action to be Unequip.")
+	_require(gear_panel._equipped_action_menu.get_item_text(1) == "Sell", "Expected second equipped action to be Sell.")
+	_require(not gear_panel._equipped_action_menu.is_item_disabled(gear_panel._equipped_action_menu.get_item_index(gear_panel.ACTION_UNEQUIP_ID)), "Expected Unequip to be enabled when inventory has room.")
+	_require(gear_panel._equipped_action_menu.is_item_disabled(gear_panel._equipped_action_menu.get_item_index(gear_panel.ACTION_SELL_ID)), "Expected equipped Sell to be disabled outside shop.")
+	gear_panel._equipped_action_menu.hide()
+	gear_panel._pending_equipped_action_slot = -1
 
 	# Clicking the equipped weapon slot outside a shop round now unequips it
 	# to inventory (previously a no-op unless swapping in a replacement).
@@ -267,6 +326,7 @@ func _initialize() -> void:
 	print("weapon after unequip click (expect null): %s" % build_state.equipped_weapon)
 	_require(build_state.equipped_weapon == null, "Expected clicking the equipped weapon slot to unequip it.")
 	_require(build_state.has_inventory_item(dagger), "Expected the unequipped dagger to land back in the inventory.")
+	_require(gear_panel._inventory_button_for_item(dagger) != null, "Expected the freshly unequipped dagger to have a stable destination inventory button for movement feedback.")
 
 	# -- 7. Talent dependency visual language: selected talents that support
 	# selected dependents keep the normal selected look, but pulse the

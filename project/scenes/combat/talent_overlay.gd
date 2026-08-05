@@ -5,7 +5,11 @@ extends Control
 ## Phase 3) -- a pure informational/allocation view, so it stays dismissable
 ## on an outside click, matching its behavior before extraction.
 
+signal secondary_tree_chosen(tree: SubclassTree)
+
 const TALENT_SCENE := preload("res://scenes/combat/talent_panel.tscn")
+
+var _talent_panel
 
 
 func _ready() -> void:
@@ -43,7 +47,14 @@ func _ready() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(scroll)
 
-	var talent_panel := TALENT_SCENE.instantiate()
-	talent_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	talent_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(talent_panel)
+	_talent_panel = TALENT_SCENE.instantiate()
+	_talent_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_talent_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_talent_panel.secondary_tree_chosen.connect(func(tree): secondary_tree_chosen.emit(tree))
+	scroll.add_child(_talent_panel)
+
+
+func show_overlay() -> void:
+	if _talent_panel != null and _talent_panel.has_method("refresh_panel"):
+		_talent_panel.refresh_panel()
+	visible = true

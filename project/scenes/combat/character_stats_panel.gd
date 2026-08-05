@@ -85,7 +85,7 @@ func _refresh() -> void:
 	# Bonus Physical Damage (P2:R9:T2, Bandit Blade's gold-scaling) and
 	# Min-Cast Proc Chance (P2:R9:T3, Bejeweled Push Dagger) were added to
 	# PlayerStats in P2:R9 but never surfaced here until this panel was
-	# reused for P2:R10 Training Room's practice-gold control, which needs
+	# reused for P2:R10 Practice Room's practice-gold control, which needs
 	# to show its effect live.
 	lines.append(_stat_line(
 		"Bonus Physical Damage", "%+.0f" % stats.bonus_physical_damage,

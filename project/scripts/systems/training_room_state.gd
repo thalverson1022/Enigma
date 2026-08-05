@@ -1,6 +1,6 @@
 class_name TrainingRoomState
 extends RefCounted
-## P2:R10 Training Room's own build state -- deliberately NOT an autoload
+## P2:R10 Practice Room's own build state -- deliberately NOT an autoload
 ## and never touching the real `BuildState` singleton, so a practice session
 ## can never read or mutate a real Adventure run. Mirrors the minimal slice
 ## of `BuildState`'s shape/behavior that the reused dashboard panels
@@ -10,7 +10,7 @@ extends RefCounted
 ## via their new `state` property (default `BuildState`).
 ##
 ## Talent points are granted in full immediately (`PassiveAllocator.
-## POINT_BUDGET`) rather than earned -- Training Room is meant for freely
+## POINT_BUDGET`) rather than earned -- Practice Room is meant for freely
 ## testing a fully-built practice character, not replaying Adventure's
 ## earn-as-you-go pacing.
 
@@ -23,7 +23,7 @@ const DEFAULT_DURATION_MS := 20000
 const DEFAULT_FIGHT_SEED := 1
 const DEFAULT_TARGET_ARMOR := 0
 const DEFAULT_TARGET_POISON_RESIST := 0.0
-## Training Room only measures damage dealt in a fixed window -- it never
+## Practice Room only measures damage dealt in a fixed window -- it never
 ## checks win/loss -- but CombatResolver.resolve()/CombatResultFormatter
 ## still read Monster.hp (for the shared CombatResult.is_win flag), so the
 ## practice target needs *some* value here even though nothing in Training
@@ -43,7 +43,7 @@ var equipped_trinket: GearItem = null
 var equipped_charm: GearItem = null
 
 ## P2:R10:T4 -- freeform, hand-editable practice gear, one per slot.
-## Training Room starts with no gear equipped; choosing Basic/Master/Cursed
+## Practice Room starts with no gear equipped; choosing Basic/Master/Cursed
 ## equips the corresponding practice item, and choosing None unequips it.
 ## `equip_legendary()` points the weapon slot at a fixed catalog item instead
 ## (read-only in the UI), and `use_custom_weapon()` points it back to the
@@ -55,7 +55,7 @@ var practice_charm: GearItem
 
 ## P2:R10:T5 -- freeform fight-setup, independent of any real Adventure
 ## encounter/seed. `fight_seed` is deliberately separate from
-## `BuildState.adventure_seed` so a Training Room result is reproducible on
+## `BuildState.adventure_seed` so a Practice Room result is reproducible on
 ## its own terms, per the P2:R10 scope decision.
 var selected_target: Monster
 var duration_ms: int = DEFAULT_DURATION_MS
@@ -64,7 +64,7 @@ var fight_seed: int = DEFAULT_FIGHT_SEED
 ## P2:R10:T6 -- the most recent practice fight's raw result, for the reused
 ## CombatResultFormatter/CombatRecap presentation to render. Never written
 ## anywhere but here -- unlike a real Adventure fight, running one in
-## Training Room never calls `BuildState.finish_fight()` or advances any
+## Practice Room never calls `BuildState.finish_fight()` or advances any
 ## encounter/route state.
 var last_result: CombatResolver.CombatResult = null
 
@@ -82,7 +82,7 @@ func _init() -> void:
 	selected_target.hp = PRACTICE_TARGET_HP
 	selected_target.armor = DEFAULT_TARGET_ARMOR
 	selected_target.poison_resistance = DEFAULT_TARGET_POISON_RESIST
-	# Practice items begin as empty shells so entering Training Room has no
+	# Practice items begin as empty shells so entering Practice Room has no
 	# equipped gear. The rarity-first invariant still applies once a player
 	# picks Basic/Master/Cursed: that choice equips the item and fills the
 	# real GearGenerator-shaped affix count.
@@ -121,7 +121,7 @@ func set_class(class_def: ClassDef) -> void:
 
 ## Two independent dropdown slots (Primary/Secondary) rather than
 ## `BuildState.select_tree()`'s "pick exactly one" Adventure semantics --
-## Training Room lets the player freely choose either of the 3 real trees
+## Practice Room lets the player freely choose either of the 3 real trees
 ## into either slot. `selected_trees` stays a plain compact array (no null
 ## entries) so every existing reader (`unlocked_skills()`, `BuildResolver`,
 ## etc.) is untouched; slot identity is just "index 0 = primary, index 1 =
@@ -193,7 +193,7 @@ func can_run_fight() -> bool:
 	return build_locked and not rotation.is_empty()
 
 
-## Direct Legendary equip for Training Room's Legendary-equip control
+## Direct Legendary equip for Practice Room's Legendary-equip control
 ## (P2:R10:T3) -- bypasses reward/shop flow entirely. All 5 catalog
 ## Legendaries are weapon-slot items today, so this always fills
 ## `equipped_weapon`; revisit if a future Legendary uses a different slot.

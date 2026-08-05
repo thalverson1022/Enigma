@@ -37,6 +37,7 @@ const CONTRACT_OVERLAY_SCENE := preload("res://scenes/combat/contract_overlay.ts
 const MAP_OVERLAY_SCENE := preload("res://scenes/combat/map_overlay.tscn")
 const COMBAT_STAGE_SCRIPT := preload("res://scripts/ui/combat_stage.gd")
 const COMBAT_STATUS_ICONS := preload("res://scripts/ui/combat_status_icons.gd")
+const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 const COMBAT_STATUS_ICON_SIZE := Vector2(22, 22)
 const COMBAT_STATUS_FONT_SIZE := 24
 const HUD_HEALTH_ICON := preload("res://assets/combat_ui_icons/enemy_health.png")
@@ -53,6 +54,15 @@ const SCREEN_MARGIN := 16
 const PANEL_SEPARATION := 16
 const CARD_TITLE_FONT_SIZE := 20
 const VICTORY_TITLE_FONT_SIZE := 36
+const VICTORY_REWARD_FONT_SIZE := 24
+const VICTORY_REWARD_ICON_SIZE := Vector2(34, 34)
+const INVENTORY_BLOCKED_PULSE_SCALE := Vector2(1.06, 1.06)
+const INVENTORY_BLOCKED_PULSE_COLOR := UIColors.TEXT_WARNING
+const COMBAT_CONTENT_SEPARATION := 8
+const COMBAT_BUTTON_BAND_FALLBACK_HEIGHT := 94.0
+const RESULT_OVERLAY_Z_INDEX := 20
+const COMBAT_BUTTON_ROW_DEFAULT_Z_INDEX := 0
+const COMBAT_BUTTON_ROW_Z_INDEX := 30
 const OUTCOME_TITLE_FONT_SIZE := 24
 const OUTCOME_LOSS_COLOR := UIColors.OUTCOME_LOSS
 const BACKDROP_COLOR := UIColors.OVERLAY_BACKDROP
@@ -75,6 +85,7 @@ const BACKDROP_COLOR := UIColors.OVERLAY_BACKDROP
 ## during a skip flush, so there is nothing left to outlast) -- see
 ## _on_playback_finished().
 const PLAYBACK_OUTCOME_REVEAL_DELAY_SEC := 0.75
+const PLAYER_DEFEAT_POSE_HOLD_SEC := 1.0
 const TAVERN_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/tavern_dummy_background_2.jpg")
 const CONTRACT_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/contract_exterior.jpg")
 const TAVERN_BACKGROUND_TINT := Color(0, 0, 0, 0.42)
@@ -150,6 +161,8 @@ var _playback_active := false
 var _playback_presenter: CombatPlaybackPresenter
 var _playback_controls: PlaybackControls
 var _skill_build_panel
+var _gear_panel
+var _active_talents_panel
 ## Session-persistent playback speed (combat-playback adjustment round 2 +
 ## retry bug, 2026-07-19): the user asked for their last-chosen speed to
 ## carry forward into the next fight instead of always resetting to 1x.
@@ -167,15 +180,19 @@ var _last_playback_speed: float = PlaybackControls.SPEED_OPTIONS[0]
 var _combat_window: PanelContainer
 var _tavern_background: TextureRect
 var _tavern_background_tint: ColorRect
+var _combat_play_area: Control
 var _combat_stage
 var _popup_layer: CombatPopupLayer
 var _reward_label: Label
+var _reward_gold_icon: TextureRect
+var _reward_talent_icon: TextureRect
 var _continue_button: Button
 var _shop_overlay
 var _reward_choice_overlay
 var _secondary_subclass_overlay
 var _enemy_panel
 var _confirm_dialog: ConfirmationDialog
+var _last_inventory_blocked_source: Control = null
 
 
 func _ready() -> void:
@@ -199,8 +216,8 @@ func _ready() -> void:
 	# row ate vertical space the loaded-state dashboard didn't have to
 	# spare (see the overflow-bug notes in
 	# docs/Phase_2_R7_Game_Like_UI_Pass.md), and that Target/Gold were
-	# redundant with the enemy panel's own "Target:" line and the gear
-	# panel's/shop overlay's own "Gold:" lines. The status concept is kept,
+	# redundant with the enemy panel's own "Target:" line and the Gear
+	# panel's stash readout. The status concept is kept,
 	# just consolidated directly into this top bar row instead of a
 	# separate one -- Phase/Build/Seed on the left, the "Next" action line
 	# expanding to fill the middle (clipped rather than wrapped, so a long
@@ -260,10 +277,10 @@ func _ready() -> void:
 	var character_stats_panel = CHARACTER_STATS_SCENE.instantiate()
 	left_column.add_child(character_stats_panel)
 
-	var active_talents_panel = ACTIVE_TALENTS_SCENE.instantiate()
-	active_talents_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	active_talents_panel.open_talents_pressed.connect(_show_talent_overlay)
-	left_column.add_child(active_talents_panel)
+	_active_talents_panel = ACTIVE_TALENTS_SCENE.instantiate()
+	_active_talents_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_active_talents_panel.open_talents_pressed.connect(_show_talent_overlay)
+	left_column.add_child(_active_talents_panel)
 
 	# Center column: the combat window, then the two skill strips.
 	var center_column := VBoxContainer.new()
@@ -272,19 +289,6 @@ func _ready() -> void:
 	columns.add_child(center_column)
 
 	center_column.add_child(_build_combat_window())
-
-	# Fight + Combat Log, centered directly under the combat window and above
-	# Available Skills -- matches the Training Room's layout (P2:R7 playtest
-	# feedback). The Fight button itself is enemy_panel.gd's (its disabled/
-	# tooltip state machine lives there and stays there), just parented here
-	# instead of inside the Enemy Stats card -- see below where _enemy_panel
-	# is built.
-	_fight_button_row = HBoxContainer.new()
-	_fight_button_row.name = "FightButtonRow"
-	_fight_button_row.add_theme_constant_override("separation", 8)
-	_fight_button_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_fight_button_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	center_column.add_child(_fight_button_row)
 
 	center_column.add_child(AVAILABLE_SKILLS_SCENE.instantiate())
 	_skill_build_panel = SKILL_BUILD_SCENE.instantiate()
@@ -314,16 +318,21 @@ func _ready() -> void:
 	# to its own tree -- it lives in the centered row above instead. Reparented
 	# via the panel's public fight_button() accessor rather than reaching
 	# into its private field.
-	_fight_button_row.add_child(_enemy_panel.fight_button())
+	var fight_button: Button = _enemy_panel.fight_button()
+	fight_button.custom_minimum_size = Vector2(148, 52)
+	_fight_button_row.add_child(fight_button)
 	_view_log_button = Button.new()
-	_view_log_button.text = "View Combat Log"
+	_view_log_button.text = "Combat Log"
+	_view_log_button.custom_minimum_size = fight_button.custom_minimum_size
 	_view_log_button.disabled = true
 	_view_log_button.pressed.connect(func(): _log_overlay.visible = true)
 	_fight_button_row.add_child(_view_log_button)
+	_sync_combat_play_area_reserved_height()
+	call_deferred("_sync_combat_play_area_reserved_height")
 
-	var gear_panel = GEAR_SCENE.instantiate()
-	gear_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	right_column.add_child(gear_panel)
+	_gear_panel = GEAR_SCENE.instantiate()
+	_gear_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_column.add_child(_gear_panel)
 
 	_build_confirm_dialog()
 	_build_victory_overlay()
@@ -333,6 +342,7 @@ func _ready() -> void:
 	_shop_overlay.continue_pressed.connect(_on_shop_continue_pressed)
 	add_child(_shop_overlay)
 	_reward_choice_overlay = REWARD_CHOICE_OVERLAY_SCENE.instantiate()
+	_reward_choice_overlay.skip_pressed.connect(_on_reward_choice_skip_pressed)
 	add_child(_reward_choice_overlay)
 	_map_overlay = MAP_OVERLAY_SCENE.instantiate()
 	_map_overlay.tavern_proceed_pressed.connect(_on_tavern_proceed_pressed)
@@ -340,6 +350,7 @@ func _ready() -> void:
 	_map_overlay.route_node_pressed.connect(_on_contract_route_node_pressed)
 	add_child(_map_overlay)
 	_talent_overlay = TALENT_OVERLAY_SCENE.instantiate()
+	_talent_overlay.secondary_tree_chosen.connect(_on_talent_secondary_tree_chosen)
 	add_child(_talent_overlay)
 	_story_overlay = STORY_OVERLAY_SCENE.instantiate()
 	_story_overlay.proceed_pressed.connect(_on_intro_story_proceed_pressed)
@@ -410,14 +421,21 @@ func _build_combat_window() -> PanelContainer:
 	_tavern_background_tint.visible = false
 	window.add_child(_tavern_background_tint)
 
+	_combat_play_area = Control.new()
+	_combat_play_area.name = "CombatPlayArea"
+	_combat_play_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_combat_play_area.set_anchors_preset(Control.PRESET_FULL_RECT)
+	window.add_child(_combat_play_area)
+
 	_combat_stage = COMBAT_STAGE_SCRIPT.new()
 	_combat_stage.name = "CombatStage"
 	_combat_stage.safe_top_px = 132.0
 	_combat_stage.safe_bottom_px = 28.0
-	window.add_child(_combat_stage)
+	_combat_play_area.add_child(_combat_stage)
 
 	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 8)
+	content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	content.add_theme_constant_override("separation", COMBAT_CONTENT_SEPARATION)
 	window.add_child(content)
 	_combat_content = content
 
@@ -449,7 +467,8 @@ func _build_combat_window() -> PanelContainer:
 
 	_status_label = Label.new()
 	_status_label.text = "Assemble your build and press FIGHT!"
-	_status_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_status_label.visible = false
+	_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	content.add_child(_status_label)
@@ -461,32 +480,65 @@ func _build_combat_window() -> PanelContainer:
 	_recap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(_recap_label)
 
-	# _view_log_button lives in _fight_button_row (centered under the combat
-	# window, alongside Fight -- see the main build function), not here.
-
 	_retry_button = Button.new()
-	_retry_button.text = "Retry Encounter"
+	_retry_button.text = FLOW_TEXT.ACTION_RETRY_ENCOUNTER
 	_retry_button.visible = false
 	_retry_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_retry_button.pressed.connect(_on_retry_pressed)
 	content.add_child(_retry_button)
 
 	_restart_adventure_button = Button.new()
-	_restart_adventure_button.text = "Restart Adventure"
+	_restart_adventure_button.text = FLOW_TEXT.ACTION_RESTART_ADVENTURE
 	_restart_adventure_button.visible = false
 	_restart_adventure_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_restart_adventure_button.pressed.connect(func(): adventure_restart_pressed.emit())
 	content.add_child(_restart_adventure_button)
 
+	var combat_content_spacer := Control.new()
+	combat_content_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(combat_content_spacer)
+
+	# Fight + Combat Log now live inside the Combat window's lower band. The
+	# band is reserved out of the combat play area, so sprites/HUD/outcome
+	# presentation stay anchored where they were before the panel grew.
+	_fight_button_row = HBoxContainer.new()
+	_fight_button_row.name = "FightButtonRow"
+	_fight_button_row.add_theme_constant_override("separation", 8)
+	_fight_button_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_fight_button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_fight_button_row.z_index = COMBAT_BUTTON_ROW_DEFAULT_Z_INDEX
+	content.add_child(_fight_button_row)
+
+	var combat_button_bottom_spacer := Control.new()
+	combat_button_bottom_spacer.custom_minimum_size = Vector2(0, PANEL_SEPARATION)
+	content.add_child(combat_button_bottom_spacer)
+
 	# Popup layer: a full-panel, mouse-transparent layer the comic-book skill
 	# popups spawn into (scripts/ui/combat_popup_layer.gd). Added after the
-	# content column so popups draw over the black stage; contributes no
-	# minimum size of its own, so the layout is unaffected.
+	# stage inside the play area, so popups follow the same reserved combat
+	# rectangle as the actors instead of drifting into the button band.
 	_popup_layer = CombatPopupLayer.new()
 	_popup_layer.set_combat_stage(_combat_stage)
-	window.add_child(_popup_layer)
+	_popup_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_combat_play_area.add_child(_popup_layer)
+
+	window.resized.connect(_sync_combat_play_area_reserved_height)
 
 	return window
+
+
+func _sync_combat_play_area_reserved_height() -> void:
+	if _combat_play_area == null:
+		return
+	var button_band_height := COMBAT_BUTTON_BAND_FALLBACK_HEIGHT
+	if _fight_button_row != null:
+		var row_height := _fight_button_row.get_combined_minimum_size().y
+		if row_height > 0.0:
+			button_band_height = row_height + float(PANEL_SEPARATION * 2 + COMBAT_CONTENT_SEPARATION)
+	if _combat_stage != null:
+		_combat_stage.reserved_bottom_px = button_band_height
+	_combat_play_area.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_combat_play_area.offset_bottom = -button_band_height
 
 
 ## The enemy status HUD (user-requested combat-HUD addition, 2026-07-18):
@@ -701,10 +753,10 @@ func _reset_enemy_hud() -> void:
 func _update_combat_stage_target(monster: Monster) -> void:
 	if _combat_stage == null:
 		return
-	var enemy_name := "Enemy"
-	if monster != null:
-		enemy_name = monster.display_name
-	_combat_stage.configure("Rogue", enemy_name)
+	if monster == null:
+		_combat_stage.clear_target()
+		return
+	_combat_stage.configure("Rogue", monster.display_name)
 
 
 ## Enemy HP left after the resolved fight, clamped to [0, monster.hp] --
@@ -782,8 +834,8 @@ func _hud_peak_poison_stacks(tick_events: Array) -> int:
 	return peak
 
 
-## Victory banner: shown automatically after a winning fight, with a short
-## recap (total damage, DPS, biggest hit, physical/poison damage split from
+## Victory banner: shown automatically after a winning fight, with a compact
+## recap (total damage, biggest hit, physical/poison damage split from
 ## CombatRecap). A true full-rect overlay added at the screen root -- same
 ## shape as the combat log overlay -- not a normal flow child of
 ## _combat_content (bug fix: it used to be a CenterContainer added straight
@@ -797,6 +849,7 @@ func _build_victory_overlay() -> void:
 	_victory_overlay = Control.new()
 	_victory_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_victory_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_victory_overlay.z_index = RESULT_OVERLAY_Z_INDEX
 	_victory_overlay.visible = false
 	add_child(_victory_overlay)
 
@@ -812,7 +865,7 @@ func _build_victory_overlay() -> void:
 	# stage instead of reading as a separate full-screen modal.
 	var center := Control.new()
 	center.name = "VictoryCombatWindowOverlay"
-	center.mouse_filter = Control.MOUSE_FILTER_PASS
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_victory_center = center
 	_victory_overlay.add_child(center)
 
@@ -826,13 +879,13 @@ func _build_victory_overlay() -> void:
 
 	var content_center := CenterContainer.new()
 	content_center.name = "VictoryContentCenter"
-	content_center.mouse_filter = Control.MOUSE_FILTER_PASS
+	content_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content_center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.add_child(content_center)
 
 	var stack := VBoxContainer.new()
 	stack.name = "VictoryStack"
-	stack.mouse_filter = Control.MOUSE_FILTER_PASS
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.custom_minimum_size = Vector2(430, 0)
 	stack.add_theme_constant_override("separation", 10)
 	_victory_stack = stack
@@ -867,8 +920,7 @@ func _build_victory_overlay() -> void:
 	var reward_row := HBoxContainer.new()
 	_victory_reward_row = reward_row
 	reward_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	reward_row.add_theme_constant_override("separation", 6)
-	reward_row.add_child(CardStyle.make_pixel_icon(UI_GOLD_ICON, CardStyle.UI_ICON_SIZE))
+	reward_row.add_theme_constant_override("separation", 9)
 	_reward_label = Label.new()
 	_reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_reward_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
@@ -887,13 +939,13 @@ func _build_victory_overlay() -> void:
 	button_row.add_child(_continue_button)
 
 	_outcome_retry_button = Button.new()
-	_outcome_retry_button.text = "Retry Encounter"
+	_outcome_retry_button.text = FLOW_TEXT.ACTION_RETRY_ENCOUNTER
 	_outcome_retry_button.visible = false
 	_outcome_retry_button.pressed.connect(_on_retry_pressed)
 	button_row.add_child(_outcome_retry_button)
 
 	_outcome_restart_button = Button.new()
-	_outcome_restart_button.text = "Restart Adventure"
+	_outcome_restart_button.text = FLOW_TEXT.ACTION_RESTART_ADVENTURE
 	_outcome_restart_button.visible = false
 	_outcome_restart_button.pressed.connect(func(): adventure_restart_pressed.emit())
 	button_row.add_child(_outcome_restart_button)
@@ -902,6 +954,7 @@ func _build_victory_overlay() -> void:
 
 
 func _show_victory_banner(result: CombatResolver.CombatResult, monster: Monster) -> void:
+	_set_result_button_layer_active(true)
 	_status_label.visible = false
 	_outcome_title_label.visible = false
 	_recap_label.visible = false
@@ -912,10 +965,11 @@ func _show_victory_banner(result: CombatResolver.CombatResult, monster: Monster)
 	_victory_title_label.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
 	_victory_top_rule.color = Color(CardStyle.ACCENT_COLOR.r, CardStyle.ACCENT_COLOR.g, CardStyle.ACCENT_COLOR.b, 0.72)
 	_outcome_message_label.visible = false
-	_victory_recap_label.text = "\n".join(_build_recap_lines(result, monster))
+	_victory_recap_label.text = "\n".join(_build_victory_recap_lines(result, monster))
 	_victory_reward_row.visible = true
-	_reward_label.text = _reward_text()
+	_populate_reward_row()
 	_continue_button.disabled = BuildState.has_claimed_current_reward()
+	_continue_button.tooltip_text = _claim_reward_tooltip()
 	_continue_button.visible = true
 	_outcome_retry_button.visible = false
 	_outcome_restart_button.visible = false
@@ -926,6 +980,7 @@ func _show_victory_banner(result: CombatResolver.CombatResult, monster: Monster)
 
 
 func _show_defeat_banner(result: CombatResolver.CombatResult, monster: Monster) -> void:
+	_set_result_button_layer_active(true)
 	var presentation := _outcome_presentation(BuildState.run_outcome)
 	_status_label.visible = false
 	_outcome_title_label.visible = false
@@ -937,9 +992,8 @@ func _show_defeat_banner(result: CombatResolver.CombatResult, monster: Monster) 
 	_victory_title_label.text = String(presentation["title"])
 	_victory_title_label.add_theme_color_override("font_color", title_color)
 	_victory_top_rule.color = Color(title_color.r, title_color.g, title_color.b, 0.72)
-	_outcome_message_label.text = String(presentation["body"])
-	_outcome_message_label.visible = _outcome_message_label.text != ""
-	_victory_recap_label.text = "\n".join(_build_recap_lines(result, monster))
+	_outcome_message_label.visible = false
+	_victory_recap_label.text = "\n".join(_build_victory_recap_lines(result, monster))
 	_victory_reward_row.visible = false
 	_continue_button.visible = false
 	_outcome_retry_button.visible = bool(presentation["show_retry"])
@@ -953,16 +1007,22 @@ func _show_defeat_banner(result: CombatResolver.CombatResult, monster: Monster) 
 	_play_victory_reveal_animation()
 
 
+func _set_result_button_layer_active(active: bool) -> void:
+	if _fight_button_row == null:
+		return
+	_fight_button_row.z_index = COMBAT_BUTTON_ROW_Z_INDEX if active else COMBAT_BUTTON_ROW_DEFAULT_Z_INDEX
+
+
 ## Recomputes _victory_center's rect from the combat window's current global
 ## rect -- done live (not just once at build time) so the banner still lands
 ## in the right place after any window resize between fights.
 func _position_victory_center_over_combat_window() -> void:
 	if _combat_window == null or _victory_center == null:
 		return
-	var window_rect := _combat_window.get_global_rect()
+	var target_rect := _combat_window.get_global_rect()
 	var overlay_origin := _victory_overlay.get_global_rect().position
-	_victory_center.position = window_rect.position - overlay_origin
-	_victory_center.size = window_rect.size
+	_victory_center.position = target_rect.position - overlay_origin
+	_victory_center.size = target_rect.size
 
 
 func _prepare_victory_reveal_animation() -> void:
@@ -1011,6 +1071,18 @@ func _build_recap_lines(result: CombatResolver.CombatResult, monster: Monster) -
 	var poison_line := _poison_summary_text(summary)
 	if poison_line != "":
 		lines.append(poison_line)
+	return lines
+
+
+## Result overlays should show the proof result without handing the player
+## every diagnostic. Deeper stack, crit, DPS, and armor behavior stays
+## discoverable through playback and the Combat Log.
+func _build_victory_recap_lines(result: CombatResolver.CombatResult, monster: Monster) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	var summary := CombatRecap.summarize(result, monster)
+	lines.append("Total Damage: %.1f (needed %d)" % [summary["total_damage"], summary["damage_required"]])
+	lines.append(_biggest_hit_text(summary))
+	lines.append(_damage_split_text(summary))
 	return lines
 
 
@@ -1090,11 +1162,105 @@ func _reward_text() -> String:
 				gear_names.append(gear.display_name)
 		if not gear_names.is_empty():
 			parts.append("choose %s" % " or ".join(gear_names))
-	if BuildState.is_contract_fight_active() and BuildState.current_route_node != null and BuildState.current_route_node.reward_summary != "":
-		parts.append(BuildState.current_route_node.reward_summary)
+	var generated_choice_text := _generated_reward_choice_text(reward)
+	if generated_choice_text != "":
+		parts.append(generated_choice_text)
 	if parts.is_empty():
 		return "Rewards: none."
 	return "Rewards: %s." % ", ".join(parts)
+
+
+func _populate_reward_row() -> void:
+	if _victory_reward_row == null:
+		return
+	_reward_label = null
+	_reward_gold_icon = null
+	_reward_talent_icon = null
+	for child in _victory_reward_row.get_children():
+		_victory_reward_row.remove_child(child)
+		child.queue_free()
+
+	var reward := BuildState.current_reward()
+	if reward == null:
+		_victory_reward_row.add_child(_make_reward_label("No rewards.", UIColors.TEXT_DISABLED))
+		return
+
+	var added_reward_piece := false
+	var text_parts: PackedStringArray = []
+	for gear in reward.fixed_gear_rewards:
+		if gear != null:
+			text_parts.append(gear.display_name)
+	if reward.unlocks_shop:
+		text_parts.append("shop access")
+	if reward.gear_choice_rewards.size() > 0:
+		var gear_names: PackedStringArray = []
+		for gear in reward.gear_choice_rewards:
+			if gear != null:
+				gear_names.append(gear.display_name)
+		if not gear_names.is_empty():
+			text_parts.append("choose %s" % " or ".join(gear_names))
+	var generated_choice_text := _generated_reward_choice_text(reward)
+	if generated_choice_text != "":
+		text_parts.append(generated_choice_text)
+
+	var text_absorbs_next_separator := false
+	if not text_parts.is_empty():
+		_add_reward_piece_separator(added_reward_piece)
+		var text_label := ", ".join(text_parts)
+		if reward.talent_points > 0 or reward.gold_amount > 0:
+			text_label += ","
+			text_absorbs_next_separator = true
+		_victory_reward_row.add_child(_make_reward_label(text_label, UIColors.TEXT_GOLD))
+		added_reward_piece = true
+	if reward.talent_points > 0:
+		if text_absorbs_next_separator:
+			text_absorbs_next_separator = false
+		else:
+			_add_reward_piece_separator(added_reward_piece)
+		_reward_talent_icon = CardStyle.make_pixel_icon(CardStyle.talent_point_icon(), VICTORY_REWARD_ICON_SIZE)
+		_victory_reward_row.add_child(_reward_talent_icon)
+		_victory_reward_row.add_child(_make_reward_label("x %d" % reward.talent_points, UIColors.TEXT_GOLD))
+		added_reward_piece = true
+	if reward.gold_amount > 0:
+		if text_absorbs_next_separator:
+			text_absorbs_next_separator = false
+		else:
+			_add_reward_piece_separator(added_reward_piece)
+		_reward_gold_icon = CardStyle.make_pixel_icon(UI_GOLD_ICON, VICTORY_REWARD_ICON_SIZE)
+		_victory_reward_row.add_child(_reward_gold_icon)
+		_victory_reward_row.add_child(_make_reward_label(": %dg" % reward.gold_amount, UIColors.TEXT_GOLD))
+		added_reward_piece = true
+	if not added_reward_piece:
+		_victory_reward_row.add_child(_make_reward_label("No rewards.", UIColors.TEXT_DISABLED))
+
+
+func _generated_reward_choice_text(reward: EncounterReward) -> String:
+	if reward == null:
+		return ""
+	if reward.generated_gear_choice_count > 0:
+		return "Choice of %s Gear" % GearGenerator.TIER_NAMES.get(reward.generated_gear_tier, "Gear")
+	if reward.legendary_choice_count > 0:
+		return "Choice of Legendary Gear"
+	return ""
+
+
+func _add_reward_piece_separator(has_previous: bool) -> void:
+	if not has_previous:
+		return
+	_victory_reward_row.add_child(_make_reward_label(","))
+
+
+func _make_reward_label(text: String, color: Color = UIColors.TEXT_NORMAL) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	label.add_theme_constant_override("outline_size", 3)
+	label.add_theme_font_size_override("font_size", VICTORY_REWARD_FONT_SIZE)
+	if _reward_label == null:
+		_reward_label = label
+	return label
 
 
 ## Shared "full-screen modal" shell used by every blocking overlay except
@@ -1124,7 +1290,10 @@ func _build_modal_shell(dismissable: bool) -> Dictionary:
 func _show_talent_overlay() -> void:
 	if _talent_overlay == null:
 		return
-	_talent_overlay.visible = true
+	if _talent_overlay.has_method("show_overlay"):
+		_talent_overlay.show_overlay()
+	else:
+		_talent_overlay.visible = true
 
 
 ## Resumes into whichever overlay a loaded save left mid-transition -- the
@@ -1140,9 +1309,6 @@ func _show_initial_map_if_needed() -> void:
 	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
 		_contract_overlay.show_greeting()
 		return
-	if BuildState.needs_secondary_subclass_choice():
-		_secondary_subclass_overlay.show_overlay()
-		return
 	if _is_awaiting_contract_choice():
 		_contract_overlay.show_contract_choice()
 		return
@@ -1154,18 +1320,16 @@ func _show_initial_map_if_needed() -> void:
 		_show_map_overlay(false)
 
 
-## True once the secondary tree is chosen but the player hasn't yet
-## confirmed Vyra's contract card -- current_route_node only moves off the
-## SUBCLASS_CHOICE node when a real route node is chosen, so sitting on it
-## with the subclass choice already satisfied is exactly this in-between
-## state.
+## True once the accepted contract has moved to the contract-choice hub.
+## `current_route_node` only moves off the SUBCLASS_CHOICE node when a real
+## route node is chosen, so sitting on it means the contract picker should
+## own the flow. The second subclass can now be chosen later in Talents.
 func _is_awaiting_contract_choice() -> bool:
 	var node := BuildState.current_route_node
 	return (
 		BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE
 		and node != null
 		and node.node_type == ContractRouteNode.NodeType.SUBCLASS_CHOICE
-		and not BuildState.needs_secondary_subclass_choice()
 	)
 
 
@@ -1192,31 +1356,31 @@ func _on_tavern_proceed_pressed() -> void:
 	if BuildState.choose_current_tavern_encounter():
 		_map_overlay.clear_tavern_preview()
 		_map_overlay.close()
-		_status_label.visible = true
+		_status_label.visible = false
 		_recap_label.visible = false
 		_reset_enemy_hud()
 		var encounter := BuildState.current_encounter()
 		if encounter != null:
-			_status_label.text = "Selected: %s. Adjust your build, lock in, then fight." % encounter.monster.display_name
+			_status_label.text = FLOW_TEXT.selected_encounter_status(encounter.monster.display_name)
 		_autosave()
 
 
 func _on_contract_map_pressed() -> void:
 	if BuildState.accept_contract_offer():
 		_map_overlay.close()
-		_secondary_subclass_overlay.show_overlay()
+		_contract_overlay.show_contract_choice()
 		_autosave()
 
 
 func _on_contract_route_node_pressed(node: ContractRouteNode) -> void:
-	if node == null or BuildState.needs_secondary_subclass_choice():
+	if node == null:
 		return
 	if BuildState.choose_contract_route_node(node):
 		_map_overlay.close()
-		_status_label.visible = true
+		_status_label.visible = false
 		_recap_label.visible = false
 		_reset_enemy_hud()
-		_status_label.text = "Selected route: %s. Adjust your build, lock in, then fight." % node.display_name
+		_status_label.text = FLOW_TEXT.selected_route_status(node.display_name)
 		_autosave()
 
 
@@ -1227,7 +1391,7 @@ func _on_contract_route_node_pressed(node: ContractRouteNode) -> void:
 func _on_contract_accept_requested() -> void:
 	if BuildState.accept_contract_offer():
 		_contract_overlay.visible = false
-		_secondary_subclass_overlay.show_overlay()
+		_contract_overlay.show_contract_choice()
 		_autosave()
 
 
@@ -1235,10 +1399,10 @@ func _on_contract_accept_requested() -> void:
 ## the player to the (unchanged) interactive route schematic.
 func _on_contract_route_requested() -> void:
 	_contract_overlay.visible = false
-	_status_label.visible = true
+	_status_label.visible = false
 	_recap_label.visible = false
 	_reset_enemy_hud()
-	_status_label.text = "Contract accepted: %s. Choose your route." % _contract_overlay.CONTRACT_VYRA_NAME
+	_status_label.text = FLOW_TEXT.contract_accepted_status(_contract_overlay.CONTRACT_VYRA_NAME)
 	_show_map_overlay(false)
 	_autosave()
 
@@ -1269,6 +1433,7 @@ func _show_reward_choice_overlay() -> void:
 	var options_container: HBoxContainer = _reward_choice_overlay.options_container()
 	for child in options_container.get_children():
 		child.queue_free()
+	_reward_choice_overlay.set_status_text("")
 	for gear in BuildState.pending_reward_choices:
 		options_container.add_child(_make_reward_choice_button(gear))
 	_reward_choice_overlay.visible = true
@@ -1281,7 +1446,7 @@ func _make_reward_choice_button(gear: GearItem) -> Button:
 	item_box.custom_minimum_size = Vector2(112, 112)
 	item_box.tooltip_text = _reward_choice_text(gear)
 	item_box.tooltip_builder = func(): return CardStyle.build_gear_compare_tooltip(self, _reward_choice_text(gear), BuildState.equipped_item_for_slot(gear.slot))
-	item_box.pressed.connect(_on_reward_choice_pressed.bind(gear))
+	item_box.pressed.connect(_on_reward_choice_pressed.bind(gear, item_box))
 	CardStyle.style_shop_item_box(item_box, gear)
 	CardStyle.build_gear_box_content(item_box, gear)
 	return item_box
@@ -1296,8 +1461,17 @@ func _make_reward_choice_button(gear: GearItem) -> Button:
 ## replaces it.
 func _reward_choice_text(gear: GearItem) -> String:
 	var lines := CardStyle.gear_tooltip_lines(gear)
-	lines.append("Click to choose.")
+	if BuildState.pending_reward_choices.has(gear) and not BuildState.can_choose_pending_reward_gear(gear):
+		lines.append("Inventory full -- make space before choosing.")
+	else:
+		lines.append("Click to choose.")
 	return "\n".join(lines)
+
+
+func _claim_reward_tooltip() -> String:
+	if BuildState.can_claim_current_reward() or BuildState.has_claimed_current_reward():
+		return ""
+	return "Inventory full -- make space before claiming this reward."
 
 
 func _on_build_state_changed() -> void:
@@ -1372,6 +1546,9 @@ func _on_fight_pressed() -> void:
 		# finish_fight() so the run_state_changed refreshes it emits neither
 		# overwrite the animated HUD nor leak the outcome into the header.
 		_playback_active = true
+		if _enemy_panel != null and _enemy_panel.has_method("show_presented_target"):
+			_enemy_panel.show_presented_target(monster, duration_ms)
+		_update_combat_stage_target(monster)
 		BuildState.finish_fight(result.is_win)
 		_autosave()
 		_begin_playback(result, monster)
@@ -1417,7 +1594,7 @@ func _equipped_gear_has_id(gear_id: String) -> bool:
 ## _on_fight_pressed(); playback calls it once from _on_playback_finished().
 func _reveal_fight_outcome(result: CombatResolver.CombatResult, monster: Monster) -> void:
 	_status_label.text = "Fight complete: %s" % ("WIN" if result.is_win else "LOSS")
-	_status_label.visible = true
+	_status_label.visible = false
 	_view_log_button.visible = true
 	_view_log_button.disabled = false
 	if result.is_win:
@@ -1453,6 +1630,7 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 	_restart_adventure_button.visible = false
 	_outcome_title_label.visible = false
 	_victory_overlay.visible = false
+	_set_result_button_layer_active(false)
 	_map_button.disabled = true
 	# Pre-fight HUD state, driven directly (signal refreshes are suspended
 	# while _playback_active).
@@ -1523,24 +1701,46 @@ func _on_playback_finished(result: CombatResolver.CombatResult, monster: Monster
 	# result -- the same rendering the instant path uses.
 	_show_enemy_hud_post_fight(result, monster)
 	if _combat_stage != null:
-		_combat_stage.play_outcome_pose(result.is_win, not instant_playback and not was_skipped)
+		var should_animate_outcome := not instant_playback and (not was_skipped or not result.is_win)
+		_combat_stage.play_outcome_pose(result.is_win, should_animate_outcome)
 	# Brief pause so the last popup's float+fade finishes before the outcome
-	# reveal pops in on top of it (adjustment round 1). Skipped when Skip was
-	# pressed (no popups spawn during a skip flush, so nothing needs
-	# outlasting) and in instant_playback mode (headless tests never reach
-	# this function at all today, since _begin_playback() is only entered
-	# when playback is non-instant, but the check is kept here too so this
-	# function stays correct if that ever changes).
-	if not instant_playback and not was_skipped:
-		await get_tree().create_timer(PLAYBACK_OUTCOME_REVEAL_DELAY_SEC).timeout
+	# reveal pops in on top of it (adjustment round 1). Losses also preserve
+	# the authored death beat after Skip, so Skip cuts combat playback but not
+	# the defeat read.
+	if not instant_playback and (not was_skipped or not result.is_win):
+		var reveal_delay_sec := PLAYBACK_OUTCOME_REVEAL_DELAY_SEC
+		if not result.is_win and _combat_stage != null and _combat_stage.has_method("player_defeat_animation_duration_sec"):
+			reveal_delay_sec = maxf(reveal_delay_sec, _combat_stage.player_defeat_animation_duration_sec() + PLAYER_DEFEAT_POSE_HOLD_SEC)
+		await get_tree().create_timer(reveal_delay_sec).timeout
 	_reveal_fight_outcome(result, monster)
+	if _enemy_panel != null and _enemy_panel.has_method("clear_presented_target"):
+		_enemy_panel.clear_presented_target()
 	_map_button.disabled = false
 	_update_header_status()
 
 
 func _on_continue_pressed() -> void:
+	var reward_gold := 0
+	var reward_talent_points := 0
+	var reward_gold_source_rect := Rect2()
+	var reward_talent_source_rect := Rect2()
+	var reward := BuildState.current_reward()
+	if reward != null:
+		reward_gold = BuildState.modified_gold_reward(reward.gold_amount)
+		reward_talent_points = reward.talent_points
+		reward_gold_source_rect = _global_rect_for(_reward_gold_icon)
+		reward_talent_source_rect = _global_rect_for(_reward_talent_icon)
 	var claimed := BuildState.claim_current_reward()
+	if not claimed:
+		_pulse_inventory_blocked_control(_continue_button)
+		_continue_button.tooltip_text = _claim_reward_tooltip()
+		return
 	_victory_overlay.visible = false
+	_set_result_button_layer_active(false)
+	if claimed and _active_talents_panel != null and reward_talent_points > 0:
+		await _active_talents_panel.animate_talent_points_from_rect(reward_talent_source_rect, reward_talent_points, true)
+	if claimed and _gear_panel != null and reward_gold > 0:
+		await _gear_panel.animate_gold_from_rect(reward_gold_source_rect, reward_gold, true)
 	if claimed:
 		_autosave()
 	if claimed and BuildState.has_pending_reward_choice():
@@ -1552,34 +1752,59 @@ func _on_continue_pressed() -> void:
 	# it never mutates shop_round_pending/shop_offers for this one
 	# transition -- the shop still opens normally everywhere else.
 	if claimed and not BuildState.is_last_tavern_reward() and BuildState.open_shop_round():
-		_status_label.text = "Spend gold or keep saving, then leave the shop."
+		_status_label.text = FLOW_TEXT.STATUS_SHOP_DECISION
 		_show_shop_overlay()
 		return
 	_advance_after_reward_or_shop()
 
 
-func _on_shop_buy_pressed(offer: GearItem) -> void:
+func _global_rect_for(node: Control) -> Rect2:
+	if node == null or not node.is_inside_tree():
+		return Rect2()
+	return node.get_global_rect()
+
+
+func _on_shop_buy_pressed(offer: GearItem, source: Control = null) -> void:
 	if BuildState.buy_shop_offer(offer):
 		_shop_overlay.set_status_text("")
+		if _gear_panel != null:
+			await _gear_panel.animate_gain_from_source(offer, source)
 		_autosave()
 	elif not BuildState.can_store_shop_offer(offer):
-		_shop_overlay.set_status_text("")
+		_pulse_inventory_blocked_control(source)
+		_shop_overlay.set_status_text("Inventory full -- make space first.")
+		return
 	else:
 		_shop_overlay.set_status_text("")
 	_shop_overlay.refresh()
 
 
 func _on_shop_reroll_pressed() -> void:
+	if not BuildState.can_reroll_shop_offers():
+		_shop_overlay.refresh()
+		_shop_overlay.set_status_text("Not enough gold.")
+		return
+	var reroll_cost := BuildState.shop_reroll_cost
+	var reroll_target_rect: Rect2 = _shop_overlay.reroll_action_rect()
+	_shop_overlay.set_reroll_enabled(false)
+	if _gear_panel != null:
+		await _gear_panel.animate_gold_to_rect(reroll_target_rect, reroll_cost, true)
+	await _shop_overlay.play_reroll_offers_out()
 	if BuildState.reroll_shop_offers():
-		_shop_overlay.set_status_text("New offers.")
 		_autosave()
-	_shop_overlay.refresh()
+		_shop_overlay.refresh()
+		_shop_overlay.set_status_text("New offers.")
+		await get_tree().process_frame
+		await _shop_overlay.play_reroll_offers_in()
+	else:
+		_shop_overlay.refresh()
 
 
 func _on_shop_continue_pressed() -> void:
 	BuildState.close_shop_round()
 	_shop_overlay.visible = false
-	_status_label.visible = true
+	_set_result_button_layer_active(false)
+	_status_label.visible = false
 	_view_log_button.visible = true
 	_advance_after_reward_or_shop()
 
@@ -1587,7 +1812,7 @@ func _on_shop_continue_pressed() -> void:
 func _on_secondary_tree_pressed(tree: SubclassTree) -> void:
 	if BuildState.choose_secondary_tree(tree):
 		_secondary_subclass_overlay.visible = false
-		_status_label.visible = true
+		_status_label.visible = false
 		_recap_label.visible = false
 		_reset_enemy_hud()
 		_status_label.text = "Second tree chosen: %s." % tree.display_name
@@ -1595,29 +1820,73 @@ func _on_secondary_tree_pressed(tree: SubclassTree) -> void:
 		_autosave()
 
 
-func _on_reward_choice_pressed(gear: GearItem) -> void:
+func _on_talent_secondary_tree_chosen(tree: SubclassTree) -> void:
+	_status_label.visible = false
+	_recap_label.visible = false
+	_reset_enemy_hud()
+	_status_label.text = "Second tree chosen: %s." % tree.display_name
+	_autosave()
+
+
+func _on_reward_choice_pressed(gear: GearItem, source: Control = null) -> void:
 	if BuildState.choose_pending_reward_gear(gear):
+		if _gear_panel != null:
+			await _gear_panel.animate_gain_from_source(gear, source)
 		_reward_choice_overlay.visible = false
 		_autosave()
 		if BuildState.open_shop_round():
-			_status_label.text = "Spend gold or keep saving, then leave the shop."
+			_status_label.text = FLOW_TEXT.STATUS_SHOP_DECISION
 			_show_shop_overlay()
 			return
-		_status_label.visible = true
+		_status_label.visible = false
 		_view_log_button.visible = true
 		_advance_after_reward_or_shop()
+	else:
+		_pulse_inventory_blocked_control(source)
+		_reward_choice_overlay.set_status_text("Inventory full -- make space before choosing.")
+
+
+func _on_reward_choice_skip_pressed() -> void:
+	if not BuildState.skip_pending_reward_gear():
+		return
+	_reward_choice_overlay.visible = false
+	_autosave()
+	if BuildState.open_shop_round():
+		_status_label.text = FLOW_TEXT.STATUS_SHOP_DECISION
+		_show_shop_overlay()
+		return
+	_status_label.visible = false
+	_view_log_button.visible = true
+	_advance_after_reward_or_shop()
+
+
+func _pulse_inventory_blocked_control(control: Control) -> void:
+	if control == null or not control.is_inside_tree():
+		return
+	_last_inventory_blocked_source = control
+	control.set_meta("inventory_blocked_pulse", true)
+	control.pivot_offset = control.size * 0.5
+	var original_scale := control.scale
+	var original_modulate := control.modulate
+	control.modulate = INVENTORY_BLOCKED_PULSE_COLOR
+	var tween := create_tween()
+	tween.tween_property(control, "scale", INVENTORY_BLOCKED_PULSE_SCALE, 0.08)
+	tween.parallel().tween_property(control, "modulate", INVENTORY_BLOCKED_PULSE_COLOR, 0.08)
+	tween.tween_property(control, "scale", original_scale, 0.18)
+	tween.parallel().tween_property(control, "modulate", original_modulate, 0.18)
 
 
 func _on_retry_pressed() -> void:
 	if BuildState.retry_current_encounter():
 		_victory_overlay.visible = false
+		_set_result_button_layer_active(false)
 		_outcome_title_label.visible = false
 		_retry_button.visible = false
 		_restart_adventure_button.visible = false
 		_recap_label.visible = false
 		_view_log_button.visible = true
 		_reset_enemy_hud()
-		_status_label.text = "Retry ready. Adjust your build, lock in, then fight again."
+		_status_label.text = FLOW_TEXT.STATUS_RETRY_READY
 		_autosave()
 
 
@@ -1629,10 +1898,10 @@ func _advance_after_reward_or_shop() -> void:
 	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
 		_contract_overlay.show_greeting()
 	elif BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE:
-		_status_label.text = "Choose the next route step."
+		_status_label.text = FLOW_TEXT.NEXT_ROUTE_ON_MAP
 		_show_map_overlay(false)
 	elif advanced:
-		_status_label.text = "Choose the next opponent on the map."
+		_status_label.text = FLOW_TEXT.NEXT_TAVERN_OPPONENT_ON_MAP
 		_show_map_overlay(false)
 	else:
 		_apply_outcome_presentation(BuildState.run_outcome)
@@ -1649,7 +1918,7 @@ func _seed_label_text() -> String:
 ## refresh the header on top of its own work (P2:R7:T3). Target and Gold
 ## were dropped from this readout in the P2:R7 playtest-feedback pass --
 ## both were redundant with the enemy panel's own "Target:" line and the
-## gear panel's/shop overlay's own "Gold:" lines.
+## Gear panel's stash readout.
 func _update_header_status() -> void:
 	# During a playback the run state has ALREADY advanced to the resolved
 	# outcome (state mutates instantly; only presentation waits), so the
@@ -1689,7 +1958,7 @@ func _update_combat_background() -> void:
 
 func _combat_background_texture() -> Texture2D:
 	match BuildState.run_phase:
-		BuildState.RunPhase.PLANNING, BuildState.RunPhase.FIGHTING, BuildState.RunPhase.RESULT:
+		BuildState.RunPhase.PLANNING, BuildState.RunPhase.FIGHTING, BuildState.RunPhase.RESULT, BuildState.RunPhase.RUN_ENDED:
 			return CONTRACT_BACKGROUND_TEXTURE if BuildState.active_contract != null else TAVERN_BACKGROUND_TEXTURE
 	return null
 
@@ -1702,26 +1971,24 @@ func _combat_background_texture() -> Texture2D:
 ## /choose_secondary_tree()).
 func _run_phase_text() -> String:
 	if BuildState.shop_round_pending:
-		return "Shop"
+		return FLOW_TEXT.PHASE_SHOP
 	if BuildState.has_pending_reward_choice():
-		return "Reward Choice"
-	if BuildState.needs_secondary_subclass_choice():
-		return "Subclass Choice"
+		return FLOW_TEXT.PHASE_REWARD_CHOICE
 	match BuildState.run_phase:
 		BuildState.RunPhase.PLANNING:
-			return "Contract Route - Planning" if BuildState.is_contract_fight_active() else "Tavern - Planning"
+			return FLOW_TEXT.PHASE_CONTRACT_ROUTE_PLANNING if BuildState.is_contract_fight_active() else FLOW_TEXT.PHASE_TAVERN_PLANNING
 		BuildState.RunPhase.FIGHTING:
-			return "Fighting"
+			return FLOW_TEXT.PHASE_FIGHTING
 		BuildState.RunPhase.RESULT:
-			return "Victory - Claim Reward" if BuildState.last_fight_won else "Fight Result"
+			return FLOW_TEXT.PHASE_VICTORY_CLAIM_REWARD if BuildState.last_fight_won else FLOW_TEXT.PHASE_FIGHT_RESULT
 		BuildState.RunPhase.CONTRACT_OFFER:
-			return "Contract Offer"
+			return FLOW_TEXT.PHASE_CONTRACT_OFFER
 		BuildState.RunPhase.CONTRACT_ROUTE:
-			return "Contract Route - Choose Path"
+			return FLOW_TEXT.PHASE_CONTRACT_ROUTE_CHOOSE
 		BuildState.RunPhase.RUN_ENDED:
 			if BuildState.run_outcome == BuildState.RunOutcome.CONTRACT_VICTORY or BuildState.run_outcome == BuildState.RunOutcome.FIGHT_WIN:
-				return "Contract Victory"
-			return "Run Failed"
+				return FLOW_TEXT.PHASE_CONTRACT_VICTORY
+			return FLOW_TEXT.PHASE_RUN_FAILED
 	return "Unknown"
 
 
@@ -1738,39 +2005,37 @@ func _build_lock_text() -> String:
 ## from _apply_outcome_presentation()'s richer loss/victory body text.
 func _next_action_text() -> String:
 	if BuildState.shop_round_pending:
-		return "Buy gear or leave the shop."
+		return FLOW_TEXT.NEXT_BUY_OR_LEAVE_SHOP
 	if BuildState.has_pending_reward_choice():
-		return "Choose your reward."
-	if BuildState.needs_secondary_subclass_choice():
-		return "Choose your second subclass tree."
+		return FLOW_TEXT.NEXT_CHOOSE_REWARD
 	match BuildState.run_phase:
 		BuildState.RunPhase.RUN_ENDED:
 			match BuildState.run_outcome:
 				BuildState.RunOutcome.CONTRACT_FAILED, BuildState.RunOutcome.ADVENTURE_RESTART_REQUIRED:
-					return "Restart your Adventure."
+					return FLOW_TEXT.NEXT_RESTART_ADVENTURE
 				BuildState.RunOutcome.CONTRACT_VICTORY, BuildState.RunOutcome.FIGHT_WIN:
-					return "Start a new Adventure."
-			return "Choose your next step."
+					return FLOW_TEXT.NEXT_START_NEW_ADVENTURE
+			return FLOW_TEXT.NEXT_CHOOSE_NEXT_STEP
 		BuildState.RunPhase.RESULT:
 			if BuildState.last_fight_won:
-				return "Claim your reward."
+				return FLOW_TEXT.NEXT_CLAIM_REWARD
 			if BuildState.run_outcome == BuildState.RunOutcome.FIGHT_LOSS_RETRY:
-				return "Adjust your build, then retry the fight."
-			return "Review the fight result."
+				return FLOW_TEXT.NEXT_RETRY_FIGHT
+			return FLOW_TEXT.NEXT_REVIEW_FIGHT_RESULT
 		BuildState.RunPhase.CONTRACT_OFFER:
-			return "Hear out the Contract Window."
+			return FLOW_TEXT.NEXT_HEAR_CONTRACT_WINDOW
 		BuildState.RunPhase.CONTRACT_ROUTE:
-			return "Choose your next route on the map."
+			return FLOW_TEXT.NEXT_ROUTE_ON_MAP
 		BuildState.RunPhase.PLANNING:
 			if BuildState.needs_tavern_map_choice():
-				return "Choose your next opponent on the map."
+				return FLOW_TEXT.NEXT_TAVERN_OPPONENT_ON_MAP
 			if not BuildState.build_locked:
-				return "Lock your build, then fight."
+				return FLOW_TEXT.NEXT_LOCK_BUILD_THEN_FIGHT
 			if BuildState.can_start_current_fight():
-				return "Fight when ready."
-			return "Finish your build to fight."
+				return FLOW_TEXT.NEXT_FIGHT_WHEN_READY
+			return FLOW_TEXT.NEXT_FINISH_BUILD_TO_FIGHT
 		BuildState.RunPhase.FIGHTING:
-			return "Fighting..."
+			return FLOW_TEXT.PHASE_FIGHTING + "..."
 	return ""
 
 
@@ -1780,7 +2045,7 @@ func _next_action_text() -> String:
 ## right after a losing fight and after claiming the final contract/Tavern
 ## reward, since a terminal win outcome is only known post-claim.
 func _apply_outcome_presentation(outcome: int) -> void:
-	_status_label.visible = true
+	_status_label.visible = false
 	var presentation := _outcome_presentation(outcome)
 	if String(presentation["title"]) == "":
 		_outcome_title_label.visible = false
@@ -1789,6 +2054,7 @@ func _apply_outcome_presentation(outcome: int) -> void:
 		return
 	_set_outcome_title(String(presentation["title"]), presentation["color"])
 	_status_label.text = String(presentation["body"])
+	_status_label.visible = _status_label.text != ""
 	_retry_button.visible = bool(presentation["show_retry"])
 	_retry_button.disabled = false
 	_restart_adventure_button.visible = bool(presentation["show_restart"])
@@ -1811,7 +2077,7 @@ func _outcome_presentation(outcome: int) -> Dictionary:
 				if BuildState.is_unlimited_retry_encounter()
 				else "One standard do-over is available (%s). Adjust your build, then retry this encounter." % BuildState.current_attempts_text()
 			)
-			return _make_outcome_presentation("DEFEATED", OUTCOME_LOSS_COLOR, body, true, false, "Restart Adventure")
+			return _make_outcome_presentation("DEFEATED", OUTCOME_LOSS_COLOR, body, true, false, FLOW_TEXT.ACTION_RESTART_ADVENTURE)
 		BuildState.RunOutcome.CONTRACT_FAILED:
 			return _make_outcome_presentation(
 				"CONTRACT FAILED",
@@ -1819,7 +2085,7 @@ func _outcome_presentation(outcome: int) -> Dictionary:
 				"This contract route has no retries remaining. Restart begins a fresh Adventure and preserves Seed %d." % BuildState.adventure_seed,
 				false,
 				true,
-				"Restart Adventure"
+				FLOW_TEXT.ACTION_RESTART_ADVENTURE
 			)
 		BuildState.RunOutcome.ADVENTURE_RESTART_REQUIRED:
 			return _make_outcome_presentation(
@@ -1828,7 +2094,7 @@ func _outcome_presentation(outcome: int) -> Dictionary:
 				"No retries remain for this Tavern encounter. Restart begins a fresh Adventure and preserves Seed %d." % BuildState.adventure_seed,
 				false,
 				true,
-				"Restart Adventure"
+				FLOW_TEXT.ACTION_RESTART_ADVENTURE
 			)
 		BuildState.RunOutcome.CONTRACT_VICTORY:
 			return _make_outcome_presentation(
@@ -1837,7 +2103,7 @@ func _outcome_presentation(outcome: int) -> Dictionary:
 				"Vyra is defeated. Seed %d is preserved if you start a new Adventure." % BuildState.adventure_seed,
 				false,
 				true,
-				"Start New Adventure"
+				FLOW_TEXT.ACTION_START_NEW_ADVENTURE
 			)
 		BuildState.RunOutcome.FIGHT_WIN:
 			# Only reached if the Tavern ladder ends without an active contract.
@@ -1847,9 +2113,9 @@ func _outcome_presentation(outcome: int) -> Dictionary:
 				"Tavern sequence cleared. Seed %d is preserved if you start a new Adventure." % BuildState.adventure_seed,
 				false,
 				true,
-				"Start New Adventure"
+				FLOW_TEXT.ACTION_START_NEW_ADVENTURE
 			)
-	return _make_outcome_presentation("", Color.WHITE, "", false, false, "Restart Adventure")
+	return _make_outcome_presentation("", Color.WHITE, "", false, false, FLOW_TEXT.ACTION_RESTART_ADVENTURE)
 
 
 func _make_outcome_presentation(

@@ -98,5 +98,5 @@ func _initialize() -> void:
 	assert(is_equal_approx(resolved.bonus_physical_damage, 20.0))
 
 	print("")
-	print("Training Room fight setup check: OK")
+	print("Practice Room fight setup check: OK")
 	quit()

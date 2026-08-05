@@ -38,11 +38,11 @@ static func format(result: CombatResolver.CombatResult, monster: Monster) -> Str
 	return "\n".join(lines)
 
 
-## Training Room's own result narrative -- same timeline/summary shape as
-## format() above, but with no HP/win-loss framing at all: Training Room only
+## Practice Room's own result narrative -- same timeline/summary shape as
+## format() above, but with no HP/win-loss framing at all: Practice Room only
 ## measures damage dealt against a target's Armor/Poison Resist in a fixed
 ## window, it never checks whether the target is "defeated" (post-R10
-## UI-feedback pass removed the HP concept from Training Room entirely).
+## UI-feedback pass removed the HP concept from Practice Room entirely).
 static func format_practice(result: CombatResolver.CombatResult, monster: Monster) -> String:
 	var lines: PackedStringArray = []
 	lines.append("Practice Target:")

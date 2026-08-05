@@ -12,9 +12,12 @@ extends PanelContainer
 ##
 ## Root is PanelContainer -- see character_stats_panel.gd's comment for why.
 
+signal secondary_tree_chosen(tree: SubclassTree)
+
 const CARD_TITLE_FONT_SIZE := 20
 const SUBCLASS_LABEL_FONT_SIZE := 30
 const INTRINSIC_LABEL_FONT_SIZE := 16
+const SECONDARY_CHOICE_CARD_WIDTH := 330
 const POINTS_FONT_SIZE := 24
 const NODE_FONT_SIZE := 19
 const NODE_DETAIL_FONT_SIZE := 15
@@ -31,7 +34,7 @@ const DEPENDENCY_PULSE_COLOR := Color(1.0, 0.95, 0.68, 1.0)
 
 ## P2:R10: the reused build-panel state source. Defaults to the real
 ## `BuildState` singleton (Adventure's actual behavior, unchanged), but
-## Training Room assigns its own `TrainingRoomState` instance here instead --
+## Practice Room assigns its own `TrainingRoomState` instance here instead --
 ## set before this panel enters the tree, so `_ready()` reads the right one.
 ## Deliberately untyped (`=`, not `:=`/a type annotation): `BuildState` has no
 ## `class_name`, and this must accept either object interchangeably.
@@ -97,12 +100,23 @@ func _ready() -> void:
 	var footer_spacer := Control.new()
 	footer_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(footer_spacer)
+	var points_icon := CardStyle.make_pixel_icon(CardStyle.talent_point_icon(), Vector2(22, 22))
+	points_icon.tooltip_text = "Talent points spent / earned"
+	footer.add_child(points_icon)
 	_points_label = Label.new()
+	_points_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_points_label.tooltip_text = "Talent points spent / earned"
 	_points_label.add_theme_font_size_override("font_size", POINTS_FONT_SIZE)
 	footer.add_child(_points_label)
 	content.add_child(footer)
 
 	state.build_changed.connect(_refresh)
+	if state.has_signal("run_state_changed"):
+		state.run_state_changed.connect(_refresh)
+	_refresh()
+
+
+func refresh_panel() -> void:
 	_refresh()
 
 
@@ -224,6 +238,11 @@ func _build_locked_secondary_column(parent: Container) -> void:
 	title.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
 	content.add_child(title)
 
+	if _should_show_secondary_tree_choices():
+		title.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
+		_build_secondary_tree_choices(content)
+		return
+
 	var body := Label.new()
 	body.text = "Unlocks later in the Adventure."
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -231,6 +250,54 @@ func _build_locked_secondary_column(parent: Container) -> void:
 	body.add_theme_font_size_override("font_size", INTRINSIC_LABEL_FONT_SIZE)
 	body.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
 	content.add_child(body)
+
+
+func _should_show_secondary_tree_choices() -> bool:
+	return (
+		state.has_method("choose_secondary_tree")
+		and state.active_contract != null
+		and state.selected_class != null
+		and state.selected_trees.size() < PassiveAllocator.MAX_TREES
+	)
+
+
+func _build_secondary_tree_choices(parent: Container) -> void:
+	var body := Label.new()
+	body.text = "Choose a second Rogue tree for the contract."
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_font_size_override("font_size", INTRINSIC_LABEL_FONT_SIZE)
+	body.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	parent.add_child(body)
+
+	var choices := VBoxContainer.new()
+	choices.name = "SecondaryTreeChoices"
+	choices.alignment = BoxContainer.ALIGNMENT_CENTER
+	choices.add_theme_constant_override("separation", 12)
+	parent.add_child(choices)
+
+	for tree in BuildState.selected_class.trees:
+		if BuildState.selected_trees.has(tree):
+			continue
+		choices.add_child(_make_secondary_tree_choice_card(tree))
+
+
+func _make_secondary_tree_choice_card(tree: SubclassTree) -> PanelContainer:
+	var choose_button := Button.new()
+	choose_button.text = "Choose"
+	choose_button.pressed.connect(_on_secondary_tree_choice_pressed.bind(tree))
+	return CardStyle.make_selection_card(
+		tree.display_name,
+		"Intrinsic: %s" % _intrinsic_description(tree),
+		choose_button,
+		SECONDARY_CHOICE_CARD_WIDTH,
+		tree.icon
+	)
+
+
+func _on_secondary_tree_choice_pressed(tree: SubclassTree) -> void:
+	if BuildState.choose_secondary_tree(tree):
+		secondary_tree_chosen.emit(tree)
 
 
 ## Prerequisite depth: 0 for no-prereq (base row) talents, otherwise one
@@ -561,7 +628,7 @@ func _trigger_description(trigger: TriggeredSkillEffect) -> String:
 func _refresh_points_label() -> void:
 	var spent: int = PassiveAllocator.points_spent(state.selected_talents)
 	var earned: int = state.earned_talent_points
-	_points_label.text = "Points: %d/%d" % [spent, earned]
+	_points_label.text = ": %d/%d" % [spent, earned]
 	var remaining: int = earned - spent
 	_points_label.add_theme_color_override(
 		"font_color", UIColors.TEXT_GOLD if remaining > 0 else UIColors.TEXT_NORMAL

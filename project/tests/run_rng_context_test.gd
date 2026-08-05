@@ -83,10 +83,21 @@ func _initialize() -> void:
 	var first_reward_choices: Array[GearItem] = build_state._gear_choices_for_reward(reward)
 	var second_reward_choices: Array[GearItem] = build_state._gear_choices_for_reward(reward)
 	assert(_gear_signature(first_reward_choices) == _gear_signature(second_reward_choices))
+	assert(first_reward_choices.all(func(item): return reward.generated_gear_slots.has(item.slot)))
+	assert(_unique_stat_signature_count(first_reward_choices) == first_reward_choices.size())
 
 	build_state.set_adventure_seed(124)
 	var different_seed_reward_choices: Array[GearItem] = build_state._gear_choices_for_reward(reward)
 	assert(_gear_signature(first_reward_choices) != _gear_signature(different_seed_reward_choices))
+
+	var same_slot_reward := EncounterReward.new()
+	same_slot_reward.generated_gear_choice_count = 8
+	same_slot_reward.generated_gear_tier = GearItem.Tier.MASTER
+	same_slot_reward.generated_gear_slots = [GearItem.SlotType.WEAPON]
+	var same_slot_choices: Array[GearItem] = build_state._gear_choices_for_reward(same_slot_reward)
+	assert(same_slot_choices.size() == 8)
+	assert(same_slot_choices.all(func(item): return item.slot == GearItem.SlotType.WEAPON))
+	assert(_unique_stat_signature_count(same_slot_choices) == same_slot_choices.size())
 
 	# -- P2:R9:T5 -- Knives' seeded 2-of-5 Legendary choice reproducibility --
 	build_state.reset()
@@ -155,6 +166,21 @@ func _unique_shop_signature_count(items: Array[GearItem]) -> int:
 	for item in items:
 		seen[_shop_visible_signature(item)] = true
 	return seen.size()
+
+
+func _unique_stat_signature_count(items: Array[GearItem]) -> int:
+	var seen := {}
+	for item in items:
+		seen[_stat_signature(item)] = true
+	return seen.size()
+
+
+func _stat_signature(item: GearItem) -> String:
+	var affix_parts: PackedStringArray = []
+	for affix in item.affixes:
+		affix_parts.append("%03d:%03d:%0.4f" % [affix.stat, affix.operation, affix.value])
+	affix_parts.sort()
+	return "%d|%s" % [item.tier, ",".join(affix_parts)]
 
 
 func _shop_visible_signature(item: GearItem) -> String:

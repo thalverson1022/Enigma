@@ -28,6 +28,9 @@ const SELECTION_CARD_TITLE_FONT_SIZE := 24
 const SELECTION_CARD_BODY_FONT_SIZE := 15
 const SUBCLASS_ICON_SIZE := Vector2(36, 36)
 const UI_ICON_SIZE := Vector2(22, 22)
+const TALENT_POINT_ICON_PATH := "res://assets/ui/icons/talent_point.png"
+
+static var _talent_point_icon: Texture2D = null
 
 
 static func make_stylebox(content_margin: int = 16) -> StyleBoxFlat:
@@ -209,6 +212,16 @@ static func make_pixel_icon(texture: Texture2D, icon_size: Vector2 = SUBCLASS_IC
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return icon
+
+
+static func talent_point_icon() -> Texture2D:
+	if _talent_point_icon != null:
+		return _talent_point_icon
+	var image := Image.new()
+	if image.load(TALENT_POINT_ICON_PATH) != OK:
+		return null
+	_talent_point_icon = ImageTexture.create_from_image(image)
+	return _talent_point_icon
 
 
 static func configure_icon_button(button: Button, texture: Texture2D, separation: int = 8) -> void:

@@ -98,9 +98,9 @@ persistent dashboard:
 This is usable and test-covered, but still a Phase 2 UI. Phase 3 should make
 it feel better, clearer, and more animated.
 
-## Full Training Room
+## Full Practice Room
 
-Training Room is complete and should be preserved as a design and balance
+Practice Room is complete and should be preserved as a design and balance
 tool:
 
 - Freeform tree and talent setup.

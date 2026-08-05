@@ -11,17 +11,28 @@ extends PanelContainer
 ## shows its name, or the item's name and stats.
 ##
 ## Inventory contains up to three items bought from the shop or earned from
-## rewards. Clicking an item equips it during planning, or sells it while a
-## shop round is open.
+## rewards. Primary clicks move gear between inventory and equipment; right-
+## click action menus expose shop-gated selling.
 
 const CARD_TITLE_FONT_SIZE := 20
 const SECTION_LABEL_FONT_SIZE := 15
+const GOLD_FONT_SIZE := 24
+const GOLD_GHOST_DURATION_SEC := 0.28
+const GOLD_GHOST_ARC_HEIGHT := 26.0
+const GOLD_REWARD_SETTLE_SEC := 0.22
 
 const HELM_SLOT_SIZE := Vector2(76, 76)
 const ARMOR_SLOT_SIZE := Vector2(112, 112)
 const WEAPON_SLOT_SIZE := Vector2(88, 88)
 const SMALL_SLOT_SIZE := Vector2(60, 60)
 const INVENTORY_SLOT_SIZE := Vector2(88, 88)
+const ACTION_EQUIP_ID := 1
+const ACTION_SELL_ID := 2
+const ACTION_UNEQUIP_ID := 3
+const GEAR_GHOST_DURATION_SEC := 0.24
+const GEAR_GHOST_ARC_HEIGHT := 34.0
+const GEAR_LANDING_PULSE_SEC := 0.22
+const GOLD_ICON := preload("res://assets/ui/icons/gold.png")
 
 const EMPTY_SLOT_COLOR := UIColors.SLOT_EMPTY
 const SLOT_BORDER_COLOR := UIColors.SLOT_BORDER
@@ -38,8 +49,14 @@ var _weapon_slot: Panel
 var _trinket_slot: Panel
 var _charm_slot: Panel
 var _inventory_grid: GridContainer
+var _gold_row: HBoxContainer
+var _gold_icon: TextureRect
 var _gold_label: Label
 var _sell_dialog: ConfirmationDialog
+var _inventory_action_menu: PopupMenu
+var _equipped_action_menu: PopupMenu
+var _pending_inventory_action_item: GearItem = null
+var _pending_equipped_action_slot: int = -1
 var _pending_sell_inventory_item: GearItem = null
 var _pending_sell_equipped_slot: int = -1
 
@@ -59,10 +76,22 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
 	content.add_child(title)
 
+	_gold_row = HBoxContainer.new()
+	_gold_row.alignment = BoxContainer.ALIGNMENT_END
+	_gold_row.add_theme_constant_override("separation", 6)
+	_gold_row.tooltip_text = "Gold stash"
+	content.add_child(_gold_row)
+
+	_gold_icon = CardStyle.make_pixel_icon(GOLD_ICON, Vector2(28, 28))
+	_gold_row.add_child(_gold_icon)
 	_gold_label = Label.new()
 	_gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_gold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_gold_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
-	content.add_child(_gold_label)
+	_gold_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	_gold_label.add_theme_constant_override("outline_size", 4)
+	_gold_label.add_theme_font_size_override("font_size", GOLD_FONT_SIZE)
+	_gold_row.add_child(_gold_label)
 
 	var equipment_label := Label.new()
 	equipment_label.text = "Equipment"
@@ -102,6 +131,8 @@ func _ready() -> void:
 
 	BuildState.build_changed.connect(_refresh)
 	_build_sell_dialog()
+	_build_inventory_action_menu()
+	_build_equipped_action_menu()
 	_refresh()
 
 
@@ -120,6 +151,8 @@ func _build_doll() -> VBoxContainer:
 	middle_row.add_theme_constant_override("separation", 10)
 
 	_weapon_slot = _make_slot(WEAPON_SLOT_SIZE)
+	_weapon_slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_weapon_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	middle_row.add_child(_weapon_slot)
 
 	_armor_slot = _make_slot(ARMOR_SLOT_SIZE)
@@ -157,7 +190,7 @@ func _make_slot(slot_size: Vector2) -> Panel:
 
 
 func _refresh() -> void:
-	_gold_label.text = "Gold: %dg" % BuildState.gold
+	_gold_label.text = "%dg" % BuildState.gold
 	_update_slot(_helm_slot, "Hood", null)
 	_update_slot(_armor_slot, "Doublet", null)
 	_update_slot(_weapon_slot, "Dagger", BuildState.equipped_weapon)
@@ -175,7 +208,7 @@ func _refresh_inventory() -> void:
 
 
 func _make_inventory_slot(gear: GearItem) -> Button:
-	var slot := Button.new()
+	var slot: Button = GearCompareButton.new() if gear != null else Button.new()
 	slot.custom_minimum_size = INVENTORY_SLOT_SIZE
 	slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -191,16 +224,92 @@ func _make_inventory_slot(gear: GearItem) -> Button:
 		# playtest-feedback pass, item 2; art added in the P2:R7 gear-art
 		# pass).
 		CardStyle.build_gear_box_content(slot, gear)
+		slot.set_meta("gear_item", gear)
 		slot.tooltip_text = _inventory_tooltip(gear)
-		slot.pressed.connect(_on_inventory_slot_pressed.bind(gear))
+		var compare_slot := slot as GearCompareButton
+		compare_slot.tooltip_builder = func() -> Control:
+			return CardStyle.build_gear_compare_tooltip(
+				self,
+				_inventory_tooltip(gear),
+				BuildState.equipped_item_for_slot(gear.slot)
+			)
+		slot.pressed.connect(_on_inventory_slot_pressed.bind(gear, slot))
+		slot.gui_input.connect(_on_inventory_slot_gui_input.bind(gear))
 	return slot
 
 
-func _on_inventory_slot_pressed(gear: GearItem) -> void:
-	if BuildState.shop_round_pending:
-		_confirm_sell_inventory_item(gear)
-	else:
-		BuildState.equip_from_inventory(gear)
+func _on_inventory_slot_pressed(gear: GearItem, source_slot: Control = null) -> void:
+	_equip_from_inventory_with_animation(gear, source_slot)
+
+
+func _on_inventory_slot_gui_input(event: InputEvent, gear: GearItem) -> void:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT):
+		return
+	_show_inventory_action_menu(gear)
+
+
+func _build_inventory_action_menu() -> void:
+	_inventory_action_menu = PopupMenu.new()
+	_inventory_action_menu.add_item("Equip", ACTION_EQUIP_ID)
+	_inventory_action_menu.add_item("Sell", ACTION_SELL_ID)
+	_inventory_action_menu.id_pressed.connect(_on_inventory_action_selected)
+	add_child(_inventory_action_menu)
+
+
+func _show_inventory_action_menu(gear: GearItem) -> void:
+	if gear == null:
+		return
+	_pending_inventory_action_item = gear
+	_inventory_action_menu.set_item_text(_inventory_action_menu.get_item_index(ACTION_SELL_ID), _sell_action_text(gear))
+	_inventory_action_menu.set_item_disabled(_inventory_action_menu.get_item_index(ACTION_SELL_ID), not BuildState.shop_round_pending)
+	_inventory_action_menu.position = Vector2i(get_viewport().get_mouse_position())
+	_inventory_action_menu.popup()
+
+
+func _on_inventory_action_selected(action_id: int) -> void:
+	var gear := _pending_inventory_action_item
+	_pending_inventory_action_item = null
+	if gear == null:
+		return
+	match action_id:
+		ACTION_EQUIP_ID:
+			_equip_from_inventory_with_animation(gear, _inventory_button_for_item(gear))
+		ACTION_SELL_ID:
+			if BuildState.shop_round_pending:
+				_confirm_sell_inventory_item(gear)
+
+
+func _build_equipped_action_menu() -> void:
+	_equipped_action_menu = PopupMenu.new()
+	_equipped_action_menu.add_item("Unequip", ACTION_UNEQUIP_ID)
+	_equipped_action_menu.add_item("Sell", ACTION_SELL_ID)
+	_equipped_action_menu.id_pressed.connect(_on_equipped_action_selected)
+	add_child(_equipped_action_menu)
+
+
+func _show_equipped_action_menu(gear_slot: GearItem.SlotType) -> void:
+	var gear := BuildState.equipped_item_for_slot(gear_slot)
+	if gear == null:
+		return
+	_pending_equipped_action_slot = gear_slot
+	_equipped_action_menu.set_item_text(_equipped_action_menu.get_item_index(ACTION_SELL_ID), _sell_action_text(gear))
+	_equipped_action_menu.set_item_disabled(_equipped_action_menu.get_item_index(ACTION_UNEQUIP_ID), not _can_unequip_to_inventory())
+	_equipped_action_menu.set_item_disabled(_equipped_action_menu.get_item_index(ACTION_SELL_ID), not BuildState.shop_round_pending)
+	_equipped_action_menu.position = Vector2i(get_viewport().get_mouse_position())
+	_equipped_action_menu.popup()
+
+
+func _on_equipped_action_selected(action_id: int) -> void:
+	var gear_slot := _pending_equipped_action_slot
+	_pending_equipped_action_slot = -1
+	if gear_slot == -1:
+		return
+	match action_id:
+		ACTION_UNEQUIP_ID:
+			_unequip_to_inventory_with_animation(gear_slot)
+		ACTION_SELL_ID:
+			if BuildState.shop_round_pending:
+				_confirm_sell_equipped_item(gear_slot)
 
 
 func _build_sell_dialog() -> void:
@@ -228,13 +337,24 @@ func _confirm_sell_equipped_item(slot: GearItem.SlotType) -> void:
 
 
 func _on_sell_confirmed() -> void:
+	var sold_gear: GearItem = null
+	var source_rect := Rect2()
+	var sale_value := 0
 	if _pending_sell_inventory_item != null:
+		sold_gear = _pending_sell_inventory_item
+		sale_value = BuildState.sell_value_for(sold_gear)
+		source_rect = _global_rect_for(_inventory_button_for_item(_pending_sell_inventory_item))
 		BuildState.sell_inventory_item(_pending_sell_inventory_item)
 	elif _pending_sell_equipped_slot != -1:
+		sold_gear = BuildState.equipped_item_for_slot(_pending_sell_equipped_slot)
+		sale_value = BuildState.sell_value_for(sold_gear)
+		source_rect = _global_rect_for(_equipped_panel_for_slot(_pending_sell_equipped_slot))
 		BuildState.sell_equipped_item(_pending_sell_equipped_slot)
 	_pending_sell_inventory_item = null
 	_pending_sell_equipped_slot = -1
 	_sell_dialog.hide()
+	if sold_gear != null:
+		await animate_gold_from_rect(source_rect, sale_value)
 
 
 ## Equipped slots use a thicker accent-colored border (vs. the neutral
@@ -270,20 +390,217 @@ func _connect_equipped_slot_click(slot: Panel, gear_slot: GearItem.SlotType) -> 
 		slot.set_meta("sell_click_connected", true)
 
 
-## During a shop round, clicking an equipped slot offers to sell it (matches
-## the existing sell-inventory-item flow). Outside a shop round, it offers
-## to unequip it back to the inventory tray instead -- previously the only
-## way to bench an equipped item was to equip a replacement over it, which
-## silently displaced it; this makes "send it back to the bag" an explicit,
-## discoverable action of its own, unambiguous from equipping. No-op while
-## the build is locked or the inventory is already full.
+## Left-clicking equipped gear sends it back to inventory. Right-clicking
+## opens the explicit action menu, where selling stays shop-gated behind the
+## existing confirmation dialog.
 func _on_equipped_slot_gui_input(event: InputEvent, gear_slot: GearItem.SlotType) -> void:
-	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+	if not (event is InputEventMouseButton and event.pressed):
 		return
-	if BuildState.shop_round_pending:
-		_confirm_sell_equipped_item(gear_slot)
-	elif not BuildState.build_locked and BuildState.can_add_inventory_item():
+	match event.button_index:
+		MOUSE_BUTTON_LEFT:
+			_unequip_to_inventory_with_animation(gear_slot)
+		MOUSE_BUTTON_RIGHT:
+			_show_equipped_action_menu(gear_slot)
+
+
+func _can_unequip_to_inventory() -> bool:
+	return not BuildState.build_locked and BuildState.can_add_inventory_item()
+
+
+func _unequip_to_inventory(gear_slot: GearItem.SlotType) -> void:
+	if _can_unequip_to_inventory():
 		BuildState.unequip(gear_slot)
+
+
+func animate_gain_from_source(gear: GearItem, source: Control) -> void:
+	if gear == null:
+		return
+	var source_rect := _global_rect_for(source)
+	await get_tree().process_frame
+	var destination := _destination_control_for_item(gear)
+	_play_gear_motion(gear, source_rect, _global_rect_for(destination))
+	_pulse_slot(destination)
+
+
+func animate_gold_from_source(source: Control, amount: int) -> void:
+	await animate_gold_from_rect(_global_rect_for(source), amount)
+
+
+func animate_gold_from_rect(source_rect: Rect2, amount: int, wait_for_completion: bool = false) -> void:
+	if amount <= 0:
+		return
+	await get_tree().process_frame
+	var played := _play_gold_motion(source_rect, _global_rect_for(_gold_icon), amount, "+")
+	_pulse_slot(_gold_row)
+	if wait_for_completion and played:
+		await get_tree().create_timer(GOLD_GHOST_DURATION_SEC).timeout
+		await get_tree().create_timer(GOLD_REWARD_SETTLE_SEC).timeout
+
+
+func animate_gold_to_rect(destination_rect: Rect2, amount: int, wait_for_completion: bool = false) -> void:
+	if amount <= 0:
+		return
+	await get_tree().process_frame
+	var played := _play_gold_motion(_global_rect_for(_gold_icon), destination_rect, amount, "-")
+	_pulse_slot(_gold_row)
+	if wait_for_completion and played:
+		await get_tree().create_timer(GOLD_GHOST_DURATION_SEC).timeout
+
+
+func _equip_from_inventory_with_animation(gear: GearItem, source_slot: Control = null) -> void:
+	if gear == null or not BuildState.has_inventory_item(gear):
+		return
+	var target_slot := _equipped_panel_for_slot(gear.slot)
+	var source_rect := _global_rect_for(source_slot if source_slot != null else _inventory_button_for_item(gear))
+	var target_rect := _global_rect_for(target_slot)
+	var replaced: GearItem = BuildState.equipped_item_for_slot(gear.slot)
+	var replaced_source_rect := target_rect
+	if not BuildState.equip_from_inventory(gear):
+		return
+	await get_tree().process_frame
+	_play_gear_motion(gear, source_rect, _global_rect_for(target_slot))
+	_pulse_slot(target_slot)
+	if replaced != null and replaced != gear:
+		var replaced_destination := _inventory_button_for_item(replaced)
+		_play_gear_motion(replaced, replaced_source_rect, _global_rect_for(replaced_destination))
+		_pulse_slot(replaced_destination)
+
+
+func _unequip_to_inventory_with_animation(gear_slot: GearItem.SlotType) -> void:
+	if not _can_unequip_to_inventory():
+		return
+	var gear: GearItem = BuildState.equipped_item_for_slot(gear_slot)
+	if gear == null:
+		return
+	var source_slot := _equipped_panel_for_slot(gear_slot)
+	var source_rect := _global_rect_for(source_slot)
+	BuildState.unequip(gear_slot)
+	await get_tree().process_frame
+	var destination_slot := _inventory_button_for_item(gear)
+	_play_gear_motion(gear, source_rect, _global_rect_for(destination_slot))
+	_pulse_slot(destination_slot)
+
+
+func _inventory_button_for_item(gear: GearItem) -> Button:
+	if gear == null:
+		return null
+	for child in _inventory_grid.get_children():
+		if child is Button and not child.is_queued_for_deletion() and child.has_meta("gear_item") and child.get_meta("gear_item") == gear:
+			return child
+	return null
+
+
+func _destination_control_for_item(gear: GearItem) -> Control:
+	var inventory_button := _inventory_button_for_item(gear)
+	if inventory_button != null:
+		return inventory_button
+	if BuildState.equipped_item_for_slot(gear.slot) == gear:
+		return _equipped_panel_for_slot(gear.slot)
+	return null
+
+
+func _equipped_panel_for_slot(gear_slot: GearItem.SlotType) -> Panel:
+	match gear_slot:
+		GearItem.SlotType.WEAPON:
+			return _weapon_slot
+		GearItem.SlotType.TRINKET:
+			return _trinket_slot
+		GearItem.SlotType.CHARM:
+			return _charm_slot
+	return null
+
+
+func _global_rect_for(node: Control) -> Rect2:
+	if node == null or not node.is_inside_tree():
+		return Rect2()
+	return node.get_global_rect()
+
+
+func _play_gear_motion(gear: GearItem, from_rect: Rect2, to_rect: Rect2) -> void:
+	if gear == null or from_rect.size == Vector2.ZERO or to_rect.size == Vector2.ZERO:
+		return
+	var ghost := Button.new()
+	ghost.text = ""
+	ghost.disabled = true
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.custom_minimum_size = from_rect.size
+	ghost.size = from_rect.size
+	ghost.modulate = Color(1, 1, 1, 0.72)
+	ghost.z_index = 200
+	ghost.top_level = true
+	_style_box_button(ghost, gear)
+	CardStyle.build_gear_box_content(ghost, gear)
+	add_child(ghost)
+	ghost.global_position = from_rect.position
+
+	var midpoint := (from_rect.position + to_rect.position) * 0.5 + Vector2(0, -GEAR_GHOST_ARC_HEIGHT)
+	var motion := func(t: float) -> void:
+		if is_instance_valid(ghost):
+			ghost.global_position = _quadratic_bezier(from_rect.position, midpoint, to_rect.position, t)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_method(motion, 0.0, 1.0, GEAR_GHOST_DURATION_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ghost, "scale", Vector2(0.9, 0.9), GEAR_GHOST_DURATION_SEC).from(Vector2(1.04, 1.04))
+	tween.tween_property(ghost, "modulate:a", 0.0, GEAR_GHOST_DURATION_SEC).from(0.72).set_delay(GEAR_GHOST_DURATION_SEC * 0.55)
+	tween.set_parallel(false)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(ghost):
+			ghost.queue_free()
+	)
+
+
+func _play_gold_motion(from_rect: Rect2, to_rect: Rect2, amount: int, sign: String = "+") -> bool:
+	if from_rect.size == Vector2.ZERO or to_rect.size == Vector2.ZERO:
+		return false
+	var ghost := HBoxContainer.new()
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.modulate = Color(1, 1, 1, 0.86)
+	ghost.z_index = 220
+	ghost.top_level = true
+	ghost.add_theme_constant_override("separation", 4)
+	ghost.add_child(CardStyle.make_pixel_icon(GOLD_ICON, Vector2(20, 20)))
+	var label := Label.new()
+	label.text = "%s%dg" % [sign, amount]
+	label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	label.add_theme_constant_override("outline_size", 3)
+	label.add_theme_font_size_override("font_size", 18)
+	ghost.add_child(label)
+	add_child(ghost)
+	ghost.global_position = from_rect.get_center() - Vector2(18, 12)
+
+	var target := to_rect.get_center() - Vector2(18, 12)
+	var midpoint := (ghost.global_position + target) * 0.5 + Vector2(0, -GOLD_GHOST_ARC_HEIGHT)
+	var start := ghost.global_position
+	var motion := func(t: float) -> void:
+		if is_instance_valid(ghost):
+			ghost.global_position = _quadratic_bezier(start, midpoint, target, t)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_method(motion, 0.0, 1.0, GOLD_GHOST_DURATION_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ghost, "scale", Vector2(0.85, 0.85), GOLD_GHOST_DURATION_SEC).from(Vector2(1.12, 1.12))
+	tween.tween_property(ghost, "modulate:a", 0.0, GOLD_GHOST_DURATION_SEC).from(0.86).set_delay(GOLD_GHOST_DURATION_SEC * 0.58)
+	tween.set_parallel(false)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(ghost):
+			ghost.queue_free()
+	)
+	return true
+
+
+func _pulse_slot(slot: Control) -> void:
+	if slot == null or not slot.is_inside_tree():
+		return
+	var original_modulate := slot.modulate
+	slot.modulate = Color(1.25, 1.18, 0.82, 1.0)
+	var tween := create_tween()
+	tween.tween_property(slot, "modulate", original_modulate, GEAR_LANDING_PULSE_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+func _quadratic_bezier(a: Vector2, b: Vector2, c: Vector2, t: float) -> Vector2:
+	var ab := a.lerp(b, t)
+	var bc := b.lerp(c, t)
+	return ab.lerp(bc, t)
 
 
 func _style_box_button(button: Button, gear: GearItem) -> void:
@@ -298,22 +615,16 @@ func _style_box_button(button: Button, gear: GearItem) -> void:
 
 
 func _inventory_tooltip(gear: GearItem) -> String:
-	var action := "Sell for %dg" % BuildState.sell_value_for(gear) if BuildState.shop_round_pending else "Equip"
-	return "%s\nIn inventory -- %s" % [_gear_tooltip(gear), action]
+	return _gear_tooltip(gear)
 
 
 func _equipped_tooltip(gear: GearItem) -> String:
-	var action: String
-	if BuildState.shop_round_pending:
-		action = "Sell for %dg" % BuildState.sell_value_for(gear)
-	elif BuildState.build_locked:
-		action = "Unlock build to change"
-	elif not BuildState.can_add_inventory_item():
-		action = "Inventory full -- can't unequip"
-	else:
-		action = "Unequip to inventory"
-	return "%s\nEquipped -- %s" % [_gear_tooltip(gear), action]
+	return _gear_tooltip(gear)
 
 
 func _gear_tooltip(gear: GearItem) -> String:
 	return "\n".join(CardStyle.gear_tooltip_lines(gear))
+
+
+func _sell_action_text(gear: GearItem) -> String:
+	return "Sell for %dg" % BuildState.sell_value_for(gear) if BuildState.shop_round_pending else "Sell"

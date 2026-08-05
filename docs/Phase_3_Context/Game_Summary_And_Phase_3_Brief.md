@@ -44,7 +44,7 @@ The main flow is:
 11. Vyra climax.
 12. Contract victory, contract failure, or adventure restart state.
 
-The current build also includes a full Training Room:
+The current build also includes a full Practice Room:
 
 - Freeform Rogue tree selection.
 - Talent selection.
@@ -94,7 +94,7 @@ Good Phase 3 work:
 - Better transitions between title, build, fight, reward, shop, route, and
   outcome states.
 - Better hover, focus, disabled, selected, and comparison states.
-- Training Room usability and visualization improvements.
+- Practice Room usability and visualization improvements.
 - Sound placeholders only if they support interaction clarity and are easy to
   replace later.
 - Documentation and UX checklists for future art/animation passes.
@@ -115,7 +115,7 @@ Phase 4 is planned as the monster and encounter overhaul.
 
 Do not pre-build Phase 4 during Phase 3. It is fine to identify UX needs that
 will make the Phase 4 overhaul easier, but Phase 3 should mostly polish the
-current Rogue Adventure and Training Room surfaces.
+current Rogue Adventure and Practice Room surfaces.
 
 If Phase 3 uncovers a monster/encounter issue, classify it as:
 

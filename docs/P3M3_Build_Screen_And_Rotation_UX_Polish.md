@@ -4,7 +4,7 @@
 
 Milestone 3 makes buildcraft easier to understand, faster to manipulate, and
 more trustworthy before the project moves deeper into reward, flow, and
-Training Room-specific polish.
+Practice Room-specific polish.
 
 This is the single tasking and status document for Milestone 3. It follows the
 project hierarchy:
@@ -27,15 +27,15 @@ quickly shape the skill rotation they intend to test.
 ## Constraints
 
 - Do not change combat math, build-resolution rules, proc behavior, Adventure
-  state progression, save behavior, or Training Room isolation unless a
+  state progression, save behavior, or Practice Room isolation unless a
   specific user-approved bug fix requires it.
 - Treat existing Phase 2, Milestone 1, and Milestone 2 build/rotation polish as
   baseline rather than duplicating it.
-- Prefer improvements that benefit both Adventure and Training Room through the
+- Prefer improvements that benefit both Adventure and Practice Room through the
   shared build panels.
 - Keep Gear, Rewards, Shop, and Legendary presentation work scoped to Milestone
   4 unless the gear detail is needed to explain current build changes.
-- Keep broad Training Room control/layout work scoped to Milestone 6 unless the
+- Keep broad Practice Room control/layout work scoped to Milestone 6 unless the
   issue directly affects shared build, talent, stat, or rotation clarity.
 - Include only build/rotation-relevant visual consistency work in this
   milestone: selected, disabled, unavailable, capped, locked, active, hover,
@@ -99,10 +99,10 @@ Already present:
 - `character_stats_panel.gd` shows live resolved stats and uses BBCode hover
   hints for "from gear/talents" deltas instead of always-visible explanatory
   clutter.
-- Adventure and Training Room share the major build panels through an injected
-  `state` property. Training Room uses `TrainingRoomState` and remains isolated
+- Adventure and Practice Room share the major build panels through an injected
+  `state` property. Practice Room uses `TrainingRoomState` and remains isolated
   from real Adventure state.
-- Milestone 2 invalidates completed Training Room result review when build,
+- Milestone 2 invalidates completed Practice Room result review when build,
   gear, rotation, target, seed, duration, Legendary, talent, rarity, or
   practice-gold inputs change.
 - Existing focused coverage includes `build_panels_test.gd`,
@@ -121,8 +121,8 @@ Open assessment questions:
   relying entirely on hover?
 - Does the Character Stats panel explain the right stats for current
   buildcraft decisions?
-- Do Adventure and Training Room use the same build language where appropriate
-  while preserving Training Room's freeform identity?
+- Do Adventure and Practice Room use the same build language where appropriate
+  while preserving Practice Room's freeform identity?
 - Does the dashboard still fit cleanly at the target resolution after the
   Milestone 1 and 2 presentation additions?
 - Which build/rotation UI states can be made more consistent with native Godot
@@ -133,13 +133,13 @@ Open assessment questions:
 | Task | Status | Notes |
 |---|---|---|
 | 0. Plan and audit the buildcraft pass | Complete | Initial audit completed from docs/code/tests; M3/M8/later-phase boundaries for visual consistency and art-direction work are recorded. |
-| 1. Improve rotation editing UX | Complete | Cap/lock layout direction confirmed; 10-slot geometry guardrail added for Adventure and Training Room; user review confirmed add/remove speed, duplicate readability, locked state, empty/cap language, and no extra controls are acceptable for now. |
-| 2. Clarify fight readiness and build lock state | Complete | Lock Build is confirmed as the ready action; empty rotations cannot become locked/ready in Adventure or Training Room; no extra instruction copy was added. |
-| 3. Audit available skill readability | Complete | Current icon/name buttons, speed/effect tooltips, locked/capped disabled treatment, and shared Adventure/Training Room behavior are sufficient for the current Rogue mechanics; broader comparison scaffolding is deferred until mechanics grow more complex. |
+| 1. Improve rotation editing UX | Complete | Cap/lock layout direction confirmed; 10-slot geometry guardrail added for Adventure and Practice Room; user review confirmed add/remove speed, duplicate readability, locked state, empty/cap language, and no extra controls are acceptable for now. |
+| 2. Clarify fight readiness and build lock state | Complete | Lock Build is confirmed as the ready action; empty rotations cannot become locked/ready in Adventure or Practice Room; no extra instruction copy was added. |
+| 3. Audit available skill readability | Complete | Current icon/name buttons, speed/effect tooltips, locked/capped disabled treatment, and shared Adventure/Practice Room behavior are sufficient for the current Rogue mechanics; broader comparison scaffolding is deferred until mechanics grow more complex. |
 | 4. Improve talent tree clarity | Complete | Selected talents that support an active dependency chain keep the normal selected visual state, while blocked deselect clicks pulse the clicked talent and dependent chain instead of silently doing nothing. |
 | 5. Improve character stats and change feedback | Complete | Current live stat lines, physical/poison grouping, and hover delta hints are sufficient for this phase; broader class/stat/gear presentation work is intentionally deferred until later mechanics changes settle. |
-| 6. Align shared Adventure and Training Room build language | Complete | Conservative audit closed with no product UI changes: shared build vocabulary is aligned enough for current Rogue mechanics, Training Room remains practice-safe, and focused assertions now cover shared Skill Build behavior plus stale-result invalidation after rotation edits. |
-| 7. Add focused tests, verify, and document closeout | Complete | Focused build/rotation/Training Room tests and adjacent fixture checks passed; milestone docs/onboarding were updated; broader whole-game visual-system work remains deferred to M8 or a later phase. |
+| 6. Align shared Adventure and Practice Room build language | Complete | Conservative audit closed with no product UI changes: shared build vocabulary is aligned enough for current Rogue mechanics, Practice Room remains practice-safe, and focused assertions now cover shared Skill Build behavior plus stale-result invalidation after rotation edits. |
+| 7. Add focused tests, verify, and document closeout | Complete | Focused build/rotation/Practice Room tests and adjacent fixture checks passed; milestone docs/onboarding were updated; broader whole-game visual-system work remains deferred to M8 or a later phase. |
 
 ## Task Details
 
@@ -157,10 +157,10 @@ Steps:
 - P3:M3:T0:S2 - Audit Adventure build surfaces: available skills, skill build,
   active talents, talent overlay, character stats, gear-derived stats, lock
   state, Fight readiness, retry readiness, and next-action copy.
-- P3:M3:T0:S3 - Audit Training Room shared build surfaces and identify which
+- P3:M3:T0:S3 - Audit Practice Room shared build surfaces and identify which
   improvements should apply there automatically.
 - P3:M3:T0:S4 - Identify boundaries with Milestone 4 gear/reward polish and
-  Milestone 6 Training Room usability work.
+  Milestone 6 Practice Room usability work.
 - P3:M3:T0:S5 - Identify boundaries between M3 build-state consistency,
   Milestone 8 whole-game polish, and later-phase full art-direction/UI-skin
   work.
@@ -182,7 +182,7 @@ Implementation notes:
 - Confirmed that several buildcraft basics already exist from Phase 2,
   Milestone 1, and Milestone 2: skill icons/tooltips, rotation order/remove
   affordances, lock/fight readiness gates, talent lock reasons, stat deltas,
-  Training Room state injection, and focused tests.
+  Practice Room state injection, and focused tests.
 - Recorded the Milestone 3 boundary for targeted build/rotation visual-state
   consistency, with whole-game UI skinning deferred to Milestone 8 and full
   mock-up-quality art-direction work deferred to a later phase.
@@ -223,7 +223,7 @@ Implementation notes:
   Skill Build row, not another macro slot.
 - Added `res://tests/skill_build_geometry_test.gd` as a focused geometry
   guardrail. It fills the macro to ten `Stab` slots in both Adventure and
-  Training Room, then asserts that slot 10, the fixed lock lane, and the lock
+  Practice Room, then asserts that slot 10, the fixed lock lane, and the lock
   button stay inside the shared `SkillBuildPanel`, do not overlap, and do not
   bleed outside the host screen at the target 1600x900 viewport.
 - The geometry check passed with the current shared `SkillBuildPanel`
@@ -231,7 +231,7 @@ Implementation notes:
   pass.
 - A normal-renderer screenshot probe was used for manual review because the
   headless/dummy renderer cannot capture viewport textures. Adventure and
-  Training Room were checked at one slotted skill and ten slotted skills.
+  Practice Room were checked at one slotted skill and ten slotted skills.
 - User review accepted the current add/remove interaction speed, duplicate
   skill readability, lock-state behavior, empty/cap language, and the decision
   to skip Clear All, reorder, duplicate-count badges, and slot-specific action
@@ -247,7 +247,7 @@ adding more instructional UI.
 
 Steps:
 
-- P3:M3:T2:S1 - Audit Adventure and Training Room Fight button disabled states,
+- P3:M3:T2:S1 - Audit Adventure and Practice Room Fight button disabled states,
   lock button states, top-bar next-action copy, and retry setup copy.
 - P3:M3:T2:S2 - Identify any contradictory language between `Build: Locked`,
   lock tooltips, Fight button tooltips, and result/retry instructions.
@@ -256,7 +256,7 @@ Steps:
 - P3:M3:T2:S4 - Preserve the existing rule that build mutations automatically
   clear the lock.
 - P3:M3:T2:S5 - Tighten the state model so an empty rotation cannot enter the
-  locked/ready state in Adventure or Training Room, even through direct state
+  locked/ready state in Adventure or Practice Room, even through direct state
   calls.
 - P3:M3:T2:S6 - Add or update focused tests for lock/fight readiness states.
 
@@ -324,7 +324,7 @@ Steps:
 - P3:M3:T3:S2 - Compare the current skill strip against today's mechanics
   complexity rather than designing for future skill-system depth.
 - P3:M3:T3:S3 - Review selected/capped/locked/disabled treatment for scannable
-  differences in Adventure and Training Room.
+  differences in Adventure and Practice Room.
 - P3:M3:T3:S4 - Implement only true readability defects, such as overlap,
   missing disabled states, or inconsistent shared-panel behavior.
 - P3:M3:T3:S5 - Record future revisit triggers for when available-skill
@@ -344,7 +344,7 @@ Implementation notes:
   flavor speed labels, effect summaries derived from the live `SkillEffect`
   resources, disabled styling while the build is locked, and disabled/full
   tooltip treatment at the rotation cap.
-- Confirmed that Adventure and Training Room share the same panel behavior via
+- Confirmed that Adventure and Practice Room share the same panel behavior via
   the injected `state` pattern, and existing focused tests cover tooltip
   summary derivation plus cap-disabled behavior.
 - No code changes were made for T3. Current skill transparency is sufficient
@@ -401,7 +401,7 @@ Implementation notes:
   the blocked-click pulse.
 - The change is presentation-only. It does not change `PassiveAllocator`,
   combat math, build resolution, talent costs, selected talent rules, Adventure
-  progression, save behavior, or Training Room isolation.
+  progression, save behavior, or Practice Room isolation.
 - Updated `build_panels_test.gd` to cover the real Thief chain
   `Quick Hands -> Practiced Rhythm -> Opportunity Strikes`, including the
   alternate `Piercing Blades` OR-prerequisite case.
@@ -435,15 +435,15 @@ Expected output:
 Implementation notes:
 
 - Audited the current `character_stats_panel.gd` implementation and existing
-  Training Room stat-change coverage.
+  Practice Room stat-change coverage.
 - Confirmed that the panel already exposes the useful first-pass information
   for current Rogue buildcraft: live resolved values, physical stats grouped
   before poison stats, poison-colored poison lines, bonus physical damage,
   bonus armor shred, min-cast proc chance, bonus poison stacks, and hover
   deltas against the class-only baseline.
-- Confirmed that Adventure and Training Room share the same stat panel through
+- Confirmed that Adventure and Practice Room share the same stat panel through
   the injected `state` pattern, and that existing focused tests already cover
-  visible stat refreshes after Training Room Legendary, practice-gold, and gear
+  visible stat refreshes after Practice Room Legendary, practice-gold, and gear
   editor changes.
 - No code changes were made for T5. The current character stat feedback is
   good enough for Phase 3, and adding recent-change emphasis, enemy-relevance
@@ -455,7 +455,7 @@ Implementation notes:
   affixes become more numerous or conditional, or enemies start asking for
   sharper stat-specific answers.
 
-### P3:M3:T6 - Align Shared Adventure And Training Room Build Language
+### P3:M3:T6 - Align Shared Adventure And Practice Room Build Language
 
 Status: Complete.
 
@@ -466,45 +466,45 @@ Steps:
 
 - P3:M3:T6:S1 - Identify which M3 changes should apply to both `BuildState`
   and `TrainingRoomState` through shared panels.
-- P3:M3:T6:S2 - Keep Adventure-only language out of Training Room surfaces.
-- P3:M3:T6:S3 - Confirm Training Room result-review invalidation remains
+- P3:M3:T6:S2 - Keep Adventure-only language out of Practice Room surfaces.
+- P3:M3:T6:S3 - Confirm Practice Room result-review invalidation remains
   correct after shared build-panel changes.
 - P3:M3:T6:S4 - Defer target controls, gear editor layout, and broad practice
   workflow improvements to Milestone 6 unless directly affected by shared
   build/rotation changes.
-- P3:M3:T6:S5 - Add or update focused Training Room assertions for shared
+- P3:M3:T6:S5 - Add or update focused Practice Room assertions for shared
   panel behavior and Adventure-state isolation.
 
 Expected output:
 
-- Adventure and Training Room share build vocabulary where appropriate, and
+- Adventure and Practice Room share build vocabulary where appropriate, and
   remain semantically distinct where they should.
 
 Closeout:
 
 - Audited the M3 shared build-panel changes against Adventure's `BuildState`
-  and Training Room's `TrainingRoomState`. Rotation cap display, empty-lock
+  and Practice Room's `TrainingRoomState`. Rotation cap display, empty-lock
   prevention, lock/unlock tooltips, Available Skills capped/locked behavior,
   talent dependency feedback, and Character Stats language all flow through
   shared panels where appropriate.
-- Kept Training Room product UI unchanged after user review confirmed the
-  current Training Room state is acceptable. The shared Skill Build lock
+- Kept Practice Room product UI unchanged after user review confirmed the
+  current Practice Room state is acceptable. The shared Skill Build lock
   language remains neutral enough for both modes: it talks about the skill
   macro and the fight, not Adventure rewards, route progress, map state,
   contracts, or save commitment.
-- Confirmed Training Room result-review invalidation still clears completed
+- Confirmed Practice Room result-review invalidation still clears completed
   practice review after shared build-panel changes. `training_room_fight_test`
   now exercises a real post-result rotation edit through `SkillBuildPanel`
   and asserts the Combat Log/review UI is invalidated before the build is
   re-locked and rerun.
-- Added `training_room_build_test` assertions that Training Room's injected
+- Added `training_room_build_test` assertions that Practice Room's injected
   shared Skill Build panel is not pointed at the real `BuildState`, starts
   with `Slots: 0/10`, refuses empty locking, uses no Adventure/reward wording
   in the empty-lock tooltip, updates to `Slots: 1/10` after a practice skill
   is slotted, and exposes the same lock/unlock tooltip rhythm as Adventure.
 - Deferred target controls, gear editor layout, and broader practice workflow
   improvements to Milestone 6. No combat math, build resolution, skill/talent/
-  gear resources, Adventure progression, save behavior, or Training Room
+  gear resources, Adventure progression, save behavior, or Practice Room
   isolation rules were changed.
 
 Focused checks passed on 2026-08-02 using
@@ -532,12 +532,12 @@ Steps:
 
 - P3:M3:T7:S1 - Add or update focused tests for each implemented M3 behavior.
 - P3:M3:T7:S2 - Run focused checks after touching shared build panels,
-  `BuildState`, `TrainingRoomState`, or Training Room build wiring.
+  `BuildState`, `TrainingRoomState`, or Practice Room build wiring.
 - P3:M3:T7:S3 - Run Balance Lab only if implementation touches combat math,
   build resolution, skill/talent/gear resources, or balance-relevant data.
 - P3:M3:T7:S4 - Update this document with completed work and latest checks.
-- P3:M3:T7:S5 - Update `Phase_3_CrystalMaiden_Milestones.md` and
-  `CrystalMaiden_Onboarding_Context.md`.
+- P3:M3:T7:S5 - Update `P3_CrystalMaiden_Overview.md` and
+  `P3_CrystalMaiden_Onboarding_Context.md`.
 - P3:M3:T7:S6 - Record any deferred visual-system or art-direction items for
   Milestone 8 or a later phase.
 - P3:M3:T7:S7 - Commit and push Milestone 3 work after review/approval.
@@ -551,15 +551,15 @@ Implementation notes:
 
 - Added or confirmed focused coverage for each implemented M3 behavior:
   slot count/cap display, empty-macro lock prevention, fixed lock-lane
-  geometry, Training Room shared Skill Build language, stale practice result
+  geometry, Practice Room shared Skill Build language, stale practice result
   invalidation after rotation edits, and talent dependency blocked-deselect
   pulse feedback.
 - Updated adjacent loss fixtures that previously depended on empty rotations.
   They now use real Stab rotations against intentionally impossible HP targets
   so the new lock-as-ready rule is preserved without weakening the loss,
   retry, HUD, playback, or recap checks.
-- Verified Training Room's no-gear default and rarity-driven equip/unequip
-  behavior with focused Training Room gear assertions.
+- Verified Practice Room's no-gear default and rarity-driven equip/unequip
+  behavior with focused Practice Room gear assertions.
 - Balance Lab was not run because T7 did not change combat math, resolver
   behavior, build-resolution rules, skill/talent/gear resources, or
   balance-relevant data.
@@ -694,7 +694,7 @@ Latest focused checks:
   - `res://tests/training_room_fight_test.gd`: Pass.
   - `res://tests/training_room_fight_setup_test.gd`: Pass.
   - A normal-renderer screenshot probe saved and reviewed Adventure and
-    Training Room at one slotted skill and ten slotted skills. The temporary
+    Practice Room at one slotted skill and ten slotted skills. The temporary
     probe script was removed afterward; the permanent coverage is the geometry
     test.
   - Godot still printed the known Windows root-certificate-store warning and
@@ -717,7 +717,7 @@ Milestone 3 is done when:
 - Character stats have been audited from the player's decision-making
   perspective; current live values and hover delta hints are sufficient for
   this phase without noisy permanent explanation text.
-- Shared improvements preserve Training Room isolation and avoid Adventure-only
+- Shared improvements preserve Practice Room isolation and avoid Adventure-only
   language in practice mode.
 - Build/rotation state styling is more consistent for selected, disabled,
   unavailable, capped, locked, hover, focus, active, and fight-ready states,

@@ -291,10 +291,10 @@ func _check_combat_log_readability_format() -> void:
 	_require(adventure_log.contains("DOT       Poison ticks for"), "Expected poison tick lines to carry a readable DOT label.")
 	_require(not adventure_log.contains("Poison ticks for 0.0"), "Expected zero-damage poison cadence ticks to remain omitted.")
 	_require(adventure_log.contains("Result: "), "Expected Adventure log summary to label the result line.")
-	_require(practice_log.begins_with("Practice Target:\n  Readable Dummy -- 0 Armor"), "Expected Training Room log to use practice-safe target language.")
-	_require(practice_log.contains("\nTimeline:\n"), "Expected Training Room log to share the readable timeline section.")
-	_require(practice_log.contains("\nSummary:\n  Damage:"), "Expected Training Room log to share the readable damage summary.")
-	_require(not practice_log.contains("VICTORY") and not practice_log.contains("DEFEAT") and not practice_log.contains("Result:"), "Expected Training Room log to avoid Adventure win/loss language.")
+	_require(practice_log.begins_with("Practice Target:\n  Readable Dummy -- 0 Armor"), "Expected Practice Room log to use practice-safe target language.")
+	_require(practice_log.contains("\nTimeline:\n"), "Expected Practice Room log to share the readable timeline section.")
+	_require(practice_log.contains("\nSummary:\n  Damage:"), "Expected Practice Room log to share the readable damage summary.")
+	_require(not practice_log.contains("VICTORY") and not practice_log.contains("DEFEAT") and not practice_log.contains("Result:"), "Expected Practice Room log to avoid Adventure win/loss language.")
 
 
 func _has_timeline_row(rows: Array, label: String) -> bool:
@@ -333,8 +333,8 @@ func _damage_row(rows: Array, label: String) -> Dictionary:
 
 
 ## Live end-to-end check: a real winning Tavern fight through the actual
-## combat_screen scene shows the full recap (including the new
-## required-DPS/crit-count fields) inside the victory banner.
+## combat_screen scene shows the compact victory recap inside the result
+## banner. Deeper DPS/crit/stack diagnostics belong in playback and Combat Log.
 func _check_live_win_recap() -> void:
 	var build_state = root.get_node("BuildState")
 	build_state.reset()
@@ -362,8 +362,6 @@ func _check_live_win_recap() -> void:
 	# the panel exposes (same pattern combat_screen_test.gd already uses).
 	var fight_enemy_panel = combat_screen._enemy_panel
 	var monster: Monster = fight_enemy_panel.monster()
-	var duration_ms: int = fight_enemy_panel.duration_ms()
-	var expected_required_dps := float(monster.hp) / (float(duration_ms) / 1000.0)
 
 	print("-- Live win recap --")
 	fight_enemy_panel.fight_pressed.emit()
@@ -373,8 +371,10 @@ func _check_live_win_recap() -> void:
 	var recap_text: String = combat_screen._victory_recap_label.text
 	print(recap_text)
 	_require(recap_text.contains("(needed %d)" % monster.hp), "Expected the live win recap to restate required damage.")
-	_require(recap_text.contains("(needed %.1f)" % expected_required_dps), "Expected the live win recap to restate required DPS.")
-	_require(recap_text.contains("Crits:"), "Expected the live win recap to include a crit count line.")
+	_require(recap_text.contains("Biggest Hit:"), "Expected the live win recap to report the best landed hit.")
+	_require(recap_text.contains("Physical:"), "Expected the live win recap to include the physical/poison split.")
+	_require(not recap_text.contains("DPS:"), "Expected victory recap to omit DPS detail.")
+	_require(not recap_text.contains("Crits:"), "Expected victory recap to omit crit count detail.")
 	_require(not combat_screen._recap_label.visible, "Expected the loss-path recap label to stay hidden on a win.")
 
 	combat_screen.queue_free()
@@ -401,8 +401,6 @@ func _check_live_loss_recap() -> void:
 	var fight_enemy_panel = combat_screen._enemy_panel
 	var monster: Monster = fight_enemy_panel.monster()
 	monster.hp = 100000
-	var duration_ms: int = fight_enemy_panel.duration_ms()
-	var expected_required_dps := float(monster.hp) / (float(duration_ms) / 1000.0)
 
 	print("-- Live loss recap --")
 	fight_enemy_panel.fight_pressed.emit()
@@ -410,11 +408,14 @@ func _check_live_loss_recap() -> void:
 	_require(not build_state.last_fight_won, "Expected the impossible-HP target to guarantee a loss.")
 	_require(combat_screen._victory_overlay.visible, "Expected the result overlay to be visible after a loss.")
 	_require(combat_screen._victory_title_label.text == "DEFEATED", "Expected the shared result overlay to present the defeat title.")
+	_require(not combat_screen._outcome_message_label.visible, "Expected the defeat overlay to omit the older explanatory body copy.")
 	var recap_text: String = combat_screen._victory_recap_label.text
 	print(recap_text)
 	_require(recap_text.contains("(needed %d)" % monster.hp), "Expected the loss recap to show damage against the required amount.")
-	_require(recap_text.contains("(needed %.1f)" % expected_required_dps), "Expected the loss recap to restate required DPS.")
 	_require(recap_text.contains("Biggest Hit: Stab"), "Expected the loss recap to report the best landed hit.")
+	_require(recap_text.contains("Physical:"), "Expected the loss recap to include the physical/poison split.")
+	_require(not recap_text.contains("DPS:"), "Expected defeat recap to match victory by omitting DPS detail.")
+	_require(not recap_text.contains("Crits:"), "Expected defeat recap to match victory by omitting crit count detail.")
 	_require(not recap_text.contains("Armor reduced"), "Expected no armor reduction line for a no-op rotation.")
 	_require(not recap_text.contains("ticks"), "Expected no poison summary line for a physical-only rotation.")
 	_require(not combat_screen._recap_label.visible, "Expected the legacy inline recap label to stay hidden on a live defeat overlay.")

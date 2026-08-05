@@ -1,12 +1,12 @@
 extends SceneTree
-## Headless check for TrainingRoomCombatView (Training Room's own animated
+## Headless check for TrainingRoomCombatView (Practice Room's own animated
 ## combat area, user-requested "combat area, like Adventure mode"): a known
 ## CombatResolver.CombatResult drives the view's Damage Dealt readout/labels
 ## correctly, the headless instant-playback path fires `finished` exactly
 ## once synchronously (same pattern combat_screen.gd's `instant_playback`
 ## already relies on for its own tests), and the view never touches the real
 ## BuildState singleton -- it has no reference to it at all, unlike every
-## other Training Room panel which is explicitly parameterized away from
+## other Practice Room panel which is explicitly parameterized away from
 ## BuildState.
 ## Run with:
 ##   godot --headless -s res://tests/training_room_combat_view_test.gd
@@ -60,26 +60,37 @@ func _initialize() -> void:
 	_require(build_state.gold == real_gold_before, "TrainingRoomCombatView must never touch the real BuildState.")
 
 	if _failed:
-		print("Training Room combat view check: FAILED")
+		print("Practice Room combat view check: FAILED")
 		quit(1)
 	else:
-		print("Training Room combat view check: OK")
+		print("Practice Room combat view check: OK")
 	quit()
 
 
 func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void:
-	print("-- Initial Training Room stage shows the Practice Target sprite --")
-	_require(view._combat_stage != null, "Expected Training Room combat view to own a stage layer before playback.")
-	_require(view._combat_stage._enemy_name_label.text == "Practice Target", "Expected initial Training Room stage enemy label to be Practice Target, not the default Enemy card.")
-	_require(not view._combat_stage.debug_grid_visible, "Expected Training Room to hide the combat-stage debug grid now that sprite placement tuning is done.")
-	_require(view._combat_stage.enemy_sprite_available(), "Expected initial Training Room stage to show the imported Practice Target sprite.")
-	_require(view._combat_stage._enemy_sprite.size == Vector2(32, 32), "Expected Practice Target sprite rect to stay at one 32px peasant frame, not stretch to the actor box.")
-	_require(view._combat_stage._enemy_sprite.scale == Vector2(5.0, 5.0), "Expected Practice Target sprite to scale once from its 32px frame.")
+	print("-- Initial Practice Room stage shows the Practice Target sprite --")
+	_require(view._combat_stage != null, "Expected Practice Room combat view to own a stage layer before playback.")
+	_require(view._combat_stage._enemy_name_label.text == "Practice Target", "Expected initial Practice Room stage enemy label to be Practice Target, not the default Enemy card.")
+	_require(not view._combat_stage.debug_grid_visible, "Expected Practice Room to hide the combat-stage debug grid now that sprite placement tuning is done.")
+	_require(view._combat_stage.enemy_sprite_available(), "Expected initial Practice Room stage to show the imported Practice Target sprite.")
+	_require(view._combat_stage._enemy_sprite.size == Vector2(32, 32), "Expected Practice Target sprite rect to stay at one 32px training-dummy frame, not stretch to the actor box.")
+	_require(view._combat_stage._enemy_sprite.scale == Vector2(view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE, view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE), "Expected Practice Target sprite to use the smaller Practice dummy scale.")
+	var dummy_anchor_y: float = view._combat_stage._sprite_anchor_point(view._combat_stage.enemy_actor_anchor, view._combat_stage._enemy_sprite, view._combat_stage.PRACTICE_DUMMY_ANCHOR_POINT).y
+	var shadow_center_y: float = view._combat_stage.enemy_actor_anchor.position.y + view._combat_stage._enemy_contact_shadow.position.y + view._combat_stage._enemy_contact_shadow.size.y * 0.5
+	_require(dummy_anchor_y > shadow_center_y + 10.0, "Expected Practice Target art to be lowered while its contact shadow stays on the shared floor line.")
+	_require(view._damage_label.text == "Damage: 0.0", "Expected initial Practice Room damage readout to be visible before fighting.")
+	_require(view._info_label.text == "0", "Expected initial Practice Room armor readout to be visible before fighting.")
+	_require(view._resist_label.text == "0%", "Expected initial Practice Room poison resistance readout to be visible before fighting.")
+	_require(view._status_row.alignment == BoxContainer.ALIGNMENT_END, "Expected Practice Room status chips to align to the right like Adventure.")
+	var initial_chips: PackedStringArray = []
+	for child in view._status_row.get_children():
+		initial_chips.append(_status_chip_text(child))
+	_require(initial_chips == PackedStringArray(["x0", "x0", "x0"]), "Expected initial Practice Room poison/Shred/Decay chips to be visible at x0.")
 
 
 ## Returns [CombatResolver.CombatResult, Monster] -- GDScript has no tuple
 ## return, so this is a plain 2-element Array the callers index into.
-## `monster.hp` is left at its default (0) -- Training Room's own view never
+## `monster.hp` is left at its default (0) -- Practice Room's own view never
 ## reads it (post-R10 UI-feedback pass removed the HP concept entirely), it
 ## only exists on Monster at all for the shared CombatResolver/
 ## CombatResultFormatter API.
@@ -117,7 +128,7 @@ func _check_damage_readout(view: TrainingRoomCombatView) -> void:
 
 
 func _check_realtime_intro_gates_timeline(view: TrainingRoomCombatView) -> void:
-	print("-- Realtime Training Room playback waits for the shared fight intro --")
+	print("-- Realtime Practice Room playback waits for the shared fight intro --")
 	var result_and_monster: Array = _known_result()
 	var result: CombatResolver.CombatResult = result_and_monster[0]
 	var monster: Monster = result_and_monster[1]
@@ -125,48 +136,49 @@ func _check_realtime_intro_gates_timeline(view: TrainingRoomCombatView) -> void:
 	var before_count := _finished_count
 	view._instant_playback = false
 	view.play(result, monster)
-	_require(_finished_count == before_count, "Expected realtime Training Room playback not to finish synchronously.")
-	_require(view._controls_row.visible, "Expected realtime Training Room playback controls to stay visible during playback.")
-	_require(view._playback_intro_remaining_sec > 0.0, "Expected realtime Training Room playback to begin with an intro delay.")
-	_require(view._combat_stage.fight_intro_count == 1, "Expected Training Room to request one shared fight intro from the stage.")
-	_require(view._playback.events_fired() == 0, "Expected no Training Room events to fire before the intro advances.")
+	_require(_finished_count == before_count, "Expected realtime Practice Room playback not to finish synchronously.")
+	_require(view._controls_row.visible, "Expected realtime Practice Room playback controls to stay visible during playback.")
+	_require(view._playback_intro_remaining_sec > 0.0, "Expected realtime Practice Room playback to begin with an intro delay.")
+	_require(view._combat_stage.fight_intro_count == 1, "Expected Practice Room to request one shared fight intro from the stage.")
+	_require(view._playback.events_fired() == 0, "Expected no Practice Room events to fire before the intro advances.")
 
 	view._process(view._playback_intro_duration_sec * 0.5)
-	_require(view._playback.events_fired() == 0, "Expected Training Room events to stay gated during the intro.")
-	_require(is_equal_approx(view._playback.elapsed_ms(), 0.0), "Expected Training Room combat time to stay at zero during the intro.")
-	_require(_finished_count == before_count, "Expected Training Room playback not to finish during the intro.")
+	_require(view._playback.events_fired() == 0, "Expected Practice Room events to stay gated during the intro.")
+	_require(is_equal_approx(view._playback.elapsed_ms(), 0.0), "Expected Practice Room combat time to stay at zero during the intro.")
+	_require(_finished_count == before_count, "Expected Practice Room playback not to finish during the intro.")
 
 	view._process(view._playback_intro_remaining_sec + result.duration_ms / 1000.0 + 0.1)
-	_require(_finished_count == before_count, "Expected realtime Training Room playback to hold briefly on the outcome pose before emitting finished.")
-	_require(view._playback == null, "Expected Training Room playback to clear itself before the outcome hold.")
-	_require(view._combat_stage.outcome_pose == "victory", "Expected Training Room to show the target defeat pose during the outcome hold.")
-	_require(view._combat_stage.outcome_flash_count == 1, "Expected Training Room to play one outcome flash beat at natural finish.")
-	_require(not view._controls_row.visible, "Expected controls hidden during the Training Room outcome hold.")
+	_require(_finished_count == before_count, "Expected realtime Practice Room playback to hold briefly before emitting finished.")
+	_require(view._playback == null, "Expected Practice Room playback to clear itself before the final hold.")
+	_require(view._combat_stage.outcome_pose == "", "Expected Practice Room to return to idle instead of showing a win/loss pose.")
+	_require(view._combat_stage.outcome_flash_count == 0, "Expected Practice Room to avoid Adventure-style outcome flashes.")
+	_require(not view._controls_row.visible, "Expected controls hidden during the Practice Room final hold.")
 
 	await create_timer(view.OUTCOME_REVEAL_HOLD_SEC + 0.05).timeout
-	_require(_finished_count == before_count + 1, "Expected realtime Training Room playback to emit finished after the outcome hold.")
+	_require(_finished_count == before_count + 1, "Expected realtime Practice Room playback to emit finished after the outcome hold.")
 	view._instant_playback = DisplayServer.get_name() == "headless"
-	_require(view._combat_stage != null, "Expected Training Room combat view to own a stage layer.")
-	_require(view._combat_stage.player_actor_anchor != null, "Expected a player actor anchor in Training Room.")
-	_require(view._combat_stage.enemy_actor_anchor != null, "Expected an enemy actor anchor in Training Room.")
-	_require(view._combat_stage.contact_effect_anchor != null, "Expected a contact effect anchor in Training Room.")
-	_require(view._combat_stage.floating_text_anchor != null, "Expected a floating text anchor in Training Room.")
-	_require(view._combat_stage._enemy_name_label.text == monster.display_name, "Expected the Training Room stage enemy actor label to track the target.")
-	_require(view._combat_stage.player_actor_anchor.get_node_or_null("PlayerSprite") != null, "Expected Training Room to expose a configured player sprite slot.")
-	_require(view._combat_stage.enemy_actor_anchor.get_node_or_null("EnemySprite") != null, "Expected Training Room to expose a configured enemy sprite slot.")
-	_require(view._combat_stage.enemy_sprite_available(), "Expected Training Room Practice Target to use the imported peasant placeholder sprite.")
+	_require(view._combat_stage != null, "Expected Practice Room combat view to own a stage layer.")
+	_require(view._combat_stage.player_actor_anchor != null, "Expected a player actor anchor in Practice Room.")
+	_require(view._combat_stage.enemy_actor_anchor != null, "Expected an enemy actor anchor in Practice Room.")
+	_require(view._combat_stage.player_actor_anchor.z_index > view._combat_stage.enemy_actor_anchor.z_index, "Expected Rogue to render above the Practice dummy during overlapping swings.")
+	_require(view._combat_stage.contact_effect_anchor != null, "Expected a contact effect anchor in Practice Room.")
+	_require(view._combat_stage.floating_text_anchor != null, "Expected a floating text anchor in Practice Room.")
+	_require(view._combat_stage._enemy_name_label.text == monster.display_name, "Expected the Practice Room stage enemy actor label to track the target.")
+	_require(view._combat_stage.player_actor_anchor.get_node_or_null("PlayerSprite") != null, "Expected Practice Room to expose a configured player sprite slot.")
+	_require(view._combat_stage.enemy_actor_anchor.get_node_or_null("EnemySprite") != null, "Expected Practice Room to expose a configured enemy sprite slot.")
+	_require(view._combat_stage.enemy_sprite_available(), "Expected Practice Room Practice Target to use the imported training dummy sprite.")
 	_require(
-		view._combat_stage.expected_enemy_sprite_region("Practice Target", "idle") == Rect2(Vector2(0, 0), Vector2(32, 32)),
-		"Expected Practice Target idle to use the selected peasant standing frame in Training Room."
+		view._combat_stage.expected_enemy_sprite_paths("Practice Target").has("res://assets/characters/practice_dummy/dummy_bounce/frames/frame_001.png"),
+		"Expected Practice Target idle to use the imported training dummy frame."
 	)
 	_require(
-		view._combat_stage.expected_enemy_sprite_region("Practice Target", "defeat") == Rect2(Vector2(0, 96), Vector2(32, 32)),
-		"Expected Practice Target defeat to use the selected prone frame in Training Room."
+		view._combat_stage.expected_enemy_sprite_region("Practice Target", "idle") == Rect2(Vector2(0, 0), Vector2(32, 32)),
+		"Expected Practice Target idle to use a full 32px training dummy frame in Practice Room."
 	)
 
 
 func _check_skip_bypasses_realtime_outcome_hold(view: TrainingRoomCombatView) -> void:
-	print("-- Realtime Training Room skip reveals outcome immediately --")
+	print("-- Realtime Practice Room skip reveals outcome immediately --")
 	var result_and_monster: Array = _known_result()
 	var result: CombatResolver.CombatResult = result_and_monster[0]
 	var monster: Monster = result_and_monster[1]
@@ -174,15 +186,20 @@ func _check_skip_bypasses_realtime_outcome_hold(view: TrainingRoomCombatView) ->
 	var before_count := _finished_count
 	view._instant_playback = false
 	view.play(result, monster)
-	_require(_finished_count == before_count, "Expected realtime Training Room playback to be active before skip.")
-	_require(view._controls_row.visible, "Expected controls visible before Training Room skip.")
+	_require(_finished_count == before_count, "Expected realtime Practice Room playback to be active before skip.")
+	_require(view._controls_row.visible, "Expected controls visible before Practice Room skip.")
+	var before_reaction_count: int = view._combat_stage.practice_dummy_reaction_count
 
 	view._skip_button.pressed.emit()
-	_require(_finished_count == before_count + 1, "Expected Training Room skip to emit finished immediately.")
-	_require(view._playback == null, "Expected Training Room skip to clear playback.")
-	_require(not view._controls_row.visible, "Expected Training Room controls hidden after skip.")
-	_require(view._combat_stage.outcome_pose == "victory", "Expected Training Room skip to still snap to the target defeat pose.")
-	_require(view._combat_stage.outcome_flash_count == 1, "Expected Training Room skip to record one outcome flash beat.")
+	_require(_finished_count == before_count + 1, "Expected Practice Room skip to emit finished immediately.")
+	_require(view._playback == null, "Expected Practice Room skip to clear playback.")
+	_require(not view._controls_row.visible, "Expected Practice Room controls hidden after skip.")
+	_require(view._combat_stage.outcome_pose == "", "Expected Practice Room skip to return both actors to idle, not a win/loss pose.")
+	_require(view._combat_stage.outcome_flash_count == 0, "Expected Practice Room skip to avoid Adventure-style outcome flashes.")
+	_require(view._combat_stage.practice_dummy_reaction_count > before_reaction_count, "Expected damaging Practice Room hits to request a random training dummy reaction.")
+	_require(view._combat_stage.last_practice_dummy_reaction_frame_count >= 4, "Expected the random training dummy reaction to include multiple animation frames.")
+	_require(view._combat_stage.enemy_sprite_available(), "Expected the training dummy to stay visible after reaction frames are flushed.")
+	_require(view._combat_stage.enemy_actor_anchor.position == view._combat_stage._enemy_base_position, "Expected training dummy reactions to avoid old humanoid recoil movement.")
 	view._instant_playback = DisplayServer.get_name() == "headless"
 
 
@@ -224,10 +241,10 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 	var expected_current_armor := monster.armor - view._armor_reduced
 	print("armor value label (expect current armor %d): %s" % [expected_current_armor, view._info_label.text])
 	_require(view._info_label.text == "%d" % expected_current_armor, "Shield-labeled armor value should show current armor after Shred.")
-	_require(view._info_label.get_parent().get_node_or_null("ArmorIcon") != null, "Expected the Training Room combat window's armor readout to include the shield icon.")
+	_require(view._info_label.get_parent().get_node_or_null("ArmorIcon") != null, "Expected the Practice Room combat window's armor readout to include the shield icon.")
 	_require(view._resist_label.text == "%.0f%%" % (view._resist * 100.0), "Resistance value should show current poison resistance after Decay.")
 	var resist_icon := view._resist_label.get_parent().get_node_or_null("PoisonResistIcon") as TextureRect
-	_require(resist_icon != null and resist_icon.texture == HUD_RESISTANCE_ICON, "Expected the Training Room combat window's poison resistance readout to include the resistance icon.")
+	_require(resist_icon != null and resist_icon.texture == HUD_RESISTANCE_ICON, "Expected the Practice Room combat window's poison resistance readout to include the resistance icon.")
 
 	var chip_texts: PackedStringArray = []
 	for child in view._status_row.get_children():
@@ -257,7 +274,7 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 	_require(has_poison_icon, "Poison stack chip should use the selected skull icon.")
 	_require(has_shred_icon, "Shred chip should use the selected rogue icon.")
 	_require(has_decay_icon, "Decay chip should use the selected mage icon.")
-	_require(_status_chip_font_size(view._status_row, HUD_POISON_ICON) == 24, "Expected Training Room combat status values to use the larger number font.")
+	_require(_status_chip_font_size(view._status_row, HUD_POISON_ICON) == 24, "Expected Practice Room combat status values to use the larger number font.")
 
 
 func _status_chip_text(chip: Node) -> String:
@@ -463,7 +480,7 @@ func _check_legendary_proc_popup_highlight(view: TrainingRoomCombatView) -> void
 
 
 func _check_crit_popup_highlight(view: TrainingRoomCombatView) -> void:
-	print("-- Crit gets a gold, larger popup without literal CRIT text in Training Room playback --")
+	print("-- Crit gets a gold, larger popup without literal CRIT text in Practice Room playback --")
 	var stab: Skill = load("res://data/skills/stab.tres")
 	var rotation: Array[Skill] = [stab]
 	var player := PlayerStats.new()

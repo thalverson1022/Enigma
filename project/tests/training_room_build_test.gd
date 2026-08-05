@@ -1,5 +1,5 @@
 extends SceneTree
-## Headless P2:R10:T3 check: Training Room's freeform tree/talent/rotation/
+## Headless P2:R10:T3 check: Practice Room's freeform tree/talent/rotation/
 ## Legendary controls actually work through the real parameterized panels,
 ## and none of it ever touches the real BuildState singleton. Run with:
 ##   godot --headless -s res://tests/training_room_build_test.gd
@@ -14,7 +14,7 @@ func _initialize() -> void:
 	await process_frame
 
 	# Give the real Adventure state some real values *after* game_root's own
-	# startup reset, so we can prove Training Room never disturbs them (see
+	# startup reset, so we can prove Practice Room never disturbs them (see
 	# P2:R10:T1/T2's test for why this must happen after, not before).
 	var rogue: ClassDef = load("res://data/classes/rogue.tres")
 	build_state.set_class(rogue)
@@ -38,16 +38,21 @@ func _initialize() -> void:
 	var available_skills_panel = training_room.find_child("AvailableSkillsPanel", true, false)
 	var skill_build_panel = training_room.find_child("SkillBuildPanel", true, false)
 	var character_stats_panel = training_room.find_child("CharacterStatsPanel", true, false)
+	var active_talents_panel = training_room.find_child("ActiveTalentsPanel", true, false)
 	assert(talent_panel != null)
 	assert(available_skills_panel != null)
 	assert(skill_build_panel != null)
 	assert(character_stats_panel != null)
-	# The parameterized panels must be pointed at Training Room's own state,
+	assert(active_talents_panel != null)
+	# The parameterized panels must be pointed at Practice Room's own state,
 	# never the real BuildState singleton.
 	assert(talent_panel.state != build_state)
 	assert(available_skills_panel.state != build_state)
 	assert(skill_build_panel.state != build_state)
 	assert(character_stats_panel.state != build_state)
+	assert(active_talents_panel.state != build_state)
+	assert(not active_talents_panel.enable_open_button_attention)
+	assert(active_talents_panel._button_blink_tween == null)
 	assert(skill_build_panel._slot_count_label.text == "Slots: 0/10")
 	assert(skill_build_panel._lock_button.disabled)
 	assert(skill_build_panel._lock_button.tooltip_text.contains("Slot at least one skill"))
@@ -115,8 +120,8 @@ func _initialize() -> void:
 
 	# -- Isolation: the real BuildState must be completely untouched by any
 	# of the above -- same class/trees/talents/rotation/weapon/gold/seed as
-	# right before Training Room was entered. --
-	print("real gold after Training Room use=%d (expect %d), seed=%d (expect %d)" % [
+	# right before Practice Room was entered. --
+	print("real gold after Practice Room use=%d (expect %d), seed=%d (expect %d)" % [
 		build_state.gold, real_gold_before, build_state.adventure_seed, real_seed_before
 	])
 	assert(build_state.gold == real_gold_before)
@@ -135,7 +140,7 @@ func _initialize() -> void:
 	assert(build_state.selected_trees == real_trees_before)
 
 	print("")
-	print("Training Room build controls check: OK")
+	print("Practice Room build controls check: OK")
 	quit()
 
 

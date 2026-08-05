@@ -17,6 +17,7 @@ signal back_pressed
 
 const CLASS_DIR := "res://data/classes"
 const CARD_WIDTH := 280
+const MAIN_MENU_BACKGROUND_PATH := "res://assets/backgrounds/main_menu.jpg"
 
 const INSTRUCTION_FONT_SIZE := 40
 const CARD_TITLE_FONT_SIZE := 24
@@ -33,6 +34,8 @@ var _card_box: HBoxContainer
 
 
 func _ready() -> void:
+	_add_entry_background()
+
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
@@ -136,3 +139,29 @@ func _build_card(class_name_text: String, select_button: Button) -> PanelContain
 func _on_class_selected(class_def: ClassDef) -> void:
 	BuildState.set_class(class_def)
 	advanced.emit()
+
+
+func _add_entry_background() -> void:
+	var background := TextureRect.new()
+	background.name = "ClassSelectBackground"
+	background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var background_texture: Texture2D = null
+	if ResourceLoader.exists(MAIN_MENU_BACKGROUND_PATH):
+		background_texture = load(MAIN_MENU_BACKGROUND_PATH)
+	if background_texture == null:
+		var image: Image = Image.load_from_file(ProjectSettings.globalize_path(MAIN_MENU_BACKGROUND_PATH))
+		if image != null:
+			background_texture = ImageTexture.create_from_image(image)
+	if background_texture != null:
+		background.texture = background_texture
+	add_child(background)
+
+	var scrim := ColorRect.new()
+	scrim.name = "ClassSelectScrim"
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.color = Color(0.05, 0.045, 0.055, 0.42)
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(scrim)

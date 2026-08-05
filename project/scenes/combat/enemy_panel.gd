@@ -26,6 +26,8 @@ const POISON_RESIST_HIGH_THRESHOLD := 0.25
 var _info_label: RichTextLabel
 var _fight_button: Button
 var _title_label: Label
+var _presented_monster_override: Monster = null
+var _presented_duration_override_ms := 0
 
 
 func _ready() -> void:
@@ -53,7 +55,7 @@ func _ready() -> void:
 
 	# Not added to `content` -- combat_screen.gd parents this into the
 	# centered Fight/Combat-Log row under the combat window instead (P2:R7
-	# playtest feedback), matching the Training Room's layout. This panel
+	# playtest feedback), matching the Practice Room's layout. This panel
 	# still owns the button's disabled/tooltip state machine below.
 	_fight_button = Button.new()
 	_fight_button.text = "FIGHT!"
@@ -106,9 +108,29 @@ func fight_button() -> Button:
 	return _fight_button
 
 
+func show_presented_target(monster: Monster, duration_ms: int) -> void:
+	_presented_monster_override = monster
+	_presented_duration_override_ms = duration_ms
+	_refresh()
+
+
+func clear_presented_target() -> void:
+	_presented_monster_override = null
+	_presented_duration_override_ms = 0
+	_refresh()
+
+
 func _refresh() -> void:
+	if _presented_monster_override != null:
+		_set_enemy_state(_presented_monster_override, _presented_duration_override_ms)
+		_update_fight_button()
+		return
 	if BuildState.run_phase == BuildState.RunPhase.RUN_ENDED:
-		_set_empty_state("Run Complete", "This Adventure has ended.")
+		var ended_enemy: Monster = _terminal_target_monster()
+		if ended_enemy != null:
+			_set_enemy_state(ended_enemy, _terminal_target_duration_ms(), _terminal_target_reward())
+		else:
+			_set_empty_state("No Target", "No enemy target is available.")
 		_update_fight_button()
 		return
 	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
@@ -129,8 +151,32 @@ func _refresh() -> void:
 		_set_empty_state("No Target", "Choose the next target to continue.")
 		_update_fight_button()
 		return
+	_set_enemy_state(enemy, duration)
+	_update_fight_button()
+
+
+func _terminal_target_monster() -> Monster:
+	if BuildState.active_contract != null and BuildState.current_route_node != null and BuildState.current_route_node.monster != null:
+		return BuildState.current_route_node.monster
+	return BuildState.current_target_monster()
+
+
+func _terminal_target_duration_ms() -> int:
+	if BuildState.active_contract != null and BuildState.current_route_node != null and BuildState.current_route_node.monster != null:
+		return BuildState.current_route_node.duration_ms
+	return BuildState.current_target_duration_ms()
+
+
+func _terminal_target_reward() -> EncounterReward:
+	if BuildState.active_contract != null and BuildState.current_route_node != null and BuildState.current_route_node.monster != null:
+		return BuildState.current_route_node.reward
+	return BuildState.current_reward()
+
+
+func _set_enemy_state(enemy: Monster, duration: int, reward: EncounterReward = null) -> void:
 	_title_label.text = enemy.display_name
 	var lines: PackedStringArray = []
+	var reward_preview := reward if reward != null else BuildState.current_reward()
 	lines.append("HP: %d" % enemy.hp)
 	lines.append("Armor: %d" % enemy.armor)
 	# Wrapped whole-line, so `.text.contains("Poison Resist: X%")` still
@@ -138,10 +184,9 @@ func _refresh() -> void:
 	lines.append("[color=#%s]Poison Resist: %.0f%%[/color]" % [UIColors.TEXT_POISON.to_html(false), enemy.poison_resistance * 100.0])
 	lines.append("Fight Window: %.0fs" % (duration / 1000.0))
 	lines.append(BuildState.current_attempts_text())
-	lines.append(_reward_preview_text(BuildState.current_reward()))
+	lines.append(_reward_preview_text(reward_preview))
 	lines.append(_build_pressure_text(enemy))
 	_info_label.text = "\n".join(lines)
-	_update_fight_button()
 
 
 func _set_empty_state(title: String, body: String) -> void:

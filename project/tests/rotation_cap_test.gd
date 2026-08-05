@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless check for the user-requested rotation/macro cap (10 skills,
-## shared between Adventure and Training Room via BuildResolver.
+## shared between Adventure and Practice Room via BuildResolver.
 ## resolve_rotation(), the one chokepoint both BuildState.set_rotation() and
 ## TrainingRoomState.set_rotation() already route through). Run with:
 ##   godot --headless -s res://tests/rotation_cap_test.gd
@@ -27,7 +27,7 @@ func _check_pure_resolver_cap() -> void:
 
 
 func _check_training_room_ui_cap() -> void:
-	print("-- Training Room: available-skill buttons disable once the macro is full --")
+	print("-- Practice Room: available-skill buttons disable once the macro is full --")
 	var game_root_scene: PackedScene = load("res://scenes/game_root.tscn")
 	var game_root = game_root_scene.instantiate()
 	root.add_child(game_root)

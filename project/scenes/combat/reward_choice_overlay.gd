@@ -15,10 +15,15 @@ extends Control
 ## reach-in" pattern used elsewhere in this refactor (see enemy_panel.gd's
 ## fight_button()).
 
+signal skip_pressed
+
+const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 const CARD_TITLE_FONT_SIZE := 20
 const GOLD_ICON := preload("res://assets/ui/icons/gold.png")
 
 var _options: HBoxContainer
+var _status_label: Label
+var _skip_button: Button
 
 
 func _ready() -> void:
@@ -53,6 +58,27 @@ func _ready() -> void:
 	_options.add_theme_constant_override("separation", 12)
 	content.add_child(_options)
 
+	_status_label = Label.new()
+	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status_label.add_theme_color_override("font_color", UIColors.TEXT_WARNING)
+	_status_label.visible = false
+	content.add_child(_status_label)
+
+	var button_row := HBoxContainer.new()
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_child(button_row)
+
+	_skip_button = Button.new()
+	_skip_button.text = FLOW_TEXT.ACTION_SKIP_REWARD
+	_skip_button.tooltip_text = FLOW_TEXT.TOOLTIP_SKIP_REWARD
+	_skip_button.pressed.connect(func(): skip_pressed.emit())
+	button_row.add_child(_skip_button)
+
 
 func options_container() -> HBoxContainer:
 	return _options
+
+
+func set_status_text(text: String) -> void:
+	_status_label.text = text
+	_status_label.visible = text != ""

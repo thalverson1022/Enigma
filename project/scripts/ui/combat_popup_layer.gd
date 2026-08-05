@@ -174,9 +174,15 @@ func _spawn_position(kind: int, label_size: Vector2) -> Vector2:
 			maxf(enemy_local.y - label_size.y * 0.5 + _rng.randf_range(-POPUP_POISON_TICK_JITTER_Y_PX, POPUP_POISON_TICK_JITTER_Y_PX), POPUP_TOP_MARGIN_PX)
 		)
 	return Vector2(
-		size.x * 0.5 - label_size.x * 0.5 + _rng.randf_range(-POPUP_JITTER_X_PX, POPUP_JITTER_X_PX),
-		maxf(size.y * POPUP_BASE_Y_FRACTION + _rng.randf_range(-POPUP_JITTER_Y_PX, POPUP_JITTER_Y_PX), POPUP_TOP_MARGIN_PX)
+		_popup_area_size().x * 0.5 - label_size.x * 0.5 + _rng.randf_range(-POPUP_JITTER_X_PX, POPUP_JITTER_X_PX),
+		maxf(_popup_area_size().y * POPUP_BASE_Y_FRACTION + _rng.randf_range(-POPUP_JITTER_Y_PX, POPUP_JITTER_Y_PX), POPUP_TOP_MARGIN_PX)
 	)
+
+
+func _popup_area_size() -> Vector2:
+	if _combat_stage != null and _combat_stage.has_method("play_area_global_rect"):
+		return _combat_stage.play_area_global_rect().size
+	return size
 
 
 func _on_popup_finished(label: Label, kind: int) -> void:

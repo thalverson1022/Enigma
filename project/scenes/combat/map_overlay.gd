@@ -43,6 +43,7 @@ const TAVERN_MAP_NODE_SIZE := Vector2(140, 100)
 ## "solid near-black fill, art to come later" convention as the combat
 ## window's own UIColors.PANEL_DEEP background.
 const TAVERN_ART_BOX_SIZE := Vector2(760, 200)
+const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 
 ## The Tavern map's default flavor line, shown until a node is clicked to
 ## preview it (see _tavern_story_text()).
@@ -83,6 +84,9 @@ const MAP_ICON := preload("res://assets/ui/icons/map.png")
 const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
 const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
 
+enum TavernNodeState { DEFEATED, AVAILABLE, PREVIEWED, LOCKED }
+const AVAILABLE_PULSE_DURATION_SEC := 0.72
+
 var _map_phase_label: Label
 var _map_story_label: Label
 var _map_art_box: Control
@@ -91,6 +95,7 @@ var _map_node_buttons: Array[Button] = []
 var _map_close_button: Button
 var _map_proceed_button: Button
 var _map_manual_open: bool = false
+var _pending_contract_route_node: ContractRouteNode = null
 ## Which Tavern node the player has clicked to preview but not yet committed
 ## via Proceed; -1 when nothing is previewed.
 var _tavern_preview_index: int = -1
@@ -166,20 +171,18 @@ func _ready() -> void:
 	button_row.add_theme_constant_override("separation", 8)
 	content.add_child(button_row)
 
-	# Tavern-only (hidden otherwise): clicking a node just previews its
-	# flavor text (_on_tavern_node_previewed()) -- Proceed is the actual
-	# commit step, matching the story pass's two-step "read the flavor, then
-	# commit" flow. Contract Offer/Route stay single-click, as before.
+	# Tavern and Contract Route both use select-then-Proceed: node clicks
+	# preview/select, while this button is the actual commit step.
 	_map_proceed_button = Button.new()
-	_map_proceed_button.text = "Proceed"
+	_map_proceed_button.text = FLOW_TEXT.ACTION_PROCEED
 	CardStyle.configure_icon_button(_map_proceed_button, FIGHT_ICON)
 	_map_proceed_button.visible = false
 	_map_proceed_button.disabled = true
-	_map_proceed_button.pressed.connect(func(): tavern_proceed_pressed.emit())
+	_map_proceed_button.pressed.connect(_on_map_proceed_pressed)
 	button_row.add_child(_map_proceed_button)
 
 	_map_close_button = Button.new()
-	_map_close_button.text = "Close Map"
+	_map_close_button.text = FLOW_TEXT.ACTION_CLOSE_MAP
 	_map_close_button.pressed.connect(func(): visible = false)
 	button_row.add_child(_map_close_button)
 	refresh()
@@ -188,6 +191,7 @@ func _ready() -> void:
 func refresh() -> void:
 	if _map_nodes_box == null:
 		return
+	_sync_pending_contract_route_node()
 	if _map_close_button != null:
 		_map_close_button.visible = _map_manual_open or not _map_requires_choice()
 	for child in _map_nodes_box.get_children():
@@ -205,12 +209,18 @@ func _refresh_tavern_map() -> void:
 	_map_phase_label.text = "The Nooby Tavern"
 	_map_story_label.text = _tavern_story_text()
 	_map_art_box.visible = true
+	_map_proceed_button.text = FLOW_TEXT.ACTION_PROCEED
 	# Always visible while a choice is pending (not just once previewed),
 	# just disabled until then -- same "always there, grayed out until you
 	# act" pattern as the Contract Window's own Proceed button, deliberately,
 	# so this teaches the player what to expect there.
 	_map_proceed_button.visible = BuildState.needs_tavern_map_choice()
 	_map_proceed_button.disabled = _tavern_preview_index != BuildState.current_encounter_index
+	_map_proceed_button.tooltip_text = (
+		"Click the available Tavern fight first."
+		if _map_proceed_button.disabled
+		else "Commit this Tavern fight."
+	)
 	for i in RunFlow.tavern_encounter_count():
 		var button := _make_tavern_map_node_button(i)
 		_map_node_buttons.append(button)
@@ -225,6 +235,7 @@ func _refresh_contract_offer_map() -> void:
 	_map_story_label.text = contract.offer_text if contract != null else "The trail out of the Tavern has gone cold."
 	_map_art_box.visible = false
 	_map_proceed_button.visible = false
+	_map_proceed_button.tooltip_text = ""
 	var button := Button.new()
 	button.custom_minimum_size = MAP_NODE_SIZE
 	button.text = contract.display_name if contract != null else "Unknown Contract"
@@ -240,7 +251,7 @@ func _refresh_contract_route_map() -> void:
 	_map_phase_label.text = BuildState.active_contract.display_name if BuildState.active_contract != null else "Contract Route"
 	_map_story_label.text = _contract_route_story_text()
 	_map_art_box.visible = false
-	_map_proceed_button.visible = false
+	_refresh_contract_route_proceed_button()
 	var schematic := _make_contract_route_schematic()
 	if schematic != null:
 		_map_nodes_box.add_child(schematic)
@@ -264,9 +275,11 @@ func _refresh_contract_route_map() -> void:
 		button.custom_minimum_size = MAP_NODE_SIZE
 		button.text = _route_node_button_text(choice)
 		button.tooltip_text = _route_node_tooltip(choice)
-		button.disabled = BuildState.needs_secondary_subclass_choice()
-		button.pressed.connect(func(): route_node_pressed.emit(choice))
-		_style_map_node(button, not button.disabled)
+		var selectable := _route_node_is_selectable(choice)
+		button.disabled = not selectable
+		if selectable:
+			button.pressed.connect(_on_contract_route_node_previewed.bind(choice))
+		_style_contract_route_node(button, choice, selectable)
 		_map_node_buttons.append(button)
 		_map_nodes_box.add_child(button)
 		if i < choices.size() - 1:
@@ -370,8 +383,8 @@ func _add_contract_route_button(canvas: Control, node: ContractRouteNode, positi
 	var selectable := _route_node_is_selectable(node)
 	button.disabled = not selectable
 	if selectable:
-		button.pressed.connect(func(): route_node_pressed.emit(node))
-	_style_map_node(button, selectable or BuildState.current_route_node == node)
+		button.pressed.connect(_on_contract_route_node_previewed.bind(node))
+	_style_contract_route_node(button, node, selectable)
 	_map_node_buttons.append(button)
 	canvas.add_child(button)
 
@@ -415,10 +428,13 @@ func _tier_name_for_reward_gear(gear: GearItem) -> String:
 func _route_node_is_selectable(node: ContractRouteNode) -> bool:
 	return (
 		BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE
-		and not BuildState.needs_secondary_subclass_choice()
 		and BuildState.current_route_node != null
 		and BuildState.current_route_node.next_nodes.has(node)
 	)
+
+
+func _route_node_is_selected(node: ContractRouteNode) -> bool:
+	return _pending_contract_route_node == node or BuildState.current_route_node == node
 
 
 func _gilded_serpent_secondary_node() -> ContractRouteNode:
@@ -430,26 +446,49 @@ func _gilded_serpent_secondary_node() -> ContractRouteNode:
 
 
 func _make_tavern_map_node_button(index: int) -> Button:
-	var current_index := BuildState.current_encounter_index
-	var is_current := BuildState.is_tavern_planning() and index == current_index
-	var is_selectable := is_current and BuildState.needs_tavern_map_choice()
-	var is_revealed := index <= current_index
-	# Deliberately NOT highlighted just for being the current/clickable node
-	# (user-requested): the player has to actually click it -- previewing it
-	# (_tavern_preview_index == index) or having already committed it
-	# (needs_tavern_map_choice() false, e.g. reopening the map later via the
-	# Map button to review a locked-in choice) is what earns the highlight.
-	# This mirrors -- and is meant to teach the player toward -- the Contract
-	# Window's own select-then-Proceed card behavior.
-	var is_highlighted := is_current and (_tavern_preview_index == index or not BuildState.needs_tavern_map_choice())
+	var state := _tavern_node_state(index)
 	var encounter := RunFlow.load_encounter(index)
 	var button := Button.new()
+	button.name = "TavernNode%d" % index
 	button.custom_minimum_size = TAVERN_MAP_NODE_SIZE
-	button.text = encounter.monster.display_name if is_revealed and encounter != null else "Unknown"
-	button.disabled = not is_selectable
+	button.text = encounter.monster.display_name if state != TavernNodeState.LOCKED and encounter != null else "Unknown"
+	button.disabled = not _tavern_node_is_clickable(state)
+	button.tooltip_text = _tavern_node_tooltip(state, encounter)
 	button.pressed.connect(_on_tavern_node_previewed.bind(index))
-	_style_map_node(button, is_highlighted)
+	_style_tavern_map_node(button, state)
+	if state == TavernNodeState.DEFEATED:
+		_add_tavern_defeated_marker(button)
+	elif state == TavernNodeState.AVAILABLE:
+		_add_tavern_available_pulse(button)
 	return button
+
+
+func _tavern_node_state(index: int) -> int:
+	var current_index := BuildState.current_encounter_index
+	if index < current_index:
+		return TavernNodeState.DEFEATED
+	if not BuildState.is_tavern_planning() or index > current_index:
+		return TavernNodeState.LOCKED
+	if _tavern_preview_index == index or not BuildState.needs_tavern_map_choice():
+		return TavernNodeState.PREVIEWED
+	return TavernNodeState.AVAILABLE
+
+
+func _tavern_node_is_clickable(state: int) -> bool:
+	return BuildState.needs_tavern_map_choice() and (state == TavernNodeState.AVAILABLE or state == TavernNodeState.PREVIEWED)
+
+
+func _tavern_node_tooltip(state: int, encounter) -> String:
+	match state:
+		TavernNodeState.DEFEATED:
+			if encounter != null and encounter.monster != null:
+				return "%s defeated." % encounter.monster.display_name
+			return "Defeated."
+		TavernNodeState.AVAILABLE:
+			return "Click to preview this fight, then press Proceed."
+		TavernNodeState.PREVIEWED:
+			return "Ready. Press Proceed to commit this fight."
+	return "Defeat the previous fight to reveal this one."
 
 
 func _make_map_connector() -> Control:
@@ -476,6 +515,116 @@ func _style_map_node(button: Button, is_current: bool) -> void:
 	# DATA_BUTTON_FONT's comment.
 	button.add_theme_font_override("font", DATA_BUTTON_FONT)
 	button.add_theme_font_size_override("font_size", 14)
+
+
+func _style_tavern_map_node(button: Button, state: int) -> void:
+	var color := UIColors.MAP_NODE_INACTIVE
+	var border_color := UIColors.STRUCTURE_LINE_LIGHT
+	var border_width := 3
+	match state:
+		TavernNodeState.DEFEATED:
+			color = UIColors.PANEL_DISABLED
+			border_color = UIColors.TEXT_WARNING
+		TavernNodeState.AVAILABLE:
+			color = UIColors.PANEL
+			border_color = UIColors.STRUCTURE_LINE_LIGHT
+			border_width = 4
+		TavernNodeState.PREVIEWED:
+			color = UIColors.MAP_NODE_CURRENT
+			border_color = CardStyle.ACCENT_COLOR
+			border_width = 5
+		TavernNodeState.LOCKED:
+			color = UIColors.MAP_NODE_INACTIVE
+			border_color = UIColors.STRUCTURE_LINE_LIGHT
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = color
+		style.border_color = border_color
+		style.set_border_width_all(border_width)
+		style.set_corner_radius_all(8)
+		button.add_theme_stylebox_override(state_name, style)
+		button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+		button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
+	button.add_theme_font_override("font", DATA_BUTTON_FONT)
+	button.add_theme_font_size_override("font_size", 14)
+
+
+func _style_contract_route_node(button: Button, node: ContractRouteNode, selectable: bool) -> void:
+	var is_selected := _route_node_is_selected(node)
+	if selectable and not is_selected:
+		_style_available_choice_node(button)
+		_add_available_pulse(button, "ContractAvailablePulse")
+	elif is_selected:
+		_style_selected_choice_node(button)
+	else:
+		_style_map_node(button, false)
+
+
+func _style_available_choice_node(button: Button) -> void:
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = UIColors.PANEL
+		style.border_color = UIColors.STRUCTURE_LINE_LIGHT
+		style.set_border_width_all(4)
+		style.set_corner_radius_all(8)
+		button.add_theme_stylebox_override(state_name, style)
+		button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+		button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
+	button.add_theme_font_override("font", DATA_BUTTON_FONT)
+	button.add_theme_font_size_override("font_size", 14)
+
+
+func _style_selected_choice_node(button: Button) -> void:
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = UIColors.MAP_NODE_CURRENT
+		style.border_color = CardStyle.ACCENT_COLOR
+		style.set_border_width_all(5)
+		style.set_corner_radius_all(8)
+		button.add_theme_stylebox_override(state_name, style)
+		button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+		button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
+	button.add_theme_font_override("font", DATA_BUTTON_FONT)
+	button.add_theme_font_size_override("font_size", 14)
+
+
+func _add_tavern_defeated_marker(button: Button) -> void:
+	var marker := Label.new()
+	marker.name = "TavernDefeatedMarker"
+	marker.text = "X"
+	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	marker.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	marker.add_theme_font_size_override("font_size", 76)
+	marker.add_theme_color_override("font_color", UIColors.TEXT_WARNING)
+	marker.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+	marker.add_theme_constant_override("outline_size", 5)
+	marker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	button.add_child(marker)
+
+
+func _add_tavern_available_pulse(button: Button) -> void:
+	_add_available_pulse(button, "TavernAvailablePulse")
+
+
+func _add_available_pulse(button: Button, marker_name: String) -> void:
+	var pulse := PanelContainer.new()
+	pulse.name = marker_name
+	pulse.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pulse.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var pulse_style := StyleBoxFlat.new()
+	pulse_style.bg_color = Color(0, 0, 0, 0)
+	pulse_style.border_color = UIColors.TEXT_GOLD
+	pulse_style.set_border_width_all(5)
+	pulse_style.set_corner_radius_all(8)
+	pulse.add_theme_stylebox_override("panel", pulse_style)
+	button.add_child(pulse)
+
+	pulse.modulate.a = 0.35
+	var tween := pulse.create_tween()
+	tween.set_loops()
+	tween.tween_property(pulse, "modulate:a", 1.0, AVAILABLE_PULSE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(pulse, "modulate:a", 0.35, AVAILABLE_PULSE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 ## Before any node is (re-)previewed, _tavern_pre_choice_story_text() sets
 ## the scene; clicking the current node previews its
 ## TAVERN_ENCOUNTER_FLAVOR_TEXT without committing (see
@@ -491,7 +640,7 @@ func _tavern_story_text() -> String:
 				encounter.monster.display_name, "A stranger's business becomes yours."
 			)
 		return _tavern_pre_choice_story_text()
-	return "%s is marked. Tune the build, lock in, and start the fight when ready." % encounter.monster.display_name
+	return FLOW_TEXT.marked_target_story(encounter.monster.display_name)
 
 
 ## The very first Tavern choice (nothing defeated yet) sets the scene with
@@ -517,10 +666,10 @@ func _contract_route_story_text() -> String:
 	var node := BuildState.current_route_node
 	if node == null:
 		return "The route has not been charted yet."
-	if BuildState.needs_secondary_subclass_choice():
-		return node.summary_text
 	if BuildState.is_contract_fight_active():
-		return "%s is marked. Tune the build, lock in, and start the fight when ready." % node.display_name
+		return FLOW_TEXT.marked_target_story(node.display_name)
+	if _pending_contract_route_node != null and _route_node_is_selectable(_pending_contract_route_node):
+		return FLOW_TEXT.pending_route_status(_pending_contract_route_node.display_name)
 	var base := "Choose your next route into The Gilded Serpent. Enemy pressure and reward quality matter from here."
 	if node.next_nodes.size() == 2:
 		var tradeoff := _route_tradeoff_text(node.next_nodes[0], node.next_nodes[1])
@@ -624,12 +773,14 @@ func show_map(manual_open: bool = false) -> void:
 func close() -> void:
 	visible = false
 	_map_manual_open = false
+	_pending_contract_route_node = null
 
 
 ## Clears the pending Tavern preview. combat_screen.gd calls this once a
 ## Tavern choice actually commits, since the preview no longer applies.
 func clear_tavern_preview() -> void:
 	_tavern_preview_index = -1
+	_pending_contract_route_node = null
 
 
 func _map_requires_choice() -> bool:
@@ -647,5 +798,45 @@ func _map_requires_choice() -> bool:
 func _on_tavern_node_previewed(index: int) -> void:
 	if index != BuildState.current_encounter_index or not BuildState.needs_tavern_map_choice():
 		return
-	_tavern_preview_index = index
+	_tavern_preview_index = -1 if _tavern_preview_index == index else index
 	refresh()
+
+
+func _on_contract_route_node_previewed(node: ContractRouteNode) -> void:
+	if not _route_node_is_selectable(node):
+		return
+	_pending_contract_route_node = null if _pending_contract_route_node == node else node
+	refresh()
+
+
+func _on_map_proceed_pressed() -> void:
+	if BuildState.needs_tavern_map_choice() and _tavern_preview_index == BuildState.current_encounter_index:
+		tavern_proceed_pressed.emit()
+		return
+	if _pending_contract_route_node != null and _route_node_is_selectable(_pending_contract_route_node):
+		var selected := _pending_contract_route_node
+		_pending_contract_route_node = null
+		route_node_pressed.emit(selected)
+
+
+func _refresh_contract_route_proceed_button() -> void:
+	var has_pending_choices := (
+		BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE
+		and BuildState.current_route_node != null
+		and not BuildState.current_route_node.next_nodes.is_empty()
+	)
+	_map_proceed_button.visible = has_pending_choices
+	_map_proceed_button.disabled = _pending_contract_route_node == null
+	_map_proceed_button.text = FLOW_TEXT.ACTION_MARK_ROUTE
+	_map_proceed_button.tooltip_text = (
+		FLOW_TEXT.TOOLTIP_ROUTE_NEEDS_SELECTION
+		if _pending_contract_route_node == null
+		else FLOW_TEXT.tooltip_mark_route(_pending_contract_route_node.display_name)
+	)
+
+
+func _sync_pending_contract_route_node() -> void:
+	if _pending_contract_route_node == null:
+		return
+	if not _route_node_is_selectable(_pending_contract_route_node):
+		_pending_contract_route_node = null

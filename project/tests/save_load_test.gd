@@ -6,6 +6,7 @@ const SaveSystemScript = preload("res://scripts/systems/save_system.gd")
 
 func _initialize() -> void:
 	# Start clean: no stray save file from a previous run of this test.
+	SaveSystemScript.save_path = "res://.test_save_load_save.json"
 	SaveSystemScript.delete_save()
 	assert(not SaveSystemScript.has_save())
 
@@ -51,6 +52,8 @@ func _initialize() -> void:
 	build_state.open_shop_round()
 	_require(build_state.shop_round_pending, "Expected an open shop round before saving.")
 	_require(build_state.shop_offers.size() == 6, "Expected generated shop offers before saving.")
+	_require(build_state.reroll_shop_offers(), "Expected a paid shop reroll before saving.")
+	_require(build_state.shop_reroll_cost == 10, "Expected next reroll to cost 10g before saving.")
 
 	var pre_save_signature := _state_signature(build_state)
 
@@ -91,13 +94,13 @@ func _initialize() -> void:
 	_require(not SaveSystemScript.load_run(build_state), "Expected load_run to fail with no save file present.")
 
 	print("Corrupt save round trip")
-	var file := FileAccess.open(SaveSystemScript.SAVE_PATH, FileAccess.WRITE)
+	var file := FileAccess.open(SaveSystemScript.save_path, FileAccess.WRITE)
 	file.store_string("{ not valid json")
 	file.close()
 	_require(not SaveSystemScript.load_run(build_state), "Expected load_run to fail on corrupt JSON.")
 
 	print("Incompatible save version round trip")
-	file = FileAccess.open(SaveSystemScript.SAVE_PATH, FileAccess.WRITE)
+	file = FileAccess.open(SaveSystemScript.save_path, FileAccess.WRITE)
 	file.store_string(JSON.stringify({"save_version": SaveSystemScript.SAVE_VERSION + 1}))
 	file.close()
 	_require(not SaveSystemScript.load_run(build_state), "Expected load_run to fail on a future save_version.")
@@ -106,6 +109,8 @@ func _initialize() -> void:
 
 	print("")
 	print("Save/load round trip check: OK")
+	SaveSystemScript.delete_save()
+	SaveSystemScript.save_path = SaveSystemScript.SAVE_PATH
 	quit()
 
 
@@ -128,6 +133,9 @@ func _state_signature(state) -> String:
 	parts.append("charm:%s" % _gear_signature(state.equipped_charm))
 	parts.append("shop_unlocked:%s" % state.shop_unlocked)
 	parts.append("shop_round_pending:%s" % state.shop_round_pending)
+	parts.append("shop_reroll_used:%s" % state.shop_reroll_used)
+	parts.append("shop_reroll_count:%d" % state.shop_reroll_count)
+	parts.append("shop_reroll_cost:%d" % state.shop_reroll_cost)
 	parts.append("shop_round_index:%d" % state.shop_round_index)
 	for offer in state.shop_offers:
 		parts.append("shop_offer:%s" % _gear_signature(offer))

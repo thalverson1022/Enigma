@@ -1,6 +1,6 @@
 extends SceneTree
-## Headless P2:R10:T2 check: the title-screen Training Room button is
-## enabled and reachable, entering/leaving Training Room never touches
+## Headless P2:R10:T2 check: the title-screen Practice Room button is
+## enabled and reachable, entering/leaving Practice Room never touches
 ## BuildState, and Back returns to Title. Run with:
 ##   godot --headless -s res://tests/training_room_entry_test.gd
 
@@ -27,10 +27,10 @@ func _initialize() -> void:
 	var title = game_root._current_screen
 	var training_room_button: Button = null
 	for child in title.find_children("*", "Button", true, false):
-		if child.text == "Training Room":
+		if child.text == "Practice Room":
 			training_room_button = child
 	assert(training_room_button != null)
-	print("Training Room button disabled=%s (expect false)" % training_room_button.disabled)
+	print("Practice Room button disabled=%s (expect false)" % training_room_button.disabled)
 	assert(not training_room_button.disabled)
 
 	title.training_room_pressed.emit()
@@ -42,8 +42,8 @@ func _initialize() -> void:
 	var back_button: Button = training_room.find_child("BackButton", true, false)
 	assert(back_button != null)
 
-	# Entering Training Room must not touch real Adventure/save state.
-	print("gold after entering Training Room=%d (expect %d), seed=%d (expect %d)" % [
+	# Entering Practice Room must not touch real Adventure/save state.
+	print("gold after entering Practice Room=%d (expect %d), seed=%d (expect %d)" % [
 		build_state.gold, gold_before, build_state.adventure_seed, seed_before
 	])
 	assert(build_state.gold == gold_before)
@@ -55,9 +55,9 @@ func _initialize() -> void:
 	assert(back_at_title != training_room)
 	assert(back_at_title.has_signal("training_room_pressed"))
 
-	# Leaving Training Room must also leave BuildState untouched.
+	# Leaving Practice Room must also leave BuildState untouched.
 	assert(build_state.gold == gold_before)
 	assert(build_state.adventure_seed == seed_before)
 
-	print("Training Room entry/exit check: OK")
+	print("Practice Room entry/exit check: OK")
 	quit()

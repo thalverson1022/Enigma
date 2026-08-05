@@ -296,9 +296,9 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	_require(is_equal_approx(stage._player_animation_frame_sec, 0.15), "Expected Rogue idle animation to use the slower 150ms frame cadence.")
 	_require(stage.PEASANT_ANCHOR_POINT == Vector2(16, 16), "Expected enemy sprite pivot to sit at the center of its 32x32 frame.")
 	_require(stage.ENEMY_STAGE_GRID == Vector2(1, 1), "Expected enemy sprite to target grid point (1, 1).")
-	var enemy_target_point: Vector2 = stage._stage_point_for_grid(stage.ENEMY_STAGE_GRID)
+	var enemy_target_point: Vector2 = stage._stage_point_for_grid(stage.ENEMY_STAGE_GRID) + stage.ACTOR_GROUP_STAGE_OFFSET_PX
 	var enemy_sprite_anchor: Vector2 = stage._sprite_anchor_point(stage.enemy_actor_anchor, stage._enemy_sprite, stage.PEASANT_ANCHOR_POINT)
-	_require(enemy_sprite_anchor.distance_to(enemy_target_point) < 0.01, "Expected the enemy sprite anchor to land on its grid target without a pixel offset.")
+	_require(enemy_sprite_anchor.distance_to(enemy_target_point) < 0.01, "Expected the enemy sprite anchor to land on its right-shifted grid target.")
 	var intro_duration := stage.play_fight_intro(false)
 	_require(stage.fight_intro_count == 1, "Expected the stage to record a start-of-fight intro beat.")
 	_require(is_equal_approx(intro_duration, 0.0), "Expected non-animated intro calls to finish instantly for headless checks.")
@@ -443,6 +443,10 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	_require(stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected a lost fight to record the player defeat pose.")
 	_require(stage.outcome_flash_count == 2, "Expected defeat to record another outcome flash beat.")
 	_require(not stage.last_outcome_flash_was_victory, "Expected the outcome flash to know this was a defeat.")
+	_require(stage.last_player_animation_key == "defeat", "Expected a lost fight to select the Rogue death animation.")
+	_require(stage.last_player_animation_frame_count == 5, "Expected the Rogue death animation to expose its five authored frames.")
+	_require(is_equal_approx(stage.player_defeat_animation_duration_sec(), 0.5), "Expected the Rogue death animation to play out over 0.5s before the hold.")
+	_require(stage.last_player_animation_frame_path.contains("/death/frames/"), "Expected the displayed defeat frame to come from the Rogue death animation folder.")
 
 	stage.reset_state()
 	_require(stage.cast_animation_count == 0, "Expected reset_state() to clear cast animation counters for the next fight.")
@@ -674,6 +678,9 @@ func _check_live_playback_loss() -> void:
 	fight_enemy_panel.fight_pressed.emit()
 	_require(combat_screen._playback_active, "Expected playback active after a losing Fight press.")
 	_require(not build_state.last_fight_won, "Expected the loss to be resolved instantly.")
+	_require(fight_enemy_panel._title_label.text == monster.display_name, "Expected enemy panel to keep showing the fought target during playback.")
+	_require(fight_enemy_panel._info_label.text.contains("HP:"), "Expected enemy panel to keep showing enemy stats during playback.")
+	_require(not fight_enemy_panel._info_label.text.contains("This Adventure has ended."), "Expected enemy panel not to leak run-ended status during playback.")
 	_require(not combat_screen._outcome_title_label.visible, "Expected the DEFEATED title hidden mid-playback.")
 	_require(not combat_screen._retry_button.visible, "Expected the retry button hidden mid-playback.")
 	_require(combat_screen._playback_presenter._playback.timeline_end_ms() == duration_ms, "Expected a loss playback to span the full DPS window.")
@@ -682,10 +689,7 @@ func _check_live_playback_loss() -> void:
 
 	combat_screen._skip_playback()
 	_require(not combat_screen._playback_active, "Expected playback finished after skip.")
-	_require(combat_screen._victory_overlay.visible, "Expected the loss overlay revealed after skip.")
-	_require(combat_screen._victory_title_label.text == "DEFEATED", "Expected the loss outcome title revealed after skip.")
-	_require(combat_screen._outcome_retry_button.visible, "Expected the retry do-over revealed after skip.")
-	_require(combat_screen._victory_recap_label.text.contains("Total Damage:"), "Expected the loss recap revealed after skip.")
+	_require(not combat_screen._victory_overlay.visible, "Expected a skipped loss to wait for the death beat before revealing the overlay.")
 	var expected_remaining: int = maxi(0, roundi(float(monster.hp) - combat_screen._hud_result.total_damage))
 	_require(
 		combat_screen._hud_hp_text_label.text == "%d/%d" % [expected_remaining, monster.hp],
@@ -695,8 +699,18 @@ func _check_live_playback_loss() -> void:
 		combat_screen._playback_controls._time_label.text == "%.1fs / %.0fs" % [duration_ms / 1000.0, duration_ms / 1000.0],
 		"Expected the window readout to end at the cap on a loss."
 	)
-	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected skip to still snap the player into the defeat pose.")
+	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected skip to enter the player defeat pose before the overlay.")
 	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected skip to record the defeat outcome beat without waiting.")
+	_require(combat_screen._combat_stage.last_player_animation_key == "defeat", "Expected skipped losses to use the Rogue death pose.")
+	_require(combat_screen._combat_stage.player_actor_anchor.modulate == Color.WHITE, "Expected skipped losses not to tint the Rogue red during death.")
+	_require(combat_screen._combat_stage.last_player_animation_frame_path.ends_with("/death/frames/frame_001.png"), "Expected skipped losses to start on the first death frame.")
+	await create_timer(0.12).timeout
+	_require(combat_screen._combat_stage.last_player_animation_frame_path.ends_with("/death/frames/frame_002.png"), "Expected skipped losses to advance through the death animation frames.")
+	await _await_skipped_loss_reveal(combat_screen)
+	_require(combat_screen._victory_overlay.visible, "Expected the loss overlay revealed after the skipped-loss death hold.")
+	_require(combat_screen._victory_title_label.text == "DEFEATED", "Expected the loss outcome title revealed after the skipped-loss death hold.")
+	_require(combat_screen._outcome_retry_button.visible, "Expected the retry do-over revealed after the skipped-loss death hold.")
+	_require(combat_screen._victory_recap_label.text.contains("Total Damage:"), "Expected the loss recap revealed after the skipped-loss death hold.")
 
 	combat_screen.queue_free()
 	await process_frame
@@ -732,8 +746,12 @@ func _check_natural_playback_loss_reveal_timing() -> void:
 	_require(combat_screen._map_button.disabled, "Expected map locked during the natural loss hold.")
 	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected the player defeat pose before the loss UI appears.")
 	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected natural defeat to play one outcome flash beat.")
+	_require(combat_screen._combat_stage.last_player_animation_key == "defeat", "Expected natural losses to play the Rogue death animation before the UI appears.")
 
 	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
+	_require(not combat_screen._victory_overlay.visible, "Expected the old generic reveal hold to be too short for a natural defeat reveal.")
+	var defeat_reveal_delay_sec: float = combat_screen._combat_stage.player_defeat_animation_duration_sec() + combat_screen.PLAYER_DEFEAT_POSE_HOLD_SEC
+	await create_timer(defeat_reveal_delay_sec - combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
 	_require(combat_screen._victory_overlay.visible, "Expected the defeat overlay after the natural reveal hold.")
 	_require(combat_screen._victory_title_label.text == "DEFEATED", "Expected the defeat title after the natural reveal hold.")
 	_require(combat_screen._outcome_retry_button.visible, "Expected retry after the natural reveal hold.")
@@ -781,6 +799,7 @@ func _check_playback_speed_persists() -> void:
 	_require(combat_screen._playback_controls._speed_buttons[2].disabled, "Expected the 4x button to show as the active speed.")
 
 	combat_screen._skip_playback()
+	await _await_skipped_loss_reveal(combat_screen)
 	_require(combat_screen._outcome_retry_button.visible, "Expected the retry do-over after this Tavern loss.")
 	combat_screen._outcome_retry_button.pressed.emit()
 	_require(build_state.run_phase == build_state.RunPhase.PLANNING, "Expected retry to return to planning.")
@@ -798,8 +817,14 @@ func _check_playback_speed_persists() -> void:
 	_require(not combat_screen._playback_controls._speed_buttons[0].disabled, "Expected the 1x button to not be shown as active on the second fight.")
 
 	combat_screen._skip_playback()
+	await _await_skipped_loss_reveal(combat_screen)
 	combat_screen.queue_free()
 	await process_frame
+
+
+func _await_skipped_loss_reveal(combat_screen: Node) -> void:
+	var skip_defeat_reveal_delay_sec: float = combat_screen._combat_stage.player_defeat_animation_duration_sec() + combat_screen.PLAYER_DEFEAT_POSE_HOLD_SEC
+	await create_timer(skip_defeat_reveal_delay_sec + 0.05).timeout
 
 
 func _instantiate_combat_screen() -> Node:

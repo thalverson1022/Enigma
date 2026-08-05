@@ -1,6 +1,6 @@
 class_name TrainingTargetPanel
 extends PanelContainer
-## Training Room's target stats card (visual parity with Adventure's
+## Practice Room's target stats card (visual parity with Adventure's
 ## enemy_panel.gd's card look): adjustable Armor and Poison Resist values for
 ## the practice target. Replaced the earlier "pick one of 3 preset monsters"
 ## dropdown + HP/Required-DPS readout (post-R10 UI-feedback pass) -- Training
