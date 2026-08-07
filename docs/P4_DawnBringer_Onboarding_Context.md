@@ -4,7 +4,7 @@
 
 This is the lean handoff for Project DawnBringer, the standalone Phase 4 repo.
 Use it to orient a new conversation quickly. For detailed milestone status, read
-`docs/P4_DawnBringer_Milestone_Tracker.md`.
+`docs/P4_DawnBringer_Overview.md`.
 
 ## Project State
 
@@ -37,7 +37,7 @@ out the new defense list and will provide it during P4M1 planning.
 
 ## Current Milestones
 
-Use `docs/P4_DawnBringer_Milestone_Tracker.md` as the source of truth.
+Use `docs/P4_DawnBringer_Overview.md` as the source of truth.
 
 - P4M0: Setup And Procedural Contracts Plan. Complete.
 - P4M1: Enemy Defense Vocabulary. Next.
@@ -91,7 +91,7 @@ Recent setup verification:
 
 ## Reference Docs
 
-- `docs/P4_DawnBringer_Milestone_Tracker.md`: living Phase 4 tracker.
-- `docs/P4M0_Task_0_Procedural_Contracts_Plan.md`: initial Phase 4 plan.
+- `docs/P4_DawnBringer_Overview.md`: living Phase 4 overview and tracker.
+- `docs/P4M0_Task_0_Procedural_Contracts_Plan.md`: P4M0 setup and planning record.
 - `docs/P3M9_Regression_Export_And_Phase_3_Closeout.md`: Phase 3 closeout.
 - `docs/P3_Technical_Debt_Architecture_Cleanup.md`: deferred technical triggers.

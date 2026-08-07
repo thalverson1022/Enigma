@@ -1,149 +1,51 @@
-# P4M0 Task 0: Procedural Contracts Plan
+# P4M0 Task 0: Setup And Procedural Contracts Plan
 
 ## Purpose
 
-Task 0 establishes the Phase 4 implementation spine for Project DawnBringer:
-procedurally generated contracts, contract routes, and monsters that create
-meaningful build-routing decisions.
+P4M0 records the setup and planning work that made Project DawnBringer ready
+for Phase 4 implementation.
 
-CrystalMaiden remains the hosted playtest baseline. DawnBringer is the
-standalone project where larger contract, monster, and balance systems can move
-without destabilizing that baseline.
+It is not the phase-wide tracker. Use `P4_DawnBringer_Overview.md` for current
+milestone status and ongoing Phase 4 scope.
 
-## Phase 4 Spine
+## Phase Goal
 
-The core loop target is:
+DawnBringer will rework procedurally generated contracts and contract routes as
+a core main-loop system. Players should read enemy defenses, choose routes
+based on matchup risk, collect resources, improve gear and synergies, and push
+toward harder fights.
+
+## Completed Setup
+
+- Created DawnBringer as a standalone repository.
+- Preserved `https://github.com/thalverson1022/Bane.git` as historical upstream.
+- Set `phase-4-dawnbringer` as the active/default branch.
+- Tagged the inherited CrystalMaiden baseline as `dawnbringer-start`.
+- Renamed project/tooling identity to DawnBringer.
+- Imported and verified the Godot project locally.
+- Added compact DawnBringer onboarding context.
+- Added the living Phase 4 overview/tracker.
+
+## Key Decisions
+
+- CrystalMaiden remains the hosted playtest baseline.
+- DawnBringer is the working project for larger Phase 4 systems changes.
+- The first implementation milestone is P4M1 Enemy Defense Vocabulary.
+- Monster Lab should be used as the sandbox for generated enemy design.
+- Balance Lab remains the gate for combat, balance, reward, and route-pressure
+  changes.
+
+## Initial Phase Spine
+
+The planned experience is:
 
 1. Generate readable enemy encounters with distinct defensive identities.
 2. Present multiple contract-route paths with useful preview information.
-3. Let players avoid bad matchups and seek favorable ones based on their build.
-4. Reward successful routing with resources, gear, talents, and synergies.
+3. Let players avoid bad matchups and seek favorable fights for their build.
+4. Reward routing with resources, gear, talents, and synergies.
 5. Scale toward harder fights while preserving deterministic combat resolution.
 
-## Milestone Order
-
-Detailed status lives in `P4_DawnBringer_Milestone_Tracker.md`. This plan keeps
-the implementation sequence and design intent.
-
-### P4M1: Enemy Defense Vocabulary
-
-Define and implement the new list of enemy defenses.
-
-Deliverables:
-
-- defense IDs, labels, descriptions, and combat rules;
-- data representation on monsters and encounters;
-- UI/readability language for encounter previews and combat state;
-- focused tests for each defensive mechanic;
-- Monster Lab visibility for defense packages.
-
-Balance Lab should run when defenses affect DPS, duration, poison/proc behavior,
-reward pressure, or route difficulty.
-
-### P4M2: Monster Lab Generation
-
-Use Monster Lab to build and inspect random-ish monsters from authored parts.
-
-Deliverables:
-
-- monster archetype model;
-- defensive package composition rules;
-- difficulty/risk/reward scoring;
-- exportable generated monster payloads;
-- validation cases for impossible or unfun combinations.
-
-### P4M3: Procedural Monster Generation In Godot
-
-Move the proven Monster Lab model into Godot runtime code.
-
-Deliverables:
-
-- deterministic seeded monster generator;
-- generated monster resources or runtime dictionaries matching existing combat;
-- tests for repeatability and difficulty bands;
-- integration with existing combat resolver without changing unrelated mechanics.
-
-### P4M4: Encounter Preview And Matchup Readability
-
-Make enemy defenses and route choices readable before the player commits.
-
-Deliverables:
-
-- encounter preview panel;
-- defense icons, labels, and descriptions;
-- threat and reward summary;
-- subtle build-affinity hints where useful;
-- combat screen support for new defense states.
-
-### P4M5: Procedural Contract Route Generation
-
-Generate route maps that create real strategic decisions.
-
-Deliverables:
-
-- route graph shape rules;
-- node preview data;
-- route pressure and reward pacing;
-- authored constraints for boss, elite, shop, rest, and resource nodes;
-- deterministic generation tests.
-
-### P4M6: Adventure Integration
-
-Replace or extend the current bespoke contract path with procedural contracts.
-
-Deliverables:
-
-- contract offer generation;
-- route selection UI updates;
-- save/load policy for generated contract state;
-- failure/restart behavior;
-- regression pass through Rogue adventure and Practice Room surfaces.
-
-### P4M7: Rewards, Resources, And Route Economy
-
-Make routing matter beyond surviving the next fight.
-
-Deliverables:
-
-- reward tables tied to encounter difficulty;
-- resource pacing;
-- gear, shop, and talent pressure tuning;
-- risk/reward rules for harder paths;
-- Balance Lab thresholds for route economy.
-
-### P4M8: Contract Variety And Content Expansion
-
-Add enough variety that procedural contracts feel like a repeatable system.
-
-Deliverables:
-
-- additional enemy archetypes;
-- additional contract themes or factions;
-- more route modifiers;
-- elite and boss variants;
-- encounter naming and flavor rules.
-
-### P4M9: Regression, Export, And Phase 4 Closeout
-
-Stabilize, playtest, export, and close the phase.
-
-Deliverables:
-
-- focused regression pass;
-- Balance Lab final pass;
-- web export;
-- local or itch smoke test;
-- closeout doc and next-phase technical debt notes.
-
-## Design Constraints
-
-- Preserve deterministic combat unless a task explicitly changes mechanics.
-- Keep generated enemies readable before they are surprising.
-- Avoid over-generalizing until a second real use case exists.
-- Commit one logical risky extraction or system change at a time.
-- Keep CrystalMaiden history available as reference, but keep DawnBringer docs compact.
-
-## Open Questions
+## Open Questions Carried Into P4M1
 
 - What is the final defense list and which defenses are core versus experimental?
 - How much encounter information should the player see before committing to a route?
@@ -151,9 +53,9 @@ Deliverables:
 - What resources should procedural encounters award before the broader economy is redesigned?
 - When should the save version bump occur?
 
-## Immediate Next Step
+## Next Step
 
-Start P4M1 by turning the new enemy defense list into a mechanics spec:
+Start P4M1 by turning the user's enemy defense list into a mechanics spec:
 
 - ID and display name;
 - short player-facing description;

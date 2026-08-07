@@ -1,9 +1,9 @@
-# Project DawnBringer Milestone Tracker
+# Project DawnBringer Overview
 
 ## Purpose
 
-This is the living Phase 4 tracker. Update it at the start and close of each
-milestone, and whenever scope meaningfully changes.
+This is the living Phase 4 overview and milestone tracker. Update it at the
+start and close of each milestone, and whenever scope meaningfully changes.
 
 Phase 4 goal: make procedurally generated contracts and contract routes a core,
 repeatable main-loop system. Players should read enemy defenses, choose routes
