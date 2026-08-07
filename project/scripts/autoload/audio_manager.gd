@@ -49,6 +49,10 @@ const BUTTON_PRESS_SFX_VOLUME := 0.48
 const SHOP_CHANGE_SFX_VOLUME := 0.64
 const SHOP_CHANGE_SFX_PITCH_SCALE := 0.82
 const BUTTON_PRESS_SFX_META := "audio_manager_button_press_sfx_connected"
+const AUDIO_SCENE_NONE := "none"
+const AUDIO_SCENE_MENU := "menu"
+const AUDIO_SCENE_TAVERN := "tavern"
+const AUDIO_SCENE_CONTRACT := "contract"
 
 var master_volume := DEFAULT_MASTER_VOLUME
 var music_volume := DEFAULT_MUSIC_VOLUME
@@ -79,6 +83,8 @@ var _tavern_theme_tween: Tween
 var _night_tween: Tween
 var _serpent_theme_tween: Tween
 var _rng := RandomNumberGenerator.new()
+var _web_audio_unlocked := true
+var _pending_audio_scene := AUDIO_SCENE_NONE
 
 var attack_sfx_play_count := 0
 var last_attack_sfx_pitch_scale := 0.0
@@ -94,6 +100,8 @@ var last_shop_change_pitch_scale := 0.0
 
 func _ready() -> void:
 	_rng.randomize()
+	_web_audio_unlocked = not OS.has_feature("web")
+	set_process_input(OS.has_feature("web"))
 	_ensure_audio_buses()
 	_load_settings()
 	_apply_all_bus_volumes()
@@ -105,11 +113,17 @@ func _ready() -> void:
 		get_tree().node_added.connect(_on_tree_node_added)
 
 
+func _input(event: InputEvent) -> void:
+	if _web_audio_unlocked or not _is_audio_unlock_input(event):
+		return
+	_unlock_web_audio()
+
+
 func play_menu_intro_audio() -> void:
-	fade_out_tavern_ambience(0.35)
-	fade_out_contract_ambience(0.35, false)
-	_play_player(_rain_player, RAIN_MIX_VOLUME)
-	_play_player(_theme_player, THEME_MIX_VOLUME)
+	_pending_audio_scene = AUDIO_SCENE_MENU
+	if _should_wait_for_web_audio_unlock():
+		return
+	_apply_audio_scene(AUDIO_SCENE_MENU)
 
 
 func play_tavern_map_rain() -> void:
@@ -117,20 +131,17 @@ func play_tavern_map_rain() -> void:
 
 
 func transition_to_tavern_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
-	fade_out_contract_ambience(fade_seconds, false)
-	fade_out_menu_rain(fade_seconds)
-	fade_out_menu_theme(fade_seconds)
-	_fade_in_player(_fireplace_player, "_fireplace_tween", TAVERN_FIREPLACE_MIX_VOLUME, fade_seconds)
-	_fade_in_player(_chatter_player, "_chatter_tween", TAVERN_CHATTER_MIX_VOLUME, fade_seconds)
-	_fade_in_player(_tavern_theme_player, "_tavern_theme_tween", TAVERN_THEME_MIX_VOLUME, fade_seconds)
+	_pending_audio_scene = AUDIO_SCENE_TAVERN
+	if _should_wait_for_web_audio_unlock():
+		return
+	_apply_audio_scene(AUDIO_SCENE_TAVERN, fade_seconds)
 
 
 func transition_to_contract_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
-	fade_out_tavern_ambience(fade_seconds)
-	fade_out_menu_theme(fade_seconds)
-	_fade_in_player(_rain_player, "_rain_tween", CONTRACT_RAIN_MIX_VOLUME, fade_seconds)
-	_fade_in_player(_night_player, "_night_tween", CONTRACT_NIGHT_MIX_VOLUME, fade_seconds)
-	_fade_in_player(_serpent_theme_player, "_serpent_theme_tween", CONTRACT_SERPENT_THEME_MIX_VOLUME, fade_seconds)
+	_pending_audio_scene = AUDIO_SCENE_CONTRACT
+	if _should_wait_for_web_audio_unlock():
+		return
+	_apply_audio_scene(AUDIO_SCENE_CONTRACT, fade_seconds)
 
 
 func fade_out_menu_theme(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
@@ -142,9 +153,10 @@ func fade_out_menu_rain(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
 
 
 func fade_out_all_menu_audio(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
-	fade_out_menu_theme(fade_seconds)
-	fade_out_tavern_ambience(fade_seconds)
-	fade_out_contract_ambience(fade_seconds)
+	_pending_audio_scene = AUDIO_SCENE_NONE
+	if _should_wait_for_web_audio_unlock():
+		return
+	_apply_audio_scene(AUDIO_SCENE_NONE, fade_seconds)
 
 
 func fade_out_tavern_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
@@ -158,6 +170,43 @@ func fade_out_contract_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS, incl
 		fade_out_menu_rain(fade_seconds)
 	_fade_out_player(_night_player, "_night_tween", fade_seconds)
 	_fade_out_player(_serpent_theme_player, "_serpent_theme_tween", fade_seconds)
+
+
+func _apply_audio_scene(audio_scene: String, fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	if audio_scene == AUDIO_SCENE_MENU:
+		_play_menu_intro_audio_now()
+	elif audio_scene == AUDIO_SCENE_TAVERN:
+		_transition_to_tavern_ambience_now(fade_seconds)
+	elif audio_scene == AUDIO_SCENE_CONTRACT:
+		_transition_to_contract_ambience_now(fade_seconds)
+	else:
+		fade_out_menu_theme(fade_seconds)
+		fade_out_tavern_ambience(fade_seconds)
+		fade_out_contract_ambience(fade_seconds)
+
+
+func _play_menu_intro_audio_now() -> void:
+	fade_out_tavern_ambience(0.35)
+	fade_out_contract_ambience(0.35, false)
+	_play_player(_rain_player, RAIN_MIX_VOLUME)
+	_play_player(_theme_player, THEME_MIX_VOLUME)
+
+
+func _transition_to_tavern_ambience_now(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	fade_out_contract_ambience(fade_seconds, false)
+	fade_out_menu_rain(fade_seconds)
+	fade_out_menu_theme(fade_seconds)
+	_fade_in_player(_fireplace_player, "_fireplace_tween", TAVERN_FIREPLACE_MIX_VOLUME, fade_seconds)
+	_fade_in_player(_chatter_player, "_chatter_tween", TAVERN_CHATTER_MIX_VOLUME, fade_seconds)
+	_fade_in_player(_tavern_theme_player, "_tavern_theme_tween", TAVERN_THEME_MIX_VOLUME, fade_seconds)
+
+
+func _transition_to_contract_ambience_now(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	fade_out_tavern_ambience(fade_seconds)
+	fade_out_menu_theme(fade_seconds)
+	_fade_in_player(_rain_player, "_rain_tween", CONTRACT_RAIN_MIX_VOLUME, fade_seconds)
+	_fade_in_player(_night_player, "_night_tween", CONTRACT_NIGHT_MIX_VOLUME, fade_seconds)
+	_fade_in_player(_serpent_theme_player, "_serpent_theme_tween", CONTRACT_SERPENT_THEME_MIX_VOLUME, fade_seconds)
 
 
 func play_random_attack_sfx(playback_speed: float, cast_duration_ms: int, suppress: bool = false) -> bool:
@@ -414,6 +463,7 @@ func _connect_button_sfx(button: BaseButton) -> void:
 func _on_button_down_for_sfx(button: BaseButton) -> void:
 	if button == null or button.disabled:
 		return
+	_unlock_web_audio()
 	var instance_id: int = button.get_instance_id()
 	_button_down_sfx_consumed_by_instance[instance_id] = true
 	_play_deduped_button_sfx(instance_id)
@@ -428,6 +478,7 @@ func _on_button_up_for_sfx(button: BaseButton) -> void:
 func _on_button_pressed_for_sfx(button: BaseButton) -> void:
 	if button == null or button.disabled:
 		return
+	_unlock_web_audio()
 	var instance_id: int = button.get_instance_id()
 	if bool(_button_down_sfx_consumed_by_instance.get(instance_id, false)):
 		return
@@ -444,6 +495,31 @@ func _play_deduped_button_sfx(instance_id: int) -> void:
 		return
 	_last_button_sfx_frame_by_instance[instance_id] = current_frame
 	play_button_press_sfx()
+
+
+func _should_wait_for_web_audio_unlock() -> bool:
+	return OS.has_feature("web") and not _web_audio_unlocked
+
+
+func _unlock_web_audio() -> void:
+	if _web_audio_unlocked:
+		return
+	_web_audio_unlocked = true
+	_apply_all_bus_volumes()
+	if _pending_audio_scene != AUDIO_SCENE_NONE:
+		_apply_audio_scene(_pending_audio_scene, 0.15)
+
+
+func _is_audio_unlock_input(event: InputEvent) -> bool:
+	if event is InputEventMouseButton:
+		return event.pressed
+	if event is InputEventScreenTouch:
+		return event.pressed
+	if event is InputEventKey:
+		return event.pressed and not event.echo
+	if event is InputEventJoypadButton:
+		return event.pressed
+	return false
 
 
 func _fade_out_player(player: AudioStreamPlayer, tween_property_name: String, fade_seconds: float) -> void:
