@@ -1,6 +1,6 @@
 # Monster Lab
 
-Monster Lab is a client-only browser tool for building, tuning, and previewing CrystalMaiden monsters.
+Monster Lab is a client-only browser tool for building, tuning, and previewing DawnBringer monsters.
 
 Open `index.html` in a browser to use it. No install step is required.
 

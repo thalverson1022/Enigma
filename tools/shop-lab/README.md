@@ -1,6 +1,6 @@
 # Shop Lab
 
-Shop Lab is a client-only browser tool for testing CrystalMaiden shop gear generation and reroll feel.
+Shop Lab is a client-only browser tool for testing DawnBringer shop gear generation and reroll feel.
 
 Open `index.html` in a browser to use it. No install step is required.
 

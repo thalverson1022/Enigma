@@ -1,6 +1,6 @@
 # Balance Lab
 
-Balance Lab is a local browser tool for running and reading CrystalMaiden balance reports.
+Balance Lab is a local browser tool for running and reading DawnBringer balance reports.
 
 Start the local bridge server from the repository root:
 
@@ -74,13 +74,13 @@ http://127.0.0.1:8787
 Run the Balance Lab suite directly:
 
 ```powershell
-& 'F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe' --headless --path 'F:\Data\Claude Projects\Project-CrystalMaiden\project' --log-file 'F:\Data\Claude Projects\Project-CrystalMaiden\project\reports\balance\latest\godot_run.log' -s res://scripts/tools/run_balance_suite.gd
+& 'F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe' --headless --path 'F:\Data\Claude Projects\Project-DawnBringer\project' --log-file 'F:\Data\Claude Projects\Project-DawnBringer\project\reports\balance\latest\godot_run.log' -s res://scripts/tools/run_balance_suite.gd
 ```
 
 Run the focused Balance Lab schema test:
 
 ```powershell
-& 'F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe' --headless --path 'F:\Data\Claude Projects\Project-CrystalMaiden\project' --log-file 'F:\Data\Claude Projects\Project-CrystalMaiden\project\reports\balance\test\balance_lab_test.log' -s res://tests/balance_lab_test.gd
+& 'F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe' --headless --path 'F:\Data\Claude Projects\Project-DawnBringer\project' --log-file 'F:\Data\Claude Projects\Project-DawnBringer\project\reports\balance\test\balance_lab_test.log' -s res://tests/balance_lab_test.gd
 ```
 
 Use absolute `--log-file` paths. Relative log paths can be interpreted under `user://` by Godot and fail before a test script loads.
@@ -96,7 +96,7 @@ Known successful M7 closeout baseline:
 The bridge defaults to this command:
 
 ```powershell
-& 'F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe' --headless --path 'F:\Data\Claude Projects\Project-CrystalMaiden\project' --log-file 'F:\Data\Claude Projects\Project-CrystalMaiden\project\reports\balance\latest\godot_run.log' -s res://scripts/tools/run_balance_suite.gd
+& 'F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe' --headless --path 'F:\Data\Claude Projects\Project-DawnBringer\project' --log-file 'F:\Data\Claude Projects\Project-DawnBringer\project\reports\balance\latest\godot_run.log' -s res://scripts/tools/run_balance_suite.gd
 ```
 
 Optional environment variables:

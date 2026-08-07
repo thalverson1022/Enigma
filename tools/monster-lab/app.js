@@ -843,7 +843,7 @@ function previewHit() {
 
 function renderExport() {
   const exportModel = {
-    project: "CrystalMaiden",
+    project: "DawnBringer",
     tool: "Monster Lab",
     monster: {
       id: state.monster.id,

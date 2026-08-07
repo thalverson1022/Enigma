@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-08-07T11:08:14",
+	"generated_at": "2026-08-07T14:51:58",
 	"mechanics": [
 		{
 			"id": "bandit_physical_multiplier",
@@ -146,9 +146,9 @@
 	],
 	"mechanics_count": 13,
 	"metadata": {
-		"generated_at": "2026-08-07T11:08:14",
+		"generated_at": "2026-08-07T14:51:58",
 		"mechanics_count": 13,
-		"project": "CrystalMaiden",
+		"project": "DawnBringer",
 		"scenario_count": 6,
 		"seed_count": 1200,
 		"source": {
@@ -170,7 +170,7 @@
 		"tool": "Balance Lab",
 		"version": "0.1.0"
 	},
-	"project": "CrystalMaiden",
+	"project": "DawnBringer",
 	"scenario_count": 6,
 	"scenarios": [
 		{

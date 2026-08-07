@@ -5,7 +5,7 @@ const BalanceLab = preload("res://scripts/tools/balance_lab.gd")
 
 func _initialize() -> void:
 	var report := BalanceLab.run_suite()
-	assert(report["project"] == "CrystalMaiden")
+	assert(report["project"] == "DawnBringer")
 	assert(report["tool"] == "Balance Lab")
 	assert(report["status"] == "pass")
 	assert(report["status_counts"]["pass"] >= 19)

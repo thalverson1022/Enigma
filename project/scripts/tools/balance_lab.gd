@@ -2,7 +2,7 @@ class_name BalanceLab
 extends RefCounted
 
 const VERSION := "0.1.0"
-const PROJECT_NAME := "CrystalMaiden"
+const PROJECT_NAME := "DawnBringer"
 const TOOL_NAME := "Balance Lab"
 const DEFAULT_SEED_COUNT := 200
 const STATUS_SEMANTICS := {
@@ -599,14 +599,14 @@ static func _dashboard_html(report: Dictionary) -> String:
 		"<head>",
 		"<meta charset=\"utf-8\">",
 		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
-		"<title>CrystalMaiden Balance Lab</title>",
+		"<title>DawnBringer Balance Lab</title>",
 		"<style>",
 		":root{color-scheme:dark;--bg:#161514;--panel:#24211d;--ink:#f0e0c2;--muted:#b9aa8e;--line:#6f6047;--good:#72c05b;--warn:#d2a23e;--bad:#d85f4c;--accent:#e0a34f;}",
 		"*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,Segoe UI,sans-serif;}header{padding:22px 28px;border-bottom:1px solid var(--line);background:#1d1b18;}h1{margin:0 0 4px;font-size:26px;}h2{margin:0 0 12px;font-size:18px;}main{padding:22px 28px;display:grid;gap:18px;}section{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:16px;}table{width:100%;border-collapse:collapse;}th,td{text-align:left;padding:8px 9px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top;}th{color:var(--muted);font-weight:600}.status{font-weight:700;text-transform:uppercase}.pass{color:var(--good)}.warn{color:var(--warn)}.fail{color:var(--bad)}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.card{border:1px solid rgba(255,255,255,.10);border-radius:8px;padding:12px;background:#1b1916}.metric{font-size:24px;font-weight:750}.muted{color:var(--muted)}.bars{display:grid;gap:10px}.bar-row{display:grid;grid-template-columns:260px 1fr 90px;gap:12px;align-items:center}.bar-track{height:14px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:3px;overflow:hidden}.bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),#73bd6b)}code{color:#f5c16c}",
 		"</style>",
 		"</head>",
 		"<body>",
-		"<header><h1>CrystalMaiden Balance Lab</h1><div class=\"muted\">Generated <code id=\"generated\"></code> | Version <code id=\"version\"></code></div></header>",
+		"<header><h1>DawnBringer Balance Lab</h1><div class=\"muted\">Generated <code id=\"generated\"></code> | Version <code id=\"version\"></code></div></header>",
 		"<main>",
 		"<section><h2>Suite Health</h2><div class=\"cards\" id=\"health\"></div></section>",
 		"<section><h2>Status Semantics</h2><table><thead><tr><th>Status</th><th>Meaning</th></tr></thead><tbody id=\"status-semantics\"></tbody></table></section>",
