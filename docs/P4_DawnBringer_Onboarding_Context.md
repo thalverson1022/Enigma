@@ -1,99 +1,67 @@
 # Project DawnBringer Onboarding Context
 
-## Purpose
+## Read First
 
-Read this first when planning Phase 4. It is the compact handoff from Project
-CrystalMaiden, not a full history. Use the copied Phase 3 closeout and
-technical-debt docs only when more detail is needed.
+This is the lean handoff for Project DawnBringer, the standalone Phase 4 repo.
+Use it to orient a new conversation quickly. For detailed milestone status, read
+`docs/P4_DawnBringer_Milestone_Tracker.md`.
 
-## Project Identity
+## Project State
 
-Phase naming follows Dota 2 heroes by first letter:
+- Repo root: `F:\Data\Claude Projects\Project-DawnBringer`
+- Godot project: `F:\Data\Claude Projects\Project-DawnBringer\project\project.godot`
+- Godot version: 4.7
+- Godot executable: `F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe`
+- Active/default branch: `phase-4-dawnbringer`
+- Origin: `https://github.com/thalverson1022/DawnBringer.git`
+- Historical upstream: `https://github.com/thalverson1022/Bane.git`
+- Imported baseline tag: `dawnbringer-start`
 
-- Phase 1: Project Abaddon, React alpha/prototype.
-- Phase 2: Project Bane, Godot 4.x rebuild of the Rogue adventure loop.
-- Phase 3: Project CrystalMaiden, polish/juice/usability/export closeout.
-- Phase 4: Project DawnBringer, next phase to plan.
+DawnBringer is standalone. CrystalMaiden remains the hosted playtest baseline.
 
-Phase 3 active repo was:
+## Phase 4 Goal
 
-- Workspace: `F:\Data\Claude Projects\Project-CrystalMaiden`
-- Godot project: `F:\Data\Claude Projects\Project-CrystalMaiden\project`
-- Branch: `phase-3-crystalmaiden`
-- Remote: `https://github.com/thalverson1022/Bane.git`
-- Latest pushed Phase 3 fix: `6c4477b Fix web audio unlock for itch build`
+Rework and implement procedurally generated contracts and contract routes as a
+core main-loop system.
 
-## Phase 3 Final State
+Target experience:
 
-Project CrystalMaiden is complete. It closed with a browser-playable Godot Web
-export for itch.io, focused regression checks, Balance Lab validation, and a
-web-audio unlock fix after live itch testing showed muted audio.
+1. Generate readable enemy encounters with distinct defensive identities.
+2. Present multiple contract-route paths with useful preview information.
+3. Let players avoid bad matchups and seek favorable fights for their build.
+4. Reward routing with resources, gear, talents, and synergies.
+5. Scale toward harder fights while preserving deterministic combat resolution.
 
-Playable focus remains the Rogue Adventure:
+The first real milestone is the enemy defense vocabulary. The user has worked
+out the new defense list and will provide it during P4M1 planning.
 
-1. Title.
-2. Adventure mode.
-3. Rogue class and subclass choice.
-4. Tavern encounter ladder.
-5. Rewards, shop, gear, talents, and rotation decisions.
-6. The Gilded Serpent contract offer.
-7. Secondary subclass choice.
-8. Contract route choices.
-9. Knives Legendary reward.
-10. Vyra climax.
-11. Contract victory, failure, or restart state.
+## Current Milestones
 
-Practice Room is also important. It supports isolated Rogue build testing,
-talents, rotation editing, rarity-first gear editing, Legendary selection,
-target controls, animated combat playback, recap, and Combat Log review without
-mutating Adventure state.
+Use `docs/P4_DawnBringer_Milestone_Tracker.md` as the source of truth.
 
-## What Phase 3 Added
+- P4M0: Setup And Procedural Contracts Plan. Complete.
+- P4M1: Enemy Defense Vocabulary. Next.
+- P4M2: Monster Lab Defense And Generation Prototype.
+- P4M3: Runtime Monster Generator.
+- P4M4: Encounter Preview And Matchup Readability.
+- P4M5: Procedural Contract Route Generator.
+- P4M6: Procedural Contract Integration.
+- P4M7: Rewards, Resources, And Route Economy.
+- P4M8: Contract Variety And Content Expansion.
+- P4M9: Regression, Export, And Phase 4 Closeout.
 
-- Combat playback juice: clearer cast timing, hit/crit/poison/proc feedback,
-  persistent enemy state reads, victory/defeat beats, sprite mappings, icons,
-  and playback controls.
-- Combat recap/failure clarity: shared recap model, Combat Log inspector,
-  readable structured logs, result overlays, retry/restart clarity, and
-  Practice Room result invalidation.
-- Build/rotation UX: 10-slot Skill Build cap/count, stable lock lane, empty
-  rotation guardrails, selected/disabled/talent dependency feedback, and shared
-  build language.
-- Shop/inventory UX: shop-phase buying, selling, equipping, unequipping,
-  rerolling with scaling cost, buy-to-inventory clarity, and full-inventory
-  reward blocking.
-- Adventure flow polish: reusable flow language, select-then-commit patterns,
-  title/entry cleanup, reward/shop/build/talent handoff cleanup, terminal state
-  clarity, route commit copy, and Rogue death-animation defeat beat.
-- Practice Room finish pass: learning-oriented framing, target floor/scale
-  alignment, and audit-confirmed setup/playback/log parity.
-- Balance Lab hardening: local `tools/balance-lab` app, dependency-free Node
-  bridge, report rendering, CrystalMaiden metadata, repeatability checks, and
-  context-rich mechanics diagnostics.
-- Audio/polish sweep: Earth & Iron UI chrome, shared settings/audio menu,
-  Master/Music/Effects volumes, menu/Tavern/contract ambience, attack/button/
-  shop SFX, blocked-action feedback pulse, and subtle Tavern/contract motion.
-- Export closeout: Godot Web export preset, export-only icon loading fixes,
-  static audio bus layout, and web audio unlock on first in-game gesture.
+## Important Existing Surfaces
 
-## Verification Baseline
+- Adventure mode is the main loop: title, class/subclass selection, Tavern
+  ladder, rewards, shop, build/talent decisions, contract offer, route choices,
+  Legendary reward, climax, and victory/failure/restart states.
+- Practice Room is important for isolated Rogue build testing without mutating
+  Adventure state.
+- Monster Lab is the intended design sandbox for generated enemies.
+- Balance Lab is the verification gate for combat, balance, route pressure, and
+  reward pacing changes.
 
-Use Godot 4.7 on this machine:
-
-`F:\Applications\Godot\Godot_v4.7-stable_win64_console.exe`
-
-Latest Phase 3 confidence results:
-
-- Focused regression passed for settings/audio, class select/export scan,
-  combat screen/HUD/recap/playback, reward/shop/route/contract flow, save/load
-  UI, failure/outcome presentation, build panels, rotation geometry, and
-  Practice Room surfaces.
-- `combat_playback_test.gd` and `export_shadow_probe.gd` have known restricted
-  sandbox/user-data caveats, but passed outside that restriction.
-- Balance Lab final pass: `19 pass, 0 warn, 0 fail`.
-- `balance_lab_test.gd` passed.
-- Web export loaded locally with title `Project CrystalMaiden`, Godot canvas
-  present, and no fresh console errors before upload.
+## Verification Notes
 
 Known non-blocking Godot output:
 
@@ -101,61 +69,29 @@ Known non-blocking Godot output:
 - ObjectDB/RID/resource cleanup warnings at exit.
 
 Run Balance Lab when Phase 4 touches combat timing, event ordering, build
-resolution, skill/talent/gear resources, enemy data, or balance-relevant data.
+resolution, skill/talent/gear resources, enemy data, generated difficulty,
+poison/proc behavior, rewards, or route pressure.
 
-## Itch/Web Export Notes
+Recent setup verification:
 
-Final generated artifact path in CrystalMaiden:
+- Godot project imported and opened as Project DawnBringer.
+- Headless project load succeeded after Godot generated local import cache.
+- `balance_lab_test.gd` passed after project identity rename.
 
-`project/export/web/project-crystalmaiden-itch.zip`
+## Working Agreements
 
-Export artifacts are ignored by Git. The itch page used for playtest was:
-
-`https://eigenv3ctor.itch.io/peak-deeps`
-
-The first live upload ran, but audio was muted because web audio started before
-a Godot-canvas gesture. Phase 3 fixed this in source by queueing requested
-ambience until click/key/touch and adding `project/default_bus_layout.tres`
-with `Master`, `Music`, and `Effects`.
-
-## Phase 4 Planning Direction
-
-Phase 3 deliberately deferred deeper systems work. Phase 4 should decide which
-of these becomes the main spine:
-
-- Contract/town-map redesign: more open-world-feeling structure, procedural or
-  authored contract expansion, better route/node data, and less reliance on the
-  current linear Gilded Serpent scaffold.
-- Buildcraft/mechanics expansion: new skills, talents, Legendary effects,
-  enemy profiles, and clearer counterplay.
-- Balance pacing: use Balance Lab as the gate for DPS checks, duration tuning,
-  poison/proc behavior, rewards, and route pressure.
-- Production presentation: broader art/audio direction, final UI assets,
-  backgrounds, portraits, animations, and replaceable sourced audio.
-
-Useful Phase 3 deferred technical triggers:
-
-- Move route-node stage positions from hardcoded map logic onto authored
-  `ContractRouteNode` data when a second contract starts.
-- Move Tavern/contract flavor text from monster display-name matching to IDs.
-- Decide save-version policy before a version bump.
-- Decide a general Legendary visual-effect pattern before adding a third
-  Legendary-specific effect.
-- Consider unifying Adventure and Practice Room popup implementations.
-
-## Working Agreements To Preserve
-
-- Start implementation phases/milestones with Task 0 planning.
-- Keep docs current, but keep onboarding compact.
+- Start implementation milestones with planning.
+- Keep docs current, but keep onboarding lean.
 - Prefer conservative, scoped Godot changes that match existing patterns.
-- Preserve deterministic combat behavior unless a task explicitly changes
-  mechanics.
+- Preserve deterministic combat unless a task explicitly changes mechanics.
 - Do not over-generalize before the second real use case exists.
 - Commit one logical risky extraction or system change at a time.
+- Keep CrystalMaiden history available as reference, but do not let old context
+  dominate DawnBringer planning.
 
-## Copied Reference Docs
+## Reference Docs
 
-- `P3M9_Regression_Export_And_Phase_3_Closeout.md`: final verification, export,
-  itch.io, and closeout record.
-- `P3_Technical_Debt_Architecture_Cleanup.md`: completed architecture cleanup,
-  remaining deferred refactor triggers, and Godot/GDScript gotchas.
+- `docs/P4_DawnBringer_Milestone_Tracker.md`: living Phase 4 tracker.
+- `docs/P4M0_Task_0_Procedural_Contracts_Plan.md`: initial Phase 4 plan.
+- `docs/P3M9_Regression_Export_And_Phase_3_Closeout.md`: Phase 3 closeout.
+- `docs/P3_Technical_Debt_Architecture_Cleanup.md`: deferred technical triggers.

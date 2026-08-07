@@ -22,6 +22,9 @@ The core loop target is:
 
 ## Milestone Order
 
+Detailed status lives in `P4_DawnBringer_Milestone_Tracker.md`. This plan keeps
+the implementation sequence and design intent.
+
 ### P4M1: Enemy Defense Vocabulary
 
 Define and implement the new list of enemy defenses.
@@ -60,7 +63,19 @@ Deliverables:
 - tests for repeatability and difficulty bands;
 - integration with existing combat resolver without changing unrelated mechanics.
 
-### P4M4: Procedural Contract Route Generation
+### P4M4: Encounter Preview And Matchup Readability
+
+Make enemy defenses and route choices readable before the player commits.
+
+Deliverables:
+
+- encounter preview panel;
+- defense icons, labels, and descriptions;
+- threat and reward summary;
+- subtle build-affinity hints where useful;
+- combat screen support for new defense states.
+
+### P4M5: Procedural Contract Route Generation
 
 Generate route maps that create real strategic decisions.
 
@@ -72,7 +87,7 @@ Deliverables:
 - authored constraints for boss, elite, shop, rest, and resource nodes;
 - deterministic generation tests.
 
-### P4M5: Adventure Integration
+### P4M6: Adventure Integration
 
 Replace or extend the current bespoke contract path with procedural contracts.
 
@@ -83,6 +98,42 @@ Deliverables:
 - save/load policy for generated contract state;
 - failure/restart behavior;
 - regression pass through Rogue adventure and Practice Room surfaces.
+
+### P4M7: Rewards, Resources, And Route Economy
+
+Make routing matter beyond surviving the next fight.
+
+Deliverables:
+
+- reward tables tied to encounter difficulty;
+- resource pacing;
+- gear, shop, and talent pressure tuning;
+- risk/reward rules for harder paths;
+- Balance Lab thresholds for route economy.
+
+### P4M8: Contract Variety And Content Expansion
+
+Add enough variety that procedural contracts feel like a repeatable system.
+
+Deliverables:
+
+- additional enemy archetypes;
+- additional contract themes or factions;
+- more route modifiers;
+- elite and boss variants;
+- encounter naming and flavor rules.
+
+### P4M9: Regression, Export, And Phase 4 Closeout
+
+Stabilize, playtest, export, and close the phase.
+
+Deliverables:
+
+- focused regression pass;
+- Balance Lab final pass;
+- web export;
+- local or itch smoke test;
+- closeout doc and next-phase technical debt notes.
 
 ## Design Constraints
 
