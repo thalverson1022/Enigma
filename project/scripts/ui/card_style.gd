@@ -37,9 +37,94 @@ static func make_stylebox(content_margin: int = 16) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = UIColors.PANEL
 	style.border_color = UIColors.PANEL_BORDER
-	style.set_border_width_all(2)
+	style.set_border_width_all(3)
+	style.border_width_top = 2
+	style.border_width_left = 2
+	style.border_width_right = 4
+	style.border_width_bottom = 5
+	style.border_blend = true
 	style.set_corner_radius_all(8)
 	style.set_content_margin_all(content_margin)
+	style.shadow_color = UIColors.PANEL_DROP_SHADOW
+	style.shadow_size = 7
+	style.shadow_offset = Vector2(0, 3)
+	return style
+
+
+static func make_action_button_stylebox(bg: Color, border: Color, state_name: String = "normal") -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_color = border
+	style.set_border_width_all(3)
+	style.border_width_top = 2
+	style.border_width_left = 2
+	style.border_width_right = 4
+	style.border_width_bottom = 5
+	style.border_blend = true
+	style.set_corner_radius_all(6)
+	style.shadow_color = UIColors.PANEL_DROP_SHADOW
+	style.shadow_size = 5
+	style.shadow_offset = Vector2(0, 3)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 9
+	style.content_margin_bottom = 12
+	if state_name == "pressed":
+		style.border_width_top = 5
+		style.border_width_left = 4
+		style.border_width_right = 2
+		style.border_width_bottom = 2
+		style.border_color = UIColors.BUTTON_EDGE_SHADOW if border == UIColors.PANEL_BORDER else border
+		style.shadow_size = 1
+		style.shadow_offset = Vector2(0, 1)
+		style.content_margin_top = 12
+		style.content_margin_bottom = 9
+	elif state_name == "hover" or state_name == "focus":
+		style.border_color = UIColors.BUTTON_EDGE_LIGHT
+		style.shadow_color = UIColors.BUTTON_INNER_GLOW
+		style.shadow_size = 7
+	elif state_name == "disabled":
+		style.border_width_top = 1
+		style.border_width_left = 1
+		style.border_width_right = 2
+		style.border_width_bottom = 2
+		style.shadow_size = 1
+		style.shadow_offset = Vector2(0, 1)
+		style.content_margin_top = 10
+		style.content_margin_bottom = 10
+	return style
+
+
+static func make_slot_stylebox(fill: Color, border: Color, border_width: int = 2, state_name: String = "normal") -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill.darkened(0.08)
+	style.border_color = border
+	style.set_border_width_all(border_width)
+	style.border_width_top = max(1, border_width - 1)
+	style.border_width_left = max(1, border_width - 1)
+	style.border_width_right = border_width + 1
+	style.border_width_bottom = border_width + 2
+	style.border_blend = true
+	style.set_corner_radius_all(6)
+	style.shadow_color = Color(0, 0, 0, 0.36)
+	style.shadow_size = 3
+	style.shadow_offset = Vector2(0, 2)
+	if state_name == "hover" or state_name == "focus":
+		style.bg_color = fill
+		style.border_color = UIColors.SLOT_HOVER if border == UIColors.SLOT_BORDER else border
+		style.shadow_color = UIColors.BUTTON_INNER_GLOW
+		style.shadow_size = 5
+	elif state_name == "pressed":
+		style.bg_color = fill.darkened(0.18)
+		style.border_width_top = border_width + 1
+		style.border_width_left = border_width + 1
+		style.border_width_right = max(1, border_width - 1)
+		style.border_width_bottom = max(1, border_width - 1)
+		style.shadow_size = 1
+	elif state_name == "disabled":
+		style.bg_color = fill.darkened(0.35)
+		style.border_color = UIColors.TEXT_DISABLED
+		style.shadow_size = 0
 	return style
 
 
@@ -217,10 +302,7 @@ static func make_pixel_icon(texture: Texture2D, icon_size: Vector2 = SUBCLASS_IC
 static func talent_point_icon() -> Texture2D:
 	if _talent_point_icon != null:
 		return _talent_point_icon
-	var image := Image.new()
-	if image.load(TALENT_POINT_ICON_PATH) != OK:
-		return null
-	_talent_point_icon = ImageTexture.create_from_image(image)
+	_talent_point_icon = load(TALENT_POINT_ICON_PATH) as Texture2D
 	return _talent_point_icon
 
 
@@ -228,6 +310,21 @@ static func configure_icon_button(button: Button, texture: Texture2D, separation
 	button.icon = texture
 	button.expand_icon = false
 	button.add_theme_constant_override("h_separation", separation)
+
+
+static func pulse_blocked_control(control: Control, meta_key: String = "feedback_blocked_pulse") -> void:
+	if control == null or not control.is_inside_tree():
+		return
+	control.set_meta(meta_key, true)
+	control.pivot_offset = control.size * 0.5
+	var original_scale := control.scale
+	var original_modulate := control.modulate
+	control.modulate = UIColors.FEEDBACK_BLOCKED
+	var tween := control.create_tween()
+	tween.tween_property(control, "scale", Vector2(1.06, 1.06), 0.08)
+	tween.parallel().tween_property(control, "modulate", UIColors.FEEDBACK_BLOCKED, 0.08)
+	tween.tween_property(control, "scale", original_scale, 0.18)
+	tween.parallel().tween_property(control, "modulate", original_modulate, 0.18)
 
 
 static func make_icon_label_row(texture: Texture2D, text: String, icon_size: Vector2 = UI_ICON_SIZE) -> HBoxContainer:

@@ -75,12 +75,24 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	_require(view._combat_stage.enemy_sprite_available(), "Expected initial Practice Room stage to show the imported Practice Target sprite.")
 	_require(view._combat_stage._enemy_sprite.size == Vector2(32, 32), "Expected Practice Target sprite rect to stay at one 32px training-dummy frame, not stretch to the actor box.")
 	_require(view._combat_stage._enemy_sprite.scale == Vector2(view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE, view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE), "Expected Practice Target sprite to use the smaller Practice dummy scale.")
+	_require(not view._name_label.visible, "Expected Practice Room to hide the redundant upper-left target label.")
 	var dummy_anchor_y: float = view._combat_stage._sprite_anchor_point(view._combat_stage.enemy_actor_anchor, view._combat_stage._enemy_sprite, view._combat_stage.PRACTICE_DUMMY_ANCHOR_POINT).y
 	var shadow_center_y: float = view._combat_stage.enemy_actor_anchor.position.y + view._combat_stage._enemy_contact_shadow.position.y + view._combat_stage._enemy_contact_shadow.size.y * 0.5
 	_require(dummy_anchor_y > shadow_center_y + 10.0, "Expected Practice Target art to be lowered while its contact shadow stays on the shared floor line.")
-	_require(view._damage_label.text == "Damage: 0.0", "Expected initial Practice Room damage readout to be visible before fighting.")
+	_require(view._damage_label.text == "0.0", "Expected initial Practice Room damage value to be visible before fighting.")
+	var damage_icon := view._damage_label.get_parent().get_node_or_null("DamageIcon") as TextureRect
+	_require(damage_icon != null and damage_icon.texture != null, "Expected Practice Room damage readout to use the sword icon.")
+	_require(damage_icon.texture.resource_name == "PracticeDamageSwordIcon", "Expected Practice Room damage readout to use the copied sword icon.")
 	_require(view._info_label.text == "0", "Expected initial Practice Room armor readout to be visible before fighting.")
 	_require(view._resist_label.text == "0%", "Expected initial Practice Room poison resistance readout to be visible before fighting.")
+	_require(view._fight_timer_badge != null and view._fight_timer_badge.visible, "Expected Practice Room to show the Adventure-style fight timer badge.")
+	_require(view._fight_timer_badge.get_parent().name == "FightTimerCell", "Expected Practice Room fight timer to sit centered in the combat HUD lane.")
+	_require(view._fight_timer_badge.find_child("ClockIcon", true, false) != null, "Expected Practice Room fight timer to include the clock icon.")
+	_require(view._fight_timer_label.text == "20s", "Expected initial Practice Room fight timer to show the default 20s duration.")
+	_require(view._controls_row.visible, "Expected Practice Room playback controls to be permanently visible.")
+	_require(view._controls_row.find_child("PlaybackLabel", true, false) != null, "Expected Practice Room playback controls to include the playback label.")
+	_require(view._controls_row.find_child("TimeLabel", true, false) == null, "Expected Practice Room to remove the old tiny onscreen playback timer.")
+	_require(view._speed_buttons[0].disabled, "Expected Practice Room 1x playback speed to be selected by default.")
 	_require(view._status_row.alignment == BoxContainer.ALIGNMENT_END, "Expected Practice Room status chips to align to the right like Adventure.")
 	var initial_chips: PackedStringArray = []
 	for child in view._status_row.get_children():
@@ -121,7 +133,7 @@ func _check_damage_readout(view: TrainingRoomCombatView) -> void:
 	print("finished signal fired once (expect true): %s" % (_finished_count == before_count + 1))
 	_require(_finished_count == before_count + 1, "Expected exactly one finished emission per play() in instant mode.")
 
-	var expected_text := "Damage: %.1f" % result.total_damage
+	var expected_text := "%.1f" % result.total_damage
 	print("damage label=%s (expect %s)" % [view._damage_label.text, expected_text])
 	_require(view._damage_label.text == expected_text, "Damage readout should end at the fight's total damage.")
 	_require(view._name_label.text == monster.display_name, "Name label should show the target's display name.")
@@ -134,10 +146,13 @@ func _check_realtime_intro_gates_timeline(view: TrainingRoomCombatView) -> void:
 	var monster: Monster = result_and_monster[1]
 	monster.hp = 60
 	var before_count := _finished_count
+	var audio_manager = root.get_node("AudioManager")
+	var sfx_before_count: int = audio_manager.attack_sfx_play_count
 	view._instant_playback = false
 	view.play(result, monster)
 	_require(_finished_count == before_count, "Expected realtime Practice Room playback not to finish synchronously.")
 	_require(view._controls_row.visible, "Expected realtime Practice Room playback controls to stay visible during playback.")
+	_require(view._fight_timer_label.text == "8.0s", "Expected Practice Room fight timer to start counting down from the fight window.")
 	_require(view._playback_intro_remaining_sec > 0.0, "Expected realtime Practice Room playback to begin with an intro delay.")
 	_require(view._combat_stage.fight_intro_count == 1, "Expected Practice Room to request one shared fight intro from the stage.")
 	_require(view._playback.events_fired() == 0, "Expected no Practice Room events to fire before the intro advances.")
@@ -145,14 +160,17 @@ func _check_realtime_intro_gates_timeline(view: TrainingRoomCombatView) -> void:
 	view._process(view._playback_intro_duration_sec * 0.5)
 	_require(view._playback.events_fired() == 0, "Expected Practice Room events to stay gated during the intro.")
 	_require(is_equal_approx(view._playback.elapsed_ms(), 0.0), "Expected Practice Room combat time to stay at zero during the intro.")
+	_require(view._fight_timer_label.text == "8.0s", "Expected Practice Room timer to hold at the full duration during the intro.")
 	_require(_finished_count == before_count, "Expected Practice Room playback not to finish during the intro.")
 
 	view._process(view._playback_intro_remaining_sec + result.duration_ms / 1000.0 + 0.1)
 	_require(_finished_count == before_count, "Expected realtime Practice Room playback to hold briefly before emitting finished.")
+	_require(audio_manager.attack_sfx_play_count > sfx_before_count, "Expected realtime Practice Room physical attacks to play sword SFX.")
 	_require(view._playback == null, "Expected Practice Room playback to clear itself before the final hold.")
 	_require(view._combat_stage.outcome_pose == "", "Expected Practice Room to return to idle instead of showing a win/loss pose.")
 	_require(view._combat_stage.outcome_flash_count == 0, "Expected Practice Room to avoid Adventure-style outcome flashes.")
-	_require(not view._controls_row.visible, "Expected controls hidden during the Practice Room final hold.")
+	_require(view._controls_row.visible, "Expected Practice Room playback controls to stay visible during the final hold.")
+	_require(view._fight_timer_label.text == "8s", "Expected Practice Room timer to return to the configured duration after playback clears.")
 
 	await create_timer(view.OUTCOME_REVEAL_HOLD_SEC + 0.05).timeout
 	_require(_finished_count == before_count + 1, "Expected realtime Practice Room playback to emit finished after the outcome hold.")
@@ -193,7 +211,7 @@ func _check_skip_bypasses_realtime_outcome_hold(view: TrainingRoomCombatView) ->
 	view._skip_button.pressed.emit()
 	_require(_finished_count == before_count + 1, "Expected Practice Room skip to emit finished immediately.")
 	_require(view._playback == null, "Expected Practice Room skip to clear playback.")
-	_require(not view._controls_row.visible, "Expected Practice Room controls hidden after skip.")
+	_require(view._controls_row.visible, "Expected Practice Room controls to stay visible after skip.")
 	_require(view._combat_stage.outcome_pose == "", "Expected Practice Room skip to return both actors to idle, not a win/loss pose.")
 	_require(view._combat_stage.outcome_flash_count == 0, "Expected Practice Room skip to avoid Adventure-style outcome flashes.")
 	_require(view._combat_stage.practice_dummy_reaction_count > before_reaction_count, "Expected damaging Practice Room hits to request a random training dummy reaction.")

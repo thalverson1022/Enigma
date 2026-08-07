@@ -104,14 +104,14 @@ class TimelineChart:
 	const MAX_BAR_H := 22.0
 	const MIN_DOT_RADIUS := 3.0
 	const MAX_DOT_RADIUS := 8.0
-	const CAST_COLOR := Color(0.55, 0.64, 0.70, 0.92)
-	const POISON_COLOR := Color(0.47, 0.78, 0.30, 0.95)
-	const PROC_COLOR := Color(0.60, 0.32, 0.88, 0.95)
-	const GRID_COLOR := Color(0.75, 0.66, 0.50, 0.32)
-	const LINE_COLOR := Color(0.85, 0.78, 0.62, 0.36)
-	const TEXT_COLOR := Color(0.88, 0.82, 0.68, 1.0)
-	const CRIT_COLOR := Color(1.0, 0.78, 0.22, 1.0)
-	const CONTACT_COLOR := Color(0.82, 0.94, 1.0, 1.0)
+	const CAST_COLOR := UIColors.COMBAT_CHART_CAST
+	const POISON_COLOR := UIColors.COMBAT_CHART_POISON
+	const PROC_COLOR := UIColors.COMBAT_CHART_PROC
+	const GRID_COLOR := UIColors.COMBAT_CHART_GRID
+	const LINE_COLOR := UIColors.COMBAT_CHART_LINE
+	const TEXT_COLOR := UIColors.COMBAT_CHART_TEXT
+	const CRIT_COLOR := UIColors.COMBAT_CHART_CRIT
+	const CONTACT_COLOR := UIColors.COMBAT_CHART_CONTACT
 
 	var _rows: Array = []
 	var _duration_ms := 0
@@ -151,10 +151,10 @@ class TimelineChart:
 					var bar_h := _bar_height(float(entry["damage"]))
 					var bar_rect := Rect2(Vector2(start_x, y - bar_h * 0.5), Vector2(maxf(end_x - start_x, 3.0), bar_h))
 					draw_rect(bar_rect, color, true)
-					draw_rect(bar_rect, Color(0.95, 0.90, 0.78, 0.32), false, 1.0)
+					draw_rect(bar_rect, UIColors.COMBAT_CHART_BAR_BORDER, false, 1.0)
 					draw_line(Vector2(end_x, y - maxf(bar_h * 0.7, 8.0)), Vector2(end_x, y + maxf(bar_h * 0.7, 8.0)), CONTACT_COLOR, 2.0)
 					if bool(entry["has_armor"]):
-						_draw_mechanic_pip(Vector2(end_x - 7.0, y - bar_h * 0.5 - 8.0), Color(0.45, 0.72, 1.0, 1.0))
+						_draw_mechanic_pip(Vector2(end_x - 7.0, y - bar_h * 0.5 - 8.0), UIColors.COMBAT_CHART_ARMOR)
 					if bool(entry["is_crit"]):
 						_draw_star(Vector2(end_x + 10.0, y - bar_h * 0.5 - 8.0), 6.0)
 
@@ -196,7 +196,7 @@ class TimelineChart:
 
 	func _draw_star(center: Vector2, radius: float) -> void:
 		draw_circle(center, radius, CRIT_COLOR)
-		draw_circle(center, radius * 0.45, Color(0.35, 0.20, 0.05, 1.0))
+		draw_circle(center, radius * 0.45, UIColors.COMBAT_CHART_CRIT_INNER)
 
 	func _draw_mechanic_pip(center: Vector2, color: Color) -> void:
 		var points := PackedVector2Array([
@@ -218,7 +218,7 @@ class TimelineChart:
 		var fill := PROC_COLOR if String(row["kind"]) == InspectorData.KIND_PROC else CAST_COLOR
 		draw_rect(Rect2(position, Vector2(24, 24)), fill, true)
 		draw_rect(Rect2(position, Vector2(24, 24)), TEXT_COLOR, false, 1.0)
-		draw_string(font, position + Vector2(7, 17), glyph, HORIZONTAL_ALIGNMENT_LEFT, 24, font_size, Color(0.08, 0.08, 0.08, 1.0))
+		draw_string(font, position + Vector2(7, 17), glyph, HORIZONTAL_ALIGNMENT_LEFT, 24, font_size, UIColors.COMBAT_CHART_ICON_TEXT)
 
 
 class DamageChart:
@@ -229,12 +229,12 @@ class DamageChart:
 	const TOP_PAD := 6.0
 	const ROW_H := 28.0
 	const BAR_H := 14.0
-	const CAST_COLOR := Color(0.55, 0.64, 0.70, 0.92)
-	const POISON_COLOR := Color(0.47, 0.78, 0.30, 0.95)
-	const PROC_COLOR := Color(0.60, 0.32, 0.88, 0.95)
-	const TEXT_COLOR := Color(0.88, 0.82, 0.68, 1.0)
-	const VALUE_COLOR := Color(1.0, 0.78, 0.34, 1.0)
-	const LINE_COLOR := Color(0.85, 0.78, 0.62, 0.26)
+	const CAST_COLOR := UIColors.COMBAT_CHART_CAST
+	const POISON_COLOR := UIColors.COMBAT_CHART_POISON
+	const PROC_COLOR := UIColors.COMBAT_CHART_PROC
+	const TEXT_COLOR := UIColors.COMBAT_CHART_TEXT
+	const VALUE_COLOR := UIColors.COMBAT_CHART_VALUE
+	const LINE_COLOR := UIColors.COMBAT_CHART_LINE_SOFT
 
 	var _rows: Array = []
 
@@ -260,9 +260,9 @@ class DamageChart:
 			var fill_width := maxf((damage / max_damage) * bar_width, 3.0)
 			var color := _color_for_kind(String(row["kind"]))
 			var rect := Rect2(Vector2(LEFT_PAD, y - BAR_H * 0.5), Vector2(fill_width, BAR_H))
-			draw_rect(Rect2(Vector2(LEFT_PAD, y - BAR_H * 0.5), Vector2(bar_width, BAR_H)), Color(0.08, 0.08, 0.08, 0.75), true)
+			draw_rect(Rect2(Vector2(LEFT_PAD, y - BAR_H * 0.5), Vector2(bar_width, BAR_H)), UIColors.COMBAT_CHART_BAR_BG, true)
 			draw_rect(rect, color, true)
-			draw_rect(rect, Color(0.95, 0.90, 0.78, 0.28), false, 1.0)
+			draw_rect(rect, UIColors.COMBAT_CHART_BAR_BORDER_SOFT, false, 1.0)
 			draw_string(font, Vector2(LEFT_PAD + bar_width + 12.0, y + 5), "%.0f" % damage, HORIZONTAL_ALIGNMENT_LEFT, RIGHT_PAD - 12.0, font_size, VALUE_COLOR)
 
 	func _color_for_kind(kind: String) -> Color:
@@ -282,4 +282,4 @@ class DamageChart:
 		var fill := _color_for_kind(String(row["kind"]))
 		draw_rect(Rect2(position, Vector2(24, 24)), fill, true)
 		draw_rect(Rect2(position, Vector2(24, 24)), TEXT_COLOR, false, 1.0)
-		draw_string(font, position + Vector2(7, 17), glyph, HORIZONTAL_ALIGNMENT_LEFT, 24, font_size, Color(0.08, 0.08, 0.08, 1.0))
+		draw_string(font, position + Vector2(7, 17), glyph, HORIZONTAL_ALIGNMENT_LEFT, 24, font_size, UIColors.COMBAT_CHART_ICON_TEXT)

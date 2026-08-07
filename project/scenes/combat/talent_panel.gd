@@ -18,7 +18,6 @@ const CARD_TITLE_FONT_SIZE := 20
 const SUBCLASS_LABEL_FONT_SIZE := 30
 const INTRINSIC_LABEL_FONT_SIZE := 16
 const SECONDARY_CHOICE_CARD_WIDTH := 330
-const POINTS_FONT_SIZE := 24
 const NODE_FONT_SIZE := 19
 const NODE_DETAIL_FONT_SIZE := 15
 const NODE_ROW_SEPARATION := 24
@@ -28,9 +27,9 @@ const TREE_COLUMN_SEPARATION := 24
 const CONNECTOR_COLOR := UIColors.STRUCTURE_LINE_LIGHT
 const UNAVAILABLE_ALPHA := 0.45
 const TREE_ICON_SIZE := Vector2(54, 54)
-const SELECTED_NODE_FILL := Color(0.24, 0.32, 0.15, 0.96)
+const SELECTED_NODE_FILL := UIColors.TALENT_SELECTED_BG
 const DEPENDENCY_PULSE_SCALE := Vector2(1.06, 1.06)
-const DEPENDENCY_PULSE_COLOR := Color(1.0, 0.95, 0.68, 1.0)
+const DEPENDENCY_PULSE_COLOR := UIColors.TALENT_DEPENDENCY_PULSE
 
 ## P2:R10: the reused build-panel state source. Defaults to the real
 ## `BuildState` singleton (Adventure's actual behavior, unchanged), but
@@ -41,7 +40,6 @@ const DEPENDENCY_PULSE_COLOR := Color(1.0, 0.95, 0.68, 1.0)
 var state = BuildState
 
 var _talent_box: VBoxContainer
-var _points_label: Label
 var _talent_buttons: Dictionary = {}
 var _talent_pulse_tweens: Dictionary = {}
 var _last_dependency_blocked_talent: Talent = null
@@ -78,37 +76,16 @@ class TalentCircles:
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", CardStyle.make_stylebox())
+	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 4)
 	add_child(content)
 
-	var title := Label.new()
-	title.text = "Talents"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title.theme_type_variation = &"PanelHeader"
-	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	content.add_child(title)
-
 	_talent_box = VBoxContainer.new()
 	_talent_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_talent_box.add_theme_constant_override("separation", 2)
 	content.add_child(_talent_box)
-
-	var footer := HBoxContainer.new()
-	var footer_spacer := Control.new()
-	footer_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(footer_spacer)
-	var points_icon := CardStyle.make_pixel_icon(CardStyle.talent_point_icon(), Vector2(22, 22))
-	points_icon.tooltip_text = "Talent points spent / earned"
-	footer.add_child(points_icon)
-	_points_label = Label.new()
-	_points_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_points_label.tooltip_text = "Talent points spent / earned"
-	_points_label.add_theme_font_size_override("font_size", POINTS_FONT_SIZE)
-	footer.add_child(_points_label)
-	content.add_child(footer)
 
 	state.build_changed.connect(_refresh)
 	if state.has_signal("run_state_changed"):
@@ -126,9 +103,11 @@ func _refresh() -> void:
 	_last_dependency_pulse_talents.clear()
 	for child in _talent_box.get_children():
 		child.queue_free()
+	if _uses_practice_tree_slots():
+		_build_practice_tree_slots()
+		return
 	if state.selected_trees.is_empty():
 		_build_empty_state()
-		_refresh_points_label()
 		return
 	_talent_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	var tree_row := HBoxContainer.new()
@@ -141,7 +120,60 @@ func _refresh() -> void:
 		_build_tree(state.selected_trees[i], tree_row, "Primary" if i == 0 else "Secondary")
 	if state.selected_trees.size() < 2:
 		_build_locked_secondary_column(tree_row)
-	_refresh_points_label()
+
+
+func _uses_practice_tree_slots() -> bool:
+	return state.has_method("set_primary_tree") and state.has_method("set_secondary_tree") and state.has_method("tree_at_slot")
+
+
+func _build_practice_tree_slots() -> void:
+	_talent_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	var tree_row := HBoxContainer.new()
+	tree_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tree_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tree_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	tree_row.add_theme_constant_override("separation", TREE_COLUMN_SEPARATION)
+	_talent_box.add_child(tree_row)
+
+	_build_practice_tree_slot(0, "Primary", tree_row)
+	_build_practice_tree_slot(1, "Secondary", tree_row)
+
+
+func _build_practice_tree_slot(slot_index: int, role: String, parent: Container) -> void:
+	var tree: SubclassTree = state.tree_at_slot(slot_index)
+	var section_panel := _build_tree_column_frame(role, tree == null)
+	parent.add_child(section_panel)
+
+	var section := section_panel.get_node("Content") as VBoxContainer
+	section.add_theme_constant_override("separation", 12)
+	section.add_child(_build_practice_tree_picker(slot_index))
+	if tree == null:
+		return
+	_populate_tree_column_content(tree, section)
+
+
+func _build_practice_tree_picker(slot_index: int) -> OptionButton:
+	var option := OptionButton.new()
+	option.name = "PrimaryTreeOption" if slot_index == 0 else "SecondaryTreeOption"
+	option.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	option.custom_minimum_size = Vector2(160, 0)
+	option.add_item("None")
+	if state.selected_class != null:
+		for tree in state.selected_class.trees:
+			option.add_item(tree.display_name)
+	var selected_tree: SubclassTree = state.tree_at_slot(slot_index)
+	if selected_tree == null or state.selected_class == null:
+		option.select(0)
+	else:
+		option.select(state.selected_class.trees.find(selected_tree) + 1)
+	option.item_selected.connect(func(index: int):
+		var tree: SubclassTree = null if index == 0 else state.selected_class.trees[index - 1]
+		if slot_index == 0:
+			state.set_primary_tree(tree)
+		else:
+			state.set_secondary_tree(tree)
+	)
+	return option
 
 
 func _build_empty_state() -> void:
@@ -155,20 +187,15 @@ func _build_empty_state() -> void:
 
 
 func _build_tree(tree: SubclassTree, parent: Container, role: String) -> void:
-	var section := VBoxContainer.new()
+	var section_panel := _build_tree_column_frame(role, false)
+	parent.add_child(section_panel)
+
+	var section := section_panel.get_node("Content") as VBoxContainer
 	section.add_theme_constant_override("separation", 12)
-	section.custom_minimum_size = Vector2(TREE_COLUMN_WIDTH, TREE_COLUMN_MIN_HEIGHT)
-	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	section.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	parent.add_child(section)
+	_populate_tree_column_content(tree, section)
 
-	var role_label := Label.new()
-	role_label.text = role
-	role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	role_label.add_theme_font_size_override("font_size", 13)
-	role_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
-	section.add_child(role_label)
 
+func _populate_tree_column_content(tree: SubclassTree, section: VBoxContainer) -> void:
 	var tree_header := HBoxContainer.new()
 	tree_header.alignment = BoxContainer.ALIGNMENT_CENTER
 	tree_header.add_theme_constant_override("separation", 12)
@@ -215,21 +242,12 @@ func _build_tree(tree: SubclassTree, parent: Container, role: String) -> void:
 
 
 func _build_locked_secondary_column(parent: Container) -> void:
-	var section := PanelContainer.new()
-	section.custom_minimum_size = Vector2(TREE_COLUMN_WIDTH, TREE_COLUMN_MIN_HEIGHT)
-	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	section.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var style := CardStyle.make_stylebox()
-	style.bg_color = UIColors.PANEL_DISABLED
-	style.border_color = UIColors.STRUCTURE_LINE_LIGHT
-	style.set_border_width_all(2)
-	section.add_theme_stylebox_override("panel", style)
+	var section := _build_tree_column_frame("Secondary", true)
 	parent.add_child(section)
 
-	var content := VBoxContainer.new()
+	var content := section.get_node("Content") as VBoxContainer
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
 	content.add_theme_constant_override("separation", 16)
-	section.add_child(content)
 
 	var title := Label.new()
 	title.text = "Second Subclass"
@@ -250,6 +268,39 @@ func _build_locked_secondary_column(parent: Container) -> void:
 	body.add_theme_font_size_override("font_size", INTRINSIC_LABEL_FONT_SIZE)
 	body.add_theme_color_override("font_color", UIColors.TEXT_DISABLED)
 	content.add_child(body)
+
+
+func _build_tree_column_frame(role: String, locked: bool) -> PanelContainer:
+	var section := PanelContainer.new()
+	section.name = "%sTalentColumn" % role
+	section.custom_minimum_size = Vector2(TREE_COLUMN_WIDTH, TREE_COLUMN_MIN_HEIGHT)
+	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	section.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var style := CardStyle.make_stylebox()
+	style.bg_color = UIColors.PANEL_DISABLED if locked else UIColors.PANEL_DEEP
+	style.border_color = UIColors.STRUCTURE_LINE_LIGHT if locked else CardStyle.ACCENT_COLOR
+	style.set_border_width_all(2)
+	style.content_margin_left = 18
+	style.content_margin_right = 18
+	style.content_margin_top = 14
+	style.content_margin_bottom = 16
+	section.add_theme_stylebox_override("panel", style)
+
+	var content := VBoxContainer.new()
+	content.name = "Content"
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	section.add_child(content)
+
+	var role_label := Label.new()
+	role_label.name = "ColumnRoleLabel"
+	role_label.text = role
+	role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	role_label.theme_type_variation = &"PanelHeader"
+	role_label.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
+	role_label.add_theme_color_override("font_color", UIColors.TEXT_DISABLED if locked else UIColors.TEXT_GOLD)
+	content.add_child(role_label)
+	return section
 
 
 func _should_show_secondary_tree_choices() -> bool:
@@ -388,7 +439,7 @@ func _build_node(talent: Talent) -> Button:
 	elif selected:
 		name_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
 		detail_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
-		_apply_node_style(button, SELECTED_NODE_FILL, UIColors.TEXT_POISON, 3)
+		_apply_node_style(button, SELECTED_NODE_FILL, UIColors.TALENT_SELECTED_BORDER, 3)
 	else:
 		name_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
 		detail_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
@@ -478,7 +529,7 @@ func _pulse_talent_button(talent: Talent, is_clicked_talent: bool) -> void:
 	button.pivot_offset = button.size * 0.5
 	var original_scale := button.scale
 	var original_modulate := button.modulate
-	var pulse_color := UIColors.TEXT_WARNING if is_clicked_talent else DEPENDENCY_PULSE_COLOR
+	var pulse_color := UIColors.TALENT_BLOCKED_PULSE if is_clicked_talent else DEPENDENCY_PULSE_COLOR
 	button.modulate = pulse_color
 	var tween := create_tween()
 	_talent_pulse_tweens[button] = tween
@@ -622,14 +673,3 @@ func _trigger_description(trigger: TriggeredSkillEffect) -> String:
 	for source_id in trigger.source_skill_ids:
 		source_names.append(_skill_name_for_id(source_id))
 	return "%s: %s" % [" & ".join(source_names), chance_text]
-
-
-## Stable spent/earned budget readout.
-func _refresh_points_label() -> void:
-	var spent: int = PassiveAllocator.points_spent(state.selected_talents)
-	var earned: int = state.earned_talent_points
-	_points_label.text = ": %d/%d" % [spent, earned]
-	var remaining: int = earned - spent
-	_points_label.add_theme_color_override(
-		"font_color", UIColors.TEXT_GOLD if remaining > 0 else UIColors.TEXT_NORMAL
-	)

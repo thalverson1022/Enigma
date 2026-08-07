@@ -7,7 +7,7 @@ extends PanelContainer
 signal open_talents_pressed
 
 const CARD_TITLE_FONT_SIZE := 20
-const POINTS_FONT_SIZE := 18
+const POINTS_FONT_SIZE := 28
 const OPEN_BUTTON_SIZE := Vector2(176, 36)
 const TALENT_GHOST_DURATION_SEC := 0.28
 const TALENT_GHOST_ARC_HEIGHT := 26.0
@@ -18,6 +18,7 @@ const TALENT_GHOST_SETTLE_SEC := 0.10
 var state = BuildState
 var enable_open_button_attention := true
 
+var _points_badge: PanelContainer
 var _points_row: HBoxContainer
 var _points_icon: TextureRect
 var _points_label: Label
@@ -33,23 +34,43 @@ func _ready() -> void:
 	content.add_theme_constant_override("separation", 8)
 	add_child(content)
 
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	content.add_child(header)
+
 	var title := Label.new()
 	title.text = "Active Talents"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.theme_type_variation = &"PanelHeader"
 	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	content.add_child(title)
+	header.add_child(title)
+
+	_points_badge = PanelContainer.new()
+	_points_badge.tooltip_text = "Talent points spent / earned"
+	_points_badge.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var points_badge_style := CardStyle.make_action_button_stylebox(UIColors.PANEL_DEEP, UIColors.PANEL_BORDER, "normal")
+	points_badge_style.content_margin_left = 8
+	points_badge_style.content_margin_right = 10
+	points_badge_style.content_margin_top = 4
+	points_badge_style.content_margin_bottom = 6
+	_points_badge.add_theme_stylebox_override("panel", points_badge_style)
+	header.add_child(_points_badge)
 
 	_points_row = HBoxContainer.new()
-	_points_row.alignment = BoxContainer.ALIGNMENT_BEGIN
-	_points_row.add_theme_constant_override("separation", 5)
+	_points_row.alignment = BoxContainer.ALIGNMENT_END
+	_points_row.add_theme_constant_override("separation", 7)
 	_points_row.tooltip_text = "Talent points spent / earned"
-	_points_icon = CardStyle.make_pixel_icon(CardStyle.talent_point_icon(), Vector2(18, 18))
+	_points_badge.add_child(_points_row)
+
+	_points_icon = CardStyle.make_pixel_icon(CardStyle.talent_point_icon(), Vector2(34, 34))
 	_points_row.add_child(_points_icon)
-	content.add_child(_points_row)
 
 	_points_label = Label.new()
 	_points_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_points_label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE)
+	_points_label.add_theme_constant_override("outline_size", 4)
 	_points_label.add_theme_font_size_override("font_size", POINTS_FONT_SIZE)
 	_points_row.add_child(_points_label)
 
@@ -193,7 +214,7 @@ func _set_open_button_attention(enabled: bool) -> void:
 	_open_button.modulate = Color.WHITE
 	_button_blink_tween = create_tween()
 	_button_blink_tween.set_loops()
-	_button_blink_tween.tween_property(_open_button, "modulate", Color(1.0, 0.42, 0.28, 1.0), 0.25)
+	_button_blink_tween.tween_property(_open_button, "modulate", UIColors.FEEDBACK_WARNING_PULSE, 0.25)
 	_button_blink_tween.tween_property(_open_button, "modulate", Color.WHITE, 0.25)
 
 
@@ -252,7 +273,7 @@ func animate_talent_points_from_rect(source_rect: Rect2, amount: int, wait_for_c
 		return
 	await get_tree().process_frame
 	var played := _play_talent_point_motion(source_rect, _global_rect_for(_points_icon), amount)
-	_pulse_points_row()
+	_pulse_points_badge()
 	if wait_for_completion and played:
 		await get_tree().create_timer(TALENT_GHOST_DURATION_SEC + TALENT_GHOST_SETTLE_SEC).timeout
 
@@ -270,7 +291,7 @@ func _play_talent_point_motion(from_rect: Rect2, to_rect: Rect2, amount: int) ->
 	var label := Label.new()
 	label.text = "x %d" % amount
 	label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE)
 	label.add_theme_constant_override("outline_size", 3)
 	label.add_theme_font_size_override("font_size", 18)
 	ghost.add_child(label)
@@ -296,12 +317,12 @@ func _play_talent_point_motion(from_rect: Rect2, to_rect: Rect2, amount: int) ->
 	return true
 
 
-func _pulse_points_row() -> void:
-	if _points_row == null or not _points_row.is_inside_tree():
+func _pulse_points_badge() -> void:
+	if _points_badge == null or not _points_badge.is_inside_tree():
 		return
 	var tween := create_tween()
-	tween.tween_property(_points_row, "scale", Vector2(1.08, 1.08), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_points_row, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(_points_badge, "scale", Vector2(1.08, 1.08), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_points_badge, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
 func _global_rect_for(node: Control) -> Rect2:

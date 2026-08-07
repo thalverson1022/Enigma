@@ -61,11 +61,15 @@ func _initialize() -> void:
 	# -- 2. Points budget display: star icon + "spent/earned", kept stable
 	# even when points are unspent so the warning state comes from
 	# color/button treatment instead of changing sentence structure. --
-	_require(talent_panel._points_label.text == ": 0/0", "Expected zero-budget points label, got: %s" % talent_panel._points_label.text)
-	_require(talent_panel._points_label.get_parent().find_child("Icon", true, false) != null, "Expected Talent Trees points readout to include the talent-point star icon.")
+	_require(not _talent_panel_text(talent_panel).contains(": 0/0"), "Expected Talent Trees overlay to omit the duplicate points footer.")
 	_require(_talent_panel_text(talent_panel).contains("Second Subclass"), "Expected one-tree Talent panel to explain the future second subclass slot.")
-	_require(not _talent_panel_text(talent_panel).contains("Secondary"), "Expected unchosen secondary subclass teaser to omit the tiny Secondary label.")
+	_require(_talent_panel_text(talent_panel).contains("Primary"), "Expected Talent Trees overlay to frame the chosen tree as the Primary column.")
+	_require(_talent_panel_text(talent_panel).contains("Secondary"), "Expected Talent Trees overlay to frame the future second tree as the Secondary column.")
 	_require(active_talents_panel._points_label.text == ": 0/0", "Expected active talent summary to show zero points, got: %s" % active_talents_panel._points_label.text)
+	_require(active_talents_panel._points_badge != null and active_talents_panel._points_badge is PanelContainer, "Expected Active Talents points readout to sit inside a framed badge.")
+	var points_header: Node = active_talents_panel._points_badge.get_parent()
+	_require(points_header is HBoxContainer, "Expected Active Talents points badge to live in a header row beside the title.")
+	_require(points_header.get_child_count() == 2 and points_header.get_child(1) == active_talents_panel._points_badge, "Expected Active Talents points badge to be right-aligned in the top header row.")
 	_require(active_talents_panel._points_label.get_parent().find_child("Icon", true, false) != null, "Expected Active Talents points readout to include the talent-point star icon.")
 	_require(_active_talents_text(active_talents_panel).contains("Thief"), "Expected active talent summary to show the selected tree name.")
 	_require(active_talents_panel.find_child("Icon", true, false) != null, "Expected active talent summary to show the selected tree icon.")
@@ -74,7 +78,7 @@ func _initialize() -> void:
 	_require(_active_talents_text(active_talents_panel).contains("No Thief talents selected."), "Expected active talent summary to show empty state for the selected tree.")
 	build_state.add_talent_points(1)
 	await process_frame
-	_require(talent_panel._points_label.text == ": 0/1", "Expected unspent-but-earned points label, got: %s" % talent_panel._points_label.text)
+	_require(not _talent_panel_text(talent_panel).contains(": 0/1"), "Expected Talent Trees overlay to keep omitting the duplicate points footer after earning a point.")
 	_require(active_talents_panel._points_label.text == ": 0/1", "Expected active talent summary to show unspent point budget, got: %s" % active_talents_panel._points_label.text)
 	_require(active_talents_panel._open_button.text == "Talent Trees", "Expected Active Talents button copy to stay stable when points are unspent.")
 	_require(active_talents_panel._open_button.custom_minimum_size == active_talents_panel.OPEN_BUTTON_SIZE, "Expected Talent Trees button to keep a fixed minimum size.")
@@ -84,7 +88,6 @@ func _initialize() -> void:
 	_require(quick_hands.display_name == "Quick Hands", "Expected thief.talents[0] to be Quick Hands.")
 	_require(build_state.select_talent(quick_hands), "Expected Quick Hands to be selectable with 1 earned point.")
 	await process_frame
-	_require(talent_panel._points_label.text == ": 1/1", "Expected spent count to increase, got: %s" % talent_panel._points_label.text)
 	_require(active_talents_panel._points_label.text == ": 1/1", "Expected active talent summary to update spent points, got: %s" % active_talents_panel._points_label.text)
 	_require(active_talents_panel._open_button.text == "Talent Trees", "Expected Active Talents button to return to neutral copy when all points are spent.")
 	_require(active_talents_panel._button_blink_tween == null, "Expected Active Talents button blink to stop when all points are spent.")
@@ -250,6 +253,11 @@ func _initialize() -> void:
 
 	var inventory_slot: Button = gear_panel._inventory_grid.get_child(0)
 	var inventory_style: StyleBoxFlat = inventory_slot.get_theme_stylebox("normal")
+	_require(UIColors.TIER_BASIC == Color("72B953"), "Expected Basic gear to preserve the original green rarity color.")
+	_require(UIColors.TIER_MASTER == Color("4E8AC5"), "Expected Master gear to preserve the original blue rarity color.")
+	_require(UIColors.TIER_CURSED == Color("9D73D8"), "Expected Cursed gear to preserve the original purple rarity color.")
+	_require(UIColors.TIER_LEGENDARY == Color("E3914C"), "Expected Legendary gear to preserve the original orange rarity color.")
+	_require(inventory_style.bg_color == UIColors.TIER_BASIC.darkened(0.08), "Expected rendered Basic inventory slots to derive from the original green rarity color.")
 	_require(inventory_style.border_color != CardStyle.ACCENT_COLOR, "Expected inventory items to keep the plain slot border, distinct from equipped items.")
 
 	# Inventory item boxes carry the same icon as shop item boxes, shared via
@@ -288,6 +296,10 @@ func _initialize() -> void:
 	_require(gear_panel._inventory_action_menu.is_item_disabled(gear_panel._inventory_action_menu.get_item_index(gear_panel.ACTION_SELL_ID)), "Expected Sell to be disabled outside shop.")
 	_require(gear_panel._gold_label.text.ends_with("g"), "Expected the Gear-panel gold stash readout to keep the 'g' suffix, got: %s" % gear_panel._gold_label.text)
 	_require(not gear_panel._gold_label.text.contains("Gold:"), "Expected the Gear-panel gold stash readout to use icon + value instead of repeating 'Gold:', got: %s" % gear_panel._gold_label.text)
+	_require(gear_panel._gold_badge != null and gear_panel._gold_badge is PanelContainer, "Expected the Gear-panel gold stash readout to sit inside a framed badge.")
+	var gold_header: Node = gear_panel._gold_badge.get_parent()
+	_require(gold_header is HBoxContainer, "Expected the Gear-panel gold stash badge to live in a header row beside the title.")
+	_require(gold_header.get_child_count() == 2 and gold_header.get_child(1) == gear_panel._gold_badge, "Expected the Gear-panel gold stash badge to be right-aligned in the top header row.")
 	_require(gear_panel._gold_row.find_child("Icon", true, false) != null, "Expected the Gear-panel gold stash readout to include the gold icon.")
 	_require(gear_panel._gold_icon != null and gear_panel._gold_icon.is_inside_tree(), "Expected reward/sale gold motion to target the visible gold icon, not the stretched gold row.")
 	gear_panel._inventory_action_menu.hide()

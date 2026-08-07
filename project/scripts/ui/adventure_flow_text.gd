@@ -8,7 +8,6 @@ extends RefCounted
 const ACTION_CHOOSE := "Choose"
 const ACTION_CLOSE_MAP := "Close Map"
 const ACTION_LEAVE_SHOP := "Leave Shop"
-const ACTION_MARK_ROUTE := "Mark Route"
 const ACTION_PROCEED := "Proceed"
 const ACTION_RESUME_ADVENTURE := "Resume Adventure"
 const ACTION_RESTART_ADVENTURE := "Restart Adventure"
@@ -67,11 +66,11 @@ static func selected_route_status(display_name: String) -> String:
 
 
 static func pending_route_status(display_name: String) -> String:
-	return "Selected route: %s. Mark it to tune your build, lock in, and fight." % display_name
+	return "Selected route: %s. Proceed to tune your build, lock in, and fight." % display_name
 
 
 static func tooltip_mark_route(display_name: String) -> String:
-	return "Mark %s as your next fight." % display_name
+	return "Proceed to %s as your next fight." % display_name
 
 
 static func contract_accepted_status(display_name: String) -> String:

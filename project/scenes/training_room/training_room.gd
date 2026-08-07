@@ -63,6 +63,9 @@ const ROGUE_CLASS_PATH := "res://data/classes/rogue.tres"
 const BACKDROP_COLOR := UIColors.OVERLAY_BACKDROP
 const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
 const PRACTICE_LOGO_PATH := "res://assets/ui/logos/peak_deeps_logo_mountain_crest.png"
+const UI_BACK_ICON_PATH := "res://assets/ui/icons/abandon_ex.png"
+const TOP_ACTION_BUTTON_SIZE := Vector2(56, 56)
+const SETTINGS_BUTTON_RESERVED_WIDTH := 50.0
 
 const ACTIVE_TALENTS_PANEL_SCENE := preload("res://scenes/combat/active_talents_panel.tscn")
 const TALENT_PANEL_SCENE := preload("res://scenes/combat/talent_panel.tscn")
@@ -87,8 +90,6 @@ const RARITY_NAMES := {
 const NONE_RARITY_ID := 100
 
 var _state: TrainingRoomState
-var _primary_tree_option: OptionButton
-var _secondary_tree_option: OptionButton
 var _weapon_slot_button: Button
 var _trinket_slot_button: Button
 var _charm_slot_button: Button
@@ -120,6 +121,13 @@ func _ready() -> void:
 	_state = TrainingRoomState.new()
 	_state.set_class(load(ROGUE_CLASS_PATH))
 
+	var canvas := ColorRect.new()
+	canvas.name = "ScreenCanvas"
+	canvas.color = UIColors.BACKGROUND
+	canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(canvas)
+
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
@@ -133,7 +141,7 @@ func _ready() -> void:
 	margin.add_child(vbox)
 
 	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 12)
+	header.add_theme_constant_override("separation", 20)
 	vbox.add_child(header)
 
 	var heading := Label.new()
@@ -144,10 +152,13 @@ func _ready() -> void:
 	header.add_child(heading)
 
 	var back_button := Button.new()
-	back_button.name = "BackButton"
-	back_button.text = "Back to Title"
+	_configure_top_icon_button(back_button, "BackButton", _texture_from_path(UI_BACK_ICON_PATH), "Back to Title")
 	back_button.pressed.connect(func(): back_pressed.emit())
 	header.add_child(back_button)
+
+	var settings_reserved_space := Control.new()
+	settings_reserved_space.custom_minimum_size = Vector2(SETTINGS_BUTTON_RESERVED_WIDTH, 0)
+	header.add_child(settings_reserved_space)
 
 	var subtitle := Label.new()
 	subtitle.text = "Where questionable builds go to become slightly less questionable."
@@ -194,6 +205,7 @@ func _ready() -> void:
 	_combat_view = TrainingRoomCombatView.new()
 	_combat_view.name = "CombatView"
 	_combat_view.finished.connect(_on_combat_view_finished)
+	_combat_view.set_fight_window_ms(_state.duration_ms)
 	center_column.add_child(_combat_view)
 
 	# Fight + Combat Log live inside the combat view's lower band, matching
@@ -256,65 +268,34 @@ func _ready() -> void:
 	_build_gear_editor_overlay()
 	_build_log_overlay()
 
-	_state.build_changed.connect(_refresh_tree_dropdowns)
+	_state.build_changed.connect(_refresh_talent_panel)
 	_state.build_changed.connect(_refresh_gear_editor)
 	_state.build_changed.connect(_refresh_fight_button)
 	_state.build_changed.connect(_invalidate_result_review)
 	_state.lock_changed.connect(_refresh_fight_button)
 	_state.fight_setup_changed.connect(_refresh_target_panel)
+	_state.fight_setup_changed.connect(_refresh_combat_view_fight_window)
 	_state.fight_setup_changed.connect(_invalidate_result_review)
 	_state.fight_finished.connect(_on_state_fight_finished)
-	_refresh_tree_dropdowns()
+	_refresh_talent_panel()
 	_refresh_gear_editor()
 	_refresh_fight_button()
 	_refresh_target_panel()
 
 
-## Builds one "None" + one-per-real-tree dropdown, next to the Talents panel
-## rather than a row of toggle buttons spanning the whole screen. `on_selected`
-## receives the chosen SubclassTree (or null for "None"), mirroring the old
-## per-tree button handler's signature so callers/tests read the same way.
-func _build_tree_option(parent: HBoxContainer, label_text: String, on_selected: Callable) -> OptionButton:
-	var label := Label.new()
-	label.text = label_text
-	parent.add_child(label)
-
-	var option := OptionButton.new()
-	option.add_item("None")
-	if _state.selected_class != null:
-		for tree in _state.selected_class.trees:
-			option.add_item(tree.display_name)
-	option.item_selected.connect(func(index: int):
-		var tree: SubclassTree = null if index == 0 else _state.selected_class.trees[index - 1]
-		on_selected.call(tree)
-	)
-	parent.add_child(option)
-	return option
-
-
-## Freeform, up to 2 of the class's real trees -- distinct from Adventure's
-## "pick exactly one, then a second one later" flow, since Practice Room lets
-## the player freely choose either tree into either slot at will.
-func _refresh_tree_dropdowns() -> void:
-	_select_tree_option(_primary_tree_option, _state.tree_at_slot(0))
-	_select_tree_option(_secondary_tree_option, _state.tree_at_slot(1))
-
-
-func _select_tree_option(option: OptionButton, tree: SubclassTree) -> void:
-	if tree == null or _state.selected_class == null:
-		option.select(0)
-		return
-	option.select(_state.selected_class.trees.find(tree) + 1)
+func _refresh_talent_panel() -> void:
+	if _talent_panel != null and _talent_panel.has_method("refresh_panel"):
+		_talent_panel.refresh_panel()
 
 
 func _on_primary_tree_selected(tree: SubclassTree) -> void:
 	_state.set_primary_tree(tree)
-	_refresh_tree_dropdowns()
+	_refresh_talent_panel()
 
 
 func _on_secondary_tree_selected(tree: SubclassTree) -> void:
 	_state.set_secondary_tree(tree)
-	_refresh_tree_dropdowns()
+	_refresh_talent_panel()
 
 
 func _show_talent_overlay() -> void:
@@ -352,15 +333,6 @@ func _build_talent_overlay() -> void:
 	close_button.pressed.connect(func(): _talent_overlay.visible = false)
 	header.add_child(close_button)
 	content.add_child(header)
-
-	var tree_dropdowns_row := HBoxContainer.new()
-	tree_dropdowns_row.name = "TreeDropdowns"
-	tree_dropdowns_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	tree_dropdowns_row.add_theme_constant_override("separation", 10)
-	content.add_child(tree_dropdowns_row)
-
-	_primary_tree_option = _build_tree_option(tree_dropdowns_row, "Primary", _on_primary_tree_selected)
-	_secondary_tree_option = _build_tree_option(tree_dropdowns_row, "Secondary", _on_secondary_tree_selected)
 
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(860, 590)
@@ -471,10 +443,42 @@ func _build_practice_logo(parent: Container) -> void:
 
 
 func _texture_from_path(path: String) -> Texture2D:
-	var image := Image.new()
-	if image.load(path) != OK:
-		return null
-	return ImageTexture.create_from_image(image)
+	return load(path) as Texture2D
+
+
+func _configure_top_icon_button(button: Button, button_name: String, texture: Texture2D, tooltip: String) -> void:
+	button.name = button_name
+	button.text = ""
+	button.tooltip_text = tooltip
+	button.custom_minimum_size = TOP_ACTION_BUTTON_SIZE
+	button.icon = texture
+	button.expand_icon = true
+	button.focus_mode = Control.FOCUS_ALL
+	button.add_theme_constant_override("h_separation", 0)
+	button.add_theme_stylebox_override("normal", _top_icon_button_style(UIColors.BUTTON_FILL, UIColors.PANEL_BORDER))
+	button.add_theme_stylebox_override("hover", _top_icon_button_style(UIColors.BUTTON_TOP_LIGHT, UIColors.PANEL_BORDER))
+	button.add_theme_stylebox_override("pressed", _top_icon_button_style(UIColors.BUTTON_FILL_PRESSED, UIColors.PANEL_BORDER))
+	button.add_theme_stylebox_override("focus", _top_icon_button_style(UIColors.BUTTON_FILL, UIColors.TEXT_GOLD))
+
+
+func _top_icon_button_style(fill: Color, border: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 4
+	style.border_width_bottom = 5
+	style.border_blend = true
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 5
+	style.content_margin_right = 5
+	style.content_margin_top = 5
+	style.content_margin_bottom = 6
+	style.shadow_color = UIColors.PANEL_DROP_SHADOW
+	style.shadow_size = 7
+	style.shadow_offset = Vector2(2, 4)
+	return style
 
 
 func _make_gear_slot_button(slot_size: Vector2) -> Button:
@@ -626,12 +630,9 @@ func _style_gear_slot_button(slot: Button, gear: GearItem, future_slot: bool = f
 			GearItem.Tier.LEGENDARY:
 				fill = UIColors.TIER_LEGENDARY
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = fill.darkened(0.35) if state == "disabled" else fill
-		style.border_color = CardStyle.ACCENT_COLOR if gear != null else UIColors.SLOT_BORDER
-		style.set_border_width_all(3 if gear != null else 2)
-		style.set_corner_radius_all(6)
-		slot.add_theme_stylebox_override(state, style)
+		var state_fill := fill.darkened(0.35) if state == "disabled" else fill
+		var border := CardStyle.ACCENT_COLOR if gear != null else UIColors.SLOT_BORDER
+		slot.add_theme_stylebox_override(state, CardStyle.make_slot_stylebox(state_fill, border, 3 if gear != null else 2, state))
 
 
 func _refresh_popup_slot(item: GearItem, showing_legendary: bool) -> void:
@@ -809,6 +810,11 @@ func _refresh_target_panel() -> void:
 	_target_panel.refresh(_state.selected_target.armor, _state.selected_target.poison_resistance)
 
 
+func _refresh_combat_view_fight_window() -> void:
+	if _combat_view != null:
+		_combat_view.set_fight_window_ms(_state.duration_ms)
+
+
 func _on_duration_changed(seconds: float) -> void:
 	_state.set_duration_ms(roundi(seconds * 1000.0))
 
@@ -836,6 +842,7 @@ func _refresh_fight_button() -> void:
 func _on_fight_button_pressed() -> void:
 	if not _state.can_run_fight():
 		_refresh_fight_button()
+		CardStyle.pulse_blocked_control(_fight_button)
 		return
 	_state.run_fight()
 

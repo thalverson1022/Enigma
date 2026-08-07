@@ -62,6 +62,7 @@ func _initialize() -> void:
 	await process_frame
 	print("duration_ms after setting 35s (expect 35000): %d" % training_room._state.duration_ms)
 	assert(training_room._state.duration_ms == 35000)
+	assert(training_room._combat_view._fight_timer_label.text == "35s")
 
 	# -- Seed, independent of the real Adventure seed --
 	build_state.set_adventure_seed(999)

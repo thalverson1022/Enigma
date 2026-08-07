@@ -251,7 +251,7 @@ func _add_contract_choice_pulse(card: Button) -> void:
 	pulse.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pulse.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var pulse_style := StyleBoxFlat.new()
-	pulse_style.bg_color = Color(0, 0, 0, 0)
+	pulse_style.bg_color = UIColors.TRANSPARENT
 	pulse_style.border_color = UIColors.TEXT_GOLD
 	pulse_style.set_border_width_all(5)
 	pulse_style.set_corner_radius_all(8)

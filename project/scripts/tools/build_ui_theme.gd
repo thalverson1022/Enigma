@@ -47,7 +47,7 @@ func _init() -> void:
 	# -- Panel / PanelContainer: same bordered-card look as CardStyle, so
 	# any bare Panel/PanelContainer that doesn't explicitly call
 	# CardStyle.make_stylebox() still matches --
-	var panel_style := _card_stylebox()
+	var panel_style := CardStyle.make_stylebox()
 	theme.set_stylebox("panel", "Panel", panel_style)
 	theme.set_stylebox("panel", "PanelContainer", panel_style)
 
@@ -60,17 +60,13 @@ func _init() -> void:
 	theme.set_color("font_hover_color", "Button", UIColors.TEXT_NORMAL)
 	theme.set_color("font_pressed_color", "Button", UIColors.TEXT_NORMAL)
 	theme.set_color("font_disabled_color", "Button", UIColors.TEXT_DISABLED)
-	# Normal/pressed use the BUTTON_FILL gold family (combat-playback
-	# adjustment round 1, 2026-07-19; contrast-corrected in round 2 -- see
-	# UIColors.BUTTON_FILL's comment for the measured luminance reasoning)
-	# so a clickable button reads as distinct from the card panels it sits
-	# on, which still use PANEL. Hover deliberately keeps the pre-existing
-	# PANEL_HIGHLIGHT fill -- already good contrast with TEXT_NORMAL.
-	theme.set_stylebox("normal", "Button", _button_stylebox(UIColors.BUTTON_FILL, UIColors.PANEL_BORDER))
-	theme.set_stylebox("hover", "Button", _button_stylebox(UIColors.PANEL_HIGHLIGHT, UIColors.PANEL_BORDER))
-	theme.set_stylebox("pressed", "Button", _button_stylebox(UIColors.BUTTON_FILL_PRESSED, UIColors.PANEL_BORDER))
-	theme.set_stylebox("disabled", "Button", _button_stylebox(UIColors.PANEL_DISABLED, UIColors.TEXT_DISABLED))
-	theme.set_stylebox("focus", "Button", _button_stylebox(UIColors.PANEL, UIColors.ACCENT))
+	# Use semantic action roles so palette experiments can retune button
+	# states without chasing individual controls or native dialogs.
+	theme.set_stylebox("normal", "Button", CardStyle.make_action_button_stylebox(UIColors.ACTION_DEFAULT, UIColors.PANEL_BORDER, "normal"))
+	theme.set_stylebox("hover", "Button", CardStyle.make_action_button_stylebox(UIColors.ACTION_HOVER, UIColors.PANEL_BORDER, "hover"))
+	theme.set_stylebox("pressed", "Button", CardStyle.make_action_button_stylebox(UIColors.ACTION_PRESSED, UIColors.PANEL_BORDER, "pressed"))
+	theme.set_stylebox("disabled", "Button", CardStyle.make_action_button_stylebox(UIColors.ACTION_DISABLED, UIColors.TEXT_DISABLED, "disabled"))
+	theme.set_stylebox("focus", "Button", CardStyle.make_action_button_stylebox(UIColors.ACTION_FOCUS, UIColors.ACCENT, "focus"))
 
 	# -- CheckBox/OptionButton/LineEdit etc. are not used anywhere in the
 	# current active flow (per the R7:T1 reachable-state audit); left on
@@ -84,28 +80,3 @@ func _init() -> void:
 		return
 	print("Saved %s" % save_path)
 	quit(0)
-
-
-func _card_stylebox() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = UIColors.PANEL
-	style.border_color = UIColors.PANEL_BORDER
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
-	style.set_content_margin_all(16)
-	return style
-
-
-func _button_stylebox(bg: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	style.border_color = border
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
-	# Press Start 2P runs wide; generous horizontal margin keeps text off
-	# the border on short buttons like "Map" or "OK".
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	return style

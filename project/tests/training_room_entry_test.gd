@@ -41,6 +41,13 @@ func _initialize() -> void:
 	assert(training_room != title)
 	var back_button: Button = training_room.find_child("BackButton", true, false)
 	assert(back_button != null)
+	assert(back_button.text == "")
+	assert(back_button.tooltip_text == "Back to Title")
+	assert(back_button.custom_minimum_size == Vector2(56, 56))
+	assert(back_button.icon != null)
+	var reserved_space := back_button.get_parent().get_child(back_button.get_index() + 1) as Control
+	assert(reserved_space != null)
+	assert(reserved_space.custom_minimum_size.x >= 50.0)
 
 	# Entering Practice Room must not touch real Adventure/save state.
 	print("gold after entering Practice Room=%d (expect %d), seed=%d (expect %d)" % [

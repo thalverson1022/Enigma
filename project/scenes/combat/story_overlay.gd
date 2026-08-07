@@ -10,7 +10,7 @@ signal proceed_pressed
 
 const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 const INTRO_STORY_TEXT := "You find yourself in the shadow of the Dahm Henge Mountain. The highest peak, Peak Deeps is shrouded in darkness. You have heard tail of the secrets that lie there but know of none who had tried their hand at uncovering those hidden treasures and returned to tell the tale."
-const TAVERN_BACKGROUND_TINT := Color(0, 0, 0, 0.42)
+const TAVERN_BACKGROUND_TINT := UIColors.SCRIM_SOFT
 const STORY_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/Ponesville.jpg")
 
 var _story_label: Label

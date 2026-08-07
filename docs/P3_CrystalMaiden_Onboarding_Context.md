@@ -12,16 +12,18 @@ milestone docs, not here.
 
 ## Current Next Step
 
-Milestone 6 is complete locally. Milestone 7 is the next formal milestone.
+Milestones 7 and 8 are complete locally. Milestone 9 is the next formal
+milestone.
 
 Current next implementation step:
 
-- Start Milestone 7 with Task 0 planning for Testing Suite And Balance Lab
-  Hardening.
+- Push the Phase 3 closeout state, then upload the generated Web export
+  package to itch.io for playtesting.
 - Use the Phase 3 overview for the current roadmap:
   `docs/P3_CrystalMaiden_Overview.md`.
-- Use the just-closed Milestone 6 tasking doc for Practice Room handoff and
-  final verification notes: `docs/P3M6_Practice_Room_Usability_Pass.md`.
+- Use the Milestone 9 closeout doc for final regression/export results,
+  artifact path, and itch.io upload notes:
+  `docs/P3M9_Regression_Export_And_Phase_3_Closeout.md`.
 
 ## Project Identity
 
@@ -69,13 +71,83 @@ Milestone status:
 - Milestone 4: Complete locally
 - Milestone 5: Complete locally
 - Milestone 6: Complete locally
-- Milestone 7: Not started
+- Milestone 7: Complete locally
+- Milestone 8: Complete locally
+- Milestone 9: Complete locally
 
 Latest known state:
 
 - Milestone 1 closeout was committed and pushed on `phase-3-crystalmaiden`.
-- Milestones 2, 3, 4, 5, and 6 are complete locally according to the current
+- Milestones 2, 3, 4, 5, 6, 7, 8, and 9 are complete locally according to the current
   docs.
+- Milestone 9 is complete locally as the Phase 3 regression/export closeout.
+  M9 stayed lightweight and focused on public playtest readiness rather than
+  new features. Focused regression passed across title/settings/audio,
+  Adventure flow, combat playback/HUD/recap, reward/shop/route UI, save/load,
+  build/rotation, and Practice Room surfaces. `combat_playback_test.gd` and
+  `export_shadow_probe.gd` reproduced their known restricted-filesystem
+  caveats, then passed outside the sandbox. Balance Lab exited 0 with
+  `19 pass, 0 warn, 0 fail`, and `balance_lab_test.gd` passed. A new
+  `CrystalMaiden Web Itch` export preset was added, Godot 4.7 export templates
+  were installed locally, export-only raw image loading issues were fixed for
+  repeated UI icons, and the corrected Web export passed local browser smoke:
+  title `Project CrystalMaiden`, Godot canvas present, and no fresh console
+  errors. The itch.io package is
+  `project/export/web/project-crystalmaiden-itch.zip` and remains ignored by
+  Git as a generated export artifact.
+- Milestone 7 planning has been retooled around making Balance Lab a small
+  local tool app alongside Shop Lab, Sprite Lab, and the planned Monster Lab.
+  Task 1 added the static `tools/balance-lab` app shell with a CrystalMaiden
+  tool header, status area, `Run Balance` button, summary metrics, suite health
+  panel, scenario and mechanics tables, report file links, and README
+  instructions. Task 2 added a dependency-free local Node bridge with
+  `GET /api/status`, `POST /api/run-balance`, `GET /api/report/results`,
+  `GET /api/report/scenario-summary`, and `GET /api/report/godot-log`; the
+  bridge successfully ran the Godot balance suite with `19 pass, 0 warn,
+  0 fail`. Task 3 renders the current `results.json` scenario and mechanics
+  data into the app tables, including suite health, scenario status/DPS/win
+  rate/poison/proc/seed data, mechanics observed/expected/tolerance values, and
+  raw report links. Task 4 cleaned up generated report identity and structure:
+  report output now uses CrystalMaiden branding, includes first-class
+  `project`, `tool`, `status`, `status_counts`, `scenario_count`,
+  `mechanics_count`, `seed_count`, `status_semantics`, source metadata, and a
+  mirrored `metadata` object. Task 5 mapped the current Godot test suite by
+  mechanics/combat, build resolution, gear/shop/reward, UI/presentation,
+  Adventure flow/state, Practice Room, save/load, RNG/determinism, Balance
+  Lab/reporting, and export/resource probes; it also recorded focused run sets,
+  caveats, and T6 hardening gaps. Task 6 hardened the focused mechanics/proc/
+  replay suite by replacing opaque assertions with context-rich failure helpers
+  in `engine_mechanics_test.gd`, `opportunity_strikes_test.gd`,
+  `deterministic_replay_test.gd`, and `legendary_mechanics_test.gd`; the
+  focused checks passed with exit code 0. Tasks 7 and 8 verified repeatable
+  Balance Lab output, documented the local app/test workflow, checked the
+  bridge status endpoint, and closed the milestone. Sliders, scenario editing,
+  monster selection, build editing, comparison history, and deeper Balance Lab
+  interactivity are deferred.
+- Milestone 8 is complete locally. The tasking doc
+  `docs/P3M8_Audio_Feedback_And_Polish_Sweep.md` scopes M8 as a disciplined
+  audio, feedback, and polish sweep for the current playable build. T0
+  planning, T1 feedback-state/palette audit, T2 palette/color-state cleanup,
+  T3 replaceable audio implementation, T4 combat/interaction feedback
+  consistency, T5 target-resolution review, T6 focused verification, and T7
+  closeout are complete. T2 landed the Earth & Iron UI chrome, preserved
+  original gear rarity colors, shared bevel/depth treatment, title/seed
+  polish, Adventure/Practice combat timer and playback parity, map
+  reward-marker clarity, Talent Trees presentation cleanup, and authored
+  Gilded Serpent route-map flavor. T3 added the shared settings/audio menu,
+  Master/Music/Effects volume controls, layered menu/Tavern/contract ambience,
+  Adventure/Practice attack SFX, proc-aware attack SFX, button click SFX, shop
+  transaction SFX, fade rules, and focused verification. T4 added a shared
+  blocked-action feedback pulse for Practice Fight, map Proceed, shop reroll,
+  and inventory-full reward/shop blocks. T5 added subtle procedural background
+  motion for the Tavern fireplace and contract moon area, then completed a
+  1600x900 review of the major title, settings, selection, Adventure, shop,
+  contract, and Practice states with no additional layout fixes required. T6
+  ran the required focused M8 checks and adjacent UI/presentation checks with
+  exit code 0; Balance Lab was skipped because M8 did not touch
+  balance-relevant data or combat math. T7 closed the milestone and handed off
+  to M9 regression/export closeout. Full fantasy UI production/art direction
+  remains deferred.
 - Milestone 5 has been planned and rescoped around transition friction cleanup,
   reusable flow patterns, and tutorial-facing Tavern/first-contract polish
   rather than bespoke late-contract presentation. M5:T1 added shared reusable
@@ -210,6 +282,25 @@ closeouts, final Practice Room isolation checks, and updated handoff docs.
 
 Details: `docs/P3M6_Practice_Room_Usability_Pass.md`
 
+### P3M7 Testing Suite And Balance Lab Hardening
+
+Status: Complete locally.
+
+Retools the milestone around Balance Lab as a local tool app. The
+`tools/balance-lab` browser shell now exists with a `Run Balance` button,
+report summary panels, app-rendered scenario/mechanics tables, report file
+links, README instructions, and a dependency-free local Node bridge that invokes
+the existing Godot balance suite and returns latest report status/data to the
+app. Report output now uses CrystalMaiden identity, first-class metadata/count
+fields, source metadata, and explicit status semantics. The current test suite
+map is documented with coverage areas, focused run sets, caveats, and T6 gaps.
+The critical mechanics/proc/replay tests now have context-rich diagnostics.
+Closeout verified repeatable Balance Lab signatures, focused report/mechanics
+checks, and the bridge status endpoint. Deeper Balance Lab interactivity and
+Monster Lab are future tool-work handoffs.
+
+Details: `docs/P3M7_Testing_Suite_And_Balance_Lab_Hardening.md`
+
 ## Current Game Context
 
 The playable build centers on the Rogue Adventure.
@@ -294,6 +385,8 @@ Failure Should Teach:
 
 - Phase status and milestone roadmap:
   `docs/P3_CrystalMaiden_Overview.md`
+- Just-closed Milestone 8 polish sweep:
+  `docs/P3M8_Audio_Feedback_And_Polish_Sweep.md`
 - Milestone 4 planning:
   `docs/P3M4_Shop_And_Inventory_Management_UX.md`
 - Combat playback, animation, VFX, combat HUD:

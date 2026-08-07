@@ -9,13 +9,28 @@ const CLASS_SELECT_SCENE := preload("res://scenes/class_select/class_select.tscn
 const SUBCLASS_SELECT_SCENE := preload("res://scenes/subclass_select/subclass_select.tscn")
 const COMBAT_SCREEN_SCENE := preload("res://scenes/combat/combat_screen.tscn")
 const TRAINING_ROOM_SCENE := preload("res://scenes/training_room/training_room.tscn")
+const SETTINGS_MENU_LAYER := preload("res://scripts/ui/settings_menu_layer.gd")
 
 var _current_screen: Node = null
+var _settings_menu_layer: Control = null
 
 
 func _ready() -> void:
 	BuildState.reset()
+	AudioManager.play_menu_intro_audio()
 	_show_title()
+	_add_settings_menu_layer()
+
+
+func _add_settings_menu_layer() -> void:
+	_settings_menu_layer = SETTINGS_MENU_LAYER.new()
+	_settings_menu_layer.name = "SettingsMenuLayer"
+	add_child(_settings_menu_layer)
+
+
+func _raise_settings_menu_layer() -> void:
+	if _settings_menu_layer != null and _settings_menu_layer.get_parent() == self:
+		move_child(_settings_menu_layer, get_child_count() - 1)
 
 
 func _clear_current() -> void:
@@ -25,6 +40,7 @@ func _clear_current() -> void:
 
 
 func _show_title() -> void:
+	AudioManager.play_menu_intro_audio()
 	_clear_current()
 	var screen = TITLE_SCENE.instantiate()
 	screen.adventure_pressed.connect(func(): _on_new_game_pressed(screen.selected_seed()))
@@ -32,17 +48,20 @@ func _show_title() -> void:
 	screen.training_room_pressed.connect(_show_training_room)
 	add_child(screen)
 	_current_screen = screen
+	_raise_settings_menu_layer()
 
 
 ## Practice Room is a separate practice mode (P2:R10) -- it deliberately
 ## never touches BuildState/save data, unlike every other screen swap here,
 ## so entering or leaving it can never affect a real Adventure run.
 func _show_training_room() -> void:
+	AudioManager.fade_out_all_menu_audio()
 	_clear_current()
 	var screen = TRAINING_ROOM_SCENE.instantiate()
 	screen.back_pressed.connect(_show_title)
 	add_child(screen)
 	_current_screen = screen
+	_raise_settings_menu_layer()
 
 
 func _on_new_game_pressed(seed: int = BuildState.DEFAULT_ADVENTURE_SEED) -> void:
@@ -61,21 +80,25 @@ func _on_continue_pressed() -> void:
 
 
 func _show_class_select() -> void:
+	AudioManager.play_menu_intro_audio()
 	_clear_current()
 	var screen = CLASS_SELECT_SCENE.instantiate()
 	screen.advanced.connect(_show_subclass_select)
 	screen.back_pressed.connect(_show_title)
 	add_child(screen)
 	_current_screen = screen
+	_raise_settings_menu_layer()
 
 
 func _show_subclass_select() -> void:
+	AudioManager.play_menu_intro_audio()
 	_clear_current()
 	var screen = SUBCLASS_SELECT_SCENE.instantiate()
 	screen.advanced.connect(_on_subclass_select_advanced)
 	screen.back_pressed.connect(_show_class_select)
 	add_child(screen)
 	_current_screen = screen
+	_raise_settings_menu_layer()
 
 
 ## Autosave point: class + subclass are the first meaningful build choices
@@ -94,6 +117,15 @@ func _show_combat_screen() -> void:
 	screen.save_and_quit_pressed.connect(_on_save_and_quit_pressed)
 	add_child(screen)
 	_current_screen = screen
+	if BuildState.needs_tavern_map_choice() and BuildState.current_encounter_index == 0 and BuildState.active_contract == null:
+		AudioManager.play_menu_intro_audio()
+	elif BuildState.is_contract_fight_active():
+		AudioManager.transition_to_contract_ambience()
+	elif BuildState.run_phase != BuildState.RunPhase.RUN_ENDED and not BuildState.is_contract_fight_active():
+		AudioManager.play_tavern_map_rain()
+	else:
+		AudioManager.fade_out_all_menu_audio()
+	_raise_settings_menu_layer()
 
 
 func _on_main_menu_pressed() -> void:

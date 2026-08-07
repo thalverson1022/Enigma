@@ -13,6 +13,7 @@ extends SceneTree
 
 func _initialize() -> void:
 	var build_state = root.get_node("BuildState")
+	var audio_manager = root.get_node("AudioManager")
 
 	var game_root_scene: PackedScene = load("res://scenes/game_root.tscn")
 	var game_root = game_root_scene.instantiate()
@@ -68,13 +69,25 @@ func _initialize() -> void:
 	assert(combat_screen._story_overlay._story_label.text == combat_screen._story_overlay.INTRO_STORY_TEXT)
 	var story_proceed_button: Button = combat_screen._story_overlay.find_child("StoryProceedButton", true, false)
 	assert(story_proceed_button != null)
+	var button_sfx_before: int = audio_manager.button_press_sfx_play_count
 	story_proceed_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._story_overlay.visible)
 	assert(combat_screen._map_overlay.visible)
+	assert(audio_manager.button_press_sfx_play_count == button_sfx_before + 1)
+	assert(combat_screen._tavern_background.visible)
+	assert(combat_screen._tavern_background.texture == combat_screen.TAVERN_BACKGROUND_TEXTURE)
+	assert(combat_screen._tavern_fireplace_overlay != null)
+	assert(combat_screen._tavern_fireplace_overlay.visible)
+	assert(combat_screen._contract_moon_bat_overlay != null)
+	assert(not combat_screen._contract_moon_bat_overlay.visible)
+	assert(combat_screen._tavern_fireplace_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	assert(combat_screen._tavern_background.get_index() < combat_screen._tavern_fireplace_overlay.get_index())
+	assert(combat_screen._tavern_fireplace_overlay.get_index() < combat_screen._tavern_background_tint.get_index())
 
 	# -- Combat dashboard: Adventure starts with 0 talent points. --
 	var talent_panel = combat_screen.find_child("TalentPanel", true, false)
+	var active_talents_panel = combat_screen.find_child("ActiveTalentsPanel", true, false)
 	var available_skills_panel = combat_screen.find_child("AvailableSkillsPanel", true, false)
 	var skill_build_panel = combat_screen.find_child("SkillBuildPanel", true, false)
 	var character_stats_panel = combat_screen.find_child("CharacterStatsPanel", true, false)
@@ -118,7 +131,17 @@ func _initialize() -> void:
 	assert(combat_screen._map_overlay._map_proceed_button.visible)
 	assert(combat_screen._map_overlay._map_proceed_button.disabled)
 	var mouthy_drunk_style_before: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
-	assert(mouthy_drunk_style_before.bg_color == UIColors.PANEL)
+	assert(mouthy_drunk_style_before.bg_color == UIColors.PANEL.darkened(0.08))
+	assert(not combat_screen._map_overlay._map_node_buttons[0].clip_contents)
+	var tavern_marker: TextureRect = combat_screen._map_overlay._map_node_buttons[0].find_child("MapActorMarker", true, false)
+	var tavern_text_block: Label = combat_screen._map_overlay._map_node_buttons[0].find_child("MapTextBlock", true, false)
+	var tavern_reward_row: HBoxContainer = combat_screen._map_overlay._map_node_buttons[0].find_child("MapRewardIconRow", true, false)
+	assert(tavern_marker != null and tavern_marker.size == Vector2(76, 76) and tavern_marker.position.x >= 0.0 and tavern_marker.position.y == -4.0)
+	assert(tavern_text_block != null and tavern_text_block.position.x > tavern_marker.position.x + tavern_marker.size.x * 0.5)
+	assert(tavern_reward_row != null and tavern_reward_row.offset_bottom < 0.0)
+	assert(tavern_reward_row.find_child("MapGearRewardIcon", true, false) == null)
+	assert(combat_screen._map_overlay._map_node_buttons[0].get_theme_color("font_hover_color") == UIColors.TRANSPARENT)
+	assert(combat_screen._map_overlay._map_node_buttons[0].get_theme_color("font_focus_color") == UIColors.TRANSPARENT)
 	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernAvailablePulse", true, false) != null)
 	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernDefeatedMarker", true, false) == null)
 	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
@@ -135,15 +158,17 @@ func _initialize() -> void:
 	await process_frame
 	assert(combat_screen._map_overlay._map_proceed_button.disabled)
 	var mouthy_drunk_style_deselected: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
-	assert(mouthy_drunk_style_deselected.bg_color == UIColors.PANEL)
+	assert(mouthy_drunk_style_deselected.bg_color == UIColors.PANEL.darkened(0.08))
 	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernAvailablePulse", true, false) != null)
 	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
+	button_sfx_before = audio_manager.button_press_sfx_play_count
 	combat_screen._map_overlay._map_proceed_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay.visible)
 	assert(build_state.tavern_map_choice_made)
+	assert(audio_manager.button_press_sfx_play_count == button_sfx_before + 1)
 	assert(combat_screen._combat_stage.player_actor_anchor.visible)
 	assert(combat_screen._combat_stage.enemy_actor_anchor.visible)
 	assert(not combat_screen._combat_stage._player_actor_card.visible)
@@ -179,33 +204,48 @@ func _initialize() -> void:
 	assert(gear_panel._inventory_grid.get_child(0).custom_minimum_size == Vector2(88, 88))
 	assert(gear_panel._gold_label.text == "0g")
 	assert(gear_panel._gold_row.find_child("Icon", true, false) != null)
-	var inventory_header: Label = gear_panel._inventory_grid.get_parent().get_parent().get_parent().get_child(4)
+	var inventory_header: Label = null
+	for label in gear_panel.find_children("*", "Label", true, false):
+		if label.text == "Inventory":
+			inventory_header = label
+			break
+	assert(inventory_header != null)
 	assert(inventory_header.text == "Inventory")
 	for child in gear_panel.find_children("*", "Button", true, false):
 		assert(child.text != "Reroll Gear")
 
-	# -- Talents panel: no redundant top subclass summary; each tree carries
-	# its own name and intrinsic in the tree section. --
+	# -- Talents panel: no redundant inner title; each framed column carries
+	# its role, tree name, and intrinsic in the tree section. --
 	var talents_title_found := false
+	var primary_role_found := false
+	var secondary_role_found := false
 	var thief_section_found := false
 	var thief_intrinsic_found := false
 	for label in talent_panel.find_children("*", "Label", true, false):
 		if label.text == "Talents":
 			talents_title_found = true
+		elif label.text == "Primary":
+			primary_role_found = true
+		elif label.text == "Secondary":
+			secondary_role_found = true
 		elif label.text == "Thief":
 			thief_section_found = true
 		elif label.text.contains("Intrinsic: Unlocks Quick Cut"):
 			thief_intrinsic_found = true
-	assert(talents_title_found)
+	assert(not talents_title_found)
+	assert(primary_role_found)
+	assert(secondary_role_found)
 	assert(thief_section_found)
 	assert(thief_intrinsic_found)
 	print("assassin intrinsic (expect None): %s" % talent_panel._intrinsic_description(rogue.trees[0]))
 	assert(talent_panel._intrinsic_description(rogue.trees[0]) == "None")
 
-	# -- Points footer: star icon + "spent/earned" budget readout.
-	print("points label (expect : 0/0): %s" % talent_panel._points_label.text)
-	assert(talent_panel._points_label.text == ": 0/0")
-	assert(talent_panel._points_label.get_parent().find_child("Icon", true, false) != null)
+	# -- Points badge: star icon + "spent/earned" budget readout now lives in
+	# Active Talents, not the full Talent Trees overlay footer.
+	print("points label (expect : 0/0): %s" % active_talents_panel._points_label.text)
+	assert(active_talents_panel._points_label.text == ": 0/0")
+	assert(active_talents_panel._points_badge != null)
+	assert(active_talents_panel._points_label.get_parent().find_child("Icon", true, false) != null)
 
 	# -- Tree structure: base tier has the two no-prereq talents side by
 	# side; deeper talents (Sunder) start disabled/dimmed until their
@@ -361,8 +401,11 @@ func _initialize() -> void:
 		expected_rotation, expected_stats, expected_monster, expected_duration_ms, build_state.current_combat_rng_seed()
 	)
 	var expected_log := CombatResultFormatter.format(expected_result, expected_monster)
-	enemy_panel.fight_pressed.emit()
+	button_sfx_before = audio_manager.button_press_sfx_play_count
+	enemy_panel.fight_button().button_down.emit()
+	enemy_panel.fight_button().pressed.emit()
 	await process_frame
+	assert(audio_manager.button_press_sfx_play_count == button_sfx_before + 1)
 
 	print("")
 	print("-- Combat log text --")
@@ -484,6 +527,9 @@ func _initialize() -> void:
 	# the next Tavern encounter, and clears the build lock so the player
 	# returns to planning. --
 	banner_claim.pressed.emit()
+	await process_frame
+	assert(build_state.gold == 0)
+	assert(build_state.earned_talent_points == 0)
 	await _wait_reward_gold_flight()
 	print("victory overlay visible after Claim Rewards (expect false): %s" % combat_screen._victory_overlay.visible)
 	assert(not combat_screen._victory_overlay.visible)
@@ -513,12 +559,17 @@ func _initialize() -> void:
 	var defeated_mouthy_button: Button = combat_screen._map_overlay._map_node_buttons[0]
 	var next_drunk_buddy_button: Button = combat_screen._map_overlay._map_node_buttons[1]
 	assert(defeated_mouthy_button.disabled)
-	assert(defeated_mouthy_button.find_child("TavernDefeatedMarker", true, false) != null)
-	assert(defeated_mouthy_button.tooltip_text.contains("defeated"))
+	var defeated_marker: Label = defeated_mouthy_button.find_child("TavernDefeatedMarker", true, false)
+	var defeated_actor: TextureRect = defeated_mouthy_button.find_child("MapActorMarker", true, false)
+	assert(defeated_marker != null and defeated_actor != null)
+	assert(defeated_marker.position == defeated_actor.position)
+	assert(defeated_marker.size == defeated_actor.size)
+	assert(defeated_marker.z_index > defeated_actor.z_index)
+	assert(defeated_mouthy_button.tooltip_text == "")
 	assert(not next_drunk_buddy_button.disabled)
 	assert(next_drunk_buddy_button.find_child("TavernDefeatedMarker", true, false) == null)
 	var next_drunk_buddy_style_before: StyleBoxFlat = next_drunk_buddy_button.get_theme_stylebox("normal")
-	assert(next_drunk_buddy_style_before.bg_color == UIColors.PANEL)
+	assert(next_drunk_buddy_style_before.bg_color == UIColors.PANEL.darkened(0.08))
 	assert(next_drunk_buddy_button.find_child("TavernAvailablePulse", true, false) != null)
 	assert(combat_screen._map_overlay._map_proceed_button.disabled)
 	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
@@ -544,7 +595,7 @@ func _initialize() -> void:
 	assert(not enemy_panel._info_label.text.contains("Target:"))
 	var planning_map_button = null
 	for child in combat_screen.find_children("*", "Button", true, false):
-		if child.text == "Map":
+		if child.name == "MapButton":
 			planning_map_button = child
 	assert(planning_map_button != null)
 	planning_map_button.pressed.emit()
@@ -562,7 +613,7 @@ func _initialize() -> void:
 	talent_panel._on_node_pressed(piercing_blades)
 	await process_frame
 	assert(build_state.selected_talents.size() == 1)
-	assert(talent_panel._points_label.text == ": 1/1")
+	assert(active_talents_panel._points_label.text == ": 1/1")
 	unlocked = build_state.unlocked_skills()
 	assert(unlocked.size() == 4)
 	for skill in unlocked:
@@ -676,11 +727,13 @@ func _initialize() -> void:
 	assert(first_offer_button.tooltip_text.begins_with("%s - " % GearGenerator.SLOT_TAGS[bought_offer.slot]))
 	assert(first_offer_button.find_child("PriceLabel", true, false).text == "18g")
 	assert(first_offer_button.find_child("PriceLabel", true, false).get_theme_font_size("font_size") == 16)
+	var shop_change_before_buy: int = audio_manager.shop_change_sfx_play_count
 	first_offer_button.pressed.emit()
 	assert(build_state.gold == gold_before_purchase - 18)
 	assert(build_state.inventory.size() == inventory_before_purchase + 1)
 	assert(build_state.has_inventory_item(bought_offer))
 	assert(not build_state.shop_offers.has(bought_offer))
+	assert(audio_manager.shop_change_sfx_play_count == shop_change_before_buy + 1)
 	assert(first_offer_id != "")
 	var stats_after_purchase := BuildResolver.resolve_stats(
 		build_state.selected_class, build_state.selected_trees, build_state.selected_talents, build_state.equipped_gear()
@@ -702,12 +755,14 @@ func _initialize() -> void:
 	var blocked_offer_button: Button = combat_screen._shop_overlay._shop_offers_box.get_child(0)
 	assert(not blocked_offer_button.disabled)
 	assert(blocked_offer_button.tooltip_text.contains("Inventory full -- make space first."))
+	var shop_change_before_blocked_buy: int = audio_manager.shop_change_sfx_play_count
 	blocked_offer_button.pressed.emit()
 	assert(combat_screen._last_inventory_blocked_source == blocked_offer_button)
 	assert(blocked_offer_button.get_meta("inventory_blocked_pulse") == true)
 	await process_frame
 	assert(build_state.gold == gold_before_blocked_buy)
 	assert(build_state.shop_offers.has(blocked_offer))
+	assert(audio_manager.shop_change_sfx_play_count == shop_change_before_blocked_buy)
 	assert(not build_state.buy_shop_offer(blocked_offer))
 	assert(build_state.gold == gold_before_blocked_buy)
 	assert(build_state.shop_offers.has(blocked_offer))
@@ -724,11 +779,13 @@ func _initialize() -> void:
 	gear_panel._on_inventory_action_selected(gear_panel.ACTION_SELL_ID)
 	await process_frame
 	assert(gear_panel._sell_dialog.visible)
+	var shop_change_before_inventory_sale: int = audio_manager.shop_change_sfx_play_count
 	gear_panel._on_sell_confirmed()
 	await process_frame
 	assert(not build_state.has_inventory_item(sold_during_shop))
 	assert(build_state.gold == gold_before_blocked_buy + sale_value)
 	assert(build_state.can_add_inventory_item())
+	assert(audio_manager.shop_change_sfx_play_count == shop_change_before_inventory_sale + 1)
 
 	var purchased_gear_changed_stats := (
 		stats_before_purchase.attack_speed != stats_after_purchase.attack_speed
@@ -788,10 +845,12 @@ func _initialize() -> void:
 	await process_frame
 	assert(gear_panel._sell_dialog.visible)
 	var gold_before_equipped_sale: int = build_state.gold
+	var shop_change_before_equipped_sale: int = audio_manager.shop_change_sfx_play_count
 	gear_panel._on_sell_confirmed()
 	await process_frame
 	assert(build_state.gold == gold_before_equipped_sale + equipped_sale_value)
 	assert(build_state.has_open_equipment_slot(equipped_sale_slot))
+	assert(audio_manager.shop_change_sfx_play_count == shop_change_before_equipped_sale + 1)
 
 	combat_screen._on_shop_continue_pressed()
 	await process_frame
@@ -881,15 +940,41 @@ func _initialize() -> void:
 	assert(combat_screen._map_overlay.visible)
 	assert(combat_screen._map_overlay._map_node_buttons.size() == 8)
 	assert(combat_screen._map_overlay._map_node_buttons[0].text.contains("Door Guard"))
-	assert(combat_screen._map_overlay._map_node_buttons[0].text.contains("Master Gear"))
+	assert(combat_screen._map_overlay._map_node_buttons[0].text.contains("Reward: Master"))
+	assert(not combat_screen._map_overlay._map_node_buttons[0].text.contains("Master Gear"))
+	assert(not combat_screen._map_overlay._map_node_buttons[0].clip_contents)
 	assert(not combat_screen._map_overlay._map_node_buttons[0].text.contains("Weapon or Ring"))
 	assert(not combat_screen._map_overlay._map_node_buttons[0].disabled)
-	assert(combat_screen._map_overlay._map_node_buttons[0].tooltip_text.contains("Hard Opener"))
+	assert(combat_screen._map_overlay._map_node_buttons[0].tooltip_text == "")
+	var door_marker: TextureRect = combat_screen._map_overlay._map_node_buttons[0].find_child("MapActorMarker", true, false)
+	var door_text_block: Label = combat_screen._map_overlay._map_node_buttons[0].find_child("MapTextBlock", true, false)
+	var door_reward_row: HBoxContainer = combat_screen._map_overlay._map_node_buttons[0].find_child("MapRewardIconRow", true, false)
+	var door_gear_icon: TextureRect = door_reward_row.find_child("MapGearRewardIcon", true, false)
+	assert(door_marker != null and door_marker.size == Vector2(76, 76) and door_marker.position.x >= 0.0 and door_marker.position.y == -4.0)
+	assert(door_text_block != null and door_text_block.text.contains("Door Guard") and door_text_block.position.x > door_marker.position.x + door_marker.size.x * 0.5)
+	assert(door_reward_row != null and door_reward_row.offset_bottom < 0.0)
+	assert(door_gear_icon != null and door_gear_icon.get_meta("gear_tier") == GearItem.Tier.MASTER)
+	assert(door_gear_icon.get_meta("gear_rarity_color") == UIColors.TIER_MASTER)
+	assert(door_gear_icon.texture.resource_name.ends_with("gear_drop_helm_master.png"))
+	assert(combat_screen._map_overlay._map_node_buttons[0].get_theme_color("font_hover_color") == UIColors.TRANSPARENT)
+	assert(combat_screen._map_overlay._map_node_buttons[0].get_theme_color("font_focus_color") == UIColors.TRANSPARENT)
 	assert(combat_screen._map_overlay._map_node_buttons[1].text.contains("Portly Cook"))
-	assert(combat_screen._map_overlay._map_node_buttons[1].text.contains("Basic Gear"))
+	assert(combat_screen._map_overlay._map_node_buttons[1].text.contains("Reward: Basic"))
+	assert(not combat_screen._map_overlay._map_node_buttons[1].text.contains("Basic Gear"))
+	assert(not combat_screen._map_overlay._map_node_buttons[1].clip_contents)
 	assert(not combat_screen._map_overlay._map_node_buttons[1].text.contains("Weapon or Necklace"))
 	assert(not combat_screen._map_overlay._map_node_buttons[1].disabled)
-	assert(combat_screen._map_overlay._map_node_buttons[1].tooltip_text.contains("Easy Opener"))
+	assert(combat_screen._map_overlay._map_node_buttons[1].tooltip_text == "")
+	var cook_marker: TextureRect = combat_screen._map_overlay._map_node_buttons[1].find_child("MapActorMarker", true, false)
+	var cook_text_block: Label = combat_screen._map_overlay._map_node_buttons[1].find_child("MapTextBlock", true, false)
+	var cook_reward_row: HBoxContainer = combat_screen._map_overlay._map_node_buttons[1].find_child("MapRewardIconRow", true, false)
+	var cook_gear_icon: TextureRect = cook_reward_row.find_child("MapGearRewardIcon", true, false)
+	assert(cook_marker != null and cook_marker.size == Vector2(76, 76) and cook_marker.position.x >= 0.0 and cook_marker.position.y == -4.0)
+	assert(cook_text_block != null and cook_text_block.text.contains("Portly Cook") and cook_text_block.position.x > cook_marker.position.x + cook_marker.size.x * 0.5)
+	assert(cook_reward_row != null and cook_reward_row.offset_bottom < 0.0)
+	assert(cook_gear_icon != null and cook_gear_icon.get_meta("gear_tier") == GearItem.Tier.BASIC)
+	assert(cook_gear_icon.get_meta("gear_rarity_color") == UIColors.TIER_BASIC)
+	assert(cook_gear_icon.texture.resource_name.ends_with("gear_drop_helm_basic.png"))
 	assert(combat_screen._map_overlay._map_node_buttons[2].text.contains("Sleeping"))
 	assert(combat_screen._map_overlay._map_node_buttons[4].text.contains("Lazy"))
 	assert(combat_screen._map_overlay._map_node_buttons[6].text.contains("Knives"))
@@ -911,6 +996,15 @@ func _initialize() -> void:
 	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.PLANNING)
 	assert(build_state.current_route_node.id == "route.gilded_serpent.portly_cook")
+	await create_timer(1.5).timeout
+	assert(not audio_manager._fireplace_player.playing)
+	assert(not audio_manager._chatter_player.playing)
+	assert(not audio_manager._tavern_theme_player.playing)
+	assert(audio_manager._rain_player.playing)
+	assert(audio_manager._night_player.playing)
+	assert(audio_manager._serpent_theme_player.playing)
+	assert(audio_manager._serpent_theme_player.volume_db < audio_manager._night_player.volume_db)
+	assert(audio_manager._serpent_theme_player.volume_db < audio_manager._rain_player.volume_db)
 	assert(combat_screen._status_label.text.contains("Portly Cook"))
 	assert(not combat_screen._status_label.visible)
 	assert(enemy_panel._title_label.text == "Portly Cook")
@@ -924,6 +1018,18 @@ func _initialize() -> void:
 	assert(enemy_panel._info_label.text.contains("Reward: 26g, Basic Gear"))
 	assert(enemy_panel._fight_button.disabled)
 	assert(build_state.needs_secondary_subclass_choice())
+	combat_screen._show_talent_overlay()
+	await process_frame
+	var talent_close_button: Button = null
+	for node in combat_screen._talent_overlay.find_children("*", "Button", true, false):
+		if node.text == "Close":
+			talent_close_button = node
+	assert(talent_close_button != null)
+	button_sfx_before = audio_manager.button_press_sfx_play_count
+	talent_close_button.pressed.emit()
+	await process_frame
+	assert(not combat_screen._talent_overlay.visible)
+	assert(audio_manager.button_press_sfx_play_count == button_sfx_before + 1)
 	combat_screen._show_talent_overlay()
 	await process_frame
 	var secondary_choices: VBoxContainer = combat_screen._talent_overlay.find_child("SecondaryTreeChoices", true, false)
@@ -964,6 +1070,12 @@ func _initialize() -> void:
 		assert(enemy_panel._info_label.text.contains("HP:"))
 		assert(not enemy_panel._info_label.text.contains("This Adventure has ended."))
 		assert(combat_screen._tavern_background.visible)
+		assert(combat_screen._tavern_background.texture == combat_screen.CONTRACT_BACKGROUND_TEXTURE)
+		assert(not combat_screen._tavern_fireplace_overlay.visible)
+		assert(combat_screen._contract_moon_bat_overlay.visible)
+		assert(combat_screen._contract_moon_bat_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+		assert(combat_screen._tavern_background.get_index() < combat_screen._contract_moon_bat_overlay.get_index())
+		assert(combat_screen._contract_moon_bat_overlay.get_index() < combat_screen._tavern_background_tint.get_index())
 		build_state.run_phase = BuildState.RunPhase.RESULT
 		build_state.run_outcome = BuildState.RunOutcome.FIGHT_WIN
 	build_state.last_fight_won = true
@@ -988,16 +1100,15 @@ func _initialize() -> void:
 	# Array as a mutable box instead.
 	var main_menu_fired := [false]
 	combat_screen.main_menu_pressed.connect(func(): main_menu_fired[0] = true)
-	# The button lives nested inside the top bar -- search the whole tree by
-	# text, since find_child by type alone would match panel buttons too.
+	# The icon-only button lives nested inside the top bar.
 	var menu_button = null
 	for child in combat_screen.find_children("*", "Button", true, false):
-		if child.text == "Abandon Run":
+		if child.name == "AbandonRunButton":
 			menu_button = child
 	assert(menu_button != null)
 	var map_button = null
 	for child in combat_screen.find_children("*", "Button", true, false):
-		if child.text == "Map":
+		if child.name == "MapButton":
 			map_button = child
 	assert(map_button != null)
 	map_button.pressed.emit()

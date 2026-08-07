@@ -258,6 +258,10 @@ const PRACTICE_DUMMY_REACTION_FRAME_SEC := 0.075
 
 var safe_top_px := 96.0
 var safe_bottom_px := 36.0
+var actor_names_visible := true:
+	set(value):
+		actor_names_visible = value
+		_apply_actor_name_visibility()
 var reserved_bottom_px := 0.0:
 	set(value):
 		reserved_bottom_px = maxf(value, 0.0)
@@ -389,6 +393,7 @@ func configure(player_name: String, enemy_name: String) -> void:
 		_player_name_label.text = player_name
 	if _enemy_name_label != null:
 		_enemy_name_label.text = enemy_name
+	_apply_actor_name_visibility()
 	_player_visual_key = PLAYER_VISUAL_KEY
 	_enemy_visual_key = _enemy_visual_key_for(enemy_name)
 	_set_player_animation("idle", true)
@@ -611,7 +616,7 @@ func play_poison_tick_pulse(animate: bool = true) -> void:
 		return
 	_kill_enemy_tween()
 	_enemy_tween = create_tween()
-	_enemy_tween.tween_property(enemy_actor_anchor, "modulate", Color(0.44, 1.0, 0.44, 1.0), TICK_PULSE_SEC * 0.5)
+	_enemy_tween.tween_property(enemy_actor_anchor, "modulate", UIColors.COMBAT_POISON_TICK_FLASH, TICK_PULSE_SEC * 0.5)
 	_enemy_tween.tween_property(enemy_actor_anchor, "modulate", _enemy_poison_modulate(), TICK_PULSE_SEC * 0.5)
 
 
@@ -643,7 +648,7 @@ func play_outcome_pose(victory: bool, animate: bool = true) -> void:
 		return
 	var target_anchor := enemy_actor_anchor if victory else player_actor_anchor
 	var target_position := (_enemy_base_position if victory else _player_base_position) + Vector2(0.0, 10.0)
-	var target_modulate := Color(1.0, 1.0, 1.0, 0.62) if victory else Color.WHITE
+	var target_modulate := UIColors.COMBAT_DEFEATED_ACTOR_MODULATE if victory else Color.WHITE
 	var tween := create_tween()
 	if victory:
 		_enemy_tween = tween
@@ -753,6 +758,7 @@ func _build_stage() -> void:
 	_enemy_actor_card = _make_actor_card("EnemyActor", "Enemy", UIColors.TEXT_WARNING)
 	enemy_actor_anchor.add_child(_enemy_actor_card)
 	_enemy_name_label = _enemy_actor_card.find_child("ActorLabel", true, false) as Label
+	_apply_actor_name_visibility()
 	_enemy_contact_shadow = _make_contact_shadow("EnemyContactShadow")
 	enemy_actor_anchor.add_child(_enemy_contact_shadow)
 	_enemy_sprite = _make_actor_sprite("EnemySprite", true)
@@ -813,6 +819,13 @@ func _make_actor_card(card_name: String, label_text: String, accent_color: Color
 	actor_label.add_theme_color_override("font_color", accent_color)
 	center.add_child(actor_label)
 	return card
+
+
+func _apply_actor_name_visibility() -> void:
+	if _player_name_label != null:
+		_player_name_label.visible = actor_names_visible
+	if _enemy_name_label != null:
+		_enemy_name_label.visible = actor_names_visible
 
 
 func _make_actor_sprite(sprite_name: String, flip_h: bool) -> TextureRect:
@@ -1224,7 +1237,7 @@ func _play_enemy_recoil(delay_sec: float, is_crit: bool) -> void:
 	var recoil_distance := RECOIL_DISTANCE_PX * (1.45 if is_crit else 1.0)
 	var recoil_out_sec := 0.09 if is_crit else 0.07
 	var recoil_back_sec := 0.16 if is_crit else 0.13
-	var hurt_color := Color(1.0, 0.72, 0.52, 1.0) if is_crit else Color(1.0, 0.78, 0.78, 1.0)
+	var hurt_color := UIColors.COMBAT_CRIT_FLASH if is_crit else UIColors.COMBAT_HIT_FLASH
 	var recoil_target := _enemy_base_position + Vector2(recoil_distance, 0.0)
 	_enemy_tween = create_tween()
 	_enemy_tween.tween_interval(delay_sec)
@@ -1326,7 +1339,7 @@ func _clear_bandit_coin_particles() -> void:
 func _play_outcome_flash(victory: bool) -> void:
 	if _outcome_flash == null:
 		return
-	_outcome_flash.color = Color(1.0, 0.86, 0.32, 0.0) if victory else Color(1.0, 0.24, 0.2, 0.0)
+	_outcome_flash.color = UIColors.COMBAT_VICTORY_FLASH if victory else UIColors.COMBAT_DEFEAT_FLASH
 	var peak_alpha := 0.2 if victory else 0.18
 	var tween := create_tween()
 	tween.tween_property(_outcome_flash, "color:a", peak_alpha, OUTCOME_FLASH_SEC * 0.35)
@@ -1384,6 +1397,10 @@ func _layout_stage() -> void:
 	if stage_size.x <= 0.0 or stage_size.y <= 0.0:
 		return
 
+	var previous_player_base := _player_base_position
+	var previous_enemy_base := _enemy_base_position
+	var previous_player_position := player_actor_anchor.position
+	var previous_enemy_position := enemy_actor_anchor.position
 	var practice_dummy := _is_practice_dummy_target()
 	var enemy_offset := PRACTICE_DUMMY_STAGE_OFFSET if practice_dummy else ACTOR_GROUP_STAGE_OFFSET_PX
 	var enemy_grid := PRACTICE_DUMMY_STAGE_GRID if practice_dummy else ENEMY_STAGE_GRID
@@ -1395,9 +1412,24 @@ func _layout_stage() -> void:
 	enemy_actor_anchor.position = enemy_position
 	_player_base_position = player_actor_anchor.position
 	_enemy_base_position = enemy_actor_anchor.position
+	_apply_outcome_pose_position_after_layout(previous_player_base, previous_enemy_base, previous_player_position, previous_enemy_position)
 	contact_effect_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5 + ACTOR_GROUP_STAGE_OFFSET_PX.x, actor_y + ACTOR_SIZE.y * 0.35)
 	floating_text_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5 + ACTOR_GROUP_STAGE_OFFSET_PX.x, maxf(safe_top_px, actor_y - CONTACT_SIZE.y * 0.75))
 	player_status_anchor.position = Vector2(player_position.x + ACTOR_SIZE.x * 0.5 - STATUS_SIZE.x * 0.5, maxf(safe_top_px, player_position.y - STATUS_SIZE.y - 8.0))
 	enemy_status_anchor.position = Vector2(enemy_position.x + ACTOR_SIZE.x * 0.5 - STATUS_SIZE.x * 0.5, maxf(safe_top_px, enemy_position.y - STATUS_SIZE.y - 8.0))
 	if _debug_grid_overlay != null:
 		_debug_grid_overlay.queue_redraw()
+
+
+func _apply_outcome_pose_position_after_layout(
+	previous_player_base: Vector2,
+	previous_enemy_base: Vector2,
+	previous_player_position: Vector2,
+	previous_enemy_position: Vector2
+) -> void:
+	if outcome_pose == OUTCOME_VICTORY and enemy_actor_anchor != null:
+		if _is_practice_dummy_target():
+			return
+		enemy_actor_anchor.position = _enemy_base_position + (previous_enemy_position - previous_enemy_base)
+	elif outcome_pose == OUTCOME_DEFEAT and player_actor_anchor != null:
+		player_actor_anchor.position = _player_base_position + (previous_player_position - previous_player_base)

@@ -29,3 +29,6 @@ difficulty_label = "Elite Pressure"
 reward_quality_label = "Legendary Weapon"
 summary_text = "Vyra's right hand waits before the target. Armor and poison resistance punish unfocused midgame builds."
 reward_summary = "42g and a choice of 2 of 5 possible Legendary weapons."
+before_selection_text = "The foe before you is different than the others. It is possible you may have made a mistake taking this job."
+selected_text = "Selected Route: Knives
+No turning back now. In for a penny..."

@@ -20,3 +20,6 @@ difficulty_label = "Contract Boss"
 reward_quality_label = "Contract Victory"
 summary_text = "Vyra is the Gilded Serpent target. Armor and poison resistance make this the final build exam."
 reward_summary = "120g. Contract victory."
+before_selection_text = "The silk pajamas are a nice touch."
+selected_text = "Selected Route: Vyra
+Time to get paid."

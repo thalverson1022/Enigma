@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CrystalMaiden Attack FX Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #161616;
+      --panel: #1d150f;
+      --gold: #c9a259;
+      --red: #8a2e2e;
+      --red-hi: #b94a3d;
+      --text: #f0e2c5;
+      --muted: #9a8e7b;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      display: grid;
+      place-items: center;
+    }
+
+    main {
+      width: min(860px, calc(100vw - 40px));
+      background: var(--panel);
+      border: 2px solid var(--gold);
+      border-radius: 8px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+      padding: 28px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      color: var(--gold);
+    }
+
+    p {
+      margin: 0 0 22px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      border: 2px solid var(--gold);
+      border-radius: 6px;
+      background: var(--red);
+      color: var(--text);
+      min-height: 58px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #4c1714;
+    }
+
+    button:hover {
+      background: var(--red-hi);
+    }
+
+    button:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #4c1714;
+    }
+
+    .log {
+      min-height: 210px;
+      background: #120d09;
+      border: 1px solid rgba(201, 162, 89, 0.65);
+      border-radius: 6px;
+      padding: 14px;
+      font-family: Consolas, "Courier New", monospace;
+      white-space: pre-wrap;
+      color: #e8d5ad;
+      overflow: auto;
+    }
+
+    .hint {
+      margin-top: 14px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Attack FX Randomization Preview</h1>
+    <p>
+      These three examples use the current six-file sword FX pool. Each hit
+      picks a source clip and applies small playback-rate and volume changes.
+    </p>
+    <div class="grid">
+      <button type="button" data-sequence="0">Example 1<br>Steady Duel</button>
+      <button type="button" data-sequence="1">Example 2<br>Fast Burst</button>
+      <button type="button" data-sequence="2">Example 3<br>Heavy Finish</button>
+    </div>
+    <div id="log" class="log">Pick an example to audition the randomized attack sequence.</div>
+    <p class="hint">
+      Playback-rate changes also change pitch in the browser, similar to how we
+      would vary pitch in Godot. Refreshing the page will keep these example
+      sequences stable for comparison.
+    </p>
+  </main>
+
+  <script>
+    const clips = {
+      clash: "fx/sword_clash_hit.mp3",
+      block: "fx/sword_block.mp3",
+      swing: "fx/sword_swing.mp3",
+      slice: "fx/sword_slice.mp3",
+      cut1: "fx/sword_cut_1.mp3",
+      cut2: "fx/sword_cut_2.mp3"
+    };
+
+    const sequences = [
+      [
+        ["swing", 0, 0.84, 0.98],
+        ["cut1", 310, 0.68, 1.05],
+        ["block", 770, 0.58, 0.94],
+        ["slice", 1200, 0.70, 1.08],
+        ["swing", 1740, 0.62, 0.97],
+        ["clash", 2360, 0.72, 1.03],
+        ["cut2", 3060, 0.76, 0.99]
+      ],
+      [
+        ["swing", 0, 0.70, 1.12],
+        ["cut2", 210, 0.64, 1.18],
+        ["cut1", 430, 0.70, 1.07],
+        ["block", 690, 0.68, 0.92],
+        ["slice", 1010, 0.66, 1.15],
+        ["swing", 1280, 0.56, 1.21],
+        ["clash", 1640, 0.78, 0.96],
+        ["cut2", 2100, 0.74, 1.10]
+      ],
+      [
+        ["swing", 0, 0.62, 0.91],
+        ["block", 490, 0.62, 0.88],
+        ["cut1", 1040, 0.64, 0.96],
+        ["slice", 1580, 0.70, 1.03],
+        ["swing", 2220, 0.58, 0.98],
+        ["clash", 2820, 0.82, 0.86],
+        ["cut2", 3550, 0.86, 0.93]
+      ]
+    ];
+
+    const log = document.getElementById("log");
+    const activeAudios = [];
+
+    function stopActive() {
+      while (activeAudios.length > 0) {
+        const audio = activeAudios.pop();
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    }
+
+    function playHit([clipKey, delayMs, volume, rate], index) {
+      setTimeout(() => {
+        const audio = new Audio(clips[clipKey]);
+        audio.volume = Math.max(0, Math.min(1, volume));
+        audio.playbackRate = Math.max(0.5, Math.min(1.5, rate));
+        activeAudios.push(audio);
+        audio.play().catch((error) => {
+          log.textContent += `\nCould not play ${clipKey}: ${error.message}`;
+        });
+      }, delayMs);
+    }
+
+    function describe(sequence, sequenceIndex) {
+      const lines = [`Example ${sequenceIndex + 1}`];
+      sequence.forEach(([clipKey, delayMs, volume, rate], index) => {
+        lines.push(
+          `${String(index + 1).padStart(2, "0")}  ` +
+          `${String(delayMs).padStart(4, " ")}ms  ` +
+          `${clipKey.padEnd(6, " ")}  ` +
+          `vol ${volume.toFixed(2)}  rate/pitch ${rate.toFixed(2)}`
+        );
+      });
+      return lines.join("\n");
+    }
+
+    document.querySelectorAll("button[data-sequence]").forEach((button) => {
+      button.addEventListener("click", () => {
+        stopActive();
+        const sequenceIndex = Number(button.dataset.sequence);
+        const sequence = sequences[sequenceIndex];
+        log.textContent = describe(sequence, sequenceIndex);
+        sequence.forEach(playHit);
+      });
+    });
+  </script>
+</body>
+</html>

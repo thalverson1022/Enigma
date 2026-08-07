@@ -35,6 +35,12 @@ func _initialize() -> void:
 	var background := title.find_child("MainMenuBackground", true, false) as TextureRect
 	assert(background != null)
 	assert(background.texture != null)
+	var lightning_overlay := title.find_child("TitleLightningFlashOverlay", true, false) as Control
+	var main_menu_center := title.find_child("MainMenuCenter", true, false) as CenterContainer
+	assert(lightning_overlay != null)
+	assert(lightning_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	assert(main_menu_center != null)
+	assert(lightning_overlay.get_index() < main_menu_center.get_index())
 	var continue_button := _find_button(title, "Resume Adventure")
 	assert(continue_button != null)
 	print("continue button visible with no save (expect true): %s" % continue_button.visible)
@@ -44,6 +50,14 @@ func _initialize() -> void:
 
 	var adventure_button := _find_button(title, "New Adventure")
 	assert(adventure_button != null)
+	assert(title._random_seed_check_box is CheckBox)
+	assert(title._random_seed_check_box.get_theme_stylebox("normal") is StyleBoxEmpty)
+	assert(title._random_seed_check_box.get_theme_stylebox("hover_pressed") is StyleBoxEmpty)
+	var seed_field_style := title._seed_spin_box.get_line_edit().get_theme_stylebox("normal") as StyleBoxFlat
+	assert(seed_field_style != null)
+	assert(seed_field_style.border_color == UIColors.PANEL_BORDER)
+	assert(title._random_seed_check_box.get_theme_icon("checked").resource_name == "SeedRandomChecked")
+	assert(title._random_seed_check_box.get_theme_icon("unchecked").resource_name == "SeedRandomUnchecked")
 	assert(title.is_random_seed_enabled())
 	assert(not title._seed_spin_box.editable)
 	var random_seed: int = title.selected_seed()
@@ -75,6 +89,9 @@ func _initialize() -> void:
 	var class_background := class_select.find_child("ClassSelectBackground", true, false) as TextureRect
 	assert(class_background != null)
 	assert(class_background.texture != null)
+	var class_lightning_overlay := class_select.find_child("ClassSelectLightningFlashOverlay", true, false) as Control
+	assert(class_lightning_overlay != null)
+	assert(class_lightning_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	var rogue: ClassDef = load("res://data/classes/rogue.tres")
 	class_select._on_class_selected(rogue)
 	class_select.advanced.emit()
@@ -84,6 +101,9 @@ func _initialize() -> void:
 	var subclass_background := subclass_select.find_child("SubclassSelectBackground", true, false) as TextureRect
 	assert(subclass_background != null)
 	assert(subclass_background.texture != null)
+	var subclass_lightning_overlay := subclass_select.find_child("SubclassSelectLightningFlashOverlay", true, false) as Control
+	assert(subclass_lightning_overlay != null)
+	assert(subclass_lightning_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	var thief: SubclassTree = rogue.trees[1]
 	subclass_select._on_tree_selected(thief)
 	subclass_select.advanced.emit()
@@ -105,7 +125,7 @@ func _initialize() -> void:
 	print("pre-save gold/seed: %d / %d" % [build_state.gold, build_state.adventure_seed])
 
 	# -- Save & Quit persists the run and returns to Title --
-	var save_quit_button := _find_button(combat_screen, "Save & Quit")
+	var save_quit_button := _find_button_by_name(combat_screen, "SaveQuitButton")
 	assert(save_quit_button != null)
 	save_quit_button.pressed.emit()
 	await process_frame
@@ -147,7 +167,7 @@ func _initialize() -> void:
 	assert(build_state.selected_trees[0].display_name == "Thief")
 
 	# -- Abandon Run deletes the save --
-	var abandon_button := _find_button(resumed_screen, "Abandon Run")
+	var abandon_button := _find_button_by_name(resumed_screen, "AbandonRunButton")
 	assert(abandon_button != null)
 	abandon_button.pressed.emit()
 	await process_frame
@@ -219,6 +239,10 @@ func _find_button(root_node: Node, text: String) -> Button:
 		if child.text == text:
 			return child
 	return null
+
+
+func _find_button_by_name(root_node: Node, button_name: String) -> Button:
+	return root_node.find_child(button_name, true, false) as Button
 
 
 func _nearest_panel(node: Node) -> PanelContainer:

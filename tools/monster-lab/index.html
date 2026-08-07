@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CrystalMaiden Monster Lab</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">CrystalMaiden Tooling</p>
+          <h1>Monster Lab</h1>
+        </div>
+        <div class="header-actions">
+          <button id="reset-button" type="button" class="secondary-action">Reset</button>
+          <button id="generate-button" type="button" class="primary-action">Generate Monster</button>
+        </div>
+      </header>
+
+      <section class="dashboard">
+        <aside class="control-panel" aria-label="Monster generation controls">
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>Generator</h2>
+              <span id="seed-readout">Seed 4001</span>
+            </div>
+            <label class="field">
+              <span>Archetype A</span>
+              <select id="archetype-a"></select>
+            </label>
+            <label class="field">
+              <span>Archetype B</span>
+              <select id="archetype-b"></select>
+            </label>
+            <label class="field">
+              <span>Difficulty</span>
+              <select id="difficulty"></select>
+            </label>
+            <label class="field">
+              <span>Monster Kind</span>
+              <select id="monster-kind">
+                <option value="normal">Normal</option>
+                <option value="elite">Elite</option>
+                <option value="boss">Boss</option>
+                <option value="bespoke">Bespoke</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Name</span>
+              <input id="monster-name" type="text" autocomplete="off" />
+            </label>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>Archetype Builder</h2>
+              <span>Custom pools</span>
+            </div>
+            <div class="builder-tabs" role="tablist" aria-label="Custom archetype slots">
+              <button id="edit-custom-a" type="button" class="tab-button active-tab">Custom A</button>
+              <button id="edit-custom-b" type="button" class="tab-button">Custom B</button>
+            </div>
+            <label class="field">
+              <span>Archetype Name</span>
+              <input id="custom-archetype-name" type="text" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>HP Bias</span>
+              <input id="custom-hp-bias" type="range" min="70" max="150" step="1" value="100" />
+            </label>
+            <div class="builder-help">Enable mechanics, set their low/high value range, then choose how quickly they climb with encounter difficulty.</div>
+            <div id="custom-mechanics" class="custom-mechanics"></div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>Bespoke Tuning</h2>
+              <span>Manual overrides</span>
+            </div>
+            <div id="stat-controls" class="slider-stack"></div>
+            <label class="toggle-row">
+              <input id="lock-mechanics" type="checkbox" />
+              <span>Keep current mechanic set on next generate</span>
+            </label>
+          </section>
+        </aside>
+
+        <section class="monster-surface" aria-labelledby="monster-title">
+          <div class="monster-topline">
+            <div>
+              <h2 id="monster-title">Generated Monster</h2>
+              <p id="monster-note">Choose two archetypes and generate a candidate.</p>
+            </div>
+            <div class="score-badge" id="difficulty-score">Score 0</div>
+          </div>
+
+          <div class="summary-grid" aria-label="Monster summary">
+            <article class="metric">
+              <span>HP</span>
+              <strong id="hp-readout">0</strong>
+            </article>
+            <article class="metric">
+              <span>Effective HP</span>
+              <strong id="ehp-readout">0</strong>
+            </article>
+            <article class="metric">
+              <span>Required DPS</span>
+              <strong id="dps-readout">0</strong>
+            </article>
+            <article class="metric">
+              <span>Budget</span>
+              <strong id="budget-readout">0 / 0</strong>
+            </article>
+          </div>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>Mechanics</h2>
+              <span id="mechanics-count">0 selected</span>
+            </div>
+            <div id="mechanics-grid" class="mechanics-grid"></div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>Difficulty Model</h2>
+              <span>Heuristic preview</span>
+            </div>
+            <div id="budget-bars" class="budget-bars"></div>
+            <div id="pressure-grid" class="pressure-grid"></div>
+          </section>
+        </section>
+
+        <aside class="preview-panel" aria-label="Sprite and export preview">
+          <section class="panel-section sprite-section">
+            <div class="section-heading">
+              <h2>Sprite & Motion</h2>
+              <span>Single image</span>
+            </div>
+            <div class="stage">
+              <div class="moon"></div>
+              <div class="floor-line"></div>
+              <div id="sprite-actor" class="sprite-actor idle-bob">
+                <img id="sprite-image" alt="Monster sprite preview" />
+                <div id="sprite-placeholder" class="sprite-placeholder">
+                  <span></span>
+                </div>
+              </div>
+            </div>
+            <label class="file-field">
+              <span>Monster Sprite</span>
+              <input id="sprite-input" type="file" accept="image/*" />
+            </label>
+            <div class="motion-controls">
+              <label class="field">
+                <span>Scale</span>
+                <input id="sprite-scale" type="range" min="60" max="170" step="1" value="100" />
+              </label>
+              <label class="field">
+                <span>Floor Offset</span>
+                <input id="sprite-offset" type="range" min="-40" max="40" step="1" value="0" />
+              </label>
+              <label class="field">
+                <span>Idle</span>
+                <select id="idle-preset">
+                  <option value="idle-bob">Idle Bob</option>
+                  <option value="idle-breathe">Breathing Scale</option>
+                  <option value="idle-heavy">Heavy Sway</option>
+                  <option value="idle-still">Still</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Hit</span>
+                <select id="hit-preset">
+                  <option value="hit-jiggle">Jiggle</option>
+                  <option value="hit-flash">Flash Jiggle</option>
+                  <option value="hit-armor">Armor Hit</option>
+                  <option value="hit-poison">Poison Pulse</option>
+                </select>
+              </label>
+            </div>
+            <div class="button-row">
+              <button id="preview-hit" type="button" class="secondary-action">Preview Hit</button>
+              <button id="clear-sprite" type="button" class="secondary-action">Clear Sprite</button>
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>Warnings</h2>
+              <span id="warning-count">0 flags</span>
+            </div>
+            <div id="warnings" class="warnings"></div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>Export</h2>
+              <span>Monster JSON</span>
+            </div>
+            <div class="button-row">
+              <button id="copy-json" type="button" class="secondary-action">Copy JSON</button>
+              <button id="download-json" type="button" class="secondary-action">Download</button>
+            </div>
+            <textarea id="export-json" spellcheck="false" aria-label="Monster export JSON"></textarea>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <script src="data/mechanics.js"></script>
+    <script src="data/archetypes.js"></script>
+    <script src="data/difficulty.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

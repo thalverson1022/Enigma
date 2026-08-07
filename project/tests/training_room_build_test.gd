@@ -62,6 +62,16 @@ func _initialize() -> void:
 	await process_frame
 	assert(not training_room._state.build_locked)
 	assert(skill_build_panel._lock_button.disabled)
+	training_room._talent_overlay.visible = true
+	await process_frame
+	assert(training_room._talent_overlay.find_child("TreeDropdowns", true, false) == null)
+	assert(talent_panel.find_child("PrimaryTalentColumn", true, false) != null)
+	assert(talent_panel.find_child("SecondaryTalentColumn", true, false) != null)
+	assert(talent_panel.find_child("PrimaryTreeOption", true, false) is OptionButton)
+	assert(talent_panel.find_child("SecondaryTreeOption", true, false) is OptionButton)
+	assert(not _talent_panel_text(talent_panel).contains("No subclass selected."))
+	assert(not _talent_panel_text(talent_panel).contains("Unlocks later in the Adventure."))
+	training_room._talent_overlay.visible = false
 	assert(training_room._state.equipped_weapon == null)
 	assert(training_room._state.equipped_trinket == null)
 	assert(training_room._state.equipped_charm == null)
@@ -149,3 +159,10 @@ func _find_talent(tree: SubclassTree, talent_id: String) -> Talent:
 		if talent.id == talent_id:
 			return talent
 	return null
+
+
+func _talent_panel_text(talent_panel) -> String:
+	var parts: PackedStringArray = []
+	for label in talent_panel.find_children("*", "Label", true, false):
+		parts.append(label.text)
+	return "\n".join(parts)

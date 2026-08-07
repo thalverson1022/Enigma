@@ -393,7 +393,7 @@ func has_claimed_current_reward() -> bool:
 	return claimed_reward_encounter_indices.has(current_encounter_index)
 
 
-func claim_current_reward() -> bool:
+func claim_current_reward(defer_currency: bool = false) -> bool:
 	if run_phase != RunPhase.RESULT or not last_fight_won:
 		return false
 	if has_claimed_current_reward():
@@ -409,8 +409,9 @@ func claim_current_reward() -> bool:
 			return false
 		claimed_reward_encounter_indices.append(current_encounter_index)
 	if reward != null:
-		add_gold(modified_gold_reward(reward.gold_amount))
-		add_talent_points(reward.talent_points)
+		if not defer_currency:
+			add_gold(modified_gold_reward(reward.gold_amount))
+			add_talent_points(reward.talent_points)
 		for gear in reward.fixed_gear_rewards:
 			grant_gear(gear)
 		pending_reward_choices = _gear_choices_for_reward(reward)

@@ -37,6 +37,8 @@ const CONTRACT_OVERLAY_SCENE := preload("res://scenes/combat/contract_overlay.ts
 const MAP_OVERLAY_SCENE := preload("res://scenes/combat/map_overlay.tscn")
 const COMBAT_STAGE_SCRIPT := preload("res://scripts/ui/combat_stage.gd")
 const COMBAT_STATUS_ICONS := preload("res://scripts/ui/combat_status_icons.gd")
+const TAVERN_FIREPLACE_GLOW_OVERLAY_SCRIPT := preload("res://scripts/ui/tavern_fireplace_glow_overlay.gd")
+const CONTRACT_MOON_BAT_OVERLAY_SCRIPT := preload("res://scripts/ui/contract_moon_bat_overlay.gd")
 const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 const COMBAT_STATUS_ICON_SIZE := Vector2(22, 22)
 const COMBAT_STATUS_FONT_SIZE := 24
@@ -48,6 +50,16 @@ const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
 const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
 const UI_MAP_ICON := preload("res://assets/ui/icons/map.png")
 const UI_GOLD_ICON := preload("res://assets/ui/icons/gold.png")
+const UI_CLOCK_ICON_PATH := "res://assets/ui/icons/clock.png"
+const UI_SAVE_QUIT_ICON_PATH := "res://assets/ui/icons/save_quit_inventory.png"
+const UI_ABANDON_ICON_PATH := "res://assets/ui/icons/abandon_ex.png"
+const HEALTH_BAR_HEIGHT := 18.0
+const HEALTH_BAR_INSET := 3.0
+const FIGHT_TIMER_ICON_SIZE := Vector2(28, 28)
+const FIGHT_TIMER_FONT_SIZE := 26
+const FIGHT_TIMER_BADGE_SIZE := Vector2(112, 46)
+const TOP_ACTION_BUTTON_SIZE := Vector2(56, 56)
+const SETTINGS_BUTTON_RESERVED_WIDTH := 50.0
 
 const SIDE_COLUMN_WIDTH := 300
 const SCREEN_MARGIN := 16
@@ -56,8 +68,6 @@ const CARD_TITLE_FONT_SIZE := 20
 const VICTORY_TITLE_FONT_SIZE := 36
 const VICTORY_REWARD_FONT_SIZE := 24
 const VICTORY_REWARD_ICON_SIZE := Vector2(34, 34)
-const INVENTORY_BLOCKED_PULSE_SCALE := Vector2(1.06, 1.06)
-const INVENTORY_BLOCKED_PULSE_COLOR := UIColors.TEXT_WARNING
 const COMBAT_CONTENT_SEPARATION := 8
 const COMBAT_BUTTON_BAND_FALLBACK_HEIGHT := 94.0
 const RESULT_OVERLAY_Z_INDEX := 20
@@ -88,7 +98,64 @@ const PLAYBACK_OUTCOME_REVEAL_DELAY_SEC := 0.75
 const PLAYER_DEFEAT_POSE_HOLD_SEC := 1.0
 const TAVERN_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/tavern_dummy_background_2.jpg")
 const CONTRACT_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/contract_exterior.jpg")
-const TAVERN_BACKGROUND_TINT := Color(0, 0, 0, 0.42)
+const TAVERN_BACKGROUND_TINT := UIColors.SCRIM_SOFT
+
+
+class HealthBarDepthOverlay:
+	extends Control
+
+	var source_bar: ProgressBar
+
+	func bind(bar: ProgressBar) -> void:
+		source_bar = bar
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if source_bar != null and not source_bar.value_changed.is_connected(_on_bar_value_changed):
+			source_bar.value_changed.connect(_on_bar_value_changed)
+
+	func _ready() -> void:
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		if source_bar == null:
+			return
+		var track_rect := Rect2(Vector2.ZERO, size)
+		var inner_rect := track_rect.grow(-HEALTH_BAR_INSET)
+		if inner_rect.size.x <= 0.0 or inner_rect.size.y <= 0.0:
+			return
+		var ratio := 0.0
+		if source_bar.max_value > source_bar.min_value:
+			ratio = clampf(
+				(float(source_bar.value) - float(source_bar.min_value))
+				/ (float(source_bar.max_value) - float(source_bar.min_value)),
+				0.0,
+				1.0
+			)
+		var fill_width := inner_rect.size.x * ratio
+		draw_rect(Rect2(inner_rect.position, Vector2(inner_rect.size.x, 1.0)), UIColors.PANEL_EDGE_LIGHT, true)
+		draw_rect(
+			Rect2(Vector2(inner_rect.position.x, inner_rect.end.y - 2.0), Vector2(inner_rect.size.x, 2.0)),
+			UIColors.HEALTH_BAR_TRACK_INNER,
+			true
+		)
+		if fill_width <= 0.0:
+			return
+		var fill_rect := Rect2(inner_rect.position, Vector2(fill_width, inner_rect.size.y))
+		draw_rect(Rect2(fill_rect.position, Vector2(fill_rect.size.x, 3.0)), UIColors.HEALTH_BAR_SHEEN, true)
+		draw_rect(
+			Rect2(Vector2(fill_rect.position.x, fill_rect.end.y - 3.0), Vector2(fill_rect.size.x, 3.0)),
+			UIColors.HEALTH_BAR_FILL_SHADOW,
+			true
+		)
+		if fill_width >= 8.0:
+			draw_line(
+				Vector2(fill_rect.end.x - 1.0, fill_rect.position.y + 2.0),
+				Vector2(fill_rect.end.x - 1.0, fill_rect.end.y - 2.0),
+				UIColors.HEALTH_BAR_FILL_LIGHT,
+				1.0
+			)
+
+	func _on_bar_value_changed(_value: float) -> void:
+		queue_redraw()
 
 
 var _status_label: Label
@@ -126,6 +193,8 @@ var _recap_label: Label
 # top of the black Combat panel, leaving the panel's center free for the
 # future fight-action animations that black space is reserved for. --
 var _enemy_hud: VBoxContainer
+var _fight_timer_badge: PanelContainer
+var _fight_timer_label: Label
 var _hud_name_label: Label
 var _hud_hp_text_label: Label
 var _hud_health_bar: ProgressBar
@@ -160,6 +229,7 @@ var instant_playback: bool = DisplayServer.get_name() == "headless"
 var _playback_active := false
 var _playback_presenter: CombatPlaybackPresenter
 var _playback_controls: PlaybackControls
+var _skip_playback_on_fight := false
 var _skill_build_panel
 var _gear_panel
 var _active_talents_panel
@@ -179,6 +249,8 @@ var _active_talents_panel
 var _last_playback_speed: float = PlaybackControls.SPEED_OPTIONS[0]
 var _combat_window: PanelContainer
 var _tavern_background: TextureRect
+var _tavern_fireplace_overlay
+var _contract_moon_bat_overlay
 var _tavern_background_tint: ColorRect
 var _combat_play_area: Control
 var _combat_stage
@@ -196,6 +268,13 @@ var _last_inventory_blocked_source: Control = null
 
 
 func _ready() -> void:
+	var canvas := ColorRect.new()
+	canvas.name = "ScreenCanvas"
+	canvas.color = UIColors.BACKGROUND
+	canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(canvas)
+
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
@@ -244,18 +323,20 @@ func _ready() -> void:
 	top_bar.add_child(_next_action_label)
 
 	_map_button = Button.new()
-	_map_button.text = "Map"
-	CardStyle.configure_icon_button(_map_button, UI_MAP_ICON)
+	_configure_top_icon_button(_map_button, "MapButton", UI_MAP_ICON, "Map")
 	_map_button.pressed.connect(_on_map_button_pressed)
 	top_bar.add_child(_map_button)
 	var save_quit_button := Button.new()
-	save_quit_button.text = "Save & Quit"
+	_configure_top_icon_button(save_quit_button, "SaveQuitButton", _icon_texture_from_path(UI_SAVE_QUIT_ICON_PATH), "Save & Quit")
 	save_quit_button.pressed.connect(_on_save_and_quit_pressed)
 	top_bar.add_child(save_quit_button)
 	var menu_button := Button.new()
-	menu_button.text = "Abandon Run"
+	_configure_top_icon_button(menu_button, "AbandonRunButton", _icon_texture_from_path(UI_ABANDON_ICON_PATH), "Abandon Run")
 	menu_button.pressed.connect(func(): _confirm_dialog.popup_centered())
 	top_bar.add_child(menu_button)
+	var settings_reserved_space := Control.new()
+	settings_reserved_space.custom_minimum_size = Vector2(SETTINGS_BUTTON_RESERVED_WIDTH, 0)
+	top_bar.add_child(settings_reserved_space)
 	root_vbox.add_child(top_bar)
 
 	# -- Three-column HUD body --
@@ -414,6 +495,20 @@ func _build_combat_window() -> PanelContainer:
 	_tavern_background.visible = false
 	window.add_child(_tavern_background)
 
+	_tavern_fireplace_overlay = TAVERN_FIREPLACE_GLOW_OVERLAY_SCRIPT.new()
+	_tavern_fireplace_overlay.name = "TavernFireplaceGlowOverlay"
+	_tavern_fireplace_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_tavern_fireplace_overlay.bind_background(_tavern_background)
+	_tavern_fireplace_overlay.visible = false
+	window.add_child(_tavern_fireplace_overlay)
+
+	_contract_moon_bat_overlay = CONTRACT_MOON_BAT_OVERLAY_SCRIPT.new()
+	_contract_moon_bat_overlay.name = "ContractMoonBatOverlay"
+	_contract_moon_bat_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_contract_moon_bat_overlay.bind_background(_tavern_background)
+	_contract_moon_bat_overlay.visible = false
+	window.add_child(_contract_moon_bat_overlay)
+
 	_tavern_background_tint = ColorRect.new()
 	_tavern_background_tint.color = TAVERN_BACKGROUND_TINT
 	_tavern_background_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -431,6 +526,7 @@ func _build_combat_window() -> PanelContainer:
 	_combat_stage.name = "CombatStage"
 	_combat_stage.safe_top_px = 132.0
 	_combat_stage.safe_bottom_px = 28.0
+	_combat_stage.actor_names_visible = false
 	_combat_play_area.add_child(_combat_stage)
 
 	var content := VBoxContainer.new()
@@ -446,17 +542,14 @@ func _build_combat_window() -> PanelContainer:
 	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
 	content.add_child(title)
 
+	_playback_controls = PlaybackControls.new()
+	_playback_controls.name = "PlaybackControls"
+	_playback_controls.speed_selected.connect(_set_playback_speed)
+	_playback_controls.skip_pressed.connect(_on_playback_skip_pressed)
+
 	# Enemy status HUD, pinned directly under the panel title so the black
 	# center of the window stays clear for future fight-action animations.
 	content.add_child(_build_enemy_hud())
-
-	# Playback controls: elapsed/window readout plus 1x/2x/4x/Skip, visible
-	# only while a fight's timeline is playing back. Sits directly under the
-	# HUD so the black panel center stays the popup stage.
-	_playback_controls = PlaybackControls.new()
-	_playback_controls.speed_selected.connect(_set_playback_speed)
-	_playback_controls.skip_pressed.connect(_skip_playback)
-	content.add_child(_playback_controls)
 
 	_outcome_title_label = Label.new()
 	_outcome_title_label.visible = false
@@ -527,6 +620,86 @@ func _build_combat_window() -> PanelContainer:
 	return window
 
 
+func _build_fight_timer_badge() -> PanelContainer:
+	var badge := PanelContainer.new()
+	badge.name = "FightTimerBadge"
+	badge.visible = false
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.custom_minimum_size = FIGHT_TIMER_BADGE_SIZE
+	var badge_style := CardStyle.make_stylebox(8)
+	badge_style.bg_color = UIColors.BADGE_BACKDROP
+	badge_style.border_color = UIColors.PANEL_BORDER
+	badge_style.content_margin_left = 10
+	badge_style.content_margin_right = 12
+	badge_style.content_margin_top = 4
+	badge_style.content_margin_bottom = 6
+	badge.add_theme_stylebox_override("panel", badge_style)
+	_fight_timer_badge = badge
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	badge.add_child(row)
+
+	var icon := CardStyle.make_pixel_icon(_clock_icon_texture(), FIGHT_TIMER_ICON_SIZE)
+	icon.name = "ClockIcon"
+	row.add_child(icon)
+
+	_fight_timer_label = Label.new()
+	_fight_timer_label.name = "FightTimerLabel"
+	_fight_timer_label.text = "0s"
+	_fight_timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_fight_timer_label.add_theme_font_size_override("font_size", FIGHT_TIMER_FONT_SIZE)
+	_fight_timer_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	_fight_timer_label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	_fight_timer_label.add_theme_constant_override("outline_size", 4)
+	row.add_child(_fight_timer_label)
+	return badge
+
+
+func _clock_icon_texture() -> Texture2D:
+	return _icon_texture_from_path(UI_CLOCK_ICON_PATH)
+
+
+func _icon_texture_from_path(path: String) -> Texture2D:
+	return load(path) as Texture2D
+
+
+func _configure_top_icon_button(button: Button, button_name: String, texture: Texture2D, tooltip: String) -> void:
+	button.name = button_name
+	button.text = ""
+	button.tooltip_text = tooltip
+	button.custom_minimum_size = TOP_ACTION_BUTTON_SIZE
+	button.icon = texture
+	button.expand_icon = true
+	button.focus_mode = Control.FOCUS_ALL
+	button.add_theme_constant_override("h_separation", 0)
+	button.add_theme_stylebox_override("normal", _top_icon_button_style(UIColors.BUTTON_FILL, UIColors.PANEL_BORDER))
+	button.add_theme_stylebox_override("hover", _top_icon_button_style(UIColors.BUTTON_TOP_LIGHT, UIColors.PANEL_BORDER))
+	button.add_theme_stylebox_override("pressed", _top_icon_button_style(UIColors.BUTTON_FILL_PRESSED, UIColors.PANEL_BORDER))
+	button.add_theme_stylebox_override("focus", _top_icon_button_style(UIColors.BUTTON_FILL, UIColors.TEXT_GOLD))
+
+
+func _top_icon_button_style(fill: Color, border: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 4
+	style.border_width_bottom = 5
+	style.border_blend = true
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 5
+	style.content_margin_right = 5
+	style.content_margin_top = 5
+	style.content_margin_bottom = 6
+	style.shadow_color = UIColors.PANEL_DROP_SHADOW
+	style.shadow_size = 7
+	style.shadow_offset = Vector2(0, 3)
+	return style
+
+
 func _sync_combat_play_area_reserved_height() -> void:
 	if _combat_play_area == null:
 		return
@@ -558,14 +731,59 @@ func _build_enemy_hud() -> VBoxContainer:
 
 	var name_row := HBoxContainer.new()
 	name_row.add_theme_constant_override("separation", 10)
+	var name_cell := Control.new()
+	name_cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_row.add_child(name_cell)
+
 	_hud_name_label = Label.new()
 	_hud_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_row.add_child(_hud_name_label)
+	_hud_name_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hud_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_cell.add_child(_hud_name_label)
+
+	var timer_cell := Control.new()
+	timer_cell.name = "FightTimerCell"
+	timer_cell.custom_minimum_size = FIGHT_TIMER_BADGE_SIZE
+	timer_cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_row.add_child(timer_cell)
+
+	var timer_badge := _build_fight_timer_badge()
+	timer_badge.position = Vector2(0.0, -30.0)
+	timer_cell.add_child(timer_badge)
+
+	var values_cell := Control.new()
+	values_cell.name = "CombatRightHudCell"
+	values_cell.custom_minimum_size = Vector2(310, FIGHT_TIMER_BADGE_SIZE.y)
+	values_cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_row.add_child(values_cell)
+
+	var controls_row := HBoxContainer.new()
+	controls_row.name = "PlaybackControlsRow"
+	controls_row.alignment = BoxContainer.ALIGNMENT_END
+	controls_row.anchor_left = 1.0
+	controls_row.anchor_right = 1.0
+	controls_row.anchor_top = 0.0
+	controls_row.anchor_bottom = 0.0
+	controls_row.offset_left = -395.0
+	controls_row.offset_right = 0.0
+	controls_row.offset_top = -28.0
+	controls_row.offset_bottom = 0.0
+	values_cell.add_child(controls_row)
+	controls_row.add_child(_playback_controls)
 
 	var values_row := HBoxContainer.new()
 	values_row.name = "CombatValuesRow"
 	values_row.add_theme_constant_override("separation", 14)
-	name_row.add_child(values_row)
+	values_row.alignment = BoxContainer.ALIGNMENT_END
+	values_row.anchor_left = 1.0
+	values_row.anchor_right = 1.0
+	values_row.anchor_top = 0.0
+	values_row.anchor_bottom = 0.0
+	values_row.offset_left = -300.0
+	values_row.offset_right = 0.0
+	values_row.offset_top = 18.0
+	values_row.offset_bottom = FIGHT_TIMER_BADGE_SIZE.y
+	values_cell.add_child(values_row)
 
 	var hp_icon := TextureRect.new()
 	hp_icon.name = "HealthIcon"
@@ -606,18 +824,39 @@ func _build_enemy_hud() -> VBoxContainer:
 	_enemy_hud.add_child(name_row)
 
 	_hud_health_bar = ProgressBar.new()
+	_hud_health_bar.name = "EnemyHealthBar"
 	_hud_health_bar.show_percentage = false
-	_hud_health_bar.custom_minimum_size = Vector2(0, 14)
+	_hud_health_bar.custom_minimum_size = Vector2(0, HEALTH_BAR_HEIGHT)
+	_hud_health_bar.clip_contents = true
 	var bar_background := StyleBoxFlat.new()
-	bar_background.bg_color = UIColors.PANEL_DISABLED
-	bar_background.border_color = UIColors.SLOT_BORDER
-	bar_background.set_border_width_all(1)
-	bar_background.set_corner_radius_all(4)
+	bar_background.bg_color = UIColors.HEALTH_BAR_TRACK
+	bar_background.border_color = UIColors.HEALTH_BAR_TRACK_BORDER
+	bar_background.set_border_width_all(2)
+	bar_background.border_width_top = 1
+	bar_background.border_width_left = 1
+	bar_background.border_width_right = 3
+	bar_background.border_width_bottom = 4
+	bar_background.border_blend = true
+	bar_background.set_corner_radius_all(6)
+	bar_background.shadow_color = UIColors.PANEL_DROP_SHADOW
+	bar_background.shadow_size = 4
+	bar_background.shadow_offset = Vector2(0, 2)
 	_hud_health_bar.add_theme_stylebox_override("background", bar_background)
 	var bar_fill := StyleBoxFlat.new()
 	bar_fill.bg_color = UIColors.HEALTH_BAR_FILL
-	bar_fill.set_corner_radius_all(4)
+	bar_fill.border_color = UIColors.HEALTH_BAR_FILL_SHADOW
+	bar_fill.border_width_top = 1
+	bar_fill.border_width_left = 1
+	bar_fill.border_width_right = 2
+	bar_fill.border_width_bottom = 3
+	bar_fill.border_blend = true
+	bar_fill.set_corner_radius_all(5)
 	_hud_health_bar.add_theme_stylebox_override("fill", bar_fill)
+	var bar_depth_overlay := HealthBarDepthOverlay.new()
+	bar_depth_overlay.name = "HealthBarDepthOverlay"
+	bar_depth_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bar_depth_overlay.bind(_hud_health_bar)
+	_hud_health_bar.add_child(bar_depth_overlay)
 	_enemy_hud.add_child(_hud_health_bar)
 
 	_hud_status_row = HBoxContainer.new()
@@ -644,9 +883,11 @@ func _refresh_enemy_hud() -> void:
 		return
 	if _shop_overlay != null and _shop_overlay.visible:
 		_enemy_hud.visible = false
+		_set_fight_timer_visible(false)
 		return
 	if _reward_choice_overlay != null and _reward_choice_overlay.visible:
 		_enemy_hud.visible = false
+		_set_fight_timer_visible(false)
 		return
 	if _hud_result != null and _hud_result_monster != null:
 		_render_enemy_hud_post_fight()
@@ -654,6 +895,7 @@ func _refresh_enemy_hud() -> void:
 	var enemy := _hud_pre_fight_monster()
 	if enemy == null:
 		_enemy_hud.visible = false
+		_set_fight_timer_visible(false)
 		_update_combat_stage_target(null)
 		return
 	_set_enemy_hud_display(enemy.display_name, float(enemy.hp), enemy.hp, enemy.armor, enemy.poison_resistance)
@@ -662,6 +904,7 @@ func _refresh_enemy_hud() -> void:
 	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON)
 	_add_hud_status_chip("x0", UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_enemy_hud.visible = true
+	_refresh_fight_timer_badge()
 	_update_combat_stage_target(enemy)
 
 
@@ -695,6 +938,7 @@ func _render_enemy_hud_post_fight() -> void:
 	_add_hud_status_chip("x%d" % shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
 	_add_hud_status_chip("x%d" % decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_enemy_hud.visible = true
+	_refresh_fight_timer_badge()
 
 
 func _set_enemy_hud_display(display_name: String, hp_remaining: float, hp_max: int, armor: int, poison_resistance: float) -> void:
@@ -704,9 +948,44 @@ func _set_enemy_hud_display(display_name: String, hp_remaining: float, hp_max: i
 	_hud_hp_text_label.text = "%d/%d" % [ceili(hp_remaining), hp_max]
 	_hud_health_bar.max_value = hp_max
 	_hud_health_bar.value = hp_remaining
+	var depth_overlay := _hud_health_bar.get_node_or_null("HealthBarDepthOverlay") as Control
+	if depth_overlay != null:
+		depth_overlay.queue_redraw()
 	_hud_info_label.text = "%d" % armor
 	if _hud_resist_label != null:
 		_hud_resist_label.text = "%.0f%%" % (poison_resistance * 100.0)
+	_refresh_fight_timer_badge()
+
+
+func _set_fight_timer_visible(is_visible: bool) -> void:
+	if _fight_timer_badge != null:
+		_fight_timer_badge.visible = is_visible
+
+
+func _refresh_fight_timer_badge() -> void:
+	if _fight_timer_badge == null or _fight_timer_label == null:
+		return
+	var has_target := _enemy_panel != null and _enemy_panel.monster() != null
+	if not has_target:
+		_set_fight_timer_visible(false)
+		return
+	_fight_timer_label.text = _format_fight_timer_ms(_enemy_panel.duration_ms(), false)
+	_set_fight_timer_visible(_enemy_hud != null and _enemy_hud.visible)
+
+
+func _update_fight_timer_countdown(elapsed_ms: float, window_ms: int) -> void:
+	if _fight_timer_badge == null or _fight_timer_label == null:
+		return
+	var remaining_ms := maxf(0.0, float(window_ms) - elapsed_ms)
+	_fight_timer_label.text = _format_fight_timer_ms(roundi(remaining_ms), true)
+	_set_fight_timer_visible(true)
+
+
+func _format_fight_timer_ms(time_ms: int, show_decimal: bool) -> String:
+	var seconds := maxf(0.0, float(time_ms) / 1000.0)
+	if show_decimal:
+		return "%.1fs" % seconds
+	return "%ds" % ceili(seconds)
 
 
 func _clear_hud_status_chips() -> void:
@@ -871,7 +1150,7 @@ func _build_victory_overlay() -> void:
 
 	var combat_dim := ColorRect.new()
 	combat_dim.name = "VictoryCombatDim"
-	combat_dim.color = Color(0.0, 0.0, 0.0, 0.58)
+	combat_dim.color = UIColors.RESULT_DIM
 	combat_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	combat_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_victory_combat_dim = combat_dim
@@ -1255,7 +1534,7 @@ func _make_reward_label(text: String, color: Color = UIColors.TEXT_NORMAL) -> La
 	label.text = text
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE)
 	label.add_theme_constant_override("outline_size", 3)
 	label.add_theme_font_size_override("font_size", VICTORY_REWARD_FONT_SIZE)
 	if _reward_label == null:
@@ -1349,6 +1628,7 @@ func _show_story_overlay() -> void:
 
 func _on_intro_story_proceed_pressed() -> void:
 	_story_overlay.visible = false
+	AudioManager.play_tavern_map_rain()
 	_show_map_overlay(false)
 
 
@@ -1376,6 +1656,7 @@ func _on_contract_route_node_pressed(node: ContractRouteNode) -> void:
 	if node == null:
 		return
 	if BuildState.choose_contract_route_node(node):
+		AudioManager.transition_to_contract_ambience()
 		_map_overlay.close()
 		_status_label.visible = false
 		_recap_label.visible = false
@@ -1655,11 +1936,13 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 	# Session-persistent speed (adjustment round 2, 2026-07-19): initialize
 	# from the last speed the player chose instead of always defaulting back
 	# to 1x -- see _last_playback_speed's declaration.
-	_set_playback_speed(_last_playback_speed)
+	_set_playback_speed(_last_playback_speed, false)
 	_playback_controls.visible = true
 	_update_playback_time_label()
 	_update_header_status()
 	set_process(true)
+	if _skip_playback_on_fight:
+		_skip_playback()
 
 
 ## Remembers the choice (_last_playback_speed, adjustment round 2,
@@ -1667,10 +1950,22 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 ## always resetting to 1x -- called both from a real speed-button press and
 ## from _begin_playback() initializing a fresh playback from the remembered
 ## speed, so recording it here covers both without a second call site.
-func _set_playback_speed(speed: float) -> void:
+func _set_playback_speed(speed: float, clear_skip_mode: bool = true) -> void:
 	_last_playback_speed = speed
+	if clear_skip_mode:
+		_skip_playback_on_fight = false
 	_playback_presenter.set_speed(speed)
 	_playback_controls.set_active_speed(speed)
+	if _skip_playback_on_fight and not clear_skip_mode:
+		_playback_controls.set_skip_mode_active(true)
+
+
+func _on_playback_skip_pressed() -> void:
+	if _playback_active:
+		_skip_playback()
+		return
+	_skip_playback_on_fight = true
+	_playback_controls.set_skip_mode_active(true)
 
 
 ## Fires every remaining timeline event instantly -- the Skip button's
@@ -1682,9 +1977,13 @@ func _skip_playback() -> void:
 
 
 func _update_playback_time_label() -> void:
-	if not _playback_active or _playback_controls == null:
+	if not _playback_active or _playback_presenter == null:
 		return
-	_playback_controls.set_time_text("%.1fs / %.0fs" % [_playback_presenter.elapsed_ms() / 1000.0, _playback_presenter.window_ms() / 1000.0])
+	var elapsed_ms := _playback_presenter.elapsed_ms()
+	var window_ms := _playback_presenter.window_ms()
+	if _playback_controls != null:
+		_playback_controls.set_time_text("%.1fs / %.0fs" % [elapsed_ms / 1000.0, window_ms / 1000.0])
+	_update_fight_timer_countdown(elapsed_ms, window_ms)
 
 
 ## The dashboard-level end of a playback (natural or skipped): unlocks the
@@ -1696,18 +1995,18 @@ func _on_playback_finished(result: CombatResolver.CombatResult, monster: Monster
 	set_process(false)
 	_update_playback_time_label()
 	_playback_active = false
-	_playback_controls.visible = false
+	_playback_controls.visible = true
 	# Exact final HUD state (bar value, chips, info line) from the stored
 	# result -- the same rendering the instant path uses.
 	_show_enemy_hud_post_fight(result, monster)
 	if _combat_stage != null:
-		var should_animate_outcome := not instant_playback and (not was_skipped or not result.is_win)
+		var should_animate_outcome := not instant_playback
 		_combat_stage.play_outcome_pose(result.is_win, should_animate_outcome)
 	# Brief pause so the last popup's float+fade finishes before the outcome
-	# reveal pops in on top of it (adjustment round 1). Losses also preserve
-	# the authored death beat after Skip, so Skip cuts combat playback but not
-	# the defeat read.
-	if not instant_playback and (not was_skipped or not result.is_win):
+	# reveal pops in on top of it (adjustment round 1). Skip cuts the attack
+	# timeline, but still preserves the authored victory/defeat pose beat so
+	# the outcome does not feel like it appears on the same frame.
+	if not instant_playback:
 		var reveal_delay_sec := PLAYBACK_OUTCOME_REVEAL_DELAY_SEC
 		if not result.is_win and _combat_stage != null and _combat_stage.has_method("player_defeat_animation_duration_sec"):
 			reveal_delay_sec = maxf(reveal_delay_sec, _combat_stage.player_defeat_animation_duration_sec() + PLAYER_DEFEAT_POSE_HOLD_SEC)
@@ -1730,17 +2029,22 @@ func _on_continue_pressed() -> void:
 		reward_talent_points = reward.talent_points
 		reward_gold_source_rect = _global_rect_for(_reward_gold_icon)
 		reward_talent_source_rect = _global_rect_for(_reward_talent_icon)
-	var claimed := BuildState.claim_current_reward()
+	var claimed := BuildState.claim_current_reward(true)
 	if not claimed:
 		_pulse_inventory_blocked_control(_continue_button)
 		_continue_button.tooltip_text = _claim_reward_tooltip()
 		return
 	_victory_overlay.visible = false
 	_set_result_button_layer_active(false)
-	if claimed and _active_talents_panel != null and reward_talent_points > 0:
-		await _active_talents_panel.animate_talent_points_from_rect(reward_talent_source_rect, reward_talent_points, true)
-	if claimed and _gear_panel != null and reward_gold > 0:
-		await _gear_panel.animate_gold_from_rect(reward_gold_source_rect, reward_gold, true)
+	var pending_reward_deposits := [0]
+	if reward_talent_points > 0:
+		pending_reward_deposits[0] += 1
+		_deposit_talent_reward_after_animation(reward_talent_source_rect, reward_talent_points, pending_reward_deposits)
+	if reward_gold > 0:
+		pending_reward_deposits[0] += 1
+		_deposit_gold_reward_after_animation(reward_gold_source_rect, reward_gold, pending_reward_deposits)
+	while pending_reward_deposits[0] > 0:
+		await get_tree().process_frame
 	if claimed:
 		_autosave()
 	if claimed and BuildState.has_pending_reward_choice():
@@ -1758,6 +2062,20 @@ func _on_continue_pressed() -> void:
 	_advance_after_reward_or_shop()
 
 
+func _deposit_talent_reward_after_animation(source_rect: Rect2, amount: int, pending_reward_deposits: Array) -> void:
+	if _active_talents_panel != null:
+		await _active_talents_panel.animate_talent_points_from_rect(source_rect, amount, true)
+	BuildState.add_talent_points(amount)
+	pending_reward_deposits[0] -= 1
+
+
+func _deposit_gold_reward_after_animation(source_rect: Rect2, amount: int, pending_reward_deposits: Array) -> void:
+	if _gear_panel != null:
+		await _gear_panel.animate_gold_from_rect(source_rect, amount, true)
+	BuildState.add_gold(amount)
+	pending_reward_deposits[0] -= 1
+
+
 func _global_rect_for(node: Control) -> Rect2:
 	if node == null or not node.is_inside_tree():
 		return Rect2()
@@ -1767,6 +2085,7 @@ func _global_rect_for(node: Control) -> Rect2:
 func _on_shop_buy_pressed(offer: GearItem, source: Control = null) -> void:
 	if BuildState.buy_shop_offer(offer):
 		_shop_overlay.set_status_text("")
+		AudioManager.play_shop_change_sfx()
 		if _gear_panel != null:
 			await _gear_panel.animate_gain_from_source(offer, source)
 		_autosave()
@@ -1783,6 +2102,7 @@ func _on_shop_reroll_pressed() -> void:
 	if not BuildState.can_reroll_shop_offers():
 		_shop_overlay.refresh()
 		_shop_overlay.set_status_text("Not enough gold.")
+		_shop_overlay.pulse_reroll_blocked()
 		return
 	var reroll_cost := BuildState.shop_reroll_cost
 	var reroll_target_rect: Rect2 = _shop_overlay.reroll_action_rect()
@@ -1864,16 +2184,7 @@ func _pulse_inventory_blocked_control(control: Control) -> void:
 	if control == null or not control.is_inside_tree():
 		return
 	_last_inventory_blocked_source = control
-	control.set_meta("inventory_blocked_pulse", true)
-	control.pivot_offset = control.size * 0.5
-	var original_scale := control.scale
-	var original_modulate := control.modulate
-	control.modulate = INVENTORY_BLOCKED_PULSE_COLOR
-	var tween := create_tween()
-	tween.tween_property(control, "scale", INVENTORY_BLOCKED_PULSE_SCALE, 0.08)
-	tween.parallel().tween_property(control, "modulate", INVENTORY_BLOCKED_PULSE_COLOR, 0.08)
-	tween.tween_property(control, "scale", original_scale, 0.18)
-	tween.parallel().tween_property(control, "modulate", original_modulate, 0.18)
+	CardStyle.pulse_blocked_control(control, "inventory_blocked_pulse")
 
 
 func _on_retry_pressed() -> void:
@@ -1953,6 +2264,10 @@ func _update_combat_background() -> void:
 	_tavern_background.texture = background_texture
 	var show_background := background_texture != null
 	_tavern_background.visible = show_background
+	if _tavern_fireplace_overlay != null:
+		_tavern_fireplace_overlay.visible = show_background and background_texture == TAVERN_BACKGROUND_TEXTURE
+	if _contract_moon_bat_overlay != null:
+		_contract_moon_bat_overlay.visible = show_background and background_texture == CONTRACT_BACKGROUND_TEXTURE
 	_tavern_background_tint.visible = show_background
 
 

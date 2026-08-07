@@ -53,13 +53,19 @@ const OUTCOME_REVEAL_HOLD_SEC := 0.35
 ## without distortion). Practice Room uses a slightly darker black tint than
 ## Adventure because the workshop background is busier behind the actors.
 const BACKGROUND_TEXTURE := preload("res://assets/backgrounds/Training_Room_background.jpg")
-const BACKGROUND_TINT := Color(0, 0, 0, 0.56)
+const BACKGROUND_TINT := Color(0, 0, 0, 0.66)
 const COMBAT_STAGE_SCRIPT := preload("res://scripts/ui/combat_stage.gd")
 const COMBAT_STATUS_ICONS := preload("res://scripts/ui/combat_status_icons.gd")
 const COMBAT_STATUS_ICON_SIZE := Vector2(22, 22)
 const COMBAT_STATUS_FONT_SIZE := 24
+const UI_CLOCK_ICON_PATH := "res://assets/ui/icons/clock.png"
+const FIGHT_TIMER_ICON_SIZE := Vector2(28, 28)
+const FIGHT_TIMER_FONT_SIZE := 26
+const FIGHT_TIMER_BADGE_SIZE := Vector2(112, 46)
+const HUD_TOP_LANE_HEIGHT := 106.0
 const HUD_ARMOR_ICON := preload("res://assets/combat_ui_icons/enemy_armor.png")
 const HUD_RESISTANCE_ICON := preload("res://assets/combat_ui_icons/resistance.png")
+const HUD_DAMAGE_ICON_PATH := "res://assets/combat_ui_icons/damage_sword.png"
 const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
 const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
 const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
@@ -94,17 +100,20 @@ var _damage_label: Label
 var _info_label: Label
 var _resist_label: Label
 var _status_row: HBoxContainer
+var _fight_timer_badge: PanelContainer
+var _fight_timer_label: Label
 var _combat_stage
 var _popup_layer: Control
 var _content: VBoxContainer
-var _controls_row: HBoxContainer
-var _time_label: Label
+var _controls_row: PlaybackControls
 var _speed_buttons: Array[Button] = []
 var _skip_button: Button
 var _last_speed: float = SPEED_OPTIONS[0]
+var _fight_window_ms := TrainingRoomState.DEFAULT_DURATION_MS
 var _popup_generation := 0
 var _wyvern_kriss_effect_active := false
 var _playback_skipping := false
+var _skip_playback_on_fight := false
 var _pending_action_row: Control = null
 var skill_build_panel = null
 
@@ -150,23 +159,51 @@ func _ready() -> void:
 	add_child(content)
 	_content = content
 
-	var hud_row := HBoxContainer.new()
-	hud_row.name = "CombatNameRow"
-	content.add_child(hud_row)
+	var hud_lane := Control.new()
+	hud_lane.name = "CombatHudLane"
+	hud_lane.custom_minimum_size = Vector2(0, HUD_TOP_LANE_HEIGHT)
+	content.add_child(hud_lane)
 
 	_name_label = Label.new()
 	_name_label.name = "NameLabel"
 	_name_label.text = "Practice Target"
-	_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hud_row.add_child(_name_label)
+	_name_label.visible = false
+	_name_label.anchor_left = 0.0
+	_name_label.anchor_right = 0.0
+	_name_label.anchor_top = 0.0
+	_name_label.anchor_bottom = 0.0
+	_name_label.offset_left = 0.0
+	_name_label.offset_right = 260.0
+	_name_label.offset_top = 12.0
+	_name_label.offset_bottom = 36.0
+	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hud_lane.add_child(_name_label)
 
 	var values_row := HBoxContainer.new()
 	values_row.name = "CombatValuesRow"
 	values_row.add_theme_constant_override("separation", 14)
-	hud_row.add_child(values_row)
+	values_row.alignment = BoxContainer.ALIGNMENT_END
+	values_row.anchor_left = 1.0
+	values_row.anchor_right = 1.0
+	values_row.anchor_top = 0.0
+	values_row.anchor_bottom = 0.0
+	values_row.offset_left = -360.0
+	values_row.offset_right = 0.0
+	values_row.offset_top = 42.0
+	values_row.offset_bottom = 70.0
+	hud_lane.add_child(values_row)
 
 	_damage_label = Label.new()
 	_damage_label.name = "DamageLabel"
+	_damage_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
+	var damage_icon := TextureRect.new()
+	damage_icon.name = "DamageIcon"
+	damage_icon.texture = _damage_icon_texture()
+	damage_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
+	damage_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	damage_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	damage_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	values_row.add_child(damage_icon)
 	values_row.add_child(_damage_label)
 
 	var armor_icon := TextureRect.new()
@@ -200,12 +237,50 @@ func _ready() -> void:
 	_status_row = HBoxContainer.new()
 	_status_row.name = "StatusRow"
 	_status_row.alignment = BoxContainer.ALIGNMENT_END
-	_status_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_status_row.custom_minimum_size = Vector2(0, 26)
+	_status_row.anchor_left = 1.0
+	_status_row.anchor_right = 1.0
+	_status_row.anchor_top = 0.0
+	_status_row.anchor_bottom = 0.0
+	_status_row.offset_left = -260.0
+	_status_row.offset_right = 0.0
+	_status_row.offset_top = 78.0
+	_status_row.offset_bottom = 104.0
 	_status_row.add_theme_constant_override("separation", 8)
-	content.add_child(_status_row)
+	hud_lane.add_child(_status_row)
 	_update_damage_label()
 	_update_status_readout()
+
+	var timer_cell := Control.new()
+	timer_cell.name = "FightTimerCell"
+	timer_cell.custom_minimum_size = FIGHT_TIMER_BADGE_SIZE
+	timer_cell.anchor_left = 0.5
+	timer_cell.anchor_right = 0.5
+	timer_cell.anchor_top = 0.0
+	timer_cell.anchor_bottom = 0.0
+	timer_cell.offset_left = -FIGHT_TIMER_BADGE_SIZE.x * 0.5
+	timer_cell.offset_right = FIGHT_TIMER_BADGE_SIZE.x * 0.5
+	timer_cell.offset_top = 8.0
+	timer_cell.offset_bottom = 8.0 + FIGHT_TIMER_BADGE_SIZE.y
+	timer_cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_lane.add_child(timer_cell)
+	timer_cell.add_child(_build_fight_timer_badge())
+
+	_controls_row = PlaybackControls.new()
+	_controls_row.name = "PlaybackControls"
+	_controls_row.anchor_left = 1.0
+	_controls_row.anchor_right = 1.0
+	_controls_row.anchor_top = 0.0
+	_controls_row.anchor_bottom = 0.0
+	_controls_row.offset_left = -395.0
+	_controls_row.offset_right = 0.0
+	_controls_row.offset_top = 6.0
+	_controls_row.offset_bottom = 34.0
+	_controls_row.alignment = BoxContainer.ALIGNMENT_END
+	_controls_row.speed_selected.connect(_set_speed)
+	_controls_row.skip_pressed.connect(_on_playback_skip_pressed)
+	hud_lane.add_child(_controls_row)
+	_speed_buttons = _controls_row._speed_buttons
+	_skip_button = _controls_row._skip_button
 
 	# Popups spawn and animate here, over the background art -- no
 	# character/monster sprites yet (no such assets exist in the project;
@@ -215,34 +290,10 @@ func _ready() -> void:
 	_popup_layer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_popup_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(_popup_layer)
-
-	_controls_row = HBoxContainer.new()
-	_controls_row.name = "PlaybackControls"
-	_controls_row.visible = false
-	_controls_row.add_theme_constant_override("separation", 8)
-	content.add_child(_controls_row)
-
-	_time_label = Label.new()
-	_time_label.name = "TimeLabel"
-	_time_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_controls_row.add_child(_time_label)
-
-	_speed_buttons = []
-	for speed in SPEED_OPTIONS:
-		var speed_button := Button.new()
-		speed_button.text = "%sx" % speed
-		speed_button.pressed.connect(_set_speed.bind(speed))
-		_speed_buttons.append(speed_button)
-		_controls_row.add_child(speed_button)
-
-	_skip_button = Button.new()
-	_skip_button.name = "SkipButton"
-	_skip_button.text = "Skip"
-	_skip_button.pressed.connect(_skip)
-	_controls_row.add_child(_skip_button)
 	if _pending_action_row != null:
 		add_action_row(_pending_action_row)
 		_pending_action_row = null
+	set_fight_window_ms(_fight_window_ms)
 
 
 func add_action_row(row: Control) -> void:
@@ -258,6 +309,79 @@ func add_action_row(row: Control) -> void:
 	bottom_spacer.name = "ActionRowBottomSpacer"
 	bottom_spacer.custom_minimum_size = Vector2(0, 14)
 	_content.add_child(bottom_spacer)
+
+
+func set_fight_window_ms(window_ms: int) -> void:
+	_fight_window_ms = maxi(window_ms, 1000)
+	if _playback == null:
+		_refresh_fight_timer_badge()
+
+
+func _build_fight_timer_badge() -> PanelContainer:
+	var badge := PanelContainer.new()
+	badge.name = "FightTimerBadge"
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.custom_minimum_size = FIGHT_TIMER_BADGE_SIZE
+	var badge_style := CardStyle.make_stylebox(8)
+	badge_style.bg_color = UIColors.BADGE_BACKDROP
+	badge_style.border_color = UIColors.PANEL_BORDER
+	badge_style.content_margin_left = 10
+	badge_style.content_margin_right = 12
+	badge_style.content_margin_top = 4
+	badge_style.content_margin_bottom = 6
+	badge.add_theme_stylebox_override("panel", badge_style)
+	_fight_timer_badge = badge
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	badge.add_child(row)
+
+	var icon := CardStyle.make_pixel_icon(_clock_icon_texture(), FIGHT_TIMER_ICON_SIZE)
+	icon.name = "ClockIcon"
+	row.add_child(icon)
+
+	_fight_timer_label = Label.new()
+	_fight_timer_label.name = "FightTimerLabel"
+	_fight_timer_label.text = "0s"
+	_fight_timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_fight_timer_label.add_theme_font_size_override("font_size", FIGHT_TIMER_FONT_SIZE)
+	_fight_timer_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	_fight_timer_label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	_fight_timer_label.add_theme_constant_override("outline_size", 4)
+	row.add_child(_fight_timer_label)
+	return badge
+
+
+func _clock_icon_texture() -> Texture2D:
+	return load(UI_CLOCK_ICON_PATH) as Texture2D
+
+
+func _damage_icon_texture() -> Texture2D:
+	var texture := load(HUD_DAMAGE_ICON_PATH) as Texture2D
+	if texture != null:
+		texture.resource_name = "PracticeDamageSwordIcon"
+	return texture
+
+
+func _refresh_fight_timer_badge() -> void:
+	if _fight_timer_label == null:
+		return
+	_fight_timer_label.text = _format_fight_timer_ms(_fight_window_ms, false)
+
+
+func _update_fight_timer_countdown() -> void:
+	if _fight_timer_label == null or _playback == null:
+		return
+	var remaining_ms := maxf(0.0, float(_playback.window_ms()) - _playback.elapsed_ms())
+	_fight_timer_label.text = _format_fight_timer_ms(roundi(remaining_ms), true)
+
+
+func _format_fight_timer_ms(time_ms: int, show_decimal: bool) -> String:
+	var seconds := maxf(0.0, float(time_ms) / 1000.0)
+	if show_decimal:
+		return "%.1fs" % seconds
+	return "%ds" % ceili(seconds)
 
 
 ## Starts animating `result` against `monster`'s Armor/Poison Resist --
@@ -295,17 +419,18 @@ func play(result: CombatResolver.CombatResult, monster: Monster, equipped_gear: 
 	_playback.start(result)
 	_playback_intro_duration_sec = _combat_stage.play_fight_intro(not _instant_playback) if _combat_stage != null else 0.0
 	_playback_intro_remaining_sec = _playback_intro_duration_sec
+	_fight_window_ms = _playback.window_ms()
 
 	if _instant_playback:
-		_controls_row.visible = false
 		_playback_intro_remaining_sec = 0.0
 		_playback.skip()
 		return
 
-	_set_speed(_last_speed)
-	_controls_row.visible = true
+	_set_speed(_last_speed, false)
 	_update_time_label()
 	set_process(true)
+	if _skip_playback_on_fight:
+		_skip()
 
 
 func _process(delta: float) -> void:
@@ -356,6 +481,10 @@ func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
 		return
 	var cast := event.cast
 	var popup_delay: float = _combat_stage.play_cast_impact(cast, not _instant_playback)
+	if cast.physical_damage > 0.0 and not _instant_playback and not _playback_skipping:
+		var audio_manager := get_node_or_null("/root/AudioManager")
+		if audio_manager != null and audio_manager.has_method("play_attack_sfx_for_cast"):
+			audio_manager.play_attack_sfx_for_cast(cast, _playback.speed, false)
 	if not cast.triggered_skill_names.is_empty() and skill_build_panel != null and skill_build_panel.has_method("highlight_rotation_index"):
 		skill_build_panel.highlight_rotation_index(cast.rotation_index, true)
 	_armor_reduced += cast.armor_reduction_applied
@@ -391,13 +520,13 @@ func _update_macro_cast_progress() -> void:
 
 func _on_playback_finished() -> void:
 	set_process(false)
-	_controls_row.visible = false
 	var was_skipping := _playback_skipping
 	if _combat_stage != null and _combat_stage.has_method("restore_practice_idle_pose"):
 		_combat_stage.restore_practice_idle_pose()
 	_playback = null
 	_playback_intro_remaining_sec = 0.0
 	_playback_intro_duration_sec = 0.0
+	_refresh_fight_timer_badge()
 	if skill_build_panel != null and skill_build_panel.has_method("clear_combat_highlight"):
 		skill_build_panel.clear_combat_highlight()
 	if not _instant_playback and not was_skipping:
@@ -431,12 +560,25 @@ func _add_status_chip(text: String, color: Color, icon: Texture2D = null) -> voi
 	_status_row.add_child(chip)
 
 
-func _set_speed(speed: float) -> void:
+func _set_speed(speed: float, clear_skip_mode: bool = true) -> void:
 	_last_speed = speed
+	if clear_skip_mode:
+		_skip_playback_on_fight = false
 	if _playback != null:
 		_playback.speed = speed
-	for i in _speed_buttons.size():
-		_speed_buttons[i].disabled = is_equal_approx(SPEED_OPTIONS[i], speed)
+	if _controls_row != null:
+		_controls_row.set_active_speed(speed)
+		if _skip_playback_on_fight and not clear_skip_mode:
+			_controls_row.set_skip_mode_active(true)
+
+
+func _on_playback_skip_pressed() -> void:
+	if _playback != null:
+		_skip()
+		return
+	_skip_playback_on_fight = true
+	if _controls_row != null:
+		_controls_row.set_skip_mode_active(true)
 
 
 func _skip() -> void:
@@ -460,13 +602,13 @@ func _schedule_cast_popup(event: CombatPlayback.PlaybackEvent, delay_sec: float)
 
 
 func _update_damage_label() -> void:
-	_damage_label.text = "Damage: %.1f" % _damage_dealt
+	_damage_label.text = "%.1f" % _damage_dealt
 
 
 func _update_time_label() -> void:
 	if _playback == null:
 		return
-	_time_label.text = "%.1fs / %.1fs" % [_playback.elapsed_ms() / 1000.0, _playback.timeline_end_ms() / 1000.0]
+	_update_fight_timer_countdown()
 
 
 func _gear_has_id(equipped_gear: Array[GearItem], gear_id: String) -> bool:

@@ -31,14 +31,20 @@ signal route_node_pressed(node: ContractRouteNode)
 
 const MAP_NODE_SIZE := Vector2(190, 150)
 const CONTRACT_MAP_SIZE := Vector2(840, 470)
-const CONTRACT_NODE_SIZE := Vector2(140, 96)
+const CONTRACT_NODE_SIZE := Vector2(164, 108)
+const MAP_ACTOR_MARKER_SIZE := Vector2(76, 76)
+const MAP_ACTOR_MARKER_OFFSET := Vector2(10, -4)
+const MAP_REWARD_ICON_SIZE := Vector2(24, 24)
+const MAP_TEXT_BLOCK_LEFT := 76.0
+const MAP_TEXT_BLOCK_TOP := 26.0
+const MAP_TEXT_BLOCK_BOTTOM := 34.0
 ## Tavern map's art box -- the exterior shot shown while choosing a Tavern
 ## encounter, replacing the earlier plain black placeholder.
 const TAVERN_MAP_ART_TEXTURE := preload("res://assets/backgrounds/Tavern__Exterior.jpg")
 ## Smaller than MAP_NODE_SIZE -- the Tavern map (P2:R7 story pass) makes room
 ## for TAVERN_ART_BOX_SIZE above it and sits lower in the panel, so its own
 ## node buttons shrink to match rather than crowding the reduced space.
-const TAVERN_MAP_NODE_SIZE := Vector2(140, 100)
+const TAVERN_MAP_NODE_SIZE := Vector2(170, 108)
 ## Placeholder for future scene art above the Tavern's node row -- same
 ## "solid near-black fill, art to come later" convention as the combat
 ## window's own UIColors.PANEL_DEEP background.
@@ -72,6 +78,7 @@ const TAVERN_VICTORY_TEXT := {
 }
 
 const CONTRACT_LINE_COLOR := UIColors.STRUCTURE_LINE
+const CONTRACT_LINE_HIGHLIGHT_COLOR := Color(0.79, 0.64, 0.35, 0.42)
 const CONTRACT_LINE_THICKNESS := 5.0
 ## Map/contract-route/secondary-tree buttons carry dense multi-line data
 ## text (stats, difficulty, reward tags) rather than a short action label,
@@ -83,6 +90,13 @@ const DATA_BUTTON_FONT := preload("res://assets/fonts/VT323-Regular.ttf")
 const MAP_ICON := preload("res://assets/ui/icons/map.png")
 const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
 const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
+const GOLD_ICON := preload("res://assets/ui/icons/gold.png")
+const GEAR_DROP_ICON_PATHS := {
+	GearItem.Tier.BASIC: "res://assets/ui/icons/gear_drop_helm_basic.png",
+	GearItem.Tier.MASTER: "res://assets/ui/icons/gear_drop_helm_master.png",
+	GearItem.Tier.CURSED: "res://assets/ui/icons/gear_drop_helm_cursed.png",
+	GearItem.Tier.LEGENDARY: "res://assets/ui/icons/gear_drop_helm_legendary.png",
+}
 
 enum TavernNodeState { DEFEATED, AVAILABLE, PREVIEWED, LOCKED }
 const AVAILABLE_PULSE_DURATION_SEC := 0.72
@@ -96,6 +110,7 @@ var _map_close_button: Button
 var _map_proceed_button: Button
 var _map_manual_open: bool = false
 var _pending_contract_route_node: ContractRouteNode = null
+var _gear_drop_icon_cache: Dictionary = {}
 ## Which Tavern node the player has clicked to preview but not yet committed
 ## via Proceed; -1 when nothing is previewed.
 var _tavern_preview_index: int = -1
@@ -274,7 +289,7 @@ func _refresh_contract_route_map() -> void:
 		var button := Button.new()
 		button.custom_minimum_size = MAP_NODE_SIZE
 		button.text = _route_node_button_text(choice)
-		button.tooltip_text = _route_node_tooltip(choice)
+		_disable_map_entry_tooltip(button)
 		var selectable := _route_node_is_selectable(choice)
 		button.disabled = not selectable
 		if selectable:
@@ -360,17 +375,31 @@ func _contract_node_center(top_left: Vector2) -> Vector2:
 
 
 func _add_map_line(canvas: Control, start: Vector2, end: Vector2) -> void:
-	var line := ColorRect.new()
-	line.color = CONTRACT_LINE_COLOR
+	var rail := Control.new()
+	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if absf(end.x - start.x) >= absf(end.y - start.y):
-		line.position = Vector2(minf(start.x, end.x), start.y - CONTRACT_LINE_THICKNESS * 0.5)
-		line.custom_minimum_size = Vector2(absf(end.x - start.x), CONTRACT_LINE_THICKNESS)
-		line.size = line.custom_minimum_size
+		rail.position = Vector2(minf(start.x, end.x), start.y - CONTRACT_LINE_THICKNESS * 0.5)
+		rail.custom_minimum_size = Vector2(absf(end.x - start.x), CONTRACT_LINE_THICKNESS + 2.0)
 	else:
-		line.position = Vector2(start.x - CONTRACT_LINE_THICKNESS * 0.5, minf(start.y, end.y))
-		line.custom_minimum_size = Vector2(CONTRACT_LINE_THICKNESS, absf(end.y - start.y))
-		line.size = line.custom_minimum_size
-	canvas.add_child(line)
+		rail.position = Vector2(start.x - CONTRACT_LINE_THICKNESS * 0.5, minf(start.y, end.y))
+		rail.custom_minimum_size = Vector2(CONTRACT_LINE_THICKNESS + 2.0, absf(end.y - start.y))
+	rail.size = rail.custom_minimum_size
+	canvas.add_child(rail)
+
+	var core := ColorRect.new()
+	core.color = CONTRACT_LINE_COLOR
+	core.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	core.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rail.add_child(core)
+
+	var highlight := ColorRect.new()
+	highlight.color = CONTRACT_LINE_HIGHLIGHT_COLOR
+	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if rail.size.x >= rail.size.y:
+		highlight.size = Vector2(rail.size.x, 1)
+	else:
+		highlight.size = Vector2(1, rail.size.y)
+	rail.add_child(highlight)
 
 
 func _add_contract_route_button(canvas: Control, node: ContractRouteNode, position: Vector2) -> void:
@@ -378,13 +407,17 @@ func _add_contract_route_button(canvas: Control, node: ContractRouteNode, positi
 	button.position = position
 	button.custom_minimum_size = CONTRACT_NODE_SIZE
 	button.size = CONTRACT_NODE_SIZE
+	button.clip_contents = false
 	button.text = _contract_schematic_node_text(node)
-	button.tooltip_text = _route_node_tooltip(node)
+	_disable_map_entry_tooltip(button)
 	var selectable := _route_node_is_selectable(node)
 	button.disabled = not selectable
 	if selectable:
 		button.pressed.connect(_on_contract_route_node_previewed.bind(node))
 	_style_contract_route_node(button, node, selectable)
+	_add_map_text_block(button, node.display_name, not button.disabled)
+	_add_map_actor_marker(button, node.monster, not button.disabled)
+	_add_reward_icon_row(button, node.reward, not button.disabled)
 	_map_node_buttons.append(button)
 	canvas.add_child(button)
 
@@ -403,7 +436,7 @@ func _contract_schematic_reward_lines(node: ContractRouteNode) -> PackedStringAr
 		return lines
 	var reward_label := _contract_reward_display(node)
 	if reward_label != "":
-		lines.append(reward_label)
+		lines.append("Reward: %s" % reward_label)
 	return lines
 
 
@@ -411,9 +444,9 @@ func _contract_reward_display(node: ContractRouteNode) -> String:
 	if node == null or node.reward == null:
 		return ""
 	if node.reward.gear_choice_rewards.size() > 0:
-		return "%s Gear" % _tier_name_for_reward_gear(node.reward.gear_choice_rewards[0])
+		return _tier_name_for_reward_gear(node.reward.gear_choice_rewards[0])
 	if node.reward.generated_gear_choice_count > 0:
-		return "%s Gear" % GearGenerator.TIER_NAMES[node.reward.generated_gear_tier]
+		return GearGenerator.TIER_NAMES[node.reward.generated_gear_tier]
 	if node.reward_quality_label == "Contract Victory":
 		return node.reward_quality_label
 	return ""
@@ -451,11 +484,16 @@ func _make_tavern_map_node_button(index: int) -> Button:
 	var button := Button.new()
 	button.name = "TavernNode%d" % index
 	button.custom_minimum_size = TAVERN_MAP_NODE_SIZE
+	button.clip_contents = false
 	button.text = encounter.monster.display_name if state != TavernNodeState.LOCKED and encounter != null else "Unknown"
 	button.disabled = not _tavern_node_is_clickable(state)
-	button.tooltip_text = _tavern_node_tooltip(state, encounter)
+	_disable_map_entry_tooltip(button)
 	button.pressed.connect(_on_tavern_node_previewed.bind(index))
 	_style_tavern_map_node(button, state)
+	_add_map_text_block(button, button.text, state != TavernNodeState.LOCKED)
+	if state != TavernNodeState.LOCKED and encounter != null:
+		_add_map_actor_marker(button, encounter.monster, not button.disabled)
+		_add_reward_icon_row(button, encounter.reward, not button.disabled)
 	if state == TavernNodeState.DEFEATED:
 		_add_tavern_defeated_marker(button)
 	elif state == TavernNodeState.AVAILABLE:
@@ -491,30 +529,38 @@ func _tavern_node_tooltip(state: int, encounter) -> String:
 	return "Defeat the previous fight to reveal this one."
 
 
+func _disable_map_entry_tooltip(button: Button) -> void:
+	# Keep the tooltip builder functions nearby; map-entry tooltips are only
+	# disabled for the current cleaner card treatment.
+	button.tooltip_text = ""
+
+
 func _make_map_connector() -> Control:
-	var connector := ColorRect.new()
+	var connector := Control.new()
 	connector.custom_minimum_size = Vector2(80, 6)
 	connector.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	connector.color = UIColors.STRUCTURE_LINE_LIGHT
+	connector.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var core := ColorRect.new()
+	core.color = CONTRACT_LINE_COLOR
+	core.custom_minimum_size = Vector2(80, 6)
+	core.size = core.custom_minimum_size
+	core.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	connector.add_child(core)
+
+	var highlight := ColorRect.new()
+	highlight.color = CONTRACT_LINE_HIGHLIGHT_COLOR
+	highlight.custom_minimum_size = Vector2(80, 1)
+	highlight.size = highlight.custom_minimum_size
+	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	connector.add_child(highlight)
 	return connector
 
 
 func _style_map_node(button: Button, is_current: bool) -> void:
-	var color := UIColors.MAP_NODE_CURRENT if is_current else UIColors.MAP_NODE_INACTIVE
-	var border_color := CardStyle.ACCENT_COLOR if is_current else UIColors.STRUCTURE_LINE_LIGHT
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = color
-		style.border_color = border_color
-		style.set_border_width_all(3)
-		style.set_corner_radius_all(8)
-		button.add_theme_stylebox_override(state, style)
-		button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
-		button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
-	# Multi-line stat/reward data, not a short action label -- see
-	# DATA_BUTTON_FONT's comment.
-	button.add_theme_font_override("font", DATA_BUTTON_FONT)
-	button.add_theme_font_size_override("font_size", 14)
+	var fill := UIColors.MAP_NODE_CURRENT if is_current else UIColors.MAP_NODE_INACTIVE
+	var border := CardStyle.ACCENT_COLOR if is_current else UIColors.STRUCTURE_LINE_LIGHT
+	_apply_map_node_styles(button, fill, border, 5 if is_current else 2, is_current, not is_current)
 
 
 func _style_tavern_map_node(button: Button, state: int) -> void:
@@ -525,6 +571,7 @@ func _style_tavern_map_node(button: Button, state: int) -> void:
 		TavernNodeState.DEFEATED:
 			color = UIColors.PANEL_DISABLED
 			border_color = UIColors.TEXT_WARNING
+			border_width = 2
 		TavernNodeState.AVAILABLE:
 			color = UIColors.PANEL
 			border_color = UIColors.STRUCTURE_LINE_LIGHT
@@ -536,17 +583,8 @@ func _style_tavern_map_node(button: Button, state: int) -> void:
 		TavernNodeState.LOCKED:
 			color = UIColors.MAP_NODE_INACTIVE
 			border_color = UIColors.STRUCTURE_LINE_LIGHT
-	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = color
-		style.border_color = border_color
-		style.set_border_width_all(border_width)
-		style.set_corner_radius_all(8)
-		button.add_theme_stylebox_override(state_name, style)
-		button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
-		button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
-	button.add_theme_font_override("font", DATA_BUTTON_FONT)
-	button.add_theme_font_size_override("font_size", 14)
+			border_width = 2
+	_apply_map_node_styles(button, color, border_color, border_width, state == TavernNodeState.PREVIEWED, state == TavernNodeState.LOCKED)
 
 
 func _style_contract_route_node(button: Button, node: ContractRouteNode, selectable: bool) -> void:
@@ -561,45 +599,246 @@ func _style_contract_route_node(button: Button, node: ContractRouteNode, selecta
 
 
 func _style_available_choice_node(button: Button) -> void:
-	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = UIColors.PANEL
-		style.border_color = UIColors.STRUCTURE_LINE_LIGHT
-		style.set_border_width_all(4)
-		style.set_corner_radius_all(8)
-		button.add_theme_stylebox_override(state_name, style)
-		button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
-		button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
-	button.add_theme_font_override("font", DATA_BUTTON_FONT)
-	button.add_theme_font_size_override("font_size", 14)
+	_apply_map_node_styles(button, UIColors.PANEL, UIColors.STRUCTURE_LINE_LIGHT, 4, false, false)
 
 
 func _style_selected_choice_node(button: Button) -> void:
+	_apply_map_node_styles(button, UIColors.MAP_NODE_CURRENT, CardStyle.ACCENT_COLOR, 5, true, false)
+
+
+func _apply_map_node_styles(button: Button, fill: Color, border: Color, border_width: int, selected: bool, recessed: bool) -> void:
 	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = UIColors.MAP_NODE_CURRENT
-		style.border_color = CardStyle.ACCENT_COLOR
-		style.set_border_width_all(5)
+		var state_fill := fill
+		var state_border := border
+		var state_width := border_width
+		if not button.disabled and (state_name == "hover" or state_name == "focus"):
+			state_border = UIColors.PANEL_EDGE_LIGHT
+			state_width = maxi(border_width, 5)
+		elif not button.disabled and state_name == "pressed":
+			state_fill = fill.darkened(0.14)
+		var style := CardStyle.make_slot_stylebox(state_fill, state_border, state_width, state_name)
 		style.set_corner_radius_all(8)
+		style.content_margin_top = 12
+		if selected:
+			style.shadow_color = UIColors.BUTTON_INNER_GLOW
+			style.shadow_size = 7
+		elif recessed:
+			style.shadow_size = 1
+			style.shadow_offset = Vector2(0, 1)
 		button.add_theme_stylebox_override(state_name, style)
-		button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
-		button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
+	button.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	button.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
 	button.add_theme_font_override("font", DATA_BUTTON_FONT)
-	button.add_theme_font_size_override("font_size", 14)
+	button.add_theme_font_size_override("font_size", 18)
+
+
+func _add_map_text_block(button: Button, text: String, enabled: bool) -> void:
+	_hide_button_text_for_composed_map_node(button)
+	var label := Label.new()
+	label.name = "MapTextBlock"
+	label.z_index = 7
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_override("font", DATA_BUTTON_FONT)
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL if enabled else UIColors.TEXT_DISABLED)
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	label.add_theme_constant_override("outline_size", 2)
+	label.position = Vector2(MAP_TEXT_BLOCK_LEFT, MAP_TEXT_BLOCK_TOP)
+	label.size = Vector2(
+		maxf(button.custom_minimum_size.x - MAP_TEXT_BLOCK_LEFT - 8.0, 1.0),
+		maxf(button.custom_minimum_size.y - MAP_TEXT_BLOCK_TOP - MAP_TEXT_BLOCK_BOTTOM, 1.0)
+	)
+	button.add_child(label)
+
+
+func _hide_button_text_for_composed_map_node(button: Button) -> void:
+	for color_name in [
+		"font_color",
+		"font_hover_color",
+		"font_pressed_color",
+		"font_focus_color",
+		"font_hover_pressed_color",
+		"font_disabled_color",
+		"font_outline_color",
+	]:
+		button.add_theme_color_override(color_name, UIColors.TRANSPARENT)
+
+
+func _add_reward_icon_row(button: Button, reward: EncounterReward, enabled: bool) -> void:
+	if reward == null:
+		return
+	var gear_tier := _map_reward_gear_tier(reward)
+	if reward.gold_amount <= 0 and reward.talent_points <= 0 and gear_tier < 0:
+		return
+	var row := HBoxContainer.new()
+	row.name = "MapRewardIconRow"
+	row.z_index = 9
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 4)
+	row.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	var reward_piece_count := _map_reward_piece_count(reward, gear_tier)
+	row.offset_left = -12 if reward_piece_count >= 3 else 10
+	row.offset_top = -28
+	row.offset_right = -10
+	row.offset_bottom = -2
+	row.modulate.a = 1.0 if enabled else 0.58
+	if reward.talent_points > 0:
+		_add_map_reward_piece(row, CardStyle.talent_point_icon(), "x%d" % reward.talent_points)
+	if gear_tier >= 0:
+		_add_map_reward_piece(
+			row,
+			_gear_drop_icon_for_tier(gear_tier),
+			"x1",
+			"MapGearRewardIcon",
+			gear_tier
+		)
+	if reward.gold_amount > 0:
+		_add_map_reward_piece(row, GOLD_ICON, "%dg" % reward.gold_amount)
+	button.add_child(row)
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := button.get_theme_stylebox(state_name)
+		if style is StyleBoxFlat:
+			style.content_margin_bottom = 42
+
+
+func _add_map_reward_piece(row: HBoxContainer, texture: Texture2D, text: String, icon_name: String = "Icon", gear_tier: int = -1) -> void:
+	var icon := CardStyle.make_pixel_icon(texture, MAP_REWARD_ICON_SIZE)
+	icon.name = icon_name
+	if gear_tier >= 0:
+		icon.set_meta("gear_tier", gear_tier)
+		icon.set_meta("gear_rarity_color", _tier_color_for_map_reward(gear_tier))
+	row.add_child(icon)
+	var label := Label.new()
+	label.name = "MapRewardAmount"
+	label.text = text
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", DATA_BUTTON_FONT)
+	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	label.add_theme_constant_override("outline_size", 3)
+	row.add_child(label)
+
+
+func _map_reward_gear_tier(reward: EncounterReward) -> int:
+	if reward.gear_choice_rewards.size() > 0:
+		var best := -1
+		for gear in reward.gear_choice_rewards:
+			if gear != null:
+				best = maxi(best, gear.tier)
+		return best
+	if reward.legendary_choice_count > 0 and not reward.legendary_choice_pool.is_empty():
+		return GearItem.Tier.LEGENDARY
+	if reward.generated_gear_choice_count > 0:
+		return reward.generated_gear_tier
+	if reward.fixed_gear_rewards.size() > 0:
+		var best_fixed := -1
+		for gear in reward.fixed_gear_rewards:
+			if gear != null:
+				best_fixed = maxi(best_fixed, gear.tier)
+		return best_fixed
+	return -1
+
+
+func _map_reward_piece_count(reward: EncounterReward, gear_tier: int) -> int:
+	var count := 0
+	if reward.talent_points > 0:
+		count += 1
+	if gear_tier >= 0:
+		count += 1
+	if reward.gold_amount > 0:
+		count += 1
+	return count
+
+
+func _gear_drop_icon_for_tier(tier: int) -> Texture2D:
+	var normalized_tier := tier if GEAR_DROP_ICON_PATHS.has(tier) else GearItem.Tier.BASIC
+	if _gear_drop_icon_cache.has(normalized_tier):
+		return _gear_drop_icon_cache[normalized_tier]
+	var texture := load(GEAR_DROP_ICON_PATHS[normalized_tier]) as Texture2D
+	if texture == null:
+		return null
+	texture.resource_name = GEAR_DROP_ICON_PATHS[normalized_tier]
+	_gear_drop_icon_cache[normalized_tier] = texture
+	return texture
+
+
+func _tier_color_for_map_reward(tier: int) -> Color:
+	match tier:
+		GearItem.Tier.MASTER:
+			return UIColors.TIER_MASTER
+		GearItem.Tier.CURSED:
+			return UIColors.TIER_CURSED
+		GearItem.Tier.LEGENDARY:
+			return UIColors.TIER_LEGENDARY
+	return UIColors.TIER_BASIC
+
+
+func _add_map_actor_marker(button: Button, monster: Monster, enabled: bool) -> void:
+	var texture := _map_actor_texture(monster)
+	if texture == null:
+		return
+	var actor := TextureRect.new()
+	actor.name = "MapActorMarker"
+	actor.z_index = 8
+	actor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	actor.texture = texture
+	actor.custom_minimum_size = MAP_ACTOR_MARKER_SIZE
+	actor.size = MAP_ACTOR_MARKER_SIZE
+	actor.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	actor.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	actor.position = MAP_ACTOR_MARKER_OFFSET
+	actor.modulate.a = 1.0 if enabled else 0.55
+	button.add_child(actor)
+
+
+func _map_actor_texture(monster: Monster) -> Texture2D:
+	if monster == null:
+		return null
+	var visual_key: String = CombatStage.ENEMY_VISUAL_KEYS_BY_NAME.get(monster.display_name, "")
+	if visual_key == "":
+		return null
+	var animation_paths: Dictionary = CombatStage.ENEMY_ANIMATION_PATHS.get(visual_key, {})
+	var animation_regions: Dictionary = CombatStage.ENEMY_ANIMATION_REGIONS.get(visual_key, {})
+	var path: String = animation_paths.get("idle", "")
+	var region: Rect2 = animation_regions.get("idle", Rect2(Vector2.ZERO, Vector2(CombatStage.PEASANT_FRAME_SIZE)))
+	return _atlas_texture_from_path(path, region)
+
+
+func _atlas_texture_from_path(path: String, region: Rect2) -> Texture2D:
+	if path == "":
+		return null
+	var source := load(path) as Texture2D
+	if source == null:
+		var image := Image.new()
+		if image.load(path) != OK:
+			return null
+		source = ImageTexture.create_from_image(image)
+	var atlas := AtlasTexture.new()
+	atlas.atlas = source
+	atlas.region = region
+	return atlas
 
 
 func _add_tavern_defeated_marker(button: Button) -> void:
 	var marker := Label.new()
 	marker.name = "TavernDefeatedMarker"
 	marker.text = "X"
+	marker.z_index = 20
 	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	marker.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	marker.add_theme_font_size_override("font_size", 76)
+	marker.add_theme_font_size_override("font_size", 70)
 	marker.add_theme_color_override("font_color", UIColors.TEXT_WARNING)
-	marker.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+	marker.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
 	marker.add_theme_constant_override("outline_size", 5)
-	marker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	marker.position = MAP_ACTOR_MARKER_OFFSET
+	marker.size = MAP_ACTOR_MARKER_SIZE
 	button.add_child(marker)
 
 
@@ -613,7 +852,7 @@ func _add_available_pulse(button: Button, marker_name: String) -> void:
 	pulse.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pulse.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var pulse_style := StyleBoxFlat.new()
-	pulse_style.bg_color = Color(0, 0, 0, 0)
+	pulse_style.bg_color = UIColors.TRANSPARENT
 	pulse_style.border_color = UIColors.TEXT_GOLD
 	pulse_style.set_border_width_all(5)
 	pulse_style.set_corner_radius_all(8)
@@ -669,13 +908,30 @@ func _contract_route_story_text() -> String:
 	if BuildState.is_contract_fight_active():
 		return FLOW_TEXT.marked_target_story(node.display_name)
 	if _pending_contract_route_node != null and _route_node_is_selectable(_pending_contract_route_node):
-		return FLOW_TEXT.pending_route_status(_pending_contract_route_node.display_name)
+		return _selected_contract_route_story_text(_pending_contract_route_node)
+	var authored_before := _before_selection_contract_route_story_text(node)
+	if authored_before != "":
+		return authored_before
 	var base := "Choose your next route into The Gilded Serpent. Enemy pressure and reward quality matter from here."
 	if node.next_nodes.size() == 2:
 		var tradeoff := _route_tradeoff_text(node.next_nodes[0], node.next_nodes[1])
 		if tradeoff != "":
 			return "%s %s" % [base, tradeoff]
 	return base
+
+
+func _selected_contract_route_story_text(node: ContractRouteNode) -> String:
+	if node.selected_text != "":
+		return node.selected_text
+	return FLOW_TEXT.pending_route_status(node.display_name)
+
+
+func _before_selection_contract_route_story_text(node: ContractRouteNode) -> String:
+	if node.next_nodes.size() == 1 and node.next_nodes[0].before_selection_text != "":
+		return node.next_nodes[0].before_selection_text
+	if node.before_selection_text != "":
+		return node.before_selection_text
+	return ""
 
 
 ## Relative pressure score for a route branch, used only to rank two
@@ -817,6 +1073,8 @@ func _on_map_proceed_pressed() -> void:
 		var selected := _pending_contract_route_node
 		_pending_contract_route_node = null
 		route_node_pressed.emit(selected)
+		return
+	CardStyle.pulse_blocked_control(_map_proceed_button)
 
 
 func _refresh_contract_route_proceed_button() -> void:
@@ -827,7 +1085,7 @@ func _refresh_contract_route_proceed_button() -> void:
 	)
 	_map_proceed_button.visible = has_pending_choices
 	_map_proceed_button.disabled = _pending_contract_route_node == null
-	_map_proceed_button.text = FLOW_TEXT.ACTION_MARK_ROUTE
+	_map_proceed_button.text = FLOW_TEXT.ACTION_PROCEED
 	_map_proceed_button.tooltip_text = (
 		FLOW_TEXT.TOOLTIP_ROUTE_NEEDS_SELECTION
 		if _pending_contract_route_node == null

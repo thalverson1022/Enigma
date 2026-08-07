@@ -26,3 +26,6 @@ difficulty_label = "Hard Opener"
 reward_quality_label = "Master Weapon or Ring"
 summary_text = "A short armored opener with better loot if your build can punch through fast."
 reward_summary = "22g and a Master weapon or ring choice."
+before_selection_text = "You have made your way inside. A Cloaked Watchman blocks the main path. It might be easier to go around."
+selected_text = "Selected Route: Door Guard
+The direct approach... I like it."

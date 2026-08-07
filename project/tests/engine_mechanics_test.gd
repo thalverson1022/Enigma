@@ -5,6 +5,8 @@ extends SceneTree
 ## content) so the numbers are hand-computable in isolation. Run with:
 ##   godot --headless -s res://tests/engine_mechanics_test.gd
 
+var _failed := false
+
 
 func _make_physical_skill(amount: float) -> Skill:
 	var skill := Skill.new()
@@ -104,15 +106,30 @@ func _initialize() -> void:
 	var rotation: Array[Skill] = [skill]
 	var result: CombatResolver.CombatResult = CombatResolver.resolve(rotation, stats, monster, 3000)
 	print("armor-reduction casts=%d (expect 3)" % result.cast_events.size())
-	assert(result.cast_events.size() == 3)
+	_require_equal("armor_reduction_persists cast count", result.cast_events.size(), 3, {
+		"rotation": _skill_names(rotation),
+		"monster": _monster_summary(monster),
+		"duration_ms": 3000,
+	})
 	var first: float = result.cast_events[0].physical_damage
 	var second: float = result.cast_events[1].physical_damage
 	print("cast1 damage=%.4f (expect ~62.5)" % first)
 	print("cast2 damage=%.4f (expect ~66.6667, > cast1)" % second)
-	assert(absf(first - 62.5) < 0.01)
-	assert(absf(second - 66.6667) < 0.01)
-	assert(second > first)
-	assert(result.cast_events[0].armor_reduction_applied == 20)
+	_require_approx("armor_reduction_persists first cast damage", first, 62.5, 0.01, {
+		"armor_before": 100,
+		"reduction": 20,
+	})
+	_require_approx("armor_reduction_persists second cast damage", second, 66.6667, 0.01, {
+		"armor_before": 100,
+		"reduction": 20,
+	})
+	_require("armor_reduction_persists damage increases", second > first, {
+		"first": first,
+		"second": second,
+	})
+	_require_equal("armor_reduction_persists applied amount", result.cast_events[0].armor_reduction_applied, 20, {
+		"event": _cast_summary(result.cast_events[0]),
+	})
 
 	# -- physical_damage_multiplier --
 	var mult_skill := _make_physical_skill(100.0)
@@ -122,7 +139,11 @@ func _initialize() -> void:
 	var mult_rotation: Array[Skill] = [mult_skill]
 	var mult_result: CombatResolver.CombatResult = CombatResolver.resolve(mult_rotation, mult_stats, flat_monster, 1000)
 	print("physical_damage_multiplier cast damage=%.2f (expect 150.0)" % mult_result.cast_events[0].physical_damage)
-	assert(absf(mult_result.cast_events[0].physical_damage - 150.0) < 0.001)
+	_require_approx("physical_damage_multiplier damage", mult_result.cast_events[0].physical_damage, 150.0, 0.001, {
+		"rotation": _skill_names(mult_rotation),
+		"multiplier": mult_stats.physical_damage_multiplier,
+		"monster": _monster_summary(flat_monster),
+	})
 
 	# -- bonus_poison_stacks --
 	var poison_skill := _make_poison_skill(1)
@@ -131,7 +152,10 @@ func _initialize() -> void:
 	var poison_rotation: Array[Skill] = [poison_skill]
 	var poison_result: CombatResolver.CombatResult = CombatResolver.resolve(poison_rotation, poison_stats, flat_monster, 1000)
 	print("bonus_poison_stacks event stacks=%d (expect 3)" % poison_result.cast_events[0].poison_stacks_applied)
-	assert(poison_result.cast_events[0].poison_stacks_applied == 3)
+	_require_equal("bonus_poison_stacks applied stacks", poison_result.cast_events[0].poison_stacks_applied, 3, {
+		"base_stacks": 1,
+		"bonus_stacks": poison_stats.bonus_poison_stacks,
+	})
 
 	var primitive_poison_skill := _make_physical_skill(1.0)
 	primitive_poison_skill.poison_stacks_applied = 1
@@ -142,8 +166,12 @@ func _initialize() -> void:
 		primitive_poison_result.cast_events[0].poison_stacks_applied,
 		primitive_poison_result.tick_events.filter(func(tick): return tick.damage > 0.0).size(),
 	])
-	assert(primitive_poison_result.cast_events[0].poison_stacks_applied == 1)
-	assert(primitive_poison_result.tick_events.any(func(tick): return tick.damage > 0.0))
+	_require_equal("primitive_poison stacks applied", primitive_poison_result.cast_events[0].poison_stacks_applied, 1, {
+		"skill": primitive_poison_skill.display_name,
+	})
+	_require("primitive_poison produces damaging tick", primitive_poison_result.tick_events.any(func(tick): return tick.damage > 0.0), {
+		"ticks": _tick_summaries(primitive_poison_result.tick_events),
+	})
 
 	# -- poison tick interval modifier --
 	var cadence_stats := _make_stats()
@@ -151,7 +179,11 @@ func _initialize() -> void:
 	cadence_stats.poison_tick_interval_multiplier = 0.5
 	var cadence_result: CombatResolver.CombatResult = CombatResolver.resolve(poison_rotation, cadence_stats, flat_monster, 2000)
 	print("fast poison cadence ticks=%d (expect 4)" % cadence_result.tick_events.size())
-	assert(cadence_result.tick_events.size() == 4)
+	_require_equal("poison_tick_interval_modifier tick count", cadence_result.tick_events.size(), 4, {
+		"duration_ms": 2000,
+		"interval_multiplier": cadence_stats.poison_tick_interval_multiplier,
+		"ticks": _tick_summaries(cadence_result.tick_events),
+	})
 
 	# -- triggered skills resolve immediately without consuming cast time --
 	var trigger_base := _make_physical_skill(1.0)
@@ -163,14 +195,31 @@ func _initialize() -> void:
 	var trigger_rotation: Array[Skill] = [trigger_base]
 	var trigger_result: CombatResolver.CombatResult = CombatResolver.resolve(trigger_rotation, trigger_stats, flat_monster, 1000)
 	print("triggered skills=%s" % str(trigger_result.cast_events[0].triggered_skill_names))
-	assert(trigger_result.cast_events.size() == 1)
-	assert(trigger_result.cast_events[0].triggered_skill_names.has("Triggered Stab"))
-	assert(absf(trigger_result.cast_events[0].physical_damage - 11.0) < 0.001)
-	assert(trigger_result.cast_events[0].damage_contributions.size() == 2)
-	assert(_damage_contribution(trigger_result.cast_events[0], "Trigger Base")["kind"] == "cast")
-	assert(_damage_contribution(trigger_result.cast_events[0], "Triggered Stab")["kind"] == "proc")
-	assert(absf(float(_damage_contribution(trigger_result.cast_events[0], "Trigger Base")["damage"]) - 1.0) < 0.001)
-	assert(absf(float(_damage_contribution(trigger_result.cast_events[0], "Triggered Stab")["damage"]) - 10.0) < 0.001)
+	_require_equal("triggered_skill_immediate cast count", trigger_result.cast_events.size(), 1, {
+		"rotation": _skill_names(trigger_rotation),
+		"duration_ms": 1000,
+	})
+	_require("triggered_skill_immediate proc name", trigger_result.cast_events[0].triggered_skill_names.has("Triggered Stab"), {
+		"triggered_skill_names": trigger_result.cast_events[0].triggered_skill_names,
+	})
+	_require_approx("triggered_skill_immediate total damage", trigger_result.cast_events[0].physical_damage, 11.0, 0.001, {
+		"event": _cast_summary(trigger_result.cast_events[0]),
+	})
+	_require_equal("triggered_skill_immediate contribution count", trigger_result.cast_events[0].damage_contributions.size(), 2, {
+		"contributions": trigger_result.cast_events[0].damage_contributions,
+	})
+	_require_equal("triggered_skill_immediate base contribution kind", _damage_contribution(trigger_result.cast_events[0], "Trigger Base").get("kind", ""), "cast", {
+		"contributions": trigger_result.cast_events[0].damage_contributions,
+	})
+	_require_equal("triggered_skill_immediate proc contribution kind", _damage_contribution(trigger_result.cast_events[0], "Triggered Stab").get("kind", ""), "proc", {
+		"contributions": trigger_result.cast_events[0].damage_contributions,
+	})
+	_require_approx("triggered_skill_immediate base contribution damage", float(_damage_contribution(trigger_result.cast_events[0], "Trigger Base").get("damage", -1.0)), 1.0, 0.001, {
+		"contributions": trigger_result.cast_events[0].damage_contributions,
+	})
+	_require_approx("triggered_skill_immediate proc contribution damage", float(_damage_contribution(trigger_result.cast_events[0], "Triggered Stab").get("damage", -1.0)), 10.0, 0.001, {
+		"contributions": trigger_result.cast_events[0].damage_contributions,
+	})
 
 	# -- poison resistance reduction persists for later poison ticks --
 	var resist_stats := _make_stats()
@@ -179,8 +228,14 @@ func _initialize() -> void:
 	var resist_rotation: Array[Skill] = [_make_poison_resistance_skill(0.5), _make_poison_skill(2)]
 	var resist_result: CombatResolver.CombatResult = CombatResolver.resolve(resist_rotation, resist_stats, resist_monster, 3000)
 	print("poison resistance reduction tick damage=%.2f (expect 7.5)" % resist_result.tick_events[1].damage)
-	assert(is_equal_approx(resist_result.cast_events[0].poison_resistance_reduction_applied, 0.5))
-	assert(absf(resist_result.tick_events[1].damage - 7.5) < 0.001)
+	_require_approx("poison_resistance_reduction applied", resist_result.cast_events[0].poison_resistance_reduction_applied, 0.5, 0.001, {
+		"monster": _monster_summary(resist_monster),
+		"rotation": _skill_names(resist_rotation),
+	})
+	_require_approx("poison_resistance_reduction later tick damage", resist_result.tick_events[1].damage, 7.5, 0.001, {
+		"monster": _monster_summary(resist_monster),
+		"ticks": _tick_summaries(resist_result.tick_events),
+	})
 
 	# -- stack-scaling physical damage reads active poison stacks at cast time --
 	var stack_stats := _make_stats()
@@ -188,8 +243,76 @@ func _initialize() -> void:
 	var stack_rotation: Array[Skill] = [_make_poison_skill(3), _make_stack_scaling_skill(2.0)]
 	var stack_result: CombatResolver.CombatResult = CombatResolver.resolve(stack_rotation, stack_stats, flat_monster, 2000)
 	print("stack-scaling damage=%.2f (expect 4.0 after one poison tick consumed)" % stack_result.cast_events[1].physical_damage)
-	assert(absf(stack_result.cast_events[1].physical_damage - 4.0) < 0.001)
+	_require_approx("stack_scaling_physical_damage active stack read", stack_result.cast_events[1].physical_damage, 4.0, 0.001, {
+		"rotation": _skill_names(stack_rotation),
+		"ticks": _tick_summaries(stack_result.tick_events),
+	})
 
 	print("")
+	if _failed:
+		print("P2:M5 T0 engine mechanics check: FAILED")
+		quit(1)
 	print("P2:M5 T0 engine mechanics check: OK")
 	quit()
+
+
+func _require(label: String, condition: bool, context: Dictionary = {}) -> void:
+	if condition:
+		return
+	_failed = true
+	print("FAILED: %s" % label)
+	for key in context.keys():
+		print("  %s: %s" % [key, str(context[key])])
+
+
+func _require_equal(label: String, actual: Variant, expected: Variant, context: Dictionary = {}) -> void:
+	context["expected"] = expected
+	context["actual"] = actual
+	_require(label, actual == expected, context)
+
+
+func _require_approx(label: String, actual: float, expected: float, tolerance: float, context: Dictionary = {}) -> void:
+	context["expected"] = expected
+	context["actual"] = actual
+	context["tolerance"] = tolerance
+	_require(label, absf(actual - expected) <= tolerance, context)
+
+
+func _skill_names(skills: Array[Skill]) -> PackedStringArray:
+	var names: PackedStringArray = []
+	for skill in skills:
+		names.append("%s(%s)" % [skill.display_name, skill.id])
+	return names
+
+
+func _monster_summary(monster: Monster) -> Dictionary:
+	return {
+		"name": monster.display_name,
+		"hp": monster.hp,
+		"armor": monster.armor,
+		"poison_resistance": monster.poison_resistance,
+	}
+
+
+func _cast_summary(event: CombatResolver.CastEvent) -> Dictionary:
+	return {
+		"time_ms": event.time_ms,
+		"skill": event.skill.display_name,
+		"physical_damage": event.physical_damage,
+		"poison_stacks_applied": event.poison_stacks_applied,
+		"armor_reduction_applied": event.armor_reduction_applied,
+		"poison_resistance_reduction_applied": event.poison_resistance_reduction_applied,
+		"triggered_skill_names": event.triggered_skill_names,
+		"damage_contributions": event.damage_contributions,
+	}
+
+
+func _tick_summaries(ticks: Array) -> Array:
+	var summaries: Array = []
+	for tick in ticks:
+		summaries.append({
+			"time_ms": tick.time_ms,
+			"damage": tick.damage,
+			"stacks_remaining": tick.stacks_remaining,
+		})
+	return summaries

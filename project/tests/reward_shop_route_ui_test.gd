@@ -146,6 +146,10 @@ func _initialize() -> void:
 	await process_frame
 	_require(combat_screen._shop_overlay._shop_reroll_button.disabled, "Expected reroll to disable below its current gold cost.")
 	_require(combat_screen._shop_overlay._shop_reroll_button.tooltip_text.contains("Need 5g"), "Expected reroll tooltip to explain the unaffordable cost.")
+	combat_screen._on_shop_reroll_pressed()
+	await process_frame
+	_require(combat_screen._shop_overlay._shop_status_label.text == "Not enough gold.", "Expected blocked reroll to explain the gold shortfall.")
+	_require(combat_screen._shop_overlay._shop_reroll_button.get_meta("reroll_blocked_pulse") == true, "Expected blocked reroll to pulse the reroll action.")
 	build_state.gold = 20
 	combat_screen._shop_overlay.refresh()
 	await process_frame
@@ -175,8 +179,8 @@ func _initialize() -> void:
 	)
 	_require(opener_tradeoff != second_layer_tradeoff, "Expected the tradeoff text to differ between two different Gilded Serpent branch pairs.")
 
-	# -- Live scene check: the route map's story text carries the tradeoff at
-	# the real opener-choice state. --
+	# -- Live scene check: the route map's story text now prefers authored
+	# flavor at the real opener-choice state. --
 	# A second selected tree is required so BuildState.needs_secondary_subclass_
 	# choice() reads false at the door_guard/portly_cook branch node (its
 	# parent node's node_type is SUBCLASS_CHOICE) -- appended directly rather
@@ -189,7 +193,7 @@ func _initialize() -> void:
 	build_state.run_state_changed.emit()
 	await process_frame
 	print(combat_screen._map_overlay._map_story_label.text)
-	_require(combat_screen._map_overlay._map_story_label.text.contains("Door Guard is the harder branch."), "Expected the live route map story text to include the opener tradeoff sentence.")
+	_require(combat_screen._map_overlay._map_story_label.text.contains("Gilded Serpent's hideout"), "Expected the live route map story text to use the authored opener flavor.")
 
 	print("contract reward-row summary checks")
 	build_state.current_route_node = door_guard

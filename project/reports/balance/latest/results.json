@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-31T09:46:58",
+	"generated_at": "2026-08-07T11:08:09",
 	"mechanics": [
 		{
 			"id": "bandit_physical_multiplier",
@@ -144,6 +144,34 @@
 			}
 		}
 	],
+	"mechanics_count": 13,
+	"metadata": {
+		"generated_at": "2026-08-07T11:08:09",
+		"mechanics_count": 13,
+		"project": "CrystalMaiden",
+		"scenario_count": 6,
+		"seed_count": 1200,
+		"source": {
+			"report_writer": "res://scripts/tools/balance_lab.gd",
+			"runner_script": "res://scripts/tools/run_balance_suite.gd",
+			"source_command": "godot --headless --path project -s res://scripts/tools/run_balance_suite.gd"
+		},
+		"status": "pass",
+		"status_counts": {
+			"fail": 0,
+			"pass": 19,
+			"warn": 0
+		},
+		"status_semantics": {
+			"fail": "Mechanics, resource, runner, or hard correctness failure that needs investigation.",
+			"pass": "Expected mechanics checks or scenario thresholds are within accepted bounds.",
+			"warn": "Balance-review signal, usually threshold drift, not necessarily a broken test."
+		},
+		"tool": "Balance Lab",
+		"version": "0.1.0"
+	},
+	"project": "CrystalMaiden",
+	"scenario_count": 6,
 	"scenarios": [
 		{
 			"aggregate": {
@@ -2643,5 +2671,23 @@
 			}
 		}
 	],
+	"seed_count": 1200,
+	"source": {
+		"report_writer": "res://scripts/tools/balance_lab.gd",
+		"runner_script": "res://scripts/tools/run_balance_suite.gd",
+		"source_command": "godot --headless --path project -s res://scripts/tools/run_balance_suite.gd"
+	},
+	"status": "pass",
+	"status_counts": {
+		"fail": 0,
+		"pass": 19,
+		"warn": 0
+	},
+	"status_semantics": {
+		"fail": "Mechanics, resource, runner, or hard correctness failure that needs investigation.",
+		"pass": "Expected mechanics checks or scenario thresholds are within accepted bounds.",
+		"warn": "Balance-review signal, usually threshold drift, not necessarily a broken test."
+	},
+	"tool": "Balance Lab",
 	"version": "0.1.0"
 }

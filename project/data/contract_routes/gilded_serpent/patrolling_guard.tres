@@ -26,3 +26,5 @@ difficulty_label = "Reward Opportunity"
 reward_quality_label = "Master Weapon or Necklace"
 summary_text = "A guarded route with better loot from the easier opener branch."
 reward_summary = "30g, 1 talent point, and a Master weapon or necklace choice."
+selected_text = "Selected Route: Patrolling Guard
+The bigger they are..."

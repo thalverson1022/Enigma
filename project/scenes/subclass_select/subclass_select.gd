@@ -13,6 +13,7 @@ signal back_pressed
 
 const INSTRUCTION_FONT_SIZE := 40
 const MAIN_MENU_BACKGROUND_PATH := "res://assets/backgrounds/main_menu.jpg"
+const TITLE_LIGHTNING_FLASH_OVERLAY_SCRIPT := preload("res://scripts/ui/title_lightning_flash_overlay.gd")
 
 const FLAVOR_TEXT := {
 	"Assassin": "Poison, poison, and more poison.",
@@ -105,6 +106,12 @@ func _add_entry_background() -> void:
 	var scrim := ColorRect.new()
 	scrim.name = "SubclassSelectScrim"
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.color = Color(0.05, 0.045, 0.055, 0.42)
+	scrim.color = UIColors.SCRIM_SOFT
 	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(scrim)
+
+	var lightning_overlay := TITLE_LIGHTNING_FLASH_OVERLAY_SCRIPT.new()
+	lightning_overlay.name = "SubclassSelectLightningFlashOverlay"
+	lightning_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lightning_overlay.bind_background(background)
+	add_child(lightning_overlay)

@@ -224,6 +224,8 @@ func _on_event(event: CombatPlayback.PlaybackEvent) -> void:
 		var popup_delay := 0.0
 		if _combat_stage != null:
 			popup_delay = _combat_stage.play_cast_impact(cast, not skipping)
+		if cast.physical_damage > 0.0 and not skipping:
+			AudioManager.play_attack_sfx_for_cast(cast, _playback.speed, false)
 		if not cast.triggered_skill_names.is_empty() and _skill_build_panel != null and _skill_build_panel.has_method("highlight_rotation_index"):
 			_skill_build_panel.highlight_rotation_index(cast.rotation_index, true)
 		if cast.physical_damage > 0.0:

@@ -566,7 +566,8 @@ func _check_live_playback_win() -> void:
 	_require(combat_screen._map_button.disabled, "Expected the Map button locked mid-playback.")
 	_require(combat_screen._phase_label.text == "Phase: Fighting", "Expected the header frozen on Fighting mid-playback.")
 	_require(combat_screen._combat_stage != null, "Expected playback to have a combat stage behind the HUD.")
-	_require(combat_screen._combat_stage._enemy_name_label.text == monster.display_name, "Expected the combat stage to name the current target mid-playback.")
+	_require(combat_screen._combat_stage._enemy_name_label.text == monster.display_name, "Expected the combat stage enemy label data to track the current target mid-playback.")
+	_require(not combat_screen._combat_stage._enemy_name_label.visible, "Expected Adventure playback to hide the enemy name inside the combat window.")
 	_require(combat_screen._combat_stage.fight_intro_count == 1, "Expected the combat stage to play one start-of-fight intro.")
 	_require(combat_screen._playback_presenter._intro_remaining_sec > 0.0, "Expected playback to begin with a visual intro before the combat clock advances.")
 	_require(combat_screen._playback_presenter._playback.events_fired() == 0, "Expected no timeline events to fire during the fight intro setup.")
@@ -595,18 +596,20 @@ func _check_live_playback_win() -> void:
 	_require(combat_screen._playback_active, "Expected playback still active after partial advance.")
 
 	# Skip to the result: the deferred reveal runs exactly as instant mode
-	# would have shown it.
+	# would have shown it, after the victory pose beat has time to read.
 	combat_screen._playback_controls._skip_button.pressed.emit()
 	_require(not combat_screen._playback_active, "Expected playback finished after Skip.")
-	_require(combat_screen._victory_overlay.visible, "Expected the victory banner revealed after Skip.")
-	_require(not combat_screen._playback_controls.visible, "Expected the playback controls hidden after the reveal.")
+	_require(not combat_screen._victory_overlay.visible, "Expected skipped wins to wait for the victory pose beat before revealing the overlay.")
+	_require(combat_screen._playback_controls.visible, "Expected the playback controls to stay visible after the reveal.")
+	_require(combat_screen._hud_hp_text_label.text == "0/%d" % monster.hp, "Expected the HUD snapped to the exact post-fight state (dead enemy).")
+	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_VICTORY, "Expected skip to still snap the enemy into the victory pose.")
+	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected skip to record the victory outcome beat without waiting.")
+	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
+	_require(combat_screen._victory_overlay.visible, "Expected the victory banner revealed after the skipped-win pose hold.")
 	_require(not combat_screen._view_log_button.disabled, "Expected the combat log unlocked after the reveal.")
 	_require(not combat_screen._map_button.disabled, "Expected the Map button unlocked after the reveal.")
 	_require(combat_screen._victory_recap_label.text.contains("Total Damage:"), "Expected the win recap populated at the reveal.")
-	_require(combat_screen._hud_hp_text_label.text == "0/%d" % monster.hp, "Expected the HUD snapped to the exact post-fight state (dead enemy).")
 	_require(combat_screen._phase_label.text != "Phase: Fighting", "Expected the header unfrozen after the reveal.")
-	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_VICTORY, "Expected skip to still snap the enemy into the victory pose.")
-	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected skip to record the victory outcome beat without waiting.")
 
 	combat_screen.queue_free()
 	await process_frame
@@ -695,10 +698,8 @@ func _check_live_playback_loss() -> void:
 		combat_screen._hud_hp_text_label.text == "%d/%d" % [expected_remaining, monster.hp],
 		"Expected the enemy HP bar to end the loss playback with the resolved damage applied."
 	)
-	_require(
-		combat_screen._playback_controls._time_label.text == "%.1fs / %.0fs" % [duration_ms / 1000.0, duration_ms / 1000.0],
-		"Expected the window readout to end at the cap on a loss."
-	)
+	_require(combat_screen._playback_controls._time_label == null or not combat_screen._playback_controls._time_label.visible, "Expected the old playback time readout to stay hidden.")
+	_require(combat_screen._fight_timer_label.visible, "Expected the fight-window timer badge to remain the visible combat timer.")
 	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected skip to enter the player defeat pose before the overlay.")
 	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected skip to record the defeat outcome beat without waiting.")
 	_require(combat_screen._combat_stage.last_player_animation_key == "defeat", "Expected skipped losses to use the Rogue death pose.")

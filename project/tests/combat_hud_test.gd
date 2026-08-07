@@ -195,6 +195,9 @@ func _check_live_pre_fight_and_win() -> void:
 	_require(combat_screen._hud_hp_text_label.get_parent().name == "CombatValuesRow", "Expected HP, armor, and resistance values grouped in the top-right combat HUD row.")
 	_require(is_equal_approx(combat_screen._hud_health_bar.value, float(monster.hp)), "Expected a full health bar pre-fight.")
 	_require(is_equal_approx(combat_screen._hud_health_bar.max_value, float(monster.hp)), "Expected the health bar max to be monster HP.")
+	_require(combat_screen._hud_health_bar.custom_minimum_size.y >= 18.0, "Expected the combat HP bar to use the deeper beveled height.")
+	_require(combat_screen._hud_health_bar.get_theme_stylebox("background").border_color == UIColors.HEALTH_BAR_TRACK_BORDER, "Expected the combat HP bar track to use the shared gold-edged treatment.")
+	_require(combat_screen._hud_health_bar.get_node_or_null("HealthBarDepthOverlay") != null, "Expected the combat HP bar to include its drawn bevel overlay.")
 	_require(
 		combat_screen._hud_info_label.text == "%d" % monster.armor,
 		"Expected the shield-labeled pre-fight armor value to show base armor."
@@ -208,13 +211,26 @@ func _check_live_pre_fight_and_win() -> void:
 	_require(_has_status_chip(combat_screen._hud_status_row, HUD_DECAY_ICON, "x0"), "Expected Decay stack chip to stay visible at x0 pre-fight.")
 	_require(combat_screen._hud_status_row.alignment == BoxContainer.ALIGNMENT_END, "Expected debuff stack chips to sit right-aligned below the health bar.")
 	_require(_status_chip_font_size(combat_screen._hud_status_row, HUD_POISON_ICON) == 24, "Expected combat status values to use the larger number font.")
+	_require(combat_screen._fight_timer_badge != null and combat_screen._fight_timer_badge.visible, "Expected a raised fight-window timer badge once a target is selected.")
+	_require(combat_screen._fight_timer_badge.get_parent().name == "FightTimerCell", "Expected the fight-window timer badge to sit in the HUD top row above the health bar.")
+	_require(combat_screen._fight_timer_badge.find_child("ClockIcon", true, false) != null, "Expected the fight-window timer badge to include the clock icon.")
+	_require(combat_screen._fight_timer_label.text == "%ds" % ceili(float(fight_enemy_panel.duration_ms()) / 1000.0), "Expected the fight-window timer badge to show the current target duration before combat.")
+	var playback_label := combat_screen._playback_controls.find_child("PlaybackLabel", true, false) as Label
+	_require(playback_label != null, "Expected the combat playback controls to include a descriptive label.")
+	_require(playback_label.text == "playback:", "Expected the combat playback controls label to read playback:.")
+	_require(
+		playback_label.get_theme_font_size("font_size") == combat_screen._hud_name_label.get_theme_font_size("font_size"),
+		"Expected the playback label to match the enemy-name font size."
+	)
+	_require(combat_screen._playback_controls._speed_buttons[0].disabled, "Expected 1x to be auto-selected as the default playback speed.")
 	_require(combat_screen._combat_stage != null, "Expected the combat window to own a stage layer.")
 	_require(combat_screen._combat_stage.player_actor_anchor != null, "Expected a player actor anchor on the combat stage.")
 	_require(combat_screen._combat_stage.enemy_actor_anchor != null, "Expected an enemy actor anchor on the combat stage.")
 	_require(combat_screen._combat_stage.contact_effect_anchor != null, "Expected a contact effect anchor on the combat stage.")
 	_require(combat_screen._combat_stage.floating_text_anchor != null, "Expected a floating text anchor on the combat stage.")
 	_require(not combat_screen._combat_stage.debug_grid_visible, "Expected Adventure combat to keep the sprite-placement debug grid hidden.")
-	_require(combat_screen._combat_stage._enemy_name_label.text == monster.display_name, "Expected the combat stage enemy actor label to track the current target.")
+	_require(combat_screen._combat_stage._enemy_name_label.text == monster.display_name, "Expected the combat stage enemy actor label data to track the current target.")
+	_require(not combat_screen._combat_stage._enemy_name_label.visible, "Expected Adventure combat to hide the enemy name inside the combat window.")
 	_require(combat_screen._combat_stage.player_actor_anchor.get_node_or_null("PlayerSprite") != null, "Expected the combat stage to expose a configured player sprite slot.")
 	_require(combat_screen._combat_stage.enemy_actor_anchor.get_node_or_null("EnemySprite") != null, "Expected the combat stage to expose a configured enemy sprite slot.")
 	var expected_player_paths: PackedStringArray = combat_screen._combat_stage.expected_player_sprite_paths()
@@ -354,12 +370,31 @@ func _check_live_pre_fight_and_win() -> void:
 	)
 
 	print("-- Live win HUD --")
+	combat_screen.instant_playback = false
 	build_state.set_locked(true)
 	fight_enemy_panel.fight_pressed.emit()
 	await process_frame
+	_require(combat_screen._playback_active, "Expected the live win check to enter real-time playback when instant playback is disabled.")
+	var timer_at_start: String = combat_screen._fight_timer_label.text
+	combat_screen._process(1.0)
+	await process_frame
+	_require(combat_screen._fight_timer_label.text != timer_at_start, "Expected the fight-window timer badge to count down during playback.")
+	_require(combat_screen._fight_timer_label.text.ends_with("s"), "Expected the live timer to continue displaying seconds.")
+	combat_screen._skip_playback()
+	await process_frame
+	_require(not combat_screen._victory_overlay.visible, "Expected skipped wins to keep the result overlay hidden during the victory pose beat.")
+	_require(combat_screen._combat_stage.outcome_pose == "victory", "Expected skipped wins to enter the enemy defeat pose before the overlay.")
+	var defeated_enemy_position: Vector2 = combat_screen._combat_stage.enemy_actor_anchor.position
+	combat_screen._combat_stage._layout_stage()
+	_require(
+		combat_screen._combat_stage.enemy_actor_anchor.position == defeated_enemy_position,
+		"Expected combat-stage relayout during the reveal hold to preserve the enemy defeat pose position."
+	)
+	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
 	_require(build_state.last_fight_won, "Expected the Quick Cut Mouthy Drunk fight to be a win.")
 	print("post-win: %s | bar %.1f/%.1f" % [combat_screen._hud_hp_text_label.text, combat_screen._hud_health_bar.value, combat_screen._hud_health_bar.max_value])
 	_require(combat_screen._enemy_hud.visible, "Expected the HUD to stay visible with the victory banner up.")
+	_require(combat_screen._victory_overlay.visible, "Expected skipped wins to reveal the victory overlay after the pose beat.")
 	_require(combat_screen._hud_result != null, "Expected the HUD to hold the resolved fight after a win.")
 	_require(is_equal_approx(combat_screen._hud_health_bar.value, 0.0), "Expected an empty health bar after a win.")
 	_require(combat_screen._hud_hp_text_label.text == "0/%d" % monster.hp, "Expected icon-labeled zero HP value after a win.")

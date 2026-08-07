@@ -90,6 +90,7 @@ func _initialize() -> void:
 	training_room._on_fight_button_pressed()
 	await process_frame
 	assert(training_room._state.last_result == null)
+	assert(fight_button.get_meta("feedback_blocked_pulse") == true)
 
 	training_room._state.set_locked(true)
 	await process_frame

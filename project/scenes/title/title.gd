@@ -19,13 +19,15 @@ const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 const TITLE_FONT_SIZE := 48
 const SUBTITLE_FONT_SIZE := 20
 const CARD_TITLE_FONT_SIZE := 22
+const SEED_CHECK_ICON_SIZE := 16
 const RANDOM_SEED_MAX := 2147483647
 const MAIN_MENU_BACKGROUND_PATH := "res://assets/backgrounds/main_menu.jpg"
+const TITLE_LIGHTNING_FLASH_OVERLAY_SCRIPT := preload("res://scripts/ui/title_lightning_flash_overlay.gd")
 
 var _new_game_confirm_dialog: ConfirmationDialog
 var _random_seed_check_box: CheckBox
 var _seed_spin_box: SpinBox
-
+var _lightning_flash_overlay: Control
 
 func _ready() -> void:
 	var background := TextureRect.new()
@@ -48,9 +50,15 @@ func _ready() -> void:
 	var scrim := ColorRect.new()
 	scrim.name = "MainMenuScrim"
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.color = Color(0.05, 0.045, 0.055, 0.42)
+	scrim.color = UIColors.SCRIM_SOFT
 	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(scrim)
+
+	_lightning_flash_overlay = TITLE_LIGHTNING_FLASH_OVERLAY_SCRIPT.new()
+	_lightning_flash_overlay.name = "TitleLightningFlashOverlay"
+	_lightning_flash_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_lightning_flash_overlay.bind_background(background)
+	add_child(_lightning_flash_overlay)
 
 	var center := CenterContainer.new()
 	center.name = "MainMenuCenter"
@@ -153,12 +161,14 @@ func _ready() -> void:
 	_seed_spin_box.value = BuildState.adventure_seed
 	_seed_spin_box.custom_minimum_size = Vector2(160, 0)
 	_seed_spin_box.tooltip_text = FLOW_TEXT.TOOLTIP_ADVENTURE_SEED
+	_style_seed_spin_box(_seed_spin_box)
 	seed_row.add_child(_seed_spin_box)
 
 	_random_seed_check_box = CheckBox.new()
 	_random_seed_check_box.text = "Random"
 	_random_seed_check_box.button_pressed = true
 	_random_seed_check_box.tooltip_text = FLOW_TEXT.TOOLTIP_RANDOM_ADVENTURE_SEED
+	_style_random_seed_check_box(_random_seed_check_box)
 	_random_seed_check_box.toggled.connect(_on_random_seed_toggled)
 	seed_row.add_child(_random_seed_check_box)
 	_on_random_seed_toggled(_random_seed_check_box.button_pressed)
@@ -189,6 +199,100 @@ func selected_seed() -> int:
 
 func is_random_seed_enabled() -> bool:
 	return _random_seed_check_box != null and _random_seed_check_box.button_pressed
+
+
+func _style_seed_spin_box(spin_box: SpinBox) -> void:
+	var field_style := _make_seed_field_style(false)
+	var focus_style := _make_seed_field_style(true)
+	for state_name in ["normal", "read_only"]:
+		spin_box.add_theme_stylebox_override(state_name, field_style)
+	spin_box.add_theme_stylebox_override("focus", focus_style)
+	spin_box.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	spin_box.add_theme_color_override("font_readonly_color", UIColors.TEXT_DISABLED)
+	spin_box.add_theme_color_override("font_selected_color", UIColors.TEXT_NORMAL)
+	spin_box.add_theme_color_override("selection_color", UIColors.BUTTON_INNER_GLOW)
+	var line_edit := spin_box.get_line_edit()
+	if line_edit == null:
+		return
+	for state_name in ["normal", "read_only"]:
+		line_edit.add_theme_stylebox_override(state_name, field_style)
+	line_edit.add_theme_stylebox_override("focus", focus_style)
+	line_edit.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	line_edit.add_theme_color_override("font_readonly_color", UIColors.TEXT_DISABLED)
+	line_edit.add_theme_color_override("font_selected_color", UIColors.TEXT_NORMAL)
+	line_edit.add_theme_color_override("selection_color", UIColors.BUTTON_INNER_GLOW)
+
+
+func _make_seed_field_style(focused: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = UIColors.PANEL_DEEP
+	style.border_color = UIColors.PANEL_EDGE_LIGHT if focused else UIColors.PANEL_BORDER
+	style.set_border_width_all(2)
+	style.border_blend = true
+	style.set_corner_radius_all(4)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	return style
+
+
+func _style_random_seed_check_box(check_box: CheckBox) -> void:
+	# CheckBox inherits the project's Button style unless explicitly cleared.
+	# The Random seed control is just a checkbox, not a raised action button.
+	var empty_style := StyleBoxEmpty.new()
+	for state_name in [
+		"normal",
+		"hover",
+		"pressed",
+		"disabled",
+		"focus",
+		"hover_pressed",
+	]:
+		check_box.add_theme_stylebox_override(state_name, empty_style)
+	check_box.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	check_box.add_theme_color_override("font_hover_color", UIColors.TEXT_NORMAL)
+	check_box.add_theme_color_override("font_focus_color", UIColors.TEXT_NORMAL)
+	check_box.add_theme_color_override("font_pressed_color", UIColors.TEXT_NORMAL)
+	check_box.add_theme_color_override("font_disabled_color", UIColors.TEXT_DISABLED)
+	var unchecked_icon := _make_seed_check_icon(false)
+	var checked_icon := _make_seed_check_icon(true)
+	for icon_name in [
+		"unchecked",
+		"unchecked_hover",
+		"unchecked_pressed",
+		"unchecked_focus",
+		"unchecked_hover_pressed",
+	]:
+		check_box.add_theme_icon_override(icon_name, unchecked_icon)
+	for icon_name in [
+		"checked",
+		"checked_hover",
+		"checked_pressed",
+		"checked_focus",
+		"checked_hover_pressed",
+	]:
+		check_box.add_theme_icon_override(icon_name, checked_icon)
+
+
+func _make_seed_check_icon(checked: bool) -> Texture2D:
+	var image := Image.create_empty(SEED_CHECK_ICON_SIZE, SEED_CHECK_ICON_SIZE, false, Image.FORMAT_RGBA8)
+	image.fill(UIColors.TRANSPARENT)
+	for y in range(SEED_CHECK_ICON_SIZE):
+		for x in range(SEED_CHECK_ICON_SIZE):
+			var on_border := x == 0 or y == 0 or x == SEED_CHECK_ICON_SIZE - 1 or y == SEED_CHECK_ICON_SIZE - 1
+			if on_border:
+				image.set_pixel(x, y, UIColors.PANEL_BORDER)
+			elif x >= 2 and y >= 2 and x < SEED_CHECK_ICON_SIZE - 2 and y < SEED_CHECK_ICON_SIZE - 2:
+				image.set_pixel(x, y, UIColors.PANEL_DEEP)
+	if checked:
+		for offset in range(3):
+			image.set_pixel(4 + offset, 8 + offset, UIColors.TEXT_NORMAL)
+			image.set_pixel(7 + offset, 10 - offset, UIColors.TEXT_NORMAL)
+			image.set_pixel(8 + offset, 9 - offset, UIColors.TEXT_NORMAL)
+	var texture := ImageTexture.create_from_image(image)
+	texture.resource_name = "SeedRandomChecked" if checked else "SeedRandomUnchecked"
+	return texture
 
 
 func _on_random_seed_toggled(enabled: bool) -> void:

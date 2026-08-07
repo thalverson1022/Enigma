@@ -35,10 +35,12 @@ Approved decisions:
 
 Open decisions:
 
-- Placeholder audio remains provisional and should be confirmed before
-  Milestone 8 begins.
 - The final definition of done for Phase 3 should be refined during Milestone
   9 closeout planning.
+
+Closed decisions:
+
+- M8 placeholder audio was approved and implemented in M8:T3.
 
 ## Milestone 0 Progress
 
@@ -88,9 +90,9 @@ Status values:
 | 4 | Shop And Inventory Management UX | Complete | M4T0 through M4T7 are complete in `P3M4_Shop_And_Inventory_Management_UX.md`. Shop-phase buying, selling, equipping, unequipping, rerolling, and full-inventory reward clarity are covered without redesigning the underlying gear system. |
 | 5 | Adventure Flow And Transition Polish | Complete | M5:T0 through M5:T10 are complete in `P3M5_Adventure_Flow_And_Transition_Polish.md`; reusable Adventure flow language, lightweight select-then-commit patterns, title/entry cleanup, tutorial-path audits, reward/shop/build/talent handoffs, terminal-state clarity, late current-contract triage, focused regression checks, deferred Phase 4 notes, and final closeout are recorded. |
 | 6 | Practice Room Usability Pass | Complete | M6:T0 through M6:T6 are complete in `P3M6_Practice_Room_Usability_Pass.md`. The low-effort finish pass replaced Practice Room framing copy, fixed Practice Target floor/scale presentation, closed setup/playback/log audits with no extra redesign, verified Practice Room isolation, and recorded final focused checks. |
-| 7 | Testing Suite And Balance Lab Hardening | Not Started | External mechanics testing package needs review and polish. |
-| 8 | Audio, Feedback, And Polish Sweep | Not Started | Placeholder audio still needs approval. |
-| 9 | Regression, Export, And Phase 3 Closeout | Not Started |  |
+| 7 | Testing Suite And Balance Lab Hardening | Complete | M7:T0 through M7:T8 are complete in `P3M7_Testing_Suite_And_Balance_Lab_Hardening.md`. Balance Lab is now a stable run-and-read local app with repeatability verification, CrystalMaiden metadata, and hardened focused mechanics diagnostics. |
+| 8 | Audio, Feedback, And Polish Sweep | Complete | M8:T0 through M8:T7 are complete in `P3M8_Audio_Feedback_And_Polish_Sweep.md`. M8 closed the light UI/presentation/audio polish sweep with palette and color-state cleanup, replaceable audio, shared blocked-action feedback, subtle Tavern/contract background motion, target-resolution screenshot review, and focused verification. |
+| 9 | Regression, Export, And Phase 3 Closeout | Complete locally | Focused regression, Balance Lab, Web export, local browser smoke test, itch.io package, and local closeout commit are complete in `P3M9_Regression_Export_And_Phase_3_Closeout.md`; push to GitHub follows. |
 
 ## Phase Scope
 
@@ -332,34 +334,84 @@ Expected outputs:
 
 ## Milestone 7: Testing Suite And Balance Lab Hardening
 
-Goal: make the external mechanics testing and balance-analysis tools more
-trustworthy, maintainable, and useful before the project moves into deeper
-mechanics expansion.
+Goal: make Balance Lab feel like a real CrystalMaiden tool app alongside Shop
+Lab, Sprite Lab, and the planned Monster Lab, while also making the supporting
+mechanics tests and balance-analysis reports more trustworthy before the
+project moves into deeper mechanics expansion.
+
+Status: Complete. M7:T0 through M7:T8 are complete. The `tools/balance-lab`
+app now has a CrystalMaiden tool
+header, status area, `Run Balance` button, summary metrics, suite health panel,
+scenario and mechanics tables rendered from `results.json`, latest report file
+links, README instructions, and a dependency-free Node bridge that runs the
+existing Godot balance suite from the browser app. Balance Lab report output now
+uses CrystalMaiden branding, first-class metadata/count fields, source metadata,
+and explicit pass/warn/fail semantics. The current Godot test suite is mapped
+by coverage area, focused run set, caveat, and hardening opportunity. Critical
+mechanics/proc/replay tests now use context-rich failure helpers for combat
+mechanics, Opportunity Strikes source filtering, deterministic replay,
+Legendary gold/min-cast behavior, and Mithril Karambit source restrictions. The
+closeout verified repeatable Balance Lab aggregate signatures, focused report
+and mechanics checks, and the local bridge status endpoint. Sliders, scenario
+editing, monster selection, build editing, and deeper interactivity remain
+deferred.
+
+Design direction:
+
+- Balance Lab should move from a generated static HTML report to a stable local
+  app shell that can render the latest `results.json`.
+- Static `file://` HTML cannot directly launch Godot, so the app should use a
+  small local run bridge or server.
+- Balance Lab should stay separate from the playable Godot runtime by default,
+  matching the current `tools/shop-lab` and `tools/sprite-lab` pattern.
+- The existing generated report can remain as a compatibility artifact while
+  the app becomes the main workflow.
 
 Tasks:
 
-- Audit the testing package added near the end of Phase 2.
-- Identify which mechanics are currently covered by external tests.
-- Identify mechanics that have weak, missing, or misleading coverage.
-- Improve test structure, naming, setup, and failure messages.
-- Add focused tests for critical combat, build-resolution, gear, and proc
-  behavior.
-- Improve Balance Lab output clarity where it helps future analysis.
-- Document how to run the suite, interpret failures, and use results during
-  balance work.
-- Confirm deterministic scenarios remain reproducible across repeated runs.
+- Plan and re-scope M7 around Balance Lab as a tool app. Status: Complete.
+- Create the Balance Lab app shell. Status: Complete.
+- Add the local run bridge. Status: Complete.
+- Render current Balance Lab output in the app. Status: Complete.
+- Clean up Balance Lab report identity and structure. Status: Complete.
+- Audit and map the current test suite. Status: Complete.
+- Harden critical mechanics tests and failure messages. Status: Complete.
+- Verify repeatability and document the workflow. Status: Complete.
+- Verify, document, and close Milestone 7. Status: Complete.
 
 Expected outputs:
 
-- More reliable external mechanics test coverage.
-- Clearer Balance Lab and test documentation.
-- Better confidence that future mechanics changes can be tested safely.
-- A stronger foundation for Phase 4 balance and system-depth work.
+- A usable local Balance Lab app with a `Run Balance` button.
+- App-rendered Balance Lab summaries sourced from the latest JSON report.
+- CrystalMaiden-appropriate Balance Lab metadata and status language.
+- More reliable mechanics test coverage and clearer failure diagnostics.
+- Clear Balance Lab and test documentation.
+- Better confidence that future mechanics, monster, and balance changes can be
+  tested safely.
 
 ## Milestone 8: Audio, Feedback, And Polish Sweep
 
 Goal: apply a consistency pass across interaction feedback, presentation
 details, and rough edges.
+
+Status: Complete. M8:T0 through M8:T7 are complete.
+`P3M8_Audio_Feedback_And_Polish_Sweep.md` is the single tasking document. T2
+landed the Earth & Iron UI chrome, preserved original gear-rarity colors,
+shared bevel/depth treatment, clearer map/reward language, title/seed polish,
+Adventure/Practice combat timer and playback parity, Talent Trees presentation
+cleanup, and authored Gilded Serpent route-map flavor text. T3 added the
+shared settings/audio menu, Master/Music/Effects volume controls, layered
+menu/Tavern/contract ambience, Adventure/Practice attack SFX, button click
+SFX, shop transaction SFX, fade rules, and focused verification. T4 added a
+shared blocked-action feedback pulse for Practice Fight, map Proceed, shop
+reroll, and inventory-full reward/shop blocks. T5 added subtle Tavern
+fireplace and contract moon-flight background motion, then captured/reviewed
+the major title, settings, selection, Adventure, shop, contract, and Practice
+states at 1600x900 with no additional layout fixes required.
+T6 ran the required focused M8 checks plus adjacent UI/presentation checks with
+exit code 0; Balance Lab was skipped because M8 did not touch balance-relevant
+data or combat math. T7 recorded the final summary, verification, known
+caveats, deferrals, and handoff into M9 regression/export closeout.
 
 Note: Milestone 8 is the right Phase 3 home for broader whole-game UI skin
 consistency. Full mock-up-quality fantasy UI production, including ornate frame
@@ -369,12 +421,16 @@ direction and asset strategy can be assessed together.
 
 Tasks:
 
-- Add replaceable sound placeholders where they improve clarity.
-- Review button, hover, focus, selected, and disabled states.
-- Review spacing, typography, contrast, and information hierarchy.
-- Remove obvious rough edges from repeated panels.
-- Check all major states at the target resolution.
-- Ensure no major UI state feels unfinished.
+- Plan and scope M8. Status: Complete.
+- Audit feedback states, palette, and interactable colors. Status: Complete.
+- Clean up UI palette, color states, and repeated rough edges. Status:
+  Complete.
+- Decide and implement replaceable placeholder audio if approved. Status:
+  Complete.
+- Sweep combat and interaction feedback consistency. Status: Complete.
+- Check major states at the target resolution. Status: Complete.
+- Run focused verification. Status: Complete.
+- Verify, document, and close Milestone 8. Status: Complete.
 
 Expected outputs:
 
@@ -384,26 +440,31 @@ Expected outputs:
 
 ## Milestone 9: Regression, Export, And Phase 3 Closeout
 
-Goal: verify that Project CrystalMaiden is stable, documented, and ready to
-hand off to the next phase.
+Goal: verify that Project CrystalMaiden is stable, documented, pushed to
+GitHub, and ready for an itch.io browser playtest.
+
+Status: Complete locally. M9 was handled as a lightweight closeout checklist
+rather than a broad new implementation milestone.
 
 Tasks:
 
-- Run the Godot regression suite.
-- Run Balance Lab where relevant.
-- Smoke test the exported Windows build if gameplay, UI resources, or assets
-  changed.
-- Update Phase 3 documentation.
-- Capture final screenshots or video.
-- Tag the Phase 3 closeout state.
-- Write Phase 4 handoff notes for deeper mechanics work.
+- Define closeout scope. Status: Complete.
+- Audit repo and documentation state. Status: Complete.
+- Run focused Godot regression and Balance Lab checks. Status: Complete.
+- Prepare and package a Godot Web export for itch.io. Status: Complete.
+- Smoke test the exported browser build. Status: Complete.
+- Commit and push the Phase 3 closeout state to GitHub. Status: Local commit
+  created; push follows.
+- Record final closeout notes and itch.io upload handoff. Status: Complete.
 
 Expected outputs:
 
 - Passing regression checks.
-- Balance Lab results where relevant.
-- Fresh export if needed.
-- Phase 3 closeout tag.
+- Balance Lab result: 19 pass, 0 warn, 0 fail.
+- Fresh itch.io-ready Web export package:
+  `project/export/web/project-crystalmaiden-itch.zip`.
+- Local Phase 3 closeout commit created; push follows.
+- Itch.io upload notes.
 - Phase 4 handoff notes.
 
 ## Suggested First Implementation Milestone

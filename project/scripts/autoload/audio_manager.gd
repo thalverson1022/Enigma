@@ -1,0 +1,530 @@
+extends Node
+
+const SETTINGS_PATH := "user://audio_settings.cfg"
+const MENU_RAIN_PATH := "res://assets/audio/music/rain_storm.mp3"
+const MENU_THEME_PATH := "res://assets/audio/music/epic_theme.mp3"
+const TAVERN_FIREPLACE_PATH := "res://assets/audio/music/fireplace.mp3"
+const TAVERN_CHATTER_PATH := "res://assets/audio/music/chatter.mp3"
+const TAVERN_THEME_PATH := "res://assets/audio/music/tavern_theme.mp3"
+const CONTRACT_NIGHT_PATH := "res://assets/audio/music/night_time.mp3"
+const CONTRACT_SERPENT_THEME_PATH := "res://assets/audio/music/serpent_theme.mp3"
+const BUTTON_PRESS_SFX_PATH := "res://assets/audio/fx/button_press.mp3"
+const SHOP_CHANGE_SFX_PATH := "res://assets/audio/fx/change.mp3"
+const ATTACK_SFX_PATHS := [
+	"res://assets/audio/fx/sword/sword_block.mp3",
+	"res://assets/audio/fx/sword/sword_clash_hit.mp3",
+	"res://assets/audio/fx/sword/sword_cut_1.mp3",
+	"res://assets/audio/fx/sword/sword_cut_2.mp3",
+	"res://assets/audio/fx/sword/sword_slice.mp3",
+	"res://assets/audio/fx/sword/sword_swing.mp3",
+]
+
+const MUSIC_BUS := "Music"
+const EFFECTS_BUS := "Effects"
+
+const DEFAULT_MASTER_VOLUME := 0.8
+const DEFAULT_MUSIC_VOLUME := 0.55
+const DEFAULT_EFFECTS_VOLUME := 0.8
+const RAIN_MIX_VOLUME := 0.32
+const THEME_MIX_VOLUME := 0.88
+const TAVERN_FIREPLACE_MIX_VOLUME := 0.34
+const TAVERN_CHATTER_MIX_VOLUME := 0.22
+const TAVERN_THEME_MIX_VOLUME := 0.16
+const CONTRACT_RAIN_MIX_VOLUME := 0.24
+const CONTRACT_NIGHT_MIX_VOLUME := 0.30
+const CONTRACT_SERPENT_THEME_MIX_VOLUME := 0.15
+const DEFAULT_FADE_SECONDS := 1.4
+const ATTACK_SFX_POOL_SIZE := 8
+const ATTACK_SFX_BASE_VOLUME := 0.72
+const ATTACK_SFX_VOLUME_VARIATION := 0.16
+const ATTACK_SFX_PITCH_VARIATION := 0.08
+const ATTACK_SFX_REFERENCE_CAST_MS := 900.0
+const ATTACK_SFX_MIN_TIMING_FACTOR := 0.84
+const ATTACK_SFX_MAX_TIMING_FACTOR := 1.18
+const ATTACK_SFX_MIN_PITCH_SCALE := 0.55
+const ATTACK_SFX_MAX_PITCH_SCALE := 2.65
+const ATTACK_SFX_PROC_OFFSET_SEC := 0.075
+const BUTTON_PRESS_SFX_POOL_SIZE := 8
+const BUTTON_PRESS_SFX_VOLUME := 0.48
+const SHOP_CHANGE_SFX_VOLUME := 0.64
+const SHOP_CHANGE_SFX_PITCH_SCALE := 0.82
+const BUTTON_PRESS_SFX_META := "audio_manager_button_press_sfx_connected"
+
+var master_volume := DEFAULT_MASTER_VOLUME
+var music_volume := DEFAULT_MUSIC_VOLUME
+var effects_volume := DEFAULT_EFFECTS_VOLUME
+
+var _rain_player: AudioStreamPlayer
+var _theme_player: AudioStreamPlayer
+var _fireplace_player: AudioStreamPlayer
+var _chatter_player: AudioStreamPlayer
+var _tavern_theme_player: AudioStreamPlayer
+var _night_player: AudioStreamPlayer
+var _serpent_theme_player: AudioStreamPlayer
+var _button_press_stream: AudioStreamMP3
+var _shop_change_stream: AudioStreamMP3
+var _button_sfx_players: Array[AudioStreamPlayer] = []
+var _button_sfx_player_index := 0
+var _shop_change_player: AudioStreamPlayer
+var _last_button_sfx_frame_by_instance: Dictionary = {}
+var _button_down_sfx_consumed_by_instance: Dictionary = {}
+var _attack_sfx_streams: Array[AudioStreamMP3] = []
+var _attack_sfx_players: Array[AudioStreamPlayer] = []
+var _attack_sfx_player_index := 0
+var _rain_tween: Tween
+var _theme_tween: Tween
+var _fireplace_tween: Tween
+var _chatter_tween: Tween
+var _tavern_theme_tween: Tween
+var _night_tween: Tween
+var _serpent_theme_tween: Tween
+var _rng := RandomNumberGenerator.new()
+
+var attack_sfx_play_count := 0
+var last_attack_sfx_pitch_scale := 0.0
+var last_attack_sfx_volume_db := 0.0
+var last_attack_sfx_cast_duration_ms := 0
+var last_attack_sfx_playback_speed := 0.0
+var last_attack_sfx_hit_count := 0
+var last_attack_sfx_proc_hit_count := 0
+var button_press_sfx_play_count := 0
+var shop_change_sfx_play_count := 0
+var last_shop_change_pitch_scale := 0.0
+
+
+func _ready() -> void:
+	_rng.randomize()
+	_ensure_audio_buses()
+	_load_settings()
+	_apply_all_bus_volumes()
+	_build_music_players()
+	_build_attack_sfx_pool()
+	_build_ui_sfx_players()
+	_connect_existing_button_sfx()
+	if not get_tree().node_added.is_connected(_on_tree_node_added):
+		get_tree().node_added.connect(_on_tree_node_added)
+
+
+func play_menu_intro_audio() -> void:
+	fade_out_tavern_ambience(0.35)
+	fade_out_contract_ambience(0.35, false)
+	_play_player(_rain_player, RAIN_MIX_VOLUME)
+	_play_player(_theme_player, THEME_MIX_VOLUME)
+
+
+func play_tavern_map_rain() -> void:
+	transition_to_tavern_ambience()
+
+
+func transition_to_tavern_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	fade_out_contract_ambience(fade_seconds, false)
+	fade_out_menu_rain(fade_seconds)
+	fade_out_menu_theme(fade_seconds)
+	_fade_in_player(_fireplace_player, "_fireplace_tween", TAVERN_FIREPLACE_MIX_VOLUME, fade_seconds)
+	_fade_in_player(_chatter_player, "_chatter_tween", TAVERN_CHATTER_MIX_VOLUME, fade_seconds)
+	_fade_in_player(_tavern_theme_player, "_tavern_theme_tween", TAVERN_THEME_MIX_VOLUME, fade_seconds)
+
+
+func transition_to_contract_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	fade_out_tavern_ambience(fade_seconds)
+	fade_out_menu_theme(fade_seconds)
+	_fade_in_player(_rain_player, "_rain_tween", CONTRACT_RAIN_MIX_VOLUME, fade_seconds)
+	_fade_in_player(_night_player, "_night_tween", CONTRACT_NIGHT_MIX_VOLUME, fade_seconds)
+	_fade_in_player(_serpent_theme_player, "_serpent_theme_tween", CONTRACT_SERPENT_THEME_MIX_VOLUME, fade_seconds)
+
+
+func fade_out_menu_theme(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	_fade_out_player(_theme_player, "_theme_tween", fade_seconds)
+
+
+func fade_out_menu_rain(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	_fade_out_player(_rain_player, "_rain_tween", fade_seconds)
+
+
+func fade_out_all_menu_audio(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	fade_out_menu_theme(fade_seconds)
+	fade_out_tavern_ambience(fade_seconds)
+	fade_out_contract_ambience(fade_seconds)
+
+
+func fade_out_tavern_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	_fade_out_player(_fireplace_player, "_fireplace_tween", fade_seconds)
+	_fade_out_player(_chatter_player, "_chatter_tween", fade_seconds)
+	_fade_out_player(_tavern_theme_player, "_tavern_theme_tween", fade_seconds)
+
+
+func fade_out_contract_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS, include_rain: bool = true) -> void:
+	if include_rain:
+		fade_out_menu_rain(fade_seconds)
+	_fade_out_player(_night_player, "_night_tween", fade_seconds)
+	_fade_out_player(_serpent_theme_player, "_serpent_theme_tween", fade_seconds)
+
+
+func play_random_attack_sfx(playback_speed: float, cast_duration_ms: int, suppress: bool = false) -> bool:
+	if suppress or _attack_sfx_streams.is_empty() or _attack_sfx_players.is_empty():
+		return false
+	var player := _next_attack_sfx_player()
+	if player == null:
+		return false
+	var stream_index := _rng.randi_range(0, _attack_sfx_streams.size() - 1)
+	var random_volume := ATTACK_SFX_BASE_VOLUME + _rng.randf_range(-ATTACK_SFX_VOLUME_VARIATION, ATTACK_SFX_VOLUME_VARIATION)
+	var random_pitch := 1.0 + _rng.randf_range(-ATTACK_SFX_PITCH_VARIATION, ATTACK_SFX_PITCH_VARIATION)
+	var timing_factor := _attack_sfx_timing_factor(cast_duration_ms)
+	var speed_factor := maxf(playback_speed, 0.01)
+
+	player.stop()
+	player.stream = _attack_sfx_streams[stream_index]
+	player.bus = EFFECTS_BUS
+	player.volume_db = linear_to_db(clampf(random_volume, 0.001, 1.0))
+	player.pitch_scale = clampf(
+		random_pitch * timing_factor * speed_factor,
+		ATTACK_SFX_MIN_PITCH_SCALE,
+		ATTACK_SFX_MAX_PITCH_SCALE
+	)
+	player.play()
+
+	attack_sfx_play_count += 1
+	last_attack_sfx_pitch_scale = player.pitch_scale
+	last_attack_sfx_volume_db = player.volume_db
+	last_attack_sfx_cast_duration_ms = cast_duration_ms
+	last_attack_sfx_playback_speed = playback_speed
+	return true
+
+
+func play_attack_sfx_for_cast(cast: CombatResolver.CastEvent, playback_speed: float, suppress: bool = false) -> int:
+	var hit_count := attack_sfx_hit_count_for_cast(cast)
+	last_attack_sfx_hit_count = hit_count
+	last_attack_sfx_proc_hit_count = maxi(hit_count - 1, 0)
+	if suppress or hit_count <= 0:
+		return 0
+	var cast_duration_ms := maxi(cast.time_ms - cast.cast_start_ms, 1)
+	var scheduled_count := 0
+	if play_random_attack_sfx(playback_speed, cast_duration_ms, false):
+		scheduled_count += 1
+	for hit_index in range(1, hit_count):
+		var delay_sec := ATTACK_SFX_PROC_OFFSET_SEC * float(hit_index) / maxf(playback_speed, 0.01)
+		get_tree().create_timer(delay_sec).timeout.connect(_play_delayed_attack_sfx.bind(playback_speed, cast_duration_ms))
+		scheduled_count += 1
+	return scheduled_count
+
+
+func play_button_press_sfx() -> bool:
+	if _button_press_stream == null or _button_sfx_players.is_empty():
+		return false
+	var player := _next_button_sfx_player()
+	if player == null:
+		return false
+	player.stop()
+	player.stream = _button_press_stream
+	player.bus = EFFECTS_BUS
+	player.volume_db = linear_to_db(BUTTON_PRESS_SFX_VOLUME)
+	player.pitch_scale = 1.0
+	player.play()
+	button_press_sfx_play_count += 1
+	return true
+
+
+func play_shop_change_sfx() -> bool:
+	if _shop_change_stream == null or _shop_change_player == null:
+		return false
+	_shop_change_player.stop()
+	_shop_change_player.stream = _shop_change_stream
+	_shop_change_player.bus = EFFECTS_BUS
+	_shop_change_player.volume_db = linear_to_db(SHOP_CHANGE_SFX_VOLUME)
+	_shop_change_player.pitch_scale = SHOP_CHANGE_SFX_PITCH_SCALE
+	_shop_change_player.play()
+	shop_change_sfx_play_count += 1
+	last_shop_change_pitch_scale = _shop_change_player.pitch_scale
+	return true
+
+
+func attack_sfx_hit_count_for_cast(cast: CombatResolver.CastEvent) -> int:
+	if cast == null or cast.physical_damage <= 0.0:
+		return 0
+	var hit_count := 1
+	for contribution in cast.damage_contributions:
+		if String(contribution.get("kind", "")) == "proc" and float(contribution.get("damage", 0.0)) > 0.0:
+			hit_count += 1
+	return hit_count
+
+
+func set_master_volume(value: float, persist: bool = true) -> void:
+	master_volume = clampf(value, 0.0, 1.0)
+	_apply_bus_volume("Master", master_volume)
+	if persist:
+		_save_settings()
+
+
+func set_music_volume(value: float, persist: bool = true) -> void:
+	music_volume = clampf(value, 0.0, 1.0)
+	_apply_bus_volume(MUSIC_BUS, music_volume)
+	if persist:
+		_save_settings()
+
+
+func set_effects_volume(value: float, persist: bool = true) -> void:
+	effects_volume = clampf(value, 0.0, 1.0)
+	_apply_bus_volume(EFFECTS_BUS, effects_volume)
+	if persist:
+		_save_settings()
+
+
+func _build_music_players() -> void:
+	_rain_player = _build_music_player("MenuRainPlayer", MENU_RAIN_PATH)
+	_theme_player = _build_music_player("MenuEpicThemePlayer", MENU_THEME_PATH)
+	_fireplace_player = _build_music_player("TavernFireplacePlayer", TAVERN_FIREPLACE_PATH)
+	_chatter_player = _build_music_player("TavernChatterPlayer", TAVERN_CHATTER_PATH)
+	_tavern_theme_player = _build_music_player("TavernThemePlayer", TAVERN_THEME_PATH)
+	_night_player = _build_music_player("ContractNightPlayer", CONTRACT_NIGHT_PATH)
+	_serpent_theme_player = _build_music_player("ContractSerpentThemePlayer", CONTRACT_SERPENT_THEME_PATH)
+
+
+func _build_attack_sfx_pool() -> void:
+	_attack_sfx_streams.clear()
+	for path in ATTACK_SFX_PATHS:
+		var stream := _load_mp3_stream(path)
+		if stream != null:
+			_attack_sfx_streams.append(stream)
+	_attack_sfx_players.clear()
+	for index in range(ATTACK_SFX_POOL_SIZE):
+		var player := AudioStreamPlayer.new()
+		player.name = "AttackSfxPlayer%d" % index
+		player.bus = EFFECTS_BUS
+		add_child(player)
+		_attack_sfx_players.append(player)
+
+
+func _build_ui_sfx_players() -> void:
+	_button_press_stream = _load_mp3_stream(BUTTON_PRESS_SFX_PATH)
+	_shop_change_stream = _load_mp3_stream(SHOP_CHANGE_SFX_PATH)
+	_button_sfx_players.clear()
+	for index in range(BUTTON_PRESS_SFX_POOL_SIZE):
+		var player := AudioStreamPlayer.new()
+		player.name = "ButtonPressSfxPlayer%d" % index
+		player.bus = EFFECTS_BUS
+		add_child(player)
+		_button_sfx_players.append(player)
+	_shop_change_player = AudioStreamPlayer.new()
+	_shop_change_player.name = "ShopChangeSfxPlayer"
+	_shop_change_player.bus = EFFECTS_BUS
+	add_child(_shop_change_player)
+
+
+func _build_music_player(player_name: String, stream_path: String) -> AudioStreamPlayer:
+	var player := AudioStreamPlayer.new()
+	player.name = player_name
+	player.bus = MUSIC_BUS
+	player.stream = _load_mp3_stream(stream_path)
+	if player.stream != null:
+		player.stream.loop = true
+	add_child(player)
+	return player
+
+
+func _load_mp3_stream(path: String) -> AudioStreamMP3:
+	if ResourceLoader.exists(path):
+		var loaded := load(path)
+		if loaded is AudioStreamMP3:
+			return loaded
+	var stream := AudioStreamMP3.load_from_file(ProjectSettings.globalize_path(path))
+	return stream
+
+
+func _play_player(player: AudioStreamPlayer, mix_volume: float) -> void:
+	if player == null or player.stream == null:
+		return
+	_stop_player_tween(player)
+	player.volume_db = linear_to_db(clampf(mix_volume, 0.001, 1.0))
+	if not player.playing:
+		player.play()
+
+
+func _fade_in_player(player: AudioStreamPlayer, tween_property_name: String, mix_volume: float, fade_seconds: float) -> void:
+	if player == null or player.stream == null:
+		return
+	_stop_player_tween(player)
+	var target_volume := linear_to_db(clampf(mix_volume, 0.001, 1.0))
+	if not player.playing:
+		player.volume_db = -60.0
+		player.play()
+	var tween := create_tween()
+	set(tween_property_name, tween)
+	tween.tween_property(player, "volume_db", target_volume, maxf(fade_seconds, 0.01))
+	tween.tween_callback(func() -> void:
+		set(tween_property_name, null)
+	)
+
+
+func _next_attack_sfx_player() -> AudioStreamPlayer:
+	if _attack_sfx_players.is_empty():
+		return null
+	var player := _attack_sfx_players[_attack_sfx_player_index]
+	_attack_sfx_player_index = (_attack_sfx_player_index + 1) % _attack_sfx_players.size()
+	return player
+
+
+func _next_button_sfx_player() -> AudioStreamPlayer:
+	if _button_sfx_players.is_empty():
+		return null
+	var player := _button_sfx_players[_button_sfx_player_index]
+	_button_sfx_player_index = (_button_sfx_player_index + 1) % _button_sfx_players.size()
+	return player
+
+
+func _attack_sfx_timing_factor(cast_duration_ms: int) -> float:
+	var safe_duration := maxf(float(cast_duration_ms), 1.0)
+	return clampf(
+		ATTACK_SFX_REFERENCE_CAST_MS / safe_duration,
+		ATTACK_SFX_MIN_TIMING_FACTOR,
+		ATTACK_SFX_MAX_TIMING_FACTOR
+	)
+
+
+func _play_delayed_attack_sfx(playback_speed: float, cast_duration_ms: int) -> void:
+	play_random_attack_sfx(playback_speed, cast_duration_ms, false)
+
+
+func _on_tree_node_added(node: Node) -> void:
+	if node is BaseButton:
+		_connect_button_sfx(node)
+
+
+func _connect_existing_button_sfx() -> void:
+	if get_tree() == null or get_tree().root == null:
+		return
+	_connect_button_sfx_recursive(get_tree().root)
+
+
+func _connect_button_sfx_recursive(node: Node) -> void:
+	if node is BaseButton:
+		_connect_button_sfx(node)
+	for child in node.get_children():
+		_connect_button_sfx_recursive(child)
+
+
+func _connect_button_sfx(button: BaseButton) -> void:
+	if button == null or button.has_meta(BUTTON_PRESS_SFX_META):
+		return
+	button.button_down.connect(_on_button_down_for_sfx.bind(button))
+	button.button_up.connect(_on_button_up_for_sfx.bind(button))
+	button.pressed.connect(_on_button_pressed_for_sfx.bind(button))
+	button.set_meta(BUTTON_PRESS_SFX_META, true)
+
+
+func _on_button_down_for_sfx(button: BaseButton) -> void:
+	if button == null or button.disabled:
+		return
+	var instance_id: int = button.get_instance_id()
+	_button_down_sfx_consumed_by_instance[instance_id] = true
+	_play_deduped_button_sfx(instance_id)
+
+
+func _on_button_up_for_sfx(button: BaseButton) -> void:
+	if button == null:
+		return
+	call_deferred("_clear_button_down_sfx_consumed", button.get_instance_id())
+
+
+func _on_button_pressed_for_sfx(button: BaseButton) -> void:
+	if button == null or button.disabled:
+		return
+	var instance_id: int = button.get_instance_id()
+	if bool(_button_down_sfx_consumed_by_instance.get(instance_id, false)):
+		return
+	_play_deduped_button_sfx(instance_id)
+
+
+func _clear_button_down_sfx_consumed(instance_id: int) -> void:
+	_button_down_sfx_consumed_by_instance.erase(instance_id)
+
+
+func _play_deduped_button_sfx(instance_id: int) -> void:
+	var current_frame := Engine.get_process_frames()
+	if int(_last_button_sfx_frame_by_instance.get(instance_id, -1)) == current_frame:
+		return
+	_last_button_sfx_frame_by_instance[instance_id] = current_frame
+	play_button_press_sfx()
+
+
+func _fade_out_player(player: AudioStreamPlayer, tween_property_name: String, fade_seconds: float) -> void:
+	if player == null or not player.playing:
+		return
+	_stop_player_tween(player)
+	var tween := create_tween()
+	set(tween_property_name, tween)
+	tween.tween_property(player, "volume_db", -60.0, maxf(fade_seconds, 0.01))
+	tween.tween_callback(func() -> void:
+		player.stop()
+		player.volume_db = 0.0
+		set(tween_property_name, null)
+	)
+
+
+func _stop_player_tween(player: AudioStreamPlayer) -> void:
+	if player == _rain_player and _rain_tween != null:
+		_rain_tween.kill()
+		_rain_tween = null
+	elif player == _theme_player and _theme_tween != null:
+		_theme_tween.kill()
+		_theme_tween = null
+	elif player == _fireplace_player and _fireplace_tween != null:
+		_fireplace_tween.kill()
+		_fireplace_tween = null
+	elif player == _chatter_player and _chatter_tween != null:
+		_chatter_tween.kill()
+		_chatter_tween = null
+	elif player == _tavern_theme_player and _tavern_theme_tween != null:
+		_tavern_theme_tween.kill()
+		_tavern_theme_tween = null
+	elif player == _night_player and _night_tween != null:
+		_night_tween.kill()
+		_night_tween = null
+	elif player == _serpent_theme_player and _serpent_theme_tween != null:
+		_serpent_theme_tween.kill()
+		_serpent_theme_tween = null
+
+
+func _ensure_audio_buses() -> void:
+	_ensure_bus(MUSIC_BUS)
+	_ensure_bus(EFFECTS_BUS)
+
+
+func _ensure_bus(bus_name: String) -> void:
+	if AudioServer.get_bus_index(bus_name) >= 0:
+		return
+	AudioServer.add_bus()
+	var index := AudioServer.bus_count - 1
+	AudioServer.set_bus_name(index, bus_name)
+	AudioServer.set_bus_send(index, "Master")
+
+
+func _apply_all_bus_volumes() -> void:
+	_apply_bus_volume("Master", master_volume)
+	_apply_bus_volume(MUSIC_BUS, music_volume)
+	_apply_bus_volume(EFFECTS_BUS, effects_volume)
+
+
+func _apply_bus_volume(bus_name: String, value: float) -> void:
+	var index := AudioServer.get_bus_index(bus_name)
+	if index < 0:
+		return
+	var clamped := clampf(value, 0.0, 1.0)
+	AudioServer.set_bus_mute(index, clamped <= 0.001)
+	AudioServer.set_bus_volume_db(index, linear_to_db(maxf(clamped, 0.001)))
+
+
+func _load_settings() -> void:
+	var config := ConfigFile.new()
+	if config.load(SETTINGS_PATH) != OK:
+		return
+	master_volume = clampf(float(config.get_value("audio", "master_volume", DEFAULT_MASTER_VOLUME)), 0.0, 1.0)
+	music_volume = clampf(float(config.get_value("audio", "music_volume", DEFAULT_MUSIC_VOLUME)), 0.0, 1.0)
+	effects_volume = clampf(float(config.get_value("audio", "effects_volume", DEFAULT_EFFECTS_VOLUME)), 0.0, 1.0)
+
+
+func _save_settings() -> void:
+	var config := ConfigFile.new()
+	config.set_value("audio", "master_volume", master_volume)
+	config.set_value("audio", "music_volume", music_volume)
+	config.set_value("audio", "effects_volume", effects_volume)
+	config.save(SETTINGS_PATH)

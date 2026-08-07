@@ -16,7 +16,7 @@ extends PanelContainer
 
 const CARD_TITLE_FONT_SIZE := 20
 const SECTION_LABEL_FONT_SIZE := 15
-const GOLD_FONT_SIZE := 24
+const GOLD_FONT_SIZE := 28
 const GOLD_GHOST_DURATION_SEC := 0.28
 const GOLD_GHOST_ARC_HEIGHT := 26.0
 const GOLD_REWARD_SETTLE_SEC := 0.22
@@ -49,6 +49,7 @@ var _weapon_slot: Panel
 var _trinket_slot: Panel
 var _charm_slot: Panel
 var _inventory_grid: GridContainer
+var _gold_badge: PanelContainer
 var _gold_row: HBoxContainer
 var _gold_icon: TextureRect
 var _gold_label: Label
@@ -69,26 +70,43 @@ func _ready() -> void:
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(content)
 
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	content.add_child(header)
+
 	var title := Label.new()
 	title.text = "Gear"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.theme_type_variation = &"PanelHeader"
 	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	content.add_child(title)
+	header.add_child(title)
+
+	_gold_badge = PanelContainer.new()
+	_gold_badge.tooltip_text = "Gold stash"
+	_gold_badge.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var gold_badge_style := CardStyle.make_action_button_stylebox(UIColors.PANEL_DEEP, UIColors.PANEL_BORDER, "normal")
+	gold_badge_style.content_margin_left = 8
+	gold_badge_style.content_margin_right = 10
+	gold_badge_style.content_margin_top = 4
+	gold_badge_style.content_margin_bottom = 6
+	_gold_badge.add_theme_stylebox_override("panel", gold_badge_style)
+	header.add_child(_gold_badge)
 
 	_gold_row = HBoxContainer.new()
 	_gold_row.alignment = BoxContainer.ALIGNMENT_END
-	_gold_row.add_theme_constant_override("separation", 6)
+	_gold_row.add_theme_constant_override("separation", 7)
 	_gold_row.tooltip_text = "Gold stash"
-	content.add_child(_gold_row)
+	_gold_badge.add_child(_gold_row)
 
-	_gold_icon = CardStyle.make_pixel_icon(GOLD_ICON, Vector2(28, 28))
+	_gold_icon = CardStyle.make_pixel_icon(GOLD_ICON, Vector2(34, 34))
 	_gold_row.add_child(_gold_icon)
 	_gold_label = Label.new()
 	_gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_gold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_gold_label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
-	_gold_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	_gold_label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE)
 	_gold_label.add_theme_constant_override("outline_size", 4)
 	_gold_label.add_theme_font_size_override("font_size", GOLD_FONT_SIZE)
 	_gold_row.add_child(_gold_label)
@@ -340,20 +358,25 @@ func _on_sell_confirmed() -> void:
 	var sold_gear: GearItem = null
 	var source_rect := Rect2()
 	var sale_value := 0
+	var sold := false
 	if _pending_sell_inventory_item != null:
 		sold_gear = _pending_sell_inventory_item
 		sale_value = BuildState.sell_value_for(sold_gear)
 		source_rect = _global_rect_for(_inventory_button_for_item(_pending_sell_inventory_item))
-		BuildState.sell_inventory_item(_pending_sell_inventory_item)
+		sold = BuildState.sell_inventory_item(_pending_sell_inventory_item)
 	elif _pending_sell_equipped_slot != -1:
 		sold_gear = BuildState.equipped_item_for_slot(_pending_sell_equipped_slot)
 		sale_value = BuildState.sell_value_for(sold_gear)
 		source_rect = _global_rect_for(_equipped_panel_for_slot(_pending_sell_equipped_slot))
-		BuildState.sell_equipped_item(_pending_sell_equipped_slot)
+		sold = BuildState.sell_equipped_item(_pending_sell_equipped_slot)
 	_pending_sell_inventory_item = null
 	_pending_sell_equipped_slot = -1
 	_sell_dialog.hide()
-	if sold_gear != null:
+	if sold:
+		var audio_manager := get_node_or_null("/root/AudioManager")
+		if audio_manager != null and audio_manager.has_method("play_shop_change_sfx"):
+			audio_manager.play_shop_change_sfx()
+	if sold_gear != null and sold:
 		await animate_gold_from_rect(source_rect, sale_value)
 
 
@@ -364,11 +387,8 @@ func _on_sell_confirmed() -> void:
 ## plain border via _style_box_button() below.
 func _update_slot(slot: Panel, slot_name: String, gear: GearItem) -> void:
 	var fill: Color = EMPTY_SLOT_COLOR if gear == null else TIER_COLORS[gear.tier]
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = CardStyle.ACCENT_COLOR if gear != null else SLOT_BORDER_COLOR
-	style.set_border_width_all(3 if gear != null else 2)
-	style.set_corner_radius_all(6)
+	var border := CardStyle.ACCENT_COLOR if gear != null else SLOT_BORDER_COLOR
+	var style := CardStyle.make_slot_stylebox(fill, border, 3 if gear != null else 2)
 	slot.add_theme_stylebox_override("panel", style)
 	(slot.get_node("Icon") as TextureRect).texture = GearIcons.icon_for(gear)
 
@@ -431,7 +451,7 @@ func animate_gold_from_rect(source_rect: Rect2, amount: int, wait_for_completion
 		return
 	await get_tree().process_frame
 	var played := _play_gold_motion(source_rect, _global_rect_for(_gold_icon), amount, "+")
-	_pulse_slot(_gold_row)
+	_pulse_slot(_gold_badge)
 	if wait_for_completion and played:
 		await get_tree().create_timer(GOLD_GHOST_DURATION_SEC).timeout
 		await get_tree().create_timer(GOLD_REWARD_SETTLE_SEC).timeout
@@ -442,7 +462,7 @@ func animate_gold_to_rect(destination_rect: Rect2, amount: int, wait_for_complet
 		return
 	await get_tree().process_frame
 	var played := _play_gold_motion(_global_rect_for(_gold_icon), destination_rect, amount, "-")
-	_pulse_slot(_gold_row)
+	_pulse_slot(_gold_badge)
 	if wait_for_completion and played:
 		await get_tree().create_timer(GOLD_GHOST_DURATION_SEC).timeout
 
@@ -562,7 +582,7 @@ func _play_gold_motion(from_rect: Rect2, to_rect: Rect2, amount: int, sign: Stri
 	var label := Label.new()
 	label.text = "%s%dg" % [sign, amount]
 	label.add_theme_color_override("font_color", UIColors.TEXT_GOLD)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.92))
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE)
 	label.add_theme_constant_override("outline_size", 3)
 	label.add_theme_font_size_override("font_size", 18)
 	ghost.add_child(label)
@@ -592,7 +612,7 @@ func _pulse_slot(slot: Control) -> void:
 	if slot == null or not slot.is_inside_tree():
 		return
 	var original_modulate := slot.modulate
-	slot.modulate = Color(1.25, 1.18, 0.82, 1.0)
+	slot.modulate = UIColors.FEEDBACK_REWARD_PULSE
 	var tween := create_tween()
 	tween.tween_property(slot, "modulate", original_modulate, GEAR_LANDING_PULSE_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
@@ -606,12 +626,7 @@ func _quadratic_bezier(a: Vector2, b: Vector2, c: Vector2, t: float) -> Vector2:
 func _style_box_button(button: Button, gear: GearItem) -> void:
 	var fill: Color = EMPTY_SLOT_COLOR if gear == null else TIER_COLORS[gear.tier]
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = fill
-		style.border_color = SLOT_BORDER_COLOR
-		style.set_border_width_all(2)
-		style.set_corner_radius_all(6)
-		button.add_theme_stylebox_override(state, style)
+		button.add_theme_stylebox_override(state, CardStyle.make_slot_stylebox(fill, SLOT_BORDER_COLOR, 2, state))
 
 
 func _inventory_tooltip(gear: GearItem) -> String:

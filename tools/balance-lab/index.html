@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CrystalMaiden Balance Lab</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">CrystalMaiden Tooling</p>
+          <h1>Balance Lab</h1>
+        </div>
+        <div class="header-actions">
+          <span id="bridge-status" class="status-pill status-idle">Checking bridge</span>
+          <button id="run-button" type="button" class="primary-action">Run Balance</button>
+        </div>
+      </header>
+
+      <section class="status-panel" aria-live="polite">
+        <div>
+          <h2 id="run-state">Connecting to local bridge</h2>
+          <p id="run-detail">Start the local server, then use Run Balance to execute the Godot balance suite.</p>
+        </div>
+        <div class="report-path">
+          <span>Latest report</span>
+          <strong>project/reports/balance/latest</strong>
+        </div>
+      </section>
+
+      <section class="metric-grid" aria-label="Balance suite summary">
+        <article class="metric-card metric-pass">
+          <span>Pass</span>
+          <strong id="pass-count">-</strong>
+        </article>
+        <article class="metric-card metric-warn">
+          <span>Warn</span>
+          <strong id="warn-count">-</strong>
+        </article>
+        <article class="metric-card metric-fail">
+          <span>Fail</span>
+          <strong id="fail-count">-</strong>
+        </article>
+        <article class="metric-card">
+          <span>Scenarios</span>
+          <strong id="scenario-count">-</strong>
+        </article>
+        <article class="metric-card">
+          <span>Seeds</span>
+          <strong id="seed-count">-</strong>
+        </article>
+      </section>
+
+      <section class="dashboard">
+        <section class="report-surface" aria-labelledby="suite-health-title">
+          <div class="section-heading">
+            <h2 id="suite-health-title">Suite Health</h2>
+            <span id="report-timestamp">No run loaded</span>
+          </div>
+          <div class="health-grid">
+            <div class="health-card">
+              <span>Status</span>
+              <strong id="suite-status">Waiting</strong>
+            </div>
+            <div class="health-card">
+              <span>Runner</span>
+              <strong>Godot headless</strong>
+            </div>
+            <div class="health-card">
+              <span>Source</span>
+              <strong>results.json</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="report-surface span-2" aria-labelledby="scenario-title">
+          <div class="section-heading">
+            <h2 id="scenario-title">Scenario Summary</h2>
+            <span>Current report rows</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Status</th>
+                  <th>Mean DPS</th>
+                  <th>P05 / P95 DPS</th>
+                  <th>Win Rate</th>
+                  <th>Poison</th>
+                  <th>Proc Rate</th>
+                  <th>Seeds</th>
+                </tr>
+              </thead>
+              <tbody id="scenario-rows">
+                <tr>
+                  <td colspan="8" class="empty-cell">No scenario report loaded yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="report-surface span-2" aria-labelledby="mechanics-title">
+          <div class="section-heading">
+            <h2 id="mechanics-title">Mechanics Checks</h2>
+            <span>Observed versus expected</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Check</th>
+                  <th>Status</th>
+                  <th>Observed</th>
+                  <th>Expected</th>
+                  <th>Tolerance</th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody id="mechanics-rows">
+                <tr>
+                  <td colspan="6" class="empty-cell">No mechanics checks loaded yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside class="report-surface files-panel" aria-labelledby="files-title">
+          <div class="section-heading">
+            <h2 id="files-title">Report Files</h2>
+            <span>Latest output</span>
+          </div>
+          <div class="file-list">
+            <a href="/api/report/results">results.json</a>
+            <a href="/api/report/scenario-summary">scenario_summary.csv</a>
+            <a href="/api/report/godot-log">godot_run.log</a>
+          </div>
+          <p class="empty-note">The local bridge serves current report files after the first successful run.</p>
+        </aside>
+
+        <section class="report-surface span-2" aria-labelledby="output-title">
+          <div class="section-heading">
+            <h2 id="output-title">Run Output</h2>
+            <span id="exit-code">No process</span>
+          </div>
+          <pre id="run-output" class="run-output">No run started.</pre>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

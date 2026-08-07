@@ -15,12 +15,12 @@ const PANEL_MIN_HEIGHT := 184
 const ORDER_BADGE_FONT_SIZE := 11
 const REMOVE_BADGE_FONT_SIZE := 14
 const SLOT_COUNT_FONT_SIZE := 22
-const ACTIVE_SLOT_COLOR := Color(1.0, 0.86, 0.28, 1.0)
-const ACTIVE_SLOT_BG := Color(0.22, 0.17, 0.05, 0.94)
-const PULSE_SLOT_COLOR := UIColors.TEXT_MAGIC
-const PULSE_SLOT_BG := Color(0.18, 0.08, 0.24, 0.94)
-const PROGRESS_FILL_COLOR := Color(1.0, 0.86, 0.28, 0.36)
-const PROC_PROGRESS_FILL_COLOR := Color(0.62, 0.45, 0.85, 0.48)
+const ACTIVE_SLOT_COLOR := UIColors.BUILD_ACTIVE
+const ACTIVE_SLOT_BG := UIColors.BUILD_ACTIVE_BG
+const PULSE_SLOT_COLOR := UIColors.BUILD_PROC
+const PULSE_SLOT_BG := UIColors.BUILD_PROC_BG
+const PROGRESS_FILL_COLOR := UIColors.BUILD_PROGRESS_FILL
+const PROC_PROGRESS_FILL_COLOR := UIColors.BUILD_PROC_PROGRESS_FILL
 const LOCK_ICON := preload("res://assets/ui/icons/build_lock.png")
 const UNLOCK_ICON := preload("res://assets/ui/icons/build_unlock.png")
 const LOCK_BUTTON_SIZE := Vector2(50, 50)
@@ -140,7 +140,7 @@ func _update_lock_button() -> void:
 		if disabled_empty_lock
 		else "Lock this skill macro so you can start the fight"
 	)
-	_lock_button_icon.modulate = Color(0.68, 0.64, 0.58, 1.0) if disabled_empty_lock else Color.WHITE
+	_lock_button_icon.modulate = UIColors.ICON_DISABLED if disabled_empty_lock else Color.WHITE
 	_apply_lock_button_style()
 	# Can't lock an empty macro -- fighting with no skills is a guaranteed
 	# zero-damage loss.
@@ -303,12 +303,8 @@ func _on_slot_pressed(index: int) -> void:
 func _apply_slot_style(slot: Button, active: bool, pulse: bool) -> void:
 	var border_color := PULSE_SLOT_COLOR if pulse else (ACTIVE_SLOT_COLOR if active else CardStyle.ACCENT_COLOR)
 	var bg_color := PULSE_SLOT_BG if pulse else (ACTIVE_SLOT_BG if active else UIColors.PANEL_DEEP)
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg_color
-	style.border_color = border_color
-	style.set_border_width_all(3 if active or pulse else 1)
-	style.set_corner_radius_all(6)
 	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var style := CardStyle.make_slot_stylebox(bg_color, border_color, 3 if active or pulse else 1, state_name)
 		slot.add_theme_stylebox_override(state_name, style)
 	slot.add_theme_color_override("font_color", border_color)
 
@@ -317,16 +313,10 @@ func _apply_lock_button_style() -> void:
 	var fill := UIColors.BUTTON_FILL_PRESSED if state.build_locked else UIColors.BUTTON_FILL
 	var border := UIColors.TEXT_DISABLED if state.build_locked else UIColors.PANEL_BORDER
 	for state_name in ["normal", "hover", "pressed", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = fill
-		style.border_color = border
-		style.set_border_width_all(2)
+		var style := CardStyle.make_action_button_stylebox(fill, border, state_name)
 		style.set_corner_radius_all(LOCK_BUTTON_CORNER_RADIUS)
 		_lock_button.add_theme_stylebox_override(state_name, style)
-	var disabled_style := StyleBoxFlat.new()
-	disabled_style.bg_color = UIColors.PANEL_DISABLED
-	disabled_style.border_color = UIColors.STRUCTURE_LINE_LIGHT
-	disabled_style.set_border_width_all(2)
+	var disabled_style := CardStyle.make_action_button_stylebox(UIColors.PANEL_DISABLED, UIColors.STRUCTURE_LINE_LIGHT, "disabled")
 	disabled_style.set_corner_radius_all(LOCK_BUTTON_CORNER_RADIUS)
 	_lock_button.add_theme_stylebox_override("disabled", disabled_style)
 

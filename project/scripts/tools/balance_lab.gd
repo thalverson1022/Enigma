@@ -2,19 +2,67 @@ class_name BalanceLab
 extends RefCounted
 
 const VERSION := "0.1.0"
+const PROJECT_NAME := "CrystalMaiden"
+const TOOL_NAME := "Balance Lab"
 const DEFAULT_SEED_COUNT := 200
+const STATUS_SEMANTICS := {
+	"pass": "Expected mechanics checks or scenario thresholds are within accepted bounds.",
+	"warn": "Balance-review signal, usually threshold drift, not necessarily a broken test.",
+	"fail": "Mechanics, resource, runner, or hard correctness failure that needs investigation.",
+}
 
 
 static func run_suite() -> Dictionary:
 	var report := {
 		"version": VERSION,
+		"project": PROJECT_NAME,
+		"tool": TOOL_NAME,
 		"generated_at": Time.get_datetime_string_from_system(),
+		"status_semantics": STATUS_SEMANTICS,
+		"source": {
+			"runner_script": "res://scripts/tools/run_balance_suite.gd",
+			"report_writer": "res://scripts/tools/balance_lab.gd",
+			"source_command": "godot --headless --path project -s res://scripts/tools/run_balance_suite.gd",
+		},
 		"mechanics": _run_mechanics_checks(),
 		"scenarios": [],
 	}
 	for spec in _scenario_specs():
 		report["scenarios"].append(_run_scenario(spec))
+	_finalize_report_metadata(report)
 	return report
+
+
+static func _finalize_report_metadata(report: Dictionary) -> void:
+	var counts := status_counts(report)
+	var scenario_count: int = report.get("scenarios", []).size()
+	var mechanics_count: int = report.get("mechanics", []).size()
+	var seed_count := 0
+	for scenario in report.get("scenarios", []):
+		seed_count += int(scenario.get("seed_count", 0))
+	var overall_status := "pass"
+	if int(counts.get("fail", 0)) > 0:
+		overall_status = "fail"
+	elif int(counts.get("warn", 0)) > 0:
+		overall_status = "warn"
+	report["status"] = overall_status
+	report["status_counts"] = counts
+	report["scenario_count"] = scenario_count
+	report["mechanics_count"] = mechanics_count
+	report["seed_count"] = seed_count
+	report["metadata"] = {
+		"project": PROJECT_NAME,
+		"tool": TOOL_NAME,
+		"version": VERSION,
+		"generated_at": report.get("generated_at", ""),
+		"status": overall_status,
+		"status_counts": counts,
+		"scenario_count": scenario_count,
+		"mechanics_count": mechanics_count,
+		"seed_count": seed_count,
+		"status_semantics": STATUS_SEMANTICS,
+		"source": report.get("source", {}),
+	}
 
 
 static func write_report(report: Dictionary, output_dir: String) -> bool:
@@ -551,16 +599,17 @@ static func _dashboard_html(report: Dictionary) -> String:
 		"<head>",
 		"<meta charset=\"utf-8\">",
 		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
-		"<title>Project Bane Balance Lab</title>",
+		"<title>CrystalMaiden Balance Lab</title>",
 		"<style>",
 		":root{color-scheme:dark;--bg:#161514;--panel:#24211d;--ink:#f0e0c2;--muted:#b9aa8e;--line:#6f6047;--good:#72c05b;--warn:#d2a23e;--bad:#d85f4c;--accent:#e0a34f;}",
 		"*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,Segoe UI,sans-serif;}header{padding:22px 28px;border-bottom:1px solid var(--line);background:#1d1b18;}h1{margin:0 0 4px;font-size:26px;}h2{margin:0 0 12px;font-size:18px;}main{padding:22px 28px;display:grid;gap:18px;}section{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:16px;}table{width:100%;border-collapse:collapse;}th,td{text-align:left;padding:8px 9px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top;}th{color:var(--muted);font-weight:600}.status{font-weight:700;text-transform:uppercase}.pass{color:var(--good)}.warn{color:var(--warn)}.fail{color:var(--bad)}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.card{border:1px solid rgba(255,255,255,.10);border-radius:8px;padding:12px;background:#1b1916}.metric{font-size:24px;font-weight:750}.muted{color:var(--muted)}.bars{display:grid;gap:10px}.bar-row{display:grid;grid-template-columns:260px 1fr 90px;gap:12px;align-items:center}.bar-track{height:14px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:3px;overflow:hidden}.bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),#73bd6b)}code{color:#f5c16c}",
 		"</style>",
 		"</head>",
 		"<body>",
-		"<header><h1>Project Bane Balance Lab</h1><div class=\"muted\">Generated <code id=\"generated\"></code> · Version <code id=\"version\"></code></div></header>",
+		"<header><h1>CrystalMaiden Balance Lab</h1><div class=\"muted\">Generated <code id=\"generated\"></code> | Version <code id=\"version\"></code></div></header>",
 		"<main>",
 		"<section><h2>Suite Health</h2><div class=\"cards\" id=\"health\"></div></section>",
+		"<section><h2>Status Semantics</h2><table><thead><tr><th>Status</th><th>Meaning</th></tr></thead><tbody id=\"status-semantics\"></tbody></table></section>",
 		"<section><h2>Scenario DPS</h2><div class=\"bars\" id=\"dps-bars\"></div></section>",
 		"<section><h2>Scenarios</h2><table><thead><tr><th>Status</th><th>Scenario</th><th>Monster</th><th>Mean DPS</th><th>Win Rate</th><th>Poison</th><th>Notes</th></tr></thead><tbody id=\"scenario-table\"></tbody></table></section>",
 		"<section><h2>Mechanics</h2><table><thead><tr><th>Status</th><th>Check</th><th>Observed</th><th>Expected</th><th>Note</th></tr></thead><tbody id=\"mechanics-table\"></tbody></table></section>",
@@ -570,11 +619,12 @@ static func _dashboard_html(report: Dictionary) -> String:
 		"const report=JSON.parse(document.getElementById('balance-data').textContent);",
 		"const fmt=n=>Number(n||0).toFixed(2); const pct=n=>(Number(n||0)*100).toFixed(1)+'%';",
 		"document.getElementById('generated').textContent=report.generated_at; document.getElementById('version').textContent=report.version;",
-		"const counts={pass:0,warn:0,fail:0}; [...report.mechanics,...report.scenarios].forEach(x=>counts[x.status]=(counts[x.status]||0)+1);",
+		"const counts=report.status_counts||{pass:0,warn:0,fail:0}; if(!report.status_counts){[...report.mechanics,...report.scenarios].forEach(x=>counts[x.status]=(counts[x.status]||0)+1);}",
 		"document.getElementById('health').innerHTML=['pass','warn','fail'].map(k=>`<div class=\"card\"><div class=\"muted\">${k.toUpperCase()}</div><div class=\"metric ${k}\">${counts[k]||0}</div></div>`).join('');",
+		"document.getElementById('status-semantics').innerHTML=Object.entries(report.status_semantics||{}).map(([k,v])=>`<tr><td class=\"status ${k}\">${k}</td><td>${v}</td></tr>`).join('');",
 		"const maxDps=Math.max(1,...report.scenarios.map(s=>s.aggregate.dps.mean));",
 		"document.getElementById('dps-bars').innerHTML=report.scenarios.map(s=>`<div class=\"bar-row\"><div>${s.label}<div class=\"muted\">${s.seed_count} seeds</div></div><div class=\"bar-track\"><div class=\"bar-fill\" style=\"width:${Math.max(2,s.aggregate.dps.mean/maxDps*100)}%\"></div></div><div>${fmt(s.aggregate.dps.mean)}</div></div>`).join('');",
-		"document.getElementById('scenario-table').innerHTML=report.scenarios.map(s=>`<tr><td class=\"status ${s.status}\">${s.status}</td><td>${s.label}<div class=\"muted\">${s.rotation.join(' > ')}</div></td><td>${s.monster}</td><td>${fmt(s.aggregate.dps.mean)}<div class=\"muted\">p05 ${fmt(s.aggregate.dps.p05)} · p95 ${fmt(s.aggregate.dps.p95)}</div></td><td>${pct(s.aggregate.win_rate)}</td><td>${fmt(s.aggregate.poison_damage.mean)} dmg<br><span class=\"muted\">${fmt(s.aggregate.poison_damage_ticks.mean)} ticks</span></td><td>${(s.notes||[]).join('<br>')||'<span class=\"muted\">Within thresholds</span>'}</td></tr>`).join('');",
+		"document.getElementById('scenario-table').innerHTML=report.scenarios.map(s=>`<tr><td class=\"status ${s.status}\">${s.status}</td><td>${s.label}<div class=\"muted\">${s.rotation.join(' > ')}</div></td><td>${s.monster}</td><td>${fmt(s.aggregate.dps.mean)}<div class=\"muted\">p05 ${fmt(s.aggregate.dps.p05)} | p95 ${fmt(s.aggregate.dps.p95)}</div></td><td>${pct(s.aggregate.win_rate)}</td><td>${fmt(s.aggregate.poison_damage.mean)} dmg<br><span class=\"muted\">${fmt(s.aggregate.poison_damage_ticks.mean)} ticks</span></td><td>${(s.notes||[]).join('<br>')||'<span class=\"muted\">Within thresholds</span>'}</td></tr>`).join('');",
 		"document.getElementById('mechanics-table').innerHTML=report.mechanics.map(m=>`<tr><td class=\"status ${m.status}\">${m.status}</td><td>${m.label}</td><td>${m.values&&m.values.actual!==undefined?m.values.actual:''}</td><td>${m.values&&m.values.expected!==undefined?m.values.expected:''}</td><td>${m.note||''}</td></tr>`).join('');",
 		"</script>",
 		"</body></html>",

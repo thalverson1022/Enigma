@@ -141,6 +141,10 @@ func set_reroll_enabled(enabled: bool) -> void:
 	_shop_reroll_button.disabled = not enabled
 
 
+func pulse_reroll_blocked() -> void:
+	CardStyle.pulse_blocked_control(_shop_reroll_button, "reroll_blocked_pulse")
+
+
 func play_reroll_offers_out() -> void:
 	for child in _shop_offers_box.get_children():
 		if child is Control:
@@ -163,7 +167,7 @@ func play_reroll_offers_in() -> void:
 			max_delay = maxf(max_delay, delay)
 			control.pivot_offset = control.size * 0.5
 			control.scale = Vector2(0.9, 0.9)
-			control.modulate = Color(1.25, 1.18, 0.82, 0.0)
+			control.modulate = UIColors.FEEDBACK_REWARD_PULSE_TRANSPARENT
 			var tween := create_tween()
 			tween.set_parallel(true)
 			tween.tween_property(control, "modulate", Color.WHITE, REROLL_IN_DURATION_SEC).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -212,7 +216,7 @@ func _add_price_badge(item_box: Button, offer: GearItem) -> void:
 	badge.offset_right = -4
 	badge.offset_bottom = -4
 	var badge_style := StyleBoxFlat.new()
-	badge_style.bg_color = Color(0, 0, 0, 0.72)
+	badge_style.bg_color = UIColors.BADGE_BACKDROP
 	badge_style.border_color = UIColors.TEXT_DISABLED if item_box.disabled else UIColors.TEXT_GOLD
 	badge_style.set_border_width_all(1)
 	badge_style.set_corner_radius_all(4)
@@ -231,7 +235,7 @@ func _add_price_badge(item_box: Button, offer: GearItem) -> void:
 	label.name = "PriceLabel"
 	label.text = "%dg" % price
 	label.add_theme_color_override("font_color", UIColors.TEXT_DISABLED if item_box.disabled else UIColors.TEXT_GOLD)
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE)
 	label.add_theme_constant_override("outline_size", 2)
 	label.add_theme_font_size_override("font_size", 16)
 	row.add_child(label)
@@ -275,6 +279,6 @@ func _pulse_reroll_cost() -> void:
 	if _shop_reroll_button == null or not _shop_reroll_button.is_inside_tree():
 		return
 	var original_modulate := _shop_reroll_button.modulate
-	_shop_reroll_button.modulate = Color(1.28, 1.18, 0.72, 1.0)
+	_shop_reroll_button.modulate = UIColors.FEEDBACK_ACTION_PULSE
 	var tween := create_tween()
 	tween.tween_property(_shop_reroll_button, "modulate", original_modulate, REROLL_COST_PULSE_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)

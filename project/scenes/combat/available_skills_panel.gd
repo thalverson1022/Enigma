@@ -132,7 +132,7 @@ func _build_button(skill: Skill, at_cap: bool = false) -> Button:
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.modulate = Color(0.68, 0.64, 0.58, 1.0) if content_disabled else Color.WHITE
+		icon.modulate = UIColors.ICON_DISABLED if content_disabled else Color.WHITE
 		label_row.add_child(icon)
 	else:
 		var first_letter := Label.new()
@@ -217,17 +217,12 @@ func _on_skill_pressed(skill: Skill) -> void:
 
 
 func _apply_button_style(button: Button) -> void:
-	button.add_theme_stylebox_override("normal", _make_button_style(UIColors.PANEL_DEEP, UIColors.STRUCTURE_LINE_LIGHT, 1))
-	button.add_theme_stylebox_override("hover", _make_button_style(UIColors.PANEL, UIColors.ACCENT, 2))
-	button.add_theme_stylebox_override("pressed", _make_button_style(UIColors.BUTTON_FILL_PRESSED, UIColors.ACCENT, 2))
-	button.add_theme_stylebox_override("focus", _make_button_style(UIColors.PANEL, UIColors.ACCENT, 2))
-	button.add_theme_stylebox_override("disabled", _make_button_style(UIColors.PANEL_DISABLED, UIColors.STRUCTURE_LINE, 1))
+	button.add_theme_stylebox_override("normal", _make_button_style(UIColors.PANEL_DEEP, UIColors.STRUCTURE_LINE_LIGHT, 1, "normal"))
+	button.add_theme_stylebox_override("hover", _make_button_style(UIColors.PANEL, UIColors.ACCENT, 2, "hover"))
+	button.add_theme_stylebox_override("pressed", _make_button_style(UIColors.BUTTON_FILL_PRESSED, UIColors.ACCENT, 2, "pressed"))
+	button.add_theme_stylebox_override("focus", _make_button_style(UIColors.PANEL, UIColors.ACCENT, 2, "focus"))
+	button.add_theme_stylebox_override("disabled", _make_button_style(UIColors.PANEL_DISABLED, UIColors.STRUCTURE_LINE, 1, "disabled"))
 
 
-func _make_button_style(bg_color: Color, border_color: Color, border_width: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg_color
-	style.border_color = border_color
-	style.set_border_width_all(border_width)
-	style.set_corner_radius_all(BUTTON_CORNER_RADIUS)
-	return style
+func _make_button_style(bg_color: Color, border_color: Color, border_width: int, state_name: String) -> StyleBoxFlat:
+	return CardStyle.make_slot_stylebox(bg_color, border_color, border_width, state_name)

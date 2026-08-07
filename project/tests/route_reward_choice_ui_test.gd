@@ -142,13 +142,17 @@ func _initialize() -> void:
 	_require(combat_screen._map_overlay._map_node_buttons.size() == 8, "Expected full route schematic after Legendary reward.")
 	_require(not combat_screen._map_overlay._map_node_buttons[7].disabled, "Expected Vyra selectable after Knives.")
 	_require(combat_screen._map_overlay._map_node_buttons[7].text.contains("Vyra"), "Expected Vyra node after Knives.")
-	_require(combat_screen._map_overlay._map_proceed_button.text == "Mark Route", "Expected late-route commit button to say Mark Route.")
-	_require(combat_screen._map_overlay._map_proceed_button.disabled, "Expected Mark Route disabled before selecting Vyra.")
+	_require(combat_screen._map_overlay._map_proceed_button.text == "Proceed", "Expected late-route commit button to use the shared Proceed action.")
+	_require(combat_screen._map_overlay._map_proceed_button.disabled, "Expected Proceed disabled before selecting Vyra.")
+	_require(combat_screen._map_overlay._map_story_label.text == "The silk pajamas are a nice touch.", "Expected authored pre-selection Vyra story text.")
+	combat_screen._map_overlay._on_map_proceed_pressed()
+	await process_frame
+	_require(combat_screen._map_overlay._map_proceed_button.get_meta("feedback_blocked_pulse") == true, "Expected disabled route Proceed to pulse when activated without a route selection.")
 	combat_screen._map_overlay._map_node_buttons[7].pressed.emit()
 	await process_frame
-	_require(not combat_screen._map_overlay._map_proceed_button.disabled, "Expected Mark Route enabled after selecting Vyra.")
-	_require(combat_screen._map_overlay._map_story_label.text == "Selected route: Vyra. Mark it to tune your build, lock in, and fight.", "Expected selected Vyra story text to explain the final-route handoff.")
-	_require(combat_screen._map_overlay._map_proceed_button.tooltip_text == "Mark Vyra as your next fight.", "Expected selected Vyra tooltip to name the committed fight.")
+	_require(not combat_screen._map_overlay._map_proceed_button.disabled, "Expected Proceed enabled after selecting Vyra.")
+	_require(combat_screen._map_overlay._map_story_label.text == "Selected Route: Vyra\nTime to get paid.", "Expected selected Vyra story text to use authored flavor.")
+	_require(combat_screen._map_overlay._map_proceed_button.tooltip_text == "Proceed to Vyra as your next fight.", "Expected selected Vyra tooltip to name the committed fight.")
 
 	print("Route reward choice UI check: OK")
 	quit()

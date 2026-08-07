@@ -26,3 +26,6 @@ difficulty_label = "Easy Opener"
 reward_quality_label = "Basic Weapon or Necklace"
 summary_text = "A slower, unarmored opener with lower reward quality."
 reward_summary = "26g and a Basic weapon or necklace choice."
+before_selection_text = "This is so easy I almost feel guilty."
+selected_text = "Selected Route: Portly Cook
+A coward still gets paid."

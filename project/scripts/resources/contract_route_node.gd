@@ -20,6 +20,8 @@ enum NodeType {
 @export var reward_quality_label: String = ""
 @export_multiline var summary_text: String = ""
 @export_multiline var reward_summary: String = ""
+@export_multiline var before_selection_text: String = ""
+@export_multiline var selected_text: String = ""
 
 
 ## Depth-first search for a node by id, cycle-safe via `visited`. Static and
