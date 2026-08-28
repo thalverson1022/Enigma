@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DawnBringer Enemy Lab</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">DawnBringer Tooling</p>
+          <h1>Enemy Lab</h1>
+        </div>
+        <div class="header-actions">
+          <button id="copy-prompt-button" type="button" class="secondary-action">Copy Prompt</button>
+          <button id="export-png-button" type="button" class="primary-action">Export PNG</button>
+          <button id="export-json-button" type="button" class="secondary-action">Export JSON</button>
+        </div>
+      </header>
+
+      <section class="workspace" aria-label="Enemy Lab workspace">
+        <aside class="panel controls-panel">
+          <div class="section-heading">
+            <h2>Enemy Identity</h2>
+            <span>Dev only</span>
+          </div>
+
+          <label class="field">
+            <span>Type</span>
+            <select id="type-select">
+              <option value="normal">Normal</option>
+              <option value="captain">Captain</option>
+              <option value="elite">Elite</option>
+              <option value="boss">Boss</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Biome</span>
+            <select id="biome-select"></select>
+          </label>
+
+          <label class="field">
+            <span>Name</span>
+            <select id="name-select"></select>
+          </label>
+
+          <label class="field">
+            <span>Sprite Size</span>
+            <select id="size-select">
+              <option value="32">32 x 32</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>ChatGPT Prompt</span>
+            <textarea id="prompt-output" spellcheck="false" aria-label="ChatGPT sprite generation prompt"></textarea>
+          </label>
+
+          <div class="button-row">
+            <button id="refresh-prompt-button" type="button" class="primary-action">Refresh Prompt</button>
+            <button id="copy-json-button" type="button" class="secondary-action">Copy JSON</button>
+          </div>
+        </aside>
+
+        <section class="panel candidates-panel">
+          <div class="section-heading">
+            <h2>ChatGPT Candidates</h2>
+            <span id="candidate-count">0 sprites</span>
+          </div>
+          <label class="file-field">
+            <span>Import Generated PNGs</span>
+            <input id="candidate-input" type="file" accept="image/png,image/webp,image/jpeg,image/*" multiple />
+          </label>
+          <div id="candidate-grid" class="candidate-grid"></div>
+        </section>
+
+        <aside class="panel preview-panel">
+          <div class="section-heading">
+            <h2>Preview</h2>
+            <span id="selected-label">No selection</span>
+          </div>
+
+          <div class="stage">
+            <div class="stage-backdrop"></div>
+            <div class="floor-line"></div>
+            <canvas id="preview-canvas" width="256" height="256" aria-label="Selected enemy sprite preview"></canvas>
+          </div>
+
+          <div class="button-row">
+            <button id="preview-hit-button" type="button" class="primary-action">Preview Hit</button>
+            <button id="export-mask-button" type="button" class="secondary-action">Export White Mask</button>
+          </div>
+
+          <label class="field">
+            <span>Export Path Hint</span>
+            <input id="path-hint" type="text" readonly />
+          </label>
+
+          <textarea id="metadata-output" spellcheck="false" aria-label="Enemy metadata JSON"></textarea>
+        </aside>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

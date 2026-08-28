@@ -30,17 +30,22 @@ extends Control
 ## PITCH's action button: the real commit point. combat_screen.gd runs
 ## BuildState.accept_contract_offer() and only hides this window if it
 ## succeeds -- on failure the conversation correctly stays on PITCH.
-signal accept_requested
+signal accept_requested(contract_id: String)
 
 ## VYRA_DETAIL's action button: the player has accepted; combat_screen.gd
 ## reveals the route map.
 signal route_requested
 
-enum Step { GREETING, PITCH, CONTRACT_CHOICE, VYRA_DETAIL }
+enum Step { GREETING, PITCH, OFFER_CHOICE, CONTRACT_CHOICE, VYRA_DETAIL }
 
 const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 const CARD_TITLE_FONT_SIZE := 20
 const CONTRACT_CHOICE_CARD_WIDTH := 340
+const CONTRACT_CHOICE_CARD_HEIGHT := 110
+const CONTRACT_HEADER_ICON_SIZE := Vector2(36, 36)
+const CONTRACT_OPTION_ICON_SIZE := Vector2(44, 44)
+const CONTRACT_OPTION_BOSS_FONT_SIZE := 24
+const CONTRACT_OPTION_DETAIL_FONT_SIZE := 18
 const CONTRACT_CHOICE_PULSE_DURATION_SEC := 0.72
 const CONTRACT_PORTRAIT_TEXTURE := preload("res://assets/backgrounds/Ghit_Guud.jpg")
 const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
@@ -53,10 +58,11 @@ const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
 ## silently correct).
 const CONTRACT_GREETING_TEXT := "Calm my friend. My name is Ghit Gudd. I am just a humble local... businessman. You are quite handy. You dispatched one of my best with such ease. I am always looking for useful individuals like yourself. How would you like to make a little coin?"
 const CONTRACT_PITCH_TEXT := "I often have need for travelers of your ilk. Some of my rival competition needs to be reminded of the rules of free market capitalism. If you ... take care of them for me, I will pay you handsomely."
+const CONTRACT_OFFER_PROMPT_TEXT := ""
 ## The post-subclass-choice step -- a single option today, but user-stated to
 ## grow into a real multi-contract hub later, hence a dedicated options row
 ## rather than a single fixed button.
-const CONTRACT_CHOICE_PROMPT_TEXT := "Choose a contract to pursue."
+const CONTRACT_CHOICE_PROMPT_TEXT := ""
 const CONTRACT_VYRA_NAME := "Vyra, the Leader of the Gilded Fang"
 const CONTRACT_VYRA_DETAIL_TEXT := "Vyra is the leader of a rival gang. Ghet wants you to take her out so he can expand his business. She is hold up in her hideout at the edge of town. Ghet tells you that there are two ways in: through the front door and through the back door."
 ## The real route node backing the Vyra contract card -- read for its authored
@@ -64,6 +70,7 @@ const CONTRACT_VYRA_DETAIL_TEXT := "Vyra is the leader of a rival gang. Ghet wan
 const VYRA_ROUTE_NODE_ID := "route.gilded_serpent.vyra"
 
 var _contract_step: Step = Step.GREETING
+var _contract_title_label: Label
 var _contract_body_label: Label
 var _contract_options_box: VBoxContainer
 var _contract_footer_spacer: Control
@@ -108,9 +115,10 @@ func _ready() -> void:
 	title_row.add_theme_constant_override("separation", 8)
 	contract_content.add_child(title_row)
 
-	title_row.add_child(CardStyle.make_pixel_icon(CONTRACT_ICON, CardStyle.UI_ICON_SIZE))
+	title_row.add_child(CardStyle.make_pixel_icon(CONTRACT_ICON, CONTRACT_HEADER_ICON_SIZE))
 
 	var title := Label.new()
+	_contract_title_label = title
 	title.text = "Contract"
 	title.theme_type_variation = &"PanelHeader"
 	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
@@ -146,6 +154,7 @@ func _ready() -> void:
 
 ## Opens the window at Ghit Gudd's greeting -- the start of the conversation.
 func show_greeting() -> void:
+	_selected_contract_id = ""
 	_show_step(Step.GREETING)
 
 
@@ -154,6 +163,11 @@ func show_greeting() -> void:
 func show_contract_choice() -> void:
 	_selected_contract_id = ""
 	_show_step(Step.CONTRACT_CHOICE)
+
+
+func show_offer_choice() -> void:
+	_selected_contract_id = ""
+	_show_step(Step.OFFER_CHOICE)
 
 
 func _show_step(step: Step) -> void:
@@ -170,6 +184,8 @@ func refresh() -> void:
 	_contract_options_box.visible = false
 	_contract_action_button.visible = true
 	_contract_action_button.disabled = false
+	_contract_body_label.visible = true
+	_contract_title_label.text = "Contract"
 	match _contract_step:
 		Step.GREETING:
 			_contract_body_label.text = CONTRACT_GREETING_TEXT
@@ -179,8 +195,20 @@ func refresh() -> void:
 			_contract_body_label.text = CONTRACT_PITCH_TEXT
 			_contract_action_button.text = "Accept Contract Work"
 			CardStyle.configure_icon_button(_contract_action_button, CONTRACT_ICON)
+		Step.OFFER_CHOICE:
+			_contract_title_label.text = "Choose a Contract"
+			_contract_body_label.text = CONTRACT_OFFER_PROMPT_TEXT
+			_contract_body_label.visible = false
+			_contract_action_button.text = FLOW_TEXT.ACTION_PROCEED
+			CardStyle.configure_icon_button(_contract_action_button, CONTRACT_ICON)
+			_contract_action_button.disabled = _selected_contract_id == ""
+			_contract_options_box.visible = true
+			for contract in BuildState.pending_contract_offers:
+				_contract_options_box.add_child(_build_pending_contract_offer_card(contract))
 		Step.CONTRACT_CHOICE:
+			_contract_title_label.text = "Choose a Contract"
 			_contract_body_label.text = CONTRACT_CHOICE_PROMPT_TEXT
+			_contract_body_label.visible = false
 			_contract_action_button.text = FLOW_TEXT.ACTION_PROCEED
 			CardStyle.configure_icon_button(_contract_action_button, CONTRACT_ICON)
 			_contract_action_button.disabled = _selected_contract_id == ""
@@ -196,17 +224,20 @@ func refresh() -> void:
 
 
 ## A larger, toggleable rectangle (not a plain button) naming the contract and
-## its final-fight gold reward -- selecting one only enables the bottom
-## Proceed button rather than committing immediately, since
-## CONTRACT_CHOICE_PROMPT_TEXT's step is meant to grow into a real
-## multi-contract picker later. `group` keeps future cards mutually
-## exclusive; harmless with today's single card.
+## its boss, location, and final-fight gold reward -- selecting one only
+## enables the bottom Proceed button rather than committing immediately,
+## since this step is meant to grow into a real multi-contract picker later.
 func _build_contract_choice_card(contract_id: String, display_name: String, node: ContractRouteNode) -> Button:
 	var card := Button.new()
 	card.name = "VyraContractButton"
-	card.custom_minimum_size = Vector2(CONTRACT_CHOICE_CARD_WIDTH, 110)
-	CardStyle.configure_icon_button(card, CONTRACT_ICON)
-	card.text = "%s\n%s" % [display_name, _contract_choice_reward_text(node)]
+	card.custom_minimum_size = Vector2(CONTRACT_CHOICE_CARD_WIDTH, CONTRACT_CHOICE_CARD_HEIGHT)
+	card.text = ""
+	_add_contract_offer_card_content(
+		card,
+		_contract_boss_name_from_display(display_name),
+		_contract_biome_label_from_contract(BuildState.active_contract),
+		_contract_choice_reward_text(node)
+	)
 	card.pressed.connect(_on_contract_choice_pressed.bind(contract_id))
 	if _selected_contract_id == contract_id:
 		_style_contract_choice_selected(card)
@@ -216,10 +247,152 @@ func _build_contract_choice_card(contract_id: String, display_name: String, node
 	return card
 
 
+func _build_pending_contract_offer_card(contract: ContractDef) -> Button:
+	var contract_id := BuildState.contract_offer_key(contract)
+	var card := Button.new()
+	card.name = _contract_offer_button_name(contract)
+	card.custom_minimum_size = Vector2(CONTRACT_CHOICE_CARD_WIDTH, CONTRACT_CHOICE_CARD_HEIGHT)
+	card.text = ""
+	_add_contract_offer_card_content(
+		card,
+		_contract_offer_boss_name(contract),
+		_contract_biome_label_from_contract(contract),
+		_contract_offer_gold_text(contract)
+	)
+	card.pressed.connect(_on_contract_choice_pressed.bind(contract_id))
+	if _selected_contract_id == contract_id:
+		_style_contract_choice_selected(card)
+	else:
+		_style_contract_choice_available(card)
+		_add_contract_choice_pulse(card)
+	return card
+
+
+func _contract_offer_button_name(contract: ContractDef) -> String:
+	if contract == null or not contract.has_generated_route_state():
+		return "AuthoredContractOfferButton"
+	return "GeneratedContractOfferButton"
+
+
+func _contract_offer_card_text(contract: ContractDef) -> String:
+	if contract == null:
+		return "Unknown Contract\nLocation: Unknown\nReward: unknown"
+	var lines := PackedStringArray()
+	lines.append(_contract_offer_boss_name(contract))
+	lines.append(_contract_biome_label_from_contract(contract))
+	lines.append(_contract_offer_gold_text(contract))
+	return "\n".join(lines)
+
+
 func _contract_choice_reward_text(node: ContractRouteNode) -> String:
 	if node == null or node.reward == null:
+		return "unknown"
+	var parts := PackedStringArray()
+	if node.reward.gold_amount > 0:
+		parts.append("%dg" % node.reward.gold_amount)
+	if node.reward.talent_points > 0:
+		parts.append("%d talent point%s" % [
+			node.reward.talent_points,
+			"" if node.reward.talent_points == 1 else "s",
+		])
+	return " + ".join(parts) if not parts.is_empty() else "unknown"
+
+
+func _add_contract_offer_card_content(card: Button, boss_name: String, location_text: String, gold_text: String) -> void:
+	var row := HBoxContainer.new()
+	row.name = "ContractOfferContent"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 26.0
+	row.offset_top = 12.0
+	row.offset_right = -18.0
+	row.offset_bottom = -12.0
+	row.add_theme_constant_override("separation", 18)
+	card.add_child(row)
+
+	row.add_child(CardStyle.make_pixel_icon(CONTRACT_ICON, CONTRACT_OPTION_ICON_SIZE))
+
+	var text_box := VBoxContainer.new()
+	text_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text_box.add_theme_constant_override("separation", 2)
+	row.add_child(text_box)
+
+	text_box.add_child(_make_contract_offer_label("ContractBossNameLabel", boss_name, CONTRACT_OPTION_BOSS_FONT_SIZE, CardStyle.ACCENT_COLOR))
+	text_box.add_child(_make_contract_offer_label("ContractLocationLabel", location_text, CONTRACT_OPTION_DETAIL_FONT_SIZE, UIColors.TEXT_NORMAL))
+	text_box.add_child(_make_contract_offer_label("ContractGoldLabel", gold_text, CONTRACT_OPTION_DETAIL_FONT_SIZE, UIColors.TEXT_GOLD))
+
+
+func _make_contract_offer_label(label_name: String, text: String, font_size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.name = label_name
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_override("font", CardStyle.DATA_FONT)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	label.add_theme_constant_override("outline_size", 2)
+	return label
+
+
+func _contract_offer_boss_name(contract: ContractDef) -> String:
+	if contract == null:
+		return "Unknown Boss"
+	if contract.target_display_name != "":
+		return contract.target_display_name
+	if contract.target_monster != null and contract.target_monster.display_name != "":
+		return contract.target_monster.display_name
+	return "Unknown Boss"
+
+
+func _contract_biome_label_from_contract(contract: ContractDef) -> String:
+	var biome := "Unknown"
+	if contract != null:
+		if contract.selected_biome != "":
+			biome = contract.selected_biome
+		elif contract.display_name.ends_with(" Contract"):
+			biome = contract.display_name.trim_suffix(" Contract")
+	return "Location: %s" % biome
+
+
+func _contract_offer_gold_text(contract: ContractDef) -> String:
+	if contract == null:
 		return "Reward: unknown"
-	return "Reward: %dg" % node.reward.gold_amount
+	if contract.has_generated_route_state():
+		var boss := _contract_offer_boss_node(contract)
+		return _contract_choice_reward_text(boss)
+	if contract.offer_node != null:
+		var vyra_node := ContractRouteNode.find_by_id(contract.offer_node, VYRA_ROUTE_NODE_ID)
+		return _contract_choice_reward_text(vyra_node)
+	return "Reward: unknown"
+
+
+func _contract_offer_boss_node(contract: ContractDef) -> ContractRouteNode:
+	if contract == null or contract.offer_node == null:
+		return null
+	return _find_boss_node(contract.offer_node)
+
+
+func _find_boss_node(node: ContractRouteNode, visited: Array[String] = []) -> ContractRouteNode:
+	if node == null or visited.has(node.id):
+		return null
+	if node.node_type == ContractRouteNode.NodeType.BOSS:
+		return node
+	visited.append(node.id)
+	for next_node in node.next_nodes:
+		var found := _find_boss_node(next_node, visited)
+		if found != null:
+			return found
+	return null
+
+
+func _contract_boss_name_from_display(display_name: String) -> String:
+	if display_name == CONTRACT_VYRA_NAME:
+		return "Vyra"
+	return display_name
 
 
 func _on_contract_choice_pressed(contract_id: String) -> void:
@@ -273,7 +446,14 @@ func _on_action_button_pressed() -> void:
 		Step.GREETING:
 			_show_step(Step.PITCH)
 		Step.PITCH:
-			accept_requested.emit()
+			if BuildState.pending_contract_offers.size() > 1:
+				_selected_contract_id = ""
+				_show_step(Step.OFFER_CHOICE)
+			else:
+				accept_requested.emit("")
+		Step.OFFER_CHOICE:
+			if _selected_contract_id != "":
+				accept_requested.emit(_selected_contract_id)
 		Step.CONTRACT_CHOICE:
 			if _selected_contract_id != "":
 				_show_step(Step.VYRA_DETAIL)

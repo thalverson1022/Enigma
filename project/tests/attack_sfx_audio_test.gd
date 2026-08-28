@@ -105,6 +105,17 @@ func _initialize() -> void:
 	await create_timer(0.2).timeout
 	_require(audio_manager.attack_sfx_play_count == before_count, "Expected suppressed proc-aware attack SFX not to schedule delayed hits.")
 
+	var blocked_cast := CombatResolver.CastEvent.new()
+	blocked_cast.cast_start_ms = 0
+	blocked_cast.time_ms = 900
+	blocked_cast.physical_damage = 0.0
+	blocked_cast.blocked_amount = 10.0
+	before_count = audio_manager.attack_sfx_play_count
+	var blocked_count: int = audio_manager.play_attack_sfx_for_cast(blocked_cast, 1.0, false)
+	_require(blocked_count == 1, "Expected a fully blocked physical hit to still schedule one attack SFX.")
+	_require(audio_manager.last_attack_sfx_hit_count == 1, "Expected fully blocked physical hit to count as one hit for diagnostics.")
+	_require(audio_manager.attack_sfx_play_count == before_count + 1, "Expected fully blocked physical hit to play attack SFX.")
+
 	print("Attack SFX audio check: OK")
 	quit()
 

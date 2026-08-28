@@ -1,0 +1,117 @@
+{
+  "project": "DawnBringer",
+  "tool": "Monster Lab",
+  "schema": "monster_lab_balance_scenarios.v1",
+  "source_monster_id": "monster_1",
+  "source_monster_name": "Monster 1",
+  "source_file": "tools/monster-lab/fixtures/monster_lab_export_sample.json",
+  "matchup_preview": {
+    "identity": "Stonewall and Venomproof profile centered on Armor and Resistance.",
+    "pressures": [
+      "pressures direct physical hits that do not bring armor shred or strong scaling",
+      "pressures poison and magical builds that expect percentage scaling to carry the fight"
+    ],
+    "counterplay": [
+      "answers well to armor reduction, magical damage, poison, or larger individual hits",
+      "answers well to physical damage, resistance shred, or mixed damage plans"
+    ],
+    "route_preview": "Medium Normal in the prototype target window; route preview should flag poison-build pressure.",
+    "tags": ["mitigation", "physical", "poison-check"],
+    "primary_mechanics": ["armor", "poison_resistance"]
+  },
+  "balance_model": {
+    "target_dps": 16.5,
+    "target_dps_range": [14, 20],
+    "pressure_status": "in_band",
+    "pressure_status_label": "In Band",
+    "pressure": {
+      "poison": 1.2,
+      "burst": 1.05,
+      "sustained": 1.1
+    },
+    "warnings": []
+  },
+  "scenarios": [
+    {
+      "id": "monster_lab_monster_1_physical_stab",
+      "label": "Monster 1 - Physical Stab Probe",
+      "source": "monster_lab",
+      "source_monster_id": "monster_1",
+      "class": "res://data/classes/rogue.tres",
+      "trees": [],
+      "talents": [],
+      "gear": [],
+      "skills": ["res://data/skills/stab.tres"],
+      "monster": "res://data/monsters/mouthy_drunk.tres",
+      "monster_overrides": {
+        "hp": 180,
+        "armor": 32,
+        "poison_resistance": 0.25
+      },
+      "duration_ms": 20000,
+      "seed_start": 5001,
+      "seed_count": 3,
+      "gold": 0,
+      "thresholds": {},
+      "matchup_preview": {
+        "route_preview": "Medium Normal in the prototype target window; route preview should flag poison-build pressure."
+      },
+      "balance_model": {
+        "target_dps": 16.5,
+        "target_dps_range": [14, 20],
+        "pressure_status": "in_band",
+        "pressure_status_label": "In Band"
+      },
+      "notes": [
+        "Monster Lab bridge import for Monster 1.",
+        "Medium Normal in the prototype target window; route preview should flag poison-build pressure."
+      ]
+    },
+    {
+      "id": "monster_lab_monster_1_poison_shadow",
+      "label": "Monster 1 - Shadow Poison Probe",
+      "source": "monster_lab",
+      "source_monster_id": "monster_1",
+      "class": "res://data/classes/rogue.tres",
+      "trees": ["res://data/subclass_trees/shadow.tres"],
+      "talents": [],
+      "gear": ["res://data/gear/wyvern_kriss.tres"],
+      "skills": ["res://data/skills/stab.tres", "res://data/skills/heavy_slash.tres"],
+      "monster": "res://data/monsters/mouthy_drunk.tres",
+      "monster_overrides": {
+        "hp": 180,
+        "armor": 32,
+        "poison_resistance": 0.25
+      },
+      "duration_ms": 20000,
+      "seed_start": 5004,
+      "seed_count": 3,
+      "gold": 0,
+      "thresholds": {},
+      "notes": ["Monster Lab bridge import for Monster 1."]
+    },
+    {
+      "id": "monster_lab_monster_1_crit_bandit",
+      "label": "Monster 1 - Bandit Crit Probe",
+      "source": "monster_lab",
+      "source_monster_id": "monster_1",
+      "class": "res://data/classes/rogue.tres",
+      "trees": [],
+      "talents": [],
+      "gear": ["res://data/gear/bandit_blade.tres"],
+      "skills": ["res://data/skills/stab.tres", "res://data/skills/heavy_slash.tres"],
+      "monster": "res://data/monsters/mouthy_drunk.tres",
+      "monster_overrides": {
+        "hp": 180,
+        "armor": 32,
+        "poison_resistance": 0.25
+      },
+      "duration_ms": 20000,
+      "seed_start": 5007,
+      "seed_count": 3,
+      "gold": 100,
+      "thresholds": {},
+      "notes": ["Monster Lab bridge import for Monster 1."]
+    }
+  ]
+}

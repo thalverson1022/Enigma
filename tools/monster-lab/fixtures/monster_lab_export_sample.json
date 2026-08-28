@@ -1,0 +1,71 @@
+{
+  "project": "DawnBringer",
+  "tool": "Monster Lab",
+  "monster": {
+    "id": "monster_1",
+    "name": "Monster 1",
+    "kind": "normal",
+    "difficulty": 2,
+    "difficulty_name": "Medium",
+    "archetypes": ["stonewall", "venomproof"],
+    "tempo": "standard",
+    "tempo_name": "Standard",
+    "hp": 180,
+    "duration": 20,
+    "matchup_preview": {
+      "identity": "Stonewall and Venomproof profile centered on Armor and Resistance.",
+      "pressures": [
+        "pressures direct physical hits that do not bring armor shred or strong scaling",
+        "pressures poison and magical builds that expect percentage scaling to carry the fight"
+      ],
+      "counterplay": [
+        "answers well to armor reduction, magical damage, poison, or larger individual hits",
+        "answers well to physical damage, resistance shred, or mixed damage plans"
+      ],
+      "route_preview": "Medium Normal in the prototype target window; route preview should flag poison-build pressure.",
+      "tags": ["mitigation", "physical", "poison-check"],
+      "primary_mechanics": ["armor", "poison_resistance"]
+    },
+    "target_dps": 16.5,
+    "target_dps_range": [14, 20],
+    "dps_tolerance": 0.15,
+    "mechanics": [
+      {
+        "id": "armor",
+        "godot_field": "armor",
+        "value": 32,
+        "godot_value": 32,
+        "value_label": "armor",
+        "preview_only": false
+      },
+      {
+        "id": "poison_resistance",
+        "godot_field": "poison_resistance",
+        "value": 25,
+        "godot_value": 0.25,
+        "value_label": "resistance %",
+        "preview_only": false
+      }
+    ],
+    "godot": {
+      "resource_class": "Monster",
+      "hp": 180,
+      "duration_ms": 20000,
+      "monster_overrides": {
+        "hp": 180,
+        "armor": 32,
+        "poison_resistance": 0.25
+      }
+    },
+    "balance_model": {
+      "pressure_status": "in_band",
+      "pressure_status_label": "In Band",
+      "pressure": {
+        "poison": 1.2,
+        "burst": 1.05,
+        "sustained": 1.1
+      },
+      "warnings": []
+    }
+  }
+}

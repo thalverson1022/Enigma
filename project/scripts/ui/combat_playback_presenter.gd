@@ -38,6 +38,7 @@ const PLAYBACK_TICK_HP_TWEEN_SEC := 0.3
 const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
 const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
 const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
+const MECHANIC_INTERRUPT_ICON := preload("res://assets/ui/icons/mechanics/interrupt.png")
 
 var skipping := false
 
@@ -54,6 +55,8 @@ var _stacks := 0
 var _armor_reduced := 0
 var _shred_stacks := 0
 var _decay_stacks := 0
+var _interrupt_repeat_count := 0
+var _interrupt_skill_lock_counts := {}
 var _hp_bar_tween: Tween
 
 var _combat_stage
@@ -65,6 +68,8 @@ var _hud_info_label: Label
 var _hud_resist_label: Label
 var _clear_status_chips: Callable
 var _add_status_chip: Callable
+var _flash_status_chips: Callable
+var _pending_cleanse_status_flash := false
 
 
 func set_combat_stage(stage) -> void:
@@ -83,13 +88,14 @@ func set_popup_layer(layer: CombatPopupLayer) -> void:
 ## _clear_hud_status_chips()/_add_hud_status_chip() signatures exactly --
 ## shared with the pre/post-fight HUD render, so they stay owned there
 ## rather than duplicated here.
-func set_hud_widgets(hp_text_label: Label, health_bar: ProgressBar, info_label: Label, resist_label: Label, clear_chips: Callable, add_chip: Callable) -> void:
+func set_hud_widgets(hp_text_label: Label, health_bar: ProgressBar, info_label: Label, resist_label: Label, clear_chips: Callable, add_chip: Callable, flash_chips: Callable = Callable()) -> void:
 	_hud_hp_text_label = hp_text_label
 	_hud_health_bar = health_bar
 	_hud_info_label = info_label
 	_hud_resist_label = resist_label
 	_clear_status_chips = clear_chips
 	_add_status_chip = add_chip
+	_flash_status_chips = flash_chips
 
 
 func is_active() -> bool:
@@ -127,14 +133,21 @@ func start(result: CombatResolver.CombatResult, monster: Monster, wyvern_effect_
 	_armor_reduced = 0
 	_shred_stacks = 0
 	_decay_stacks = 0
+	_interrupt_repeat_count = 0
+	_interrupt_skill_lock_counts.clear()
 	if _popup_layer != null:
 		_popup_layer.reset_for_new_fight()
 		_popup_layer.wyvern_tick_font_active = wyvern_effect_active
 	if _combat_stage != null:
 		_combat_stage.reset_state()
 		_combat_stage.set_bandit_blade_effect_active(bandit_blade_effect_active)
+		_combat_stage.set_slow_effect_active(monster.slow > 0.0, monster.slow, play_intro_animation)
 	if _skill_build_panel != null and _skill_build_panel.has_method("clear_combat_highlight"):
 		_skill_build_panel.clear_combat_highlight()
+	if _skill_build_panel != null and _skill_build_panel.has_method("clear_interrupt_locks"):
+		_skill_build_panel.clear_interrupt_locks()
+	if _skill_build_panel != null and _skill_build_panel.has_method("set_slow_effect_active"):
+		_skill_build_panel.set_slow_effect_active(monster.slow > 0.0)
 	_playback = CombatPlayback.new()
 	_playback.event_callback = _on_event
 	_playback.cast_start_callback = _on_cast_start
@@ -209,7 +222,7 @@ func _on_event(event: CombatPlayback.PlaybackEvent) -> void:
 		_stacks = event.tick.stacks_remaining
 		if _combat_stage != null:
 			_combat_stage.set_poison_stacks(_stacks, not skipping)
-		if event.tick.damage > 0.0:
+		if event.tick.damage > 0.0 or event.tick.absorbed_amount > 0.0:
 			if _combat_stage != null:
 				_combat_stage.play_poison_tick_pulse(not skipping)
 			_hp = maxf(_hp - event.tick.damage, 0.0)
@@ -224,7 +237,7 @@ func _on_event(event: CombatPlayback.PlaybackEvent) -> void:
 		var popup_delay := 0.0
 		if _combat_stage != null:
 			popup_delay = _combat_stage.play_cast_impact(cast, not skipping)
-		if cast.physical_damage > 0.0 and not skipping:
+		if (cast.physical_damage > 0.0 or cast.blocked_amount > 0.0) and not skipping:
 			AudioManager.play_attack_sfx_for_cast(cast, _playback.speed, false)
 		if not cast.triggered_skill_names.is_empty() and _skill_build_panel != null and _skill_build_panel.has_method("highlight_rotation_index"):
 			_skill_build_panel.highlight_rotation_index(cast.rotation_index, true)
@@ -241,18 +254,63 @@ func _on_event(event: CombatPlayback.PlaybackEvent) -> void:
 		if cast.poison_stacks_applied > 0:
 			if _combat_stage != null:
 				_combat_stage.set_poison_stacks(_stacks, not skipping)
+		if cast.cleanse_triggered:
+			_armor = _monster.armor
+			_armor_reduced = 0
+			_shred_stacks = 0
+			_decay_stacks = 0
+			_resist = _monster.poison_resistance
+			_stacks = 0
+			if _combat_stage != null:
+				_combat_stage.set_poison_stacks(_stacks, not skipping)
+				_combat_stage.play_cleanse_effect(not skipping)
+			_pending_cleanse_status_flash = not skipping
+		if cast.stun_duration_ms > 0 and _combat_stage != null:
+			_combat_stage.play_stun_effect(cast.stun_duration_ms, not skipping)
+		_interrupt_repeat_count = cast.interrupt_repeat_count_after
+		_update_interrupt_skill_lock(cast)
 		_apply_hp(PLAYBACK_HP_TWEEN_SEC)
 		_schedule_cast_popups(cast, popup_delay)
 	_update_hud_readout()
 
 
 func _on_cast_start(cast: CombatResolver.CastEvent) -> void:
+	if _monster != null and _monster.interrupt_skip_count > 0:
+		_interrupt_repeat_count = cast.interrupt_repeat_count
+		_update_hud_readout()
 	if skipping:
 		return
 	if _combat_stage != null:
 		_combat_stage.play_cast_windup(cast, _playback.speed, true)
 	if _skill_build_panel != null and _skill_build_panel.has_method("set_cast_progress"):
 		_skill_build_panel.set_cast_progress(cast.rotation_index, 0.0, cast.min_cast_time_proc_applied)
+
+
+func _update_interrupt_skill_lock(cast: CombatResolver.CastEvent) -> void:
+	if cast == null or cast.skill == null or _skill_build_panel == null or not _skill_build_panel.has_method("set_interrupt_locked_skill"):
+		return
+	var key := _skill_lock_key(cast.skill)
+	if key == "":
+		return
+	if cast.interrupt_triggered and cast.interrupt_skip_count_applied > 0:
+		_interrupt_skill_lock_counts[key] = cast.interrupt_skip_count_applied
+		_skill_build_panel.set_interrupt_locked_skill(cast.skill, true)
+		return
+	if cast.interrupt_skipped:
+		var remaining := maxi(0, int(_interrupt_skill_lock_counts.get(key, 0)) - 1)
+		if remaining <= 0:
+			_interrupt_skill_lock_counts.erase(key)
+			_skill_build_panel.set_interrupt_locked_skill(cast.skill, false)
+		else:
+			_interrupt_skill_lock_counts[key] = remaining
+
+
+func _skill_lock_key(skill: Skill) -> String:
+	if skill == null:
+		return ""
+	if skill.id != "":
+		return skill.id
+	return skill.resource_path if skill.resource_path != "" else skill.display_name
 
 
 func _schedule_cast_popups(cast: CombatResolver.CastEvent, delay_sec: float) -> void:
@@ -270,14 +328,22 @@ func _spawn_cast_popups(cast: CombatResolver.CastEvent) -> void:
 	if _popup_layer == null:
 		return
 	var skill_name := cast.skill.display_name if cast.skill != null else "Attack"
+	if cast.was_interrupted:
+		var interrupt_text := "skipped" if cast.interrupt_skipped else "interrupted"
+		_popup_layer.spawn("%s %s" % [skill_name, interrupt_text], CombatPopupLayer.Kind.NORMAL)
+		return
 	# Damage number appended in the same "-N" style poison ticks already use.
 	# The number is the event's full physical_damage, which already includes
 	# any triggered-skill damage folded into the same cast by the resolver;
 	# presentation splits the attack, but combat math stays merged.
 	var damage_suffix := ""
-	if cast.physical_damage > 0.0:
+	if cast.was_dodged:
+		damage_suffix = " 0.0"
+	elif cast.physical_damage > 0.0 or cast.blocked_amount > 0.0:
 		damage_suffix = " -%.0f" % cast.physical_damage
-	if cast.is_crit:
+	if cast.is_crit and cast.crit_negation_damage_prevented > 0.0 and _popup_layer.has_method("spawn_crit_negated"):
+		_popup_layer.spawn_crit_negated(skill_name, cast.physical_damage, cast.crit_negation_damage_prevented)
+	elif cast.is_crit:
 		_popup_layer.spawn("%s%s!" % [skill_name, damage_suffix], CombatPopupLayer.Kind.CRIT)
 	elif cast.min_cast_time_proc_applied:
 		_popup_layer.spawn("%s%s PROC!" % [skill_name, damage_suffix], CombatPopupLayer.Kind.PROC)
@@ -318,6 +384,12 @@ func _update_hud_readout() -> void:
 		_add_status_chip.call("x%d" % _stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
 		_add_status_chip.call("x%d" % _shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
 		_add_status_chip.call("x%d" % _decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
+		if _monster != null and _monster.interrupt_skip_count > 0:
+			_add_status_chip.call("%d/%d" % [_interrupt_repeat_count, CombatResolver.INTERRUPT_REPEAT_THRESHOLD], UIColors.TEXT_MAGIC, MECHANIC_INTERRUPT_ICON)
+	if _pending_cleanse_status_flash:
+		_pending_cleanse_status_flash = false
+		if _flash_status_chips.is_valid():
+			_flash_status_chips.call()
 
 
 ## CombatPlayback guarantees this fires exactly once per fight, whether the
@@ -333,6 +405,15 @@ func _on_finished() -> void:
 	var was_skipped := skipping
 	if _skill_build_panel != null and _skill_build_panel.has_method("clear_combat_highlight"):
 		_skill_build_panel.clear_combat_highlight()
+	if _skill_build_panel != null and _skill_build_panel.has_method("clear_interrupt_locks"):
+		_skill_build_panel.clear_interrupt_locks()
+	if _skill_build_panel != null and _skill_build_panel.has_method("set_slow_effect_active"):
+		_skill_build_panel.set_slow_effect_active(false)
+	if _combat_stage != null and _combat_stage.has_method("set_slow_effect_active"):
+		_combat_stage.set_slow_effect_active(false)
+	if was_skipped and _combat_stage != null and _combat_stage.has_method("clear_transient_effects"):
+		_combat_stage.clear_transient_effects()
+	_interrupt_skill_lock_counts.clear()
 	finished.emit(result, monster, was_skipped)
 	_playback = null
 	_result = null

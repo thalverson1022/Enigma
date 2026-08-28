@@ -11,6 +11,7 @@ func _initialize() -> void:
 	assert(contract.target_monster != null)
 	assert(contract.target_monster.id == "monster.contract.vyra")
 	assert(contract.offer_node != null)
+	_assert_authored_contract_has_no_generated_route_state(contract)
 
 	var offer := contract.offer_node
 	assert(offer.node_type == ContractRouteNode.NodeType.OFFER)
@@ -109,6 +110,55 @@ func _assert_knives_to_vyra(knives: ContractRouteNode) -> void:
 	assert(vyra.node_type == ContractRouteNode.NodeType.BOSS)
 	assert(vyra.reward.gold_amount == 120)
 	assert(vyra.next_nodes.is_empty())
+
+
+func _assert_authored_contract_has_no_generated_route_state(contract: ContractDef) -> void:
+	assert(not contract.has_generated_route_state())
+	assert(contract.generated_route_id == "")
+	assert(contract.source_seed == 0)
+	assert(contract.generator_version == "")
+	assert(contract.route_difficulty == "")
+	assert(contract.selected_biome == "")
+	assert(contract.allowed_biomes.is_empty())
+	assert(contract.biome_table_version == "")
+	assert(contract.runtime_monster_generator_version == "")
+	assert(contract.runtime_monster_archetype_library_version == "")
+	assert(contract.route_settings.is_empty())
+	assert(contract.route_notices.is_empty())
+	for node in _collect_nodes(contract.offer_node):
+		_assert_authored_node_uses_legacy_fields(node)
+
+
+func _assert_authored_node_uses_legacy_fields(node: ContractRouteNode) -> void:
+	assert(node.generated_node_id == "")
+	assert(node.depth == -1)
+	assert(node.lane == -1)
+	assert(node.outgoing_node_ids.is_empty())
+	assert(node.biome == "")
+	assert(node.monster_presentation_type == "")
+	assert(node.route_preview.is_empty())
+	assert(node.generated_encounter_payload.is_empty())
+	assert(node.combat_preview.is_empty())
+	assert(node.debug_preview.is_empty())
+	assert(node.generation_notices.is_empty())
+	assert(not node.has_generated_state())
+	assert(node.id.begins_with("route.gilded_serpent."))
+	assert(node.display_name != "")
+
+
+func _collect_nodes(start: ContractRouteNode) -> Array:
+	var result := []
+	_collect_nodes_recursive(start, {}, result)
+	return result
+
+
+func _collect_nodes_recursive(node: ContractRouteNode, visited: Dictionary, result: Array) -> void:
+	if node == null or visited.has(node.id):
+		return
+	visited[node.id] = true
+	result.append(node)
+	for next_node in node.next_nodes:
+		_collect_nodes_recursive(next_node, visited, result)
 
 
 func _find_next(node: ContractRouteNode, id: String) -> ContractRouteNode:

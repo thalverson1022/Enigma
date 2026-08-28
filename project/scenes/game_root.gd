@@ -10,6 +10,10 @@ const SUBCLASS_SELECT_SCENE := preload("res://scenes/subclass_select/subclass_se
 const COMBAT_SCREEN_SCENE := preload("res://scenes/combat/combat_screen.tscn")
 const TRAINING_ROOM_SCENE := preload("res://scenes/training_room/training_room.tscn")
 const SETTINGS_MENU_LAYER := preload("res://scripts/ui/settings_menu_layer.gd")
+const ROGUE_CLASS_PATH := "res://data/classes/rogue.tres"
+const ASSASSIN_TREE_PATH := "res://data/subclass_trees/assassin.tres"
+const THIEF_TREE_PATH := "res://data/subclass_trees/thief.tres"
+const BANDIT_BLADE_PATH := "res://data/gear/bandit_blade.tres"
 
 var _current_screen: Node = null
 var _settings_menu_layer: Control = null
@@ -46,6 +50,7 @@ func _show_title() -> void:
 	screen.adventure_pressed.connect(func(): _on_new_game_pressed(screen.selected_seed()))
 	screen.continue_pressed.connect(_on_continue_pressed)
 	screen.training_room_pressed.connect(_show_training_room)
+	screen.contract_test_pressed.connect(func(): _on_contract_test_pressed(screen.selected_seed()))
 	add_child(screen)
 	_current_screen = screen
 	_raise_settings_menu_layer()
@@ -77,6 +82,32 @@ func _on_continue_pressed() -> void:
 	else:
 		SaveSystem.delete_save()
 		_show_title()
+
+
+func _on_contract_test_pressed(seed: int = BuildState.DEFAULT_ADVENTURE_SEED) -> void:
+	SaveSystem.delete_save()
+	BuildState.reset()
+	BuildState.set_adventure_seed(seed)
+	var rogue: ClassDef = load(ROGUE_CLASS_PATH)
+	var assassin: SubclassTree = load(ASSASSIN_TREE_PATH)
+	var thief: SubclassTree = load(THIEF_TREE_PATH)
+	var bandit_blade: GearItem = load(BANDIT_BLADE_PATH)
+	if rogue == null or assassin == null or thief == null or bandit_blade == null:
+		push_error("Contract Test requires Rogue, Assassin, Thief, and Bandit Blade data.")
+		_show_title()
+		return
+	BuildState.set_class(rogue)
+	BuildState.selected_trees = [assassin, thief]
+	BuildState.selected_talents = []
+	BuildState.rotation = []
+	BuildState.earned_talent_points = 7
+	BuildState.gold = 100
+	BuildState.grant_gear(bandit_blade, true)
+	if not BuildState.start_generated_contract_loop_offer({"route_difficulty": "medium"}, 3):
+		push_error("Contract Test could not start the generated contract flow.")
+		_show_title()
+		return
+	_show_combat_screen()
 
 
 func _show_class_select() -> void:
@@ -119,13 +150,44 @@ func _show_combat_screen() -> void:
 	_current_screen = screen
 	if BuildState.needs_tavern_map_choice() and BuildState.current_encounter_index == 0 and BuildState.active_contract == null:
 		AudioManager.play_menu_intro_audio()
-	elif BuildState.is_contract_fight_active():
-		AudioManager.transition_to_contract_ambience()
+	elif _should_use_contract_audio_scene():
+		var biome := _current_contract_audio_biome()
+		if biome != "":
+			AudioManager.transition_to_contract_biome_ambience(biome)
+		else:
+			AudioManager.transition_to_contract_ambience()
 	elif BuildState.run_phase != BuildState.RunPhase.RUN_ENDED and not BuildState.is_contract_fight_active():
 		AudioManager.play_tavern_map_rain()
 	else:
 		AudioManager.fade_out_all_menu_audio()
 	_raise_settings_menu_layer()
+
+
+func _current_contract_audio_biome() -> String:
+	if BuildState.current_route_node != null and _has_biome_contract_audio(BuildState.current_route_node.biome):
+		return BuildState.current_route_node.biome
+	if BuildState.active_contract != null:
+		if _has_biome_contract_audio(BuildState.active_contract.selected_biome):
+			return BuildState.active_contract.selected_biome
+	return ""
+
+
+func _should_use_contract_audio_scene() -> bool:
+	if BuildState.is_contract_fight_active():
+		return true
+	return (
+		BuildState.active_contract != null
+		and BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE
+		and BuildState.current_route_node != null
+		and BuildState.current_route_node != BuildState.active_contract.offer_node
+	)
+
+
+func _has_biome_contract_audio(biome: String) -> bool:
+	return (
+		AudioManager.BIOME_MUSIC_PATHS.has(biome)
+		or biome in ["Forest", "Keep", "Ancient Keep", "Ruins"]
+	)
 
 
 func _on_main_menu_pressed() -> void:

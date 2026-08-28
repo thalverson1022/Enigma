@@ -90,7 +90,15 @@ func _initialize() -> void:
 	var story_proceed_button: Button = combat_screen._story_overlay.find_child("StoryProceedButton", true, false)
 	story_proceed_button.pressed.emit()
 	await process_frame
-	await create_timer(1.5).timeout
+	await create_timer(0.45).timeout
+	_require(audio_manager._theme_player.playing, "Expected epic theme to still be fading during the slower Tavern intro transition.")
+	_require(audio_manager._fireplace_player.playing, "Expected Tavern fireplace to begin before the Tavern theme enters.")
+	_require(audio_manager._chatter_player.playing, "Expected Tavern chatter to begin before the Tavern theme enters.")
+	_require(not audio_manager._tavern_theme_player.playing, "Expected a short ambience-only beat before Tavern music enters.")
+	await create_timer(1.25).timeout
+	_require(audio_manager._theme_player.playing, "Expected epic theme to keep fading under the Tavern ambience briefly.")
+	_require(audio_manager._tavern_theme_player.playing, "Expected Tavern theme to fade in after the ambience lead-in.")
+	await create_timer(1.0).timeout
 	_require(not audio_manager._rain_player.playing, "Expected rain to fade out on the Tavern map.")
 	_require(not audio_manager._theme_player.playing, "Expected epic theme to fade out on the Tavern map.")
 	_require(audio_manager._fireplace_player.playing, "Expected Tavern fireplace to fade in on the Tavern map.")

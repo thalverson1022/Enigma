@@ -229,7 +229,7 @@ func _skill_augment_description(augment: SkillAugment) -> String:
 			effect_names.append("+%d poison stack%s" % [poison_effect.stacks_applied, "" if poison_effect.stacks_applied == 1 else "s"])
 		elif effect is PoisonResistanceReductionEffect:
 			var resist_effect: PoisonResistanceReductionEffect = effect
-			effect_names.append("-%d%% poison resistance" % roundi(resist_effect.reduction_fraction * 100.0))
+			effect_names.append("-%d%% resistance" % roundi(resist_effect.reduction_fraction * 100.0))
 		elif effect is StackScalingPhysicalDamageEffect:
 			var stack_effect: StackScalingPhysicalDamageEffect = effect
 			effect_names.append("+%.0f damage per poison stack" % stack_effect.damage_per_stack)

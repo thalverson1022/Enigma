@@ -3,56 +3,52 @@
 window.MonsterLabDifficultyBands = [
   {
     id: 1,
-    name: "Tavern Test",
+    name: "Easy",
     budget: 62,
-    baseHp: [95, 135],
     mechanicCount: [1, 2],
-    duration: 18,
-    targetDps: 8
+    maxMajorDefenses: 1,
+    majorDefenseCost: 28,
+    targetDpsRange: [6, 10],
+    dpsTolerance: 0.18
   },
   {
     id: 2,
-    name: "Early Contract",
-    budget: 86,
-    baseHp: [145, 205],
-    mechanicCount: [1, 2],
-    duration: 20,
-    targetDps: 12
+    name: "Medium",
+    budget: 118,
+    mechanicCount: [2, 3],
+    maxMajorDefenses: 1,
+    majorDefenseCost: 34,
+    targetDpsRange: [14, 20],
+    dpsTolerance: 0.16
   },
   {
     id: 3,
-    name: "Mid Contract",
-    budget: 118,
-    baseHp: [210, 310],
-    mechanicCount: [2, 3],
-    duration: 22,
-    targetDps: 17
+    name: "Hard",
+    budget: 154,
+    mechanicCount: [2, 4],
+    maxMajorDefenses: 2,
+    majorDefenseCost: 42,
+    targetDpsRange: [21, 28],
+    dpsTolerance: 0.14
   },
   {
     id: 4,
-    name: "Late Contract",
-    budget: 154,
-    baseHp: [315, 455],
-    mechanicCount: [2, 4],
-    duration: 24,
-    targetDps: 24
+    name: "Ultra",
+    budget: 204,
+    mechanicCount: [3, 4],
+    maxMajorDefenses: 3,
+    majorDefenseCost: 52,
+    targetDpsRange: [30, 40],
+    dpsTolerance: 0.12
   },
   {
     id: 5,
-    name: "Elite",
-    budget: 204,
-    baseHp: [470, 680],
-    mechanicCount: [3, 4],
-    duration: 26,
-    targetDps: 34
-  },
-  {
-    id: 6,
-    name: "Boss",
+    name: "Nightmare",
     budget: 270,
-    baseHp: [720, 980],
     mechanicCount: [4, 5],
-    duration: 30,
-    targetDps: 46
+    maxMajorDefenses: 4,
+    majorDefenseCost: 64,
+    targetDpsRange: [42, 55],
+    dpsTolerance: 0.1
   }
 ];

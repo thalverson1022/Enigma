@@ -77,15 +77,12 @@ func _initialize() -> void:
 	combat_screen._on_continue_pressed()
 	await process_frame
 
-	_require(build_state.run_outcome == BuildState.RunOutcome.CONTRACT_VICTORY, "Expected contract victory outcome.")
-	_require(combat_screen._status_label.visible, "Expected status label visible after contract victory -- this was the T8 regression.")
-	_require(combat_screen._status_label.text.contains("Vyra is defeated"), "Expected Vyra defeat called out in victory body text.")
-	_require(combat_screen._status_label.text.contains("start a new Adventure"), "Expected victory body text to explain the new-Adventure action.")
-	_require(combat_screen._outcome_title_label.visible, "Expected outcome title visible for contract victory.")
-	_require(combat_screen._outcome_title_label.text == "CONTRACT COMPLETE", "Expected CONTRACT COMPLETE headline.")
+	_require(build_state.shop_round_pending, "Expected Vyra completion to open the between-contract shop.")
+	_require(combat_screen._shop_overlay.visible, "Expected shop overlay visible after Vyra completion.")
+	_require(not combat_screen._status_label.visible, "Expected shop overlay to own the combat window after Vyra completion.")
+	_require(not combat_screen._outcome_title_label.visible, "Expected terminal outcome title hidden for repeatable loop.")
 	_require(not combat_screen._retry_button.visible, "Expected retry hidden after contract victory.")
-	_require(combat_screen._restart_adventure_button.visible and not combat_screen._restart_adventure_button.disabled, "Expected a next action available after contract victory.")
-	_require(combat_screen._restart_adventure_button.text == "Start New Adventure", "Expected victory framing on the restart button label.")
+	_require(not combat_screen._restart_adventure_button.visible, "Expected new-adventure action hidden while repeatable loop continues.")
 
 	print("")
 	print("Run outcome presentation check: OK")

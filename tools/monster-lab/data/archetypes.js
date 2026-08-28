@@ -7,11 +7,11 @@ window.MonsterLabArchetypes = [
     tone: "slow, blunt, hard to crack",
     baseHpBias: 1.24,
     mechanicWeights: {
-      armor: 70,
-      shielded_hide: 42,
-      regeneration: 18,
-      enrage: 10,
-      resistance: 8
+      armor: 72,
+      block: 50,
+      slow: 20,
+      crit_negation: 18,
+      poison_resistance: 8
     },
     nameParts: {
       prefixes: ["Iron", "Stone", "Granite", "Anvil", "Old"],
@@ -24,11 +24,11 @@ window.MonsterLabArchetypes = [
     tone: "anti-poison, patient, clinical",
     baseHpBias: 1.06,
     mechanicWeights: {
-      resistance: 64,
-      poison_cleanse: 42,
-      regeneration: 24,
-      armor: 12,
-      shielded_hide: 8
+      poison_resistance: 68,
+      cleanse_threshold: 48,
+      absorb: 36,
+      suppress: 28,
+      armor: 10
     },
     nameParts: {
       prefixes: ["Pale", "Glass", "Antidote", "Bleached", "Serum"],
@@ -41,11 +41,11 @@ window.MonsterLabArchetypes = [
     tone: "nimble, evasive, tests hit reliability",
     baseHpBias: 0.88,
     mechanicWeights: {
-      evasion: 70,
-      enrage: 28,
-      thorns: 20,
-      armor: 8,
-      resistance: 6
+      dodge_chance: 72,
+      crit_negation: 36,
+      interrupt_skip_count: 18,
+      block: 14,
+      armor: 8
     },
     nameParts: {
       prefixes: ["Quick", "Velvet", "Needle", "Laughing", "Silver"],
@@ -53,16 +53,16 @@ window.MonsterLabArchetypes = [
     }
   },
   {
-    id: "berserker",
-    name: "Berserker",
-    tone: "low patience, high timer pressure",
+    id: "suppressor",
+    name: "Suppressor",
+    tone: "low patience, timing hostile",
     baseHpBias: 0.98,
     mechanicWeights: {
-      enrage: 72,
-      thorns: 36,
-      regeneration: 14,
-      armor: 10,
-      evasion: 10
+      slow: 64,
+      suppress: 42,
+      stun_duration_ms: 26,
+      interrupt_skip_count: 20,
+      dodge_chance: 10
     },
     nameParts: {
       prefixes: ["Red", "Howling", "Splintered", "Fevered", "Ash"],
@@ -75,11 +75,11 @@ window.MonsterLabArchetypes = [
     tone: "structured defenses, gatekeeping checks",
     baseHpBias: 1.16,
     mechanicWeights: {
-      shielded_hide: 58,
-      armor: 38,
-      resistance: 30,
-      regeneration: 16,
-      poison_cleanse: 10
+      armor: 44,
+      block: 42,
+      poison_resistance: 32,
+      absorb: 28,
+      cleanse_threshold: 18
     },
     nameParts: {
       prefixes: ["Oathbound", "Cinctured", "Candlelit", "Brass", "Vault"],
@@ -92,11 +92,11 @@ window.MonsterLabArchetypes = [
     tone: "messy sustain and poison friction",
     baseHpBias: 1.08,
     mechanicWeights: {
-      regeneration: 48,
-      resistance: 36,
-      poison_cleanse: 24,
-      thorns: 16,
-      armor: 10
+      suppress: 50,
+      poison_resistance: 40,
+      cleanse_threshold: 34,
+      absorb: 22,
+      slow: 16
     },
     nameParts: {
       prefixes: ["Mire", "Sodden", "Moss", "Brackish", "Fen"],

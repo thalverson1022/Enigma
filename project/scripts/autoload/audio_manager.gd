@@ -8,6 +8,21 @@ const TAVERN_CHATTER_PATH := "res://assets/audio/music/chatter.mp3"
 const TAVERN_THEME_PATH := "res://assets/audio/music/tavern_theme.mp3"
 const CONTRACT_NIGHT_PATH := "res://assets/audio/music/night_time.mp3"
 const CONTRACT_SERPENT_THEME_PATH := "res://assets/audio/music/serpent_theme.mp3"
+const BIOME_MOOD_PATHS := {
+	"Swamp": "res://assets/audio/music/biomes/swamp_mood.mp3",
+	"Cave": "res://assets/audio/music/biomes/cave_mood.mp3",
+	"Graveyard": "res://assets/audio/music/biomes/graveyard_mood.mp3",
+	"Haunted Forest": "res://assets/audio/music/biomes/haunted_forest_mood.mp3",
+	"Ancient Ruins": "res://assets/audio/music/biomes/ancient_ruins_mood.mp3",
+}
+const BIOME_MUSIC_PATHS := {
+	"Swamp": "res://assets/audio/music/biomes/swamp_music.mp3",
+	"Cave": "res://assets/audio/music/biomes/cave_music.mp3",
+	"Graveyard": "res://assets/audio/music/biomes/graveyard_music.mp3",
+	"Haunted Forest": "res://assets/audio/music/biomes/haunted_forest_music.mp3",
+	"Ruined Keep": "res://assets/audio/music/biomes/ruined_keep_music.mp3",
+	"Ancient Ruins": "res://assets/audio/music/biomes/ancient_ruins_music.mp3",
+}
 const BUTTON_PRESS_SFX_PATH := "res://assets/audio/fx/button_press.mp3"
 const SHOP_CHANGE_SFX_PATH := "res://assets/audio/fx/change.mp3"
 const ATTACK_SFX_PATHS := [
@@ -30,9 +45,16 @@ const THEME_MIX_VOLUME := 0.88
 const TAVERN_FIREPLACE_MIX_VOLUME := 0.34
 const TAVERN_CHATTER_MIX_VOLUME := 0.22
 const TAVERN_THEME_MIX_VOLUME := 0.16
-const CONTRACT_RAIN_MIX_VOLUME := 0.24
+const TAVERN_INTRO_MENU_FADE_SECONDS := 2.4
+const TAVERN_INTRO_AMBIENCE_FADE_SECONDS := 1.0
+const TAVERN_INTRO_THEME_LEAD_SECONDS := 0.85
 const CONTRACT_NIGHT_MIX_VOLUME := 0.30
 const CONTRACT_SERPENT_THEME_MIX_VOLUME := 0.15
+const BIOME_MOOD_MIX_VOLUME := 0.30
+const BIOME_MUSIC_MIX_VOLUME := 0.34
+const BIOME_MOOD_FADE_SECONDS := 0.65
+const BIOME_MUSIC_LEAD_SECONDS := 1.0
+const CONTRACT_ENTRY_FADE_SECONDS := 2.4
 const DEFAULT_FADE_SECONDS := 1.4
 const ATTACK_SFX_POOL_SIZE := 8
 const ATTACK_SFX_BASE_VOLUME := 0.72
@@ -65,6 +87,8 @@ var _chatter_player: AudioStreamPlayer
 var _tavern_theme_player: AudioStreamPlayer
 var _night_player: AudioStreamPlayer
 var _serpent_theme_player: AudioStreamPlayer
+var _biome_mood_player: AudioStreamPlayer
+var _biome_music_player: AudioStreamPlayer
 var _button_press_stream: AudioStreamMP3
 var _shop_change_stream: AudioStreamMP3
 var _button_sfx_players: Array[AudioStreamPlayer] = []
@@ -82,9 +106,14 @@ var _chatter_tween: Tween
 var _tavern_theme_tween: Tween
 var _night_tween: Tween
 var _serpent_theme_tween: Tween
+var _biome_mood_tween: Tween
+var _biome_music_tween: Tween
 var _rng := RandomNumberGenerator.new()
 var _web_audio_unlocked := true
 var _pending_audio_scene := AUDIO_SCENE_NONE
+var _pending_contract_biome := ""
+var _current_contract_biome := ""
+var _contract_transition_id := 0
 
 var attack_sfx_play_count := 0
 var last_attack_sfx_pitch_scale := 0.0
@@ -121,6 +150,7 @@ func _input(event: InputEvent) -> void:
 
 func play_menu_intro_audio() -> void:
 	_pending_audio_scene = AUDIO_SCENE_MENU
+	_pending_contract_biome = ""
 	if _should_wait_for_web_audio_unlock():
 		return
 	_apply_audio_scene(AUDIO_SCENE_MENU)
@@ -130,15 +160,36 @@ func play_tavern_map_rain() -> void:
 	transition_to_tavern_ambience()
 
 
+func transition_to_tavern_intro_ambience() -> void:
+	_pending_audio_scene = AUDIO_SCENE_TAVERN
+	_pending_contract_biome = ""
+	if _should_wait_for_web_audio_unlock():
+		return
+	_transition_to_tavern_intro_ambience_now()
+
+
 func transition_to_tavern_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
 	_pending_audio_scene = AUDIO_SCENE_TAVERN
+	_pending_contract_biome = ""
 	if _should_wait_for_web_audio_unlock():
 		return
 	_apply_audio_scene(AUDIO_SCENE_TAVERN, fade_seconds)
 
 
-func transition_to_contract_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+func transition_to_contract_ambience(fade_seconds: float = CONTRACT_ENTRY_FADE_SECONDS) -> void:
 	_pending_audio_scene = AUDIO_SCENE_CONTRACT
+	_pending_contract_biome = ""
+	if _should_wait_for_web_audio_unlock():
+		return
+	_apply_audio_scene(AUDIO_SCENE_CONTRACT, fade_seconds)
+
+
+func transition_to_contract_biome_ambience(biome: String, fade_seconds: float = CONTRACT_ENTRY_FADE_SECONDS) -> void:
+	var resolved_biome := _normalized_biome_audio_key(biome)
+	if _is_current_contract_biome_ambience(resolved_biome):
+		return
+	_pending_audio_scene = AUDIO_SCENE_CONTRACT
+	_pending_contract_biome = resolved_biome
 	if _should_wait_for_web_audio_unlock():
 		return
 	_apply_audio_scene(AUDIO_SCENE_CONTRACT, fade_seconds)
@@ -154,6 +205,7 @@ func fade_out_menu_rain(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
 
 func fade_out_all_menu_audio(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
 	_pending_audio_scene = AUDIO_SCENE_NONE
+	_pending_contract_biome = ""
 	if _should_wait_for_web_audio_unlock():
 		return
 	_apply_audio_scene(AUDIO_SCENE_NONE, fade_seconds)
@@ -166,10 +218,14 @@ func fade_out_tavern_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS) -> voi
 
 
 func fade_out_contract_ambience(fade_seconds: float = DEFAULT_FADE_SECONDS, include_rain: bool = true) -> void:
+	_contract_transition_id += 1
+	_current_contract_biome = ""
 	if include_rain:
 		fade_out_menu_rain(fade_seconds)
 	_fade_out_player(_night_player, "_night_tween", fade_seconds)
 	_fade_out_player(_serpent_theme_player, "_serpent_theme_tween", fade_seconds)
+	_fade_out_player(_biome_mood_player, "_biome_mood_tween", fade_seconds)
+	_fade_out_player(_biome_music_player, "_biome_music_tween", fade_seconds)
 
 
 func _apply_audio_scene(audio_scene: String, fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
@@ -178,7 +234,10 @@ func _apply_audio_scene(audio_scene: String, fade_seconds: float = DEFAULT_FADE_
 	elif audio_scene == AUDIO_SCENE_TAVERN:
 		_transition_to_tavern_ambience_now(fade_seconds)
 	elif audio_scene == AUDIO_SCENE_CONTRACT:
-		_transition_to_contract_ambience_now(fade_seconds)
+		if _pending_contract_biome != "":
+			_transition_to_contract_biome_ambience_now(_pending_contract_biome, fade_seconds)
+		else:
+			_transition_to_contract_ambience_now(fade_seconds)
 	else:
 		fade_out_menu_theme(fade_seconds)
 		fade_out_tavern_ambience(fade_seconds)
@@ -201,12 +260,52 @@ func _transition_to_tavern_ambience_now(fade_seconds: float = DEFAULT_FADE_SECON
 	_fade_in_player(_tavern_theme_player, "_tavern_theme_tween", TAVERN_THEME_MIX_VOLUME, fade_seconds)
 
 
+func _transition_to_tavern_intro_ambience_now() -> void:
+	fade_out_contract_ambience(TAVERN_INTRO_AMBIENCE_FADE_SECONDS, false)
+	fade_out_menu_rain(TAVERN_INTRO_MENU_FADE_SECONDS)
+	fade_out_menu_theme(TAVERN_INTRO_MENU_FADE_SECONDS)
+	_fade_in_player(_fireplace_player, "_fireplace_tween", TAVERN_FIREPLACE_MIX_VOLUME, TAVERN_INTRO_AMBIENCE_FADE_SECONDS)
+	_fade_in_player(_chatter_player, "_chatter_tween", TAVERN_CHATTER_MIX_VOLUME, TAVERN_INTRO_AMBIENCE_FADE_SECONDS)
+	_fade_out_player(_tavern_theme_player, "_tavern_theme_tween", TAVERN_INTRO_AMBIENCE_FADE_SECONDS)
+	await get_tree().create_timer(TAVERN_INTRO_THEME_LEAD_SECONDS).timeout
+	if _pending_audio_scene != AUDIO_SCENE_TAVERN:
+		return
+	_fade_in_player(_tavern_theme_player, "_tavern_theme_tween", TAVERN_THEME_MIX_VOLUME, DEFAULT_FADE_SECONDS)
+
+
 func _transition_to_contract_ambience_now(fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	_next_contract_transition_id()
+	_current_contract_biome = ""
 	fade_out_tavern_ambience(fade_seconds)
 	fade_out_menu_theme(fade_seconds)
-	_fade_in_player(_rain_player, "_rain_tween", CONTRACT_RAIN_MIX_VOLUME, fade_seconds)
+	fade_out_menu_rain(fade_seconds)
+	_fade_out_player(_biome_mood_player, "_biome_mood_tween", fade_seconds)
+	_fade_out_player(_biome_music_player, "_biome_music_tween", fade_seconds)
 	_fade_in_player(_night_player, "_night_tween", CONTRACT_NIGHT_MIX_VOLUME, fade_seconds)
 	_fade_in_player(_serpent_theme_player, "_serpent_theme_tween", CONTRACT_SERPENT_THEME_MIX_VOLUME, fade_seconds)
+
+
+func _transition_to_contract_biome_ambience_now(biome: String, fade_seconds: float = DEFAULT_FADE_SECONDS) -> void:
+	var transition_id := _next_contract_transition_id()
+	var resolved_biome := _normalized_biome_audio_key(biome)
+	_pending_contract_biome = resolved_biome
+	_current_contract_biome = resolved_biome
+	fade_out_tavern_ambience(fade_seconds)
+	fade_out_menu_theme(fade_seconds)
+	fade_out_menu_rain(fade_seconds)
+	_fade_out_player(_night_player, "_night_tween", fade_seconds)
+	_fade_out_player(_serpent_theme_player, "_serpent_theme_tween", fade_seconds)
+	_fade_out_player(_biome_mood_player, "_biome_mood_tween", fade_seconds)
+	_fade_out_player(_biome_music_player, "_biome_music_tween", fade_seconds)
+	await get_tree().create_timer(maxf(fade_seconds, 0.01)).timeout
+	if transition_id != _contract_transition_id or _pending_audio_scene != AUDIO_SCENE_CONTRACT:
+		return
+	_set_biome_contract_streams(resolved_biome)
+	_fade_in_player(_biome_mood_player, "_biome_mood_tween", BIOME_MOOD_MIX_VOLUME, BIOME_MOOD_FADE_SECONDS)
+	await get_tree().create_timer(BIOME_MUSIC_LEAD_SECONDS).timeout
+	if transition_id != _contract_transition_id or _pending_audio_scene != AUDIO_SCENE_CONTRACT:
+		return
+	_fade_in_player(_biome_music_player, "_biome_music_tween", BIOME_MUSIC_MIX_VOLUME, fade_seconds)
 
 
 func play_random_attack_sfx(playback_speed: float, cast_duration_ms: int, suppress: bool = false) -> bool:
@@ -288,7 +387,7 @@ func play_shop_change_sfx() -> bool:
 
 
 func attack_sfx_hit_count_for_cast(cast: CombatResolver.CastEvent) -> int:
-	if cast == null or cast.physical_damage <= 0.0:
+	if cast == null or (cast.physical_damage <= 0.0 and cast.blocked_amount <= 0.0):
 		return 0
 	var hit_count := 1
 	for contribution in cast.damage_contributions:
@@ -326,6 +425,8 @@ func _build_music_players() -> void:
 	_tavern_theme_player = _build_music_player("TavernThemePlayer", TAVERN_THEME_PATH)
 	_night_player = _build_music_player("ContractNightPlayer", CONTRACT_NIGHT_PATH)
 	_serpent_theme_player = _build_music_player("ContractSerpentThemePlayer", CONTRACT_SERPENT_THEME_PATH)
+	_biome_mood_player = _build_music_player("ContractBiomeMoodPlayer", "")
+	_biome_music_player = _build_music_player("ContractBiomeMusicPlayer", "")
 
 
 func _build_attack_sfx_pool() -> void:
@@ -363,7 +464,7 @@ func _build_music_player(player_name: String, stream_path: String) -> AudioStrea
 	var player := AudioStreamPlayer.new()
 	player.name = player_name
 	player.bus = MUSIC_BUS
-	player.stream = _load_mp3_stream(stream_path)
+	player.stream = null if stream_path == "" else _load_mp3_stream(stream_path)
 	if player.stream != null:
 		player.stream.loop = true
 	add_child(player)
@@ -371,6 +472,8 @@ func _build_music_player(player_name: String, stream_path: String) -> AudioStrea
 
 
 func _load_mp3_stream(path: String) -> AudioStreamMP3:
+	if path == "":
+		return null
 	if ResourceLoader.exists(path):
 		var loaded := load(path)
 		if loaded is AudioStreamMP3:
@@ -431,6 +534,46 @@ func _attack_sfx_timing_factor(cast_duration_ms: int) -> float:
 
 func _play_delayed_attack_sfx(playback_speed: float, cast_duration_ms: int) -> void:
 	play_random_attack_sfx(playback_speed, cast_duration_ms, false)
+
+
+func _next_contract_transition_id() -> int:
+	_contract_transition_id += 1
+	return _contract_transition_id
+
+
+func _set_biome_contract_streams(biome: String) -> void:
+	var resolved_biome := _normalized_biome_audio_key(biome)
+	_assign_looping_stream(_biome_mood_player, String(BIOME_MOOD_PATHS.get(resolved_biome, "")))
+	_assign_looping_stream(_biome_music_player, String(BIOME_MUSIC_PATHS.get(resolved_biome, "")))
+
+
+func _assign_looping_stream(player: AudioStreamPlayer, stream_path: String) -> void:
+	if player == null:
+		return
+	var stream := _load_mp3_stream(stream_path)
+	player.stream = stream
+	if player.stream != null:
+		player.stream.loop = true
+
+
+func _normalized_biome_audio_key(biome: String) -> String:
+	if BIOME_MUSIC_PATHS.has(biome):
+		return biome
+	if biome == "Forest":
+		return "Haunted Forest"
+	if biome == "Keep" or biome == "Ancient Keep":
+		return "Ruined Keep"
+	if biome == "Ruins":
+		return "Ancient Ruins"
+	return "Swamp"
+
+
+func _is_current_contract_biome_ambience(biome: String) -> bool:
+	return (
+		_pending_audio_scene == AUDIO_SCENE_CONTRACT
+		and _pending_contract_biome == biome
+		and _current_contract_biome == biome
+	)
 
 
 func _on_tree_node_added(node: Node) -> void:
@@ -558,6 +701,12 @@ func _stop_player_tween(player: AudioStreamPlayer) -> void:
 	elif player == _serpent_theme_player and _serpent_theme_tween != null:
 		_serpent_theme_tween.kill()
 		_serpent_theme_tween = null
+	elif player == _biome_mood_player and _biome_mood_tween != null:
+		_biome_mood_tween.kill()
+		_biome_mood_tween = null
+	elif player == _biome_music_player and _biome_music_tween != null:
+		_biome_music_tween.kill()
+		_biome_music_tween = null
 
 
 func _ensure_audio_buses() -> void:

@@ -21,8 +21,13 @@ extends RefCounted
 
 const SAVE_PATH := "user://save.json"
 const SAVE_VERSION := 1
+const GENERATED_CONTRACT_SAVE_SCHEMA_VERSION := 1
+const ContractRouteGeneratorScript := preload("res://scripts/systems/contract_route_generator/contract_route_generator.gd")
+const RuntimeMonsterGeneratorScript := preload("res://scripts/systems/runtime_monster_generator/runtime_monster_generator.gd")
+const RuntimeArchetypeLibraryLoaderScript := preload("res://scripts/systems/runtime_monster_generator/runtime_archetype_library_loader.gd")
 
 static var save_path := SAVE_PATH
+static var last_generated_load_notices := PackedStringArray()
 
 
 static func has_save() -> bool:
@@ -68,6 +73,10 @@ static func load_run(state) -> bool:
 
 
 static func _serialize(state) -> Dictionary:
+	var active_generated_contract: bool = (
+		state.active_contract != null
+		and state.active_contract.has_generated_route_state()
+	)
 	return {
 		"save_version": SAVE_VERSION,
 		"selected_class": _resource_path_or_null(state.selected_class),
@@ -90,9 +99,19 @@ static func _serialize(state) -> Dictionary:
 		"equipped_weapon": _gear_entry_to_data(state.equipped_weapon),
 		"equipped_trinket": _gear_entry_to_data(state.equipped_trinket),
 		"equipped_charm": _gear_entry_to_data(state.equipped_charm),
-		"active_contract": _resource_path_or_null(state.active_contract),
-		"current_route_node": _resource_path_or_null(state.current_route_node),
+		"pending_contract_offers": _pending_contract_offers_to_data(state.pending_contract_offers),
+		"active_contract": null if active_generated_contract else _resource_path_or_null(state.active_contract),
+		"current_route_node": null if active_generated_contract else _resource_path_or_null(state.current_route_node),
+		"generated_active_contract": (
+			_generated_active_contract_to_data(state.active_contract, state.current_route_node, state.claimed_route_reward_ids)
+			if active_generated_contract
+			else null
+		),
 		"claimed_route_reward_ids": state.claimed_route_reward_ids.duplicate(),
+		"completed_contract_count": state.completed_contract_count,
+		"highest_run_dps": state.highest_run_dps,
+		"run_encounter_history": _run_encounter_history_to_data(state.run_encounter_history),
+		"contract_offer_index": state.contract_offer_index,
 		"current_encounter_index": state.current_encounter_index,
 		"encounter_failure_counts": state.encounter_failure_counts.duplicate(),
 		# A mid-fight save can only happen from a hard crash/quit -- combat
@@ -112,6 +131,7 @@ static func _serialize(state) -> Dictionary:
 
 
 static func _deserialize(data: Dictionary, state) -> bool:
+	last_generated_load_notices = PackedStringArray()
 	var resolved_class: ClassDef = null
 	if data.get("selected_class") != null:
 		resolved_class = _load_or_null(data.get("selected_class"))
@@ -132,17 +152,36 @@ static func _deserialize(data: Dictionary, state) -> bool:
 			return false
 		resolved_talents.append(talent)
 
+	var generated_notices := PackedStringArray()
+	var generated_active_data: Dictionary = _generated_active_contract_from_data(data.get("generated_active_contract"), generated_notices)
 	var resolved_active_contract: ContractDef = null
-	if data.get("active_contract") != null:
+	var resolved_route_node: ContractRouteNode = null
+	var resolved_generated_claimed_ids: Array[String] = []
+	if not generated_active_data.is_empty():
+		resolved_active_contract = generated_active_data["contract"]
+		resolved_route_node = generated_active_data["current_route_node"]
+		resolved_generated_claimed_ids = generated_active_data["claimed_route_reward_ids"]
+	elif data.get("generated_active_contract") != null:
+		return false
+	elif data.get("active_contract") != null:
 		resolved_active_contract = _load_or_null(data.get("active_contract"))
 		if resolved_active_contract == null:
 			return false
 
-	var resolved_route_node: ContractRouteNode = null
-	if data.get("current_route_node") != null:
+	if resolved_route_node == null and data.get("current_route_node") != null:
 		resolved_route_node = _load_or_null(data.get("current_route_node"))
 		if resolved_route_node == null:
 			return false
+
+	var pending_contract_result: Dictionary = _pending_contract_offers_from_data(data.get("pending_contract_offers"), generated_notices)
+	if not bool(pending_contract_result.get("ok", false)):
+		return false
+	var resolved_pending_contract_offers: Array[ContractDef] = pending_contract_result.get("offers", [])
+	if resolved_active_contract != null and resolved_active_contract.has_generated_route_state():
+		resolved_pending_contract_offers = _pending_contracts_with_active_instance(
+			resolved_pending_contract_offers,
+			resolved_active_contract
+		)
 
 	state.selected_class = resolved_class
 	state.selected_trees = resolved_trees
@@ -166,9 +205,18 @@ static func _deserialize(data: Dictionary, state) -> bool:
 	state.equipped_weapon = _gear_from_entry(data.get("equipped_weapon"))
 	state.equipped_trinket = _gear_from_entry(data.get("equipped_trinket"))
 	state.equipped_charm = _gear_from_entry(data.get("equipped_charm"))
+	state.pending_contract_offers = resolved_pending_contract_offers
 	state.active_contract = resolved_active_contract
 	state.current_route_node = resolved_route_node
-	state.claimed_route_reward_ids = _string_array(data.get("claimed_route_reward_ids", []))
+	state.claimed_route_reward_ids = (
+		resolved_generated_claimed_ids
+		if not generated_active_data.is_empty()
+		else _string_array(data.get("claimed_route_reward_ids", []))
+	)
+	state.completed_contract_count = int(data.get("completed_contract_count", 0))
+	state.highest_run_dps = maxf(0.0, float(data.get("highest_run_dps", 0.0)))
+	state.run_encounter_history = _run_encounter_history_from_data(data.get("run_encounter_history", []))
+	state.contract_offer_index = int(data.get("contract_offer_index", 0))
 	state.current_encounter_index = int(data.get("current_encounter_index", 0))
 	state.encounter_failure_counts = _int_dictionary(data.get("encounter_failure_counts", {}))
 	var saved_phase := int(data.get("run_phase", state.RunPhase.PLANNING))
@@ -188,6 +236,7 @@ static func _deserialize(data: Dictionary, state) -> bool:
 		if skill != null:
 			resolved_rotation.append(skill)
 	state.rotation = resolved_rotation
+	last_generated_load_notices = generated_notices
 
 	state.build_changed.emit()
 	state.run_state_changed.emit()
@@ -253,6 +302,381 @@ static func _gear_list_from_data(list) -> Array[GearItem]:
 	return out
 
 
+static func _pending_contract_offers_to_data(offers: Array[ContractDef]) -> Array:
+	var out := []
+	for contract in offers:
+		if contract == null:
+			continue
+		if contract.has_generated_route_state():
+			out.append({
+				"kind": "generated",
+				"contract": _generated_contract_to_data(contract),
+			})
+		elif contract.resource_path != "":
+			out.append({
+				"kind": "authored",
+				"resource_path": contract.resource_path,
+			})
+	return out
+
+
+static func _pending_contract_offers_from_data(list, notices: PackedStringArray) -> Dictionary:
+	var out: Array[ContractDef] = []
+	if list == null:
+		return {"ok": true, "offers": out}
+	if typeof(list) != TYPE_ARRAY:
+		return {"ok": false, "offers": out}
+	for entry in list:
+		if typeof(entry) != TYPE_DICTIONARY:
+			return {"ok": false, "offers": out}
+		var kind := String(entry.get("kind", ""))
+		if kind == "authored":
+			var authored: ContractDef = _load_or_null(entry.get("resource_path"))
+			if authored == null:
+				return {"ok": false, "offers": out}
+			out.append(authored)
+		elif kind == "generated":
+			var generated := _generated_contract_from_data(entry.get("contract"), notices)
+			if generated == null:
+				return {"ok": false, "offers": out}
+			out.append(generated)
+		else:
+			return {"ok": false, "offers": out}
+	return {"ok": true, "offers": out}
+
+
+static func _pending_contracts_with_active_instance(offers: Array[ContractDef], active: ContractDef) -> Array[ContractDef]:
+	var out: Array[ContractDef] = []
+	var replaced := false
+	var active_key := _contract_key(active)
+	for offer in offers:
+		if offer != null and _contract_key(offer) == active_key:
+			out.append(active)
+			replaced = true
+		else:
+			out.append(offer)
+	if not replaced:
+		out.append(active)
+	return out
+
+
+static func _generated_active_contract_to_data(
+	contract: ContractDef,
+	current_node: ContractRouteNode,
+	claimed_ids: Array[String]
+) -> Dictionary:
+	return {
+		"schema_version": GENERATED_CONTRACT_SAVE_SCHEMA_VERSION,
+		"contract": _generated_contract_to_data(contract),
+		"current_route_node_id": _route_node_save_id(current_node),
+		"claimed_route_reward_ids": claimed_ids.duplicate(),
+	}
+
+
+static func _generated_active_contract_from_data(value, notices: PackedStringArray) -> Dictionary:
+	if value == null:
+		return {}
+	if typeof(value) != TYPE_DICTIONARY:
+		return {}
+	var schema_version := int(value.get("schema_version", -1))
+	if schema_version < 1 or schema_version > GENERATED_CONTRACT_SAVE_SCHEMA_VERSION:
+		return {}
+	var contract: ContractDef = _generated_contract_from_data(value.get("contract"), notices)
+	if contract == null:
+		return {}
+	var current_id := String(value.get("current_route_node_id", ""))
+	if current_id == "":
+		return {}
+	var current_node := _find_generated_route_node(contract.offer_node, current_id)
+	if current_node == null:
+		return {}
+	if not _restore_current_generated_combat_node(current_node):
+		return {}
+	return {
+		"contract": contract,
+		"current_route_node": current_node,
+		"claimed_route_reward_ids": _string_array(value.get("claimed_route_reward_ids", [])),
+	}
+
+
+static func _generated_contract_to_data(contract: ContractDef) -> Dictionary:
+	var nodes := _collect_route_nodes(contract.offer_node)
+	var node_data := []
+	for node in nodes:
+		node_data.append(_generated_route_node_to_data(node))
+	return {
+		"schema_version": GENERATED_CONTRACT_SAVE_SCHEMA_VERSION,
+		"id": contract.id,
+		"display_name": contract.display_name,
+		"target_display_name": contract.target_display_name,
+		"offer_text": contract.offer_text,
+		"generated_route_state": contract.generated_route_state(),
+		"offer_node_id": _route_node_save_id(contract.offer_node),
+		"nodes": node_data,
+		"versions": {
+			"route_generator_version": contract.generator_version,
+			"presentation_table_version": contract.biome_table_version,
+			"runtime_monster_generator_version": contract.runtime_monster_generator_version,
+			"archetype_library_schema": contract.runtime_monster_archetype_library_version,
+		},
+	}
+
+
+static func _generated_contract_from_data(value, notices: PackedStringArray) -> ContractDef:
+	if typeof(value) != TYPE_DICTIONARY:
+		return null
+	var schema_version := int(value.get("schema_version", -1))
+	if schema_version < 1 or schema_version > GENERATED_CONTRACT_SAVE_SCHEMA_VERSION:
+		return null
+	var node_entries = value.get("nodes", [])
+	if typeof(node_entries) != TYPE_ARRAY or node_entries.is_empty():
+		return null
+
+	var contract := ContractDef.new()
+	contract.id = String(value.get("id", ""))
+	contract.display_name = String(value.get("display_name", ""))
+	contract.target_display_name = String(value.get("target_display_name", ""))
+	contract.offer_text = String(value.get("offer_text", ""))
+	if typeof(value.get("generated_route_state", {})) != TYPE_DICTIONARY:
+		return null
+	contract.apply_generated_route_state(value.get("generated_route_state", {}))
+	if not contract.has_generated_route_state():
+		return null
+
+	var node_by_id := {}
+	var pending_edges := {}
+	for node_data in node_entries:
+		var node := _generated_route_node_from_data(node_data)
+		if node == null:
+			return null
+		var node_id := _route_node_save_id(node)
+		if node_id == "" or node_by_id.has(node_id):
+			return null
+		node_by_id[node_id] = node
+		pending_edges[node_id] = _string_array((node_data as Dictionary).get("outgoing_node_ids", []))
+		if not _generated_route_node_payload_is_supported(node):
+			return null
+
+	for node_id in pending_edges.keys():
+		var node: ContractRouteNode = node_by_id[node_id]
+		for outgoing_id in pending_edges[node_id]:
+			if not node_by_id.has(outgoing_id):
+				return null
+			node.next_nodes.append(node_by_id[outgoing_id])
+
+	var offer_node_id := String(value.get("offer_node_id", ""))
+	if offer_node_id == "" or not node_by_id.has(offer_node_id):
+		return null
+	contract.offer_node = node_by_id[offer_node_id]
+	_append_generated_version_mismatch_notices(contract, notices)
+	return contract
+
+
+static func _generated_route_node_to_data(node: ContractRouteNode) -> Dictionary:
+	return {
+		"id": node.id,
+		"display_name": node.display_name,
+		"node_type": node.node_type,
+		"duration_ms": node.duration_ms,
+		"reward": _reward_to_data(node.reward),
+		"difficulty_label": node.difficulty_label,
+		"reward_quality_label": node.reward_quality_label,
+		"summary_text": node.summary_text,
+		"reward_summary": node.reward_summary,
+		"before_selection_text": node.before_selection_text,
+		"selected_text": node.selected_text,
+		"generated_state": node.generated_state(),
+		"outgoing_node_ids": Array(node.outgoing_node_ids),
+	}
+
+
+static func _generated_route_node_from_data(value) -> ContractRouteNode:
+	if typeof(value) != TYPE_DICTIONARY:
+		return null
+	var state = value.get("generated_state", {})
+	if typeof(state) != TYPE_DICTIONARY:
+		return null
+	var node := ContractRouteNode.new()
+	node.id = String(value.get("id", ""))
+	node.display_name = String(value.get("display_name", ""))
+	node.node_type = int(value.get("node_type", ContractRouteNode.NodeType.FIGHT))
+	node.duration_ms = int(value.get("duration_ms", 0))
+	node.reward = _reward_from_data(value.get("reward"))
+	node.difficulty_label = String(value.get("difficulty_label", ""))
+	node.reward_quality_label = String(value.get("reward_quality_label", ""))
+	node.summary_text = String(value.get("summary_text", ""))
+	node.reward_summary = String(value.get("reward_summary", ""))
+	node.before_selection_text = String(value.get("before_selection_text", ""))
+	node.selected_text = String(value.get("selected_text", ""))
+	node.apply_generated_state(state)
+	return node
+
+
+static func _generated_route_node_payload_is_supported(node: ContractRouteNode) -> bool:
+	if not (node.node_type in [
+		ContractRouteNode.NodeType.FIGHT,
+		ContractRouteNode.NodeType.CAPTAIN,
+		ContractRouteNode.NodeType.ELITE,
+		ContractRouteNode.NodeType.BOSS,
+	]):
+		return true
+	if node.generated_encounter_payload.is_empty():
+		return false
+	var draft := GeneratedMonsterDraft.from_dictionary(node.generated_encounter_payload)
+	return draft != null and draft.hp > 0 and draft.duration_ms > 0
+
+
+static func _restore_current_generated_combat_node(node: ContractRouteNode) -> bool:
+	if not (node.node_type in [
+		ContractRouteNode.NodeType.FIGHT,
+		ContractRouteNode.NodeType.CAPTAIN,
+		ContractRouteNode.NodeType.ELITE,
+		ContractRouteNode.NodeType.BOSS,
+	]):
+		return true
+	if node.generated_encounter_payload.is_empty():
+		return false
+	var draft := GeneratedMonsterDraft.from_dictionary(node.generated_encounter_payload)
+	if draft == null or draft.hp <= 0 or draft.duration_ms <= 0:
+		return false
+	node.monster = draft.to_monster()
+	var combat_name := String(node.combat_preview.get("monster_name", ""))
+	var route_name := String(node.route_preview.get("monster_name", ""))
+	if combat_name != "":
+		node.monster.display_name = combat_name
+	elif route_name != "":
+		node.monster.display_name = route_name
+	node.duration_ms = draft.duration_ms
+	return true
+
+
+static func _append_generated_version_mismatch_notices(contract: ContractDef, notices: PackedStringArray) -> void:
+	_record_generated_mismatch(
+		contract,
+		notices,
+		"route_generator_version",
+		contract.generator_version,
+		ContractRouteGeneratorScript.GENERATOR_VERSION
+	)
+	_record_generated_mismatch(
+		contract,
+		notices,
+		"presentation_table_version",
+		contract.biome_table_version,
+		ContractRouteGeneratorScript.PRESENTATION_TABLE_VERSION
+	)
+	_record_generated_mismatch(
+		contract,
+		notices,
+		"runtime_monster_generator_version",
+		contract.runtime_monster_generator_version,
+		RuntimeMonsterGeneratorScript.GENERATOR_VERSION
+	)
+	_record_generated_mismatch(
+		contract,
+		notices,
+		"archetype_library_schema",
+		contract.runtime_monster_archetype_library_version,
+		RuntimeArchetypeLibraryLoaderScript.EXPECTED_SCHEMA
+	)
+
+
+static func _record_generated_mismatch(
+	contract: ContractDef,
+	notices: PackedStringArray,
+	field: String,
+	saved: String,
+	current: String
+) -> void:
+	if saved == "" or saved == current:
+		return
+	var notice := "generated_save_supported_mismatch:%s:%s->%s" % [field, saved, current]
+	notices.append(notice)
+	contract.route_notices.append(notice)
+
+
+static func _reward_to_data(reward: EncounterReward) -> Variant:
+	if reward == null:
+		return null
+	return {
+		"gold_amount": reward.gold_amount,
+		"talent_points": reward.talent_points,
+		"fixed_gear_rewards": _gear_list_to_data(reward.fixed_gear_rewards),
+		"gear_choice_rewards": _gear_list_to_data(reward.gear_choice_rewards),
+		"unlocks_shop": reward.unlocks_shop,
+		"generated_gear_choice_count": reward.generated_gear_choice_count,
+		"generated_gear_tier": reward.generated_gear_tier,
+		"generated_gear_slots": reward.generated_gear_slots.duplicate(),
+		"legendary_choice_pool": _gear_list_to_data(reward.legendary_choice_pool),
+		"legendary_choice_count": reward.legendary_choice_count,
+	}
+
+
+static func _reward_from_data(value) -> EncounterReward:
+	if value == null:
+		return null
+	if typeof(value) != TYPE_DICTIONARY:
+		return null
+	var reward := EncounterReward.new()
+	reward.gold_amount = int(value.get("gold_amount", 0))
+	reward.talent_points = int(value.get("talent_points", 0))
+	reward.fixed_gear_rewards = _gear_list_from_data(value.get("fixed_gear_rewards", []))
+	reward.gear_choice_rewards = _gear_list_from_data(value.get("gear_choice_rewards", []))
+	reward.unlocks_shop = bool(value.get("unlocks_shop", false))
+	reward.generated_gear_choice_count = int(value.get("generated_gear_choice_count", 0))
+	reward.generated_gear_tier = int(value.get("generated_gear_tier", GearItem.Tier.BASIC))
+	reward.generated_gear_slots = _int_array(value.get("generated_gear_slots", []))
+	reward.legendary_choice_pool = _gear_list_from_data(value.get("legendary_choice_pool", []))
+	reward.legendary_choice_count = int(value.get("legendary_choice_count", 0))
+	return reward
+
+
+static func _collect_route_nodes(root_node: ContractRouteNode) -> Array[ContractRouteNode]:
+	var out: Array[ContractRouteNode] = []
+	var visited := {}
+	_collect_route_nodes_recursive(root_node, visited, out)
+	return out
+
+
+static func _collect_route_nodes_recursive(
+	node: ContractRouteNode,
+	visited: Dictionary,
+	out: Array[ContractRouteNode]
+) -> void:
+	var node_id := _route_node_save_id(node)
+	if node == null or node_id == "" or visited.has(node_id):
+		return
+	visited[node_id] = true
+	out.append(node)
+	for next_node in node.next_nodes:
+		_collect_route_nodes_recursive(next_node, visited, out)
+
+
+static func _find_generated_route_node(root_node: ContractRouteNode, node_id: String) -> ContractRouteNode:
+	for node in _collect_route_nodes(root_node):
+		if _route_node_save_id(node) == node_id:
+			return node
+	return null
+
+
+static func _route_node_save_id(node: ContractRouteNode) -> String:
+	if node == null:
+		return ""
+	if node.generated_node_id != "":
+		return node.generated_node_id
+	return node.id
+
+
+static func _contract_key(contract: ContractDef) -> String:
+	if contract == null:
+		return ""
+	if contract.id != "":
+		return contract.id
+	if contract.generated_route_id != "":
+		return contract.generated_route_id
+	return "%s:%s" % [contract.display_name, contract.source_seed]
+
+
 static func _resource_path_or_null(resource: Resource) -> Variant:
 	return resource.resource_path if resource != null else null
 
@@ -306,6 +730,40 @@ static func _string_array(list) -> Array[String]:
 		return out
 	for value in list:
 		out.append(str(value))
+	return out
+
+
+static func _run_encounter_history_to_data(history: Array) -> Array:
+	var out := []
+	for value in history:
+		if value is Dictionary:
+			out.append((value as Dictionary).duplicate(true))
+	return out
+
+
+static func _run_encounter_history_from_data(list) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if typeof(list) != TYPE_ARRAY:
+		return out
+	for value in list:
+		if not value is Dictionary:
+			continue
+		var row: Dictionary = value
+		out.append({
+			"fight_number": int(row.get("fight_number", out.size() + 1)),
+			"contract_count": int(row.get("contract_count", 0)),
+			"contract_name": String(row.get("contract_name", "")),
+			"enemy_name": String(row.get("enemy_name", "")),
+			"enemy_role": String(row.get("enemy_role", "")),
+			"enemy_color": String(row.get("enemy_color", UIColors.TEXT_NORMAL.to_html(false))),
+			"enemy_hp": int(row.get("enemy_hp", 0)),
+			"duration_ms": int(row.get("duration_ms", 0)),
+			"total_damage": maxf(0.0, float(row.get("total_damage", 0.0))),
+			"player_dps": maxf(0.0, float(row.get("player_dps", 0.0))),
+			"required_dps": maxf(0.0, float(row.get("required_dps", 0.0))),
+			"dps_difference": float(row.get("dps_difference", 0.0)),
+			"is_win": bool(row.get("is_win", false)),
+		})
 	return out
 
 

@@ -1,0 +1,61 @@
+extends SceneTree
+
+const BalanceLab = preload("res://scripts/tools/balance_lab.gd")
+
+
+func _initialize() -> void:
+	var specs := BalanceLab.imported_scenario_specs_from_dir("res://tests/fixtures/balance_lab_imported")
+	assert(specs.size() == 3)
+	var ids := []
+	for spec in specs:
+		ids.append(spec["id"])
+		assert(spec["id"].begins_with("monster_lab_monster_1_"))
+		assert(spec["label"].begins_with("Monster 1 - "))
+		assert(spec["source"] == "monster_lab")
+		assert(spec["source_file"].ends_with("monster_1.balance_lab.json"))
+		assert(spec["source_monster_id"] == "monster_1")
+		assert(spec["monster"] == "res://data/monsters/mouthy_drunk.tres")
+		assert(spec["class"] == "res://data/classes/rogue.tres")
+		assert(spec["skills"].size() > 0)
+		assert(spec["seed_count"] == 3)
+		assert(spec["duration_ms"] == 20000)
+		assert(spec["monster_overrides"]["hp"] == 180)
+		assert(spec["monster_overrides"]["armor"] == 32)
+		assert(is_equal_approx(float(spec["monster_overrides"]["poison_resistance"]), 0.25))
+		assert(spec["thresholds"].is_empty())
+		assert(spec["import_notes"].size() >= 1)
+	assert(ids.has("monster_lab_monster_1_physical_stab"))
+	assert(ids.has("monster_lab_monster_1_poison_shadow"))
+	assert(ids.has("monster_lab_monster_1_crit_bandit"))
+
+	assert(specs[0]["id"] == "monster_lab_monster_1_physical_stab")
+	assert(specs[0]["source"] == "monster_lab")
+	assert(specs[0]["source_file"].ends_with("monster_1.balance_lab.json"))
+	assert(specs[0]["source_monster_id"] == "monster_1")
+	assert(specs[0]["monster_overrides"]["hp"] == 180)
+	assert(specs[0]["monster_overrides"]["armor"] == 32)
+	assert(is_equal_approx(float(specs[0]["monster_overrides"]["poison_resistance"]), 0.25))
+	assert(specs[0]["duration_ms"] == 20000)
+	assert(specs[0]["seed_count"] == 3)
+	assert(specs[0]["matchup_preview"].has("route_preview"))
+	assert(specs[0]["balance_model"]["pressure_status"] == "in_band")
+
+	var result := BalanceLab.run_scenario_spec(specs[0])
+	assert(result["id"] == "monster_lab_monster_1_physical_stab")
+	assert(result["status"] == "pass")
+	assert(result["source"] == "monster_lab")
+	assert(result["source_monster_id"] == "monster_1")
+	assert(result["source_file"].ends_with("monster_1.balance_lab.json"))
+	assert(result["matchup_preview"].has("route_preview"))
+	assert(result["balance_model"]["pressure_status"] == "in_band")
+	assert(result["monster_overrides"]["armor"] == 32)
+	assert(result["aggregate"]["dps"]["count"] == 3)
+	assert(result["aggregate"]["dps"]["mean"] > 0.0)
+	assert(result["samples"].size() == 3)
+	assert(result["notes"].size() >= 1)
+
+	var missing_specs := BalanceLab.imported_scenario_specs_from_dir("res://tests/fixtures/missing_balance_lab_imported")
+	assert(missing_specs.is_empty())
+
+	print("Balance Lab import test: OK")
+	quit()

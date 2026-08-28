@@ -130,19 +130,42 @@ func _initialize() -> void:
 	# visible while a choice is pending, just disabled until preview. --
 	assert(combat_screen._map_overlay._map_proceed_button.visible)
 	assert(combat_screen._map_overlay._map_proceed_button.disabled)
+	var tavern_schematic := combat_screen._map_overlay.find_child("TavernMapSchematic", true, false) as Control
+	assert(tavern_schematic != null)
+	assert(tavern_schematic.custom_minimum_size == combat_screen._map_overlay.TAVERN_MAP_SIZE)
+	var tavern_edges := tavern_schematic.find_children("TavernRouteEdge", "Line2D", true, false)
+	assert(tavern_edges.size() > 0)
+	assert(tavern_edges[0].get_meta("edge_kind") == "tavern_path")
+	assert(tavern_edges[0].get_meta("trail_dash_length") == combat_screen._map_overlay.GENERATED_EDGE_TRAIL_DASH_LENGTH)
 	var mouthy_drunk_style_before: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
-	assert(mouthy_drunk_style_before.bg_color == UIColors.PANEL.darkened(0.08))
+	assert(mouthy_drunk_style_before.bg_color == UIColors.TRANSPARENT)
+	assert(mouthy_drunk_style_before.border_color == UIColors.TRANSPARENT)
+	assert(combat_screen._map_overlay._map_node_buttons[0].get_meta("tavern_visual_state") == "available")
+	assert(combat_screen._map_overlay._map_node_buttons[0].position.y != combat_screen._map_overlay._map_node_buttons[1].position.y)
 	assert(not combat_screen._map_overlay._map_node_buttons[0].clip_contents)
-	var tavern_marker: TextureRect = combat_screen._map_overlay._map_node_buttons[0].find_child("MapActorMarker", true, false)
-	var tavern_text_block: Label = combat_screen._map_overlay._map_node_buttons[0].find_child("MapTextBlock", true, false)
-	var tavern_reward_row: HBoxContainer = combat_screen._map_overlay._map_node_buttons[0].find_child("MapRewardIconRow", true, false)
-	assert(tavern_marker != null and tavern_marker.size == Vector2(76, 76) and tavern_marker.position.x >= 0.0 and tavern_marker.position.y == -4.0)
-	assert(tavern_text_block != null and tavern_text_block.position.x > tavern_marker.position.x + tavern_marker.size.x * 0.5)
-	assert(tavern_reward_row != null and tavern_reward_row.offset_bottom < 0.0)
-	assert(tavern_reward_row.find_child("MapGearRewardIcon", true, false) == null)
+	var tavern_frame: TextureRect = combat_screen._map_overlay._map_node_buttons[0].find_child("TavernBiomeFrame", true, false)
+	var tavern_glow: TextureRect = combat_screen._map_overlay._map_node_buttons[0].find_child("TavernBiomeGlow", true, false)
+	var tavern_text_block: RichTextLabel = combat_screen._map_overlay._map_node_buttons[0].find_child("MapTextBlock", true, false)
+	var tavern_reward_stack: VBoxContainer = combat_screen._map_overlay._map_node_buttons[0].find_child("TavernRewardStack", true, false)
+	assert(tavern_frame != null and tavern_frame.get_meta("texture_path") == combat_screen._map_overlay.TAVERN_NODE_FRAME_TEXTURE_PATH)
+	assert(tavern_glow != null and tavern_glow.get_meta("highlight_style") == "gray_silhouette_texture")
+	assert(tavern_glow.get_meta("texture_path") == combat_screen._map_overlay.TAVERN_NODE_HIGHLIGHT_TEXTURE_PATH)
+	assert((tavern_glow.material as ShaderMaterial) != null)
+	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("MapActorMarker", true, false) == null)
+	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("MapRewardIconRow", true, false) == null)
+	assert(tavern_text_block != null and tavern_text_block.bbcode_enabled)
+	assert(tavern_text_block.text.contains("[center]"))
+	assert(tavern_text_block.text.contains("Mouthy Drunk"))
+	assert(tavern_reward_stack != null and tavern_reward_stack.get_child_count() == 2)
+	assert(tavern_reward_stack.find_child("GeneratedTalentReward", true, false) != null)
+	assert(tavern_reward_stack.find_child("GeneratedGoldReward", true, false) != null)
+	var tagged_tavern_monster := Monster.new()
+	tagged_tavern_monster.armor = 12
+	tagged_tavern_monster.poison_resistance = 0.25
+	assert(combat_screen._map_overlay._tavern_archetype_tags(tagged_tavern_monster) == ["armored", "resistant"])
 	assert(combat_screen._map_overlay._map_node_buttons[0].get_theme_color("font_hover_color") == UIColors.TRANSPARENT)
 	assert(combat_screen._map_overlay._map_node_buttons[0].get_theme_color("font_focus_color") == UIColors.TRANSPARENT)
-	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernAvailablePulse", true, false) != null)
+	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernAvailablePulse", true, false) == null)
 	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernDefeatedMarker", true, false) == null)
 	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
 	await process_frame
@@ -151,15 +174,17 @@ func _initialize() -> void:
 	assert(combat_screen._map_overlay._map_proceed_button.visible)
 	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
 	var mouthy_drunk_style_after: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
-	assert(mouthy_drunk_style_after.border_color == CardStyle.ACCENT_COLOR)
+	assert(mouthy_drunk_style_after.border_color == UIColors.TRANSPARENT)
+	assert(combat_screen._map_overlay._map_node_buttons[0].get_meta("tavern_visual_state") == "selected")
 	print("previewed flavor text (expect Mouthy Drunk's): %s" % combat_screen._map_overlay._map_story_label.text)
 	assert(combat_screen._map_overlay._map_story_label.text == "A red-faced patron decides your quiet corner is somehow his business.")
 	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
 	await process_frame
 	assert(combat_screen._map_overlay._map_proceed_button.disabled)
 	var mouthy_drunk_style_deselected: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
-	assert(mouthy_drunk_style_deselected.bg_color == UIColors.PANEL.darkened(0.08))
-	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernAvailablePulse", true, false) != null)
+	assert(mouthy_drunk_style_deselected.bg_color == UIColors.TRANSPARENT)
+	assert(combat_screen._map_overlay._map_node_buttons[0].get_meta("tavern_visual_state") == "available")
+	assert(combat_screen._map_overlay._map_node_buttons[0].find_child("TavernAvailablePulse", true, false) == null)
 	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
@@ -355,11 +380,22 @@ func _initialize() -> void:
 	assert(enemy_panel._title_label.text == "Mouthy Drunk")
 	assert(not enemy_panel._info_label.text.contains("Encounter:"))
 	assert(not enemy_panel._info_label.text.contains("Target:"))
-	# Mouthy Drunk's authored reward (12g, 1 talent point) is visible before
-	# the fight, not only after via the post-fight claim UI.
 	assert(not enemy_panel._info_label.text.contains("Damage Goal:"))
-	assert(enemy_panel._info_label.text.contains("Reward: 12g, 1 talent point"))
-	assert(enemy_panel._info_label.text.contains("Pressure: No notable defensive pressure."))
+	assert(enemy_panel._info_label.text.contains("HP: 150"))
+	assert(enemy_panel._info_label.text.contains("Fight Window: 12s"))
+	assert(enemy_panel._info_label.text.contains("Armor: 0"))
+	assert(enemy_panel._info_label.text.contains("Resistance: 0%"))
+	assert(not enemy_panel._info_label.text.contains("Block:"))
+	assert(not enemy_panel._info_label.text.contains("Dodge:"))
+	assert(not enemy_panel._info_label.text.contains("Crit Negation:"))
+	assert(not enemy_panel._info_label.text.contains("Slow:"))
+	assert(not enemy_panel._info_label.text.contains("Absorb:"))
+	assert(not enemy_panel._info_label.text.contains("Suppress:"))
+	assert(not enemy_panel._info_label.text.contains("Cleanse:"))
+	assert(not enemy_panel._info_label.text.contains("Stun:"))
+	assert(not enemy_panel._info_label.text.contains("Interrupt:"))
+	assert(not enemy_panel._info_label.text.contains("Reward:"))
+	assert(not enemy_panel._info_label.text.contains("Pressure:"))
 	print("fight button disabled before lock (expect true): %s" % enemy_panel._fight_button.disabled)
 	assert(enemy_panel._fight_button.disabled)
 
@@ -423,6 +459,20 @@ func _initialize() -> void:
 	assert(is_equal_approx(combat_screen._log_overlay._inspector._timeline_chart._bar_height(100.0), combat_screen._log_overlay._inspector._timeline_chart.MAX_BAR_H))
 	assert(combat_screen._log_overlay._inspector._timeline_chart._bar_height(50.0) > combat_screen._log_overlay._inspector._timeline_chart.MIN_BAR_H)
 	assert(is_equal_approx(combat_screen._log_overlay._inspector._timeline_chart._dot_radius(100.0), combat_screen._log_overlay._inspector._timeline_chart.MAX_DOT_RADIUS))
+	assert(build_state.run_encounter_history.size() == 1)
+	var history_entry: Dictionary = build_state.run_encounter_history[0]
+	assert(int(history_entry["fight_number"]) == 1)
+	assert(String(history_entry["contract_name"]) == "Tavern")
+	assert(String(history_entry["enemy_name"]) == expected_monster.display_name)
+	assert(String(history_entry["enemy_role"]) == "Normal")
+	assert(is_equal_approx(float(history_entry["player_dps"]), expected_result.dps))
+	assert(combat_screen._log_overlay._run_chart._rows.size() == 1)
+	assert(combat_screen._log_overlay._run_list.get_child_count() >= 2)
+	var history_header = combat_screen._log_overlay._run_list.get_child(0)
+	assert((history_header.get_child(0) as Label).text == "Fight Number")
+	assert((history_header.get_child(0) as Label).custom_minimum_size.x >= 112.0)
+	var enemy_history_cell: RichTextLabel = combat_screen._log_overlay._enemy_cell(history_entry)
+	assert(enemy_history_cell.text == "[color=#%s]%s[/color]" % [UIColors.TEXT_POISON.to_html(false), expected_monster.display_name])
 	print("status label: %s" % combat_screen._status_label.text)
 	assert(combat_screen._status_label.text.begins_with("Fight complete:"))
 	assert(not combat_screen._status_label.visible)
@@ -451,6 +501,12 @@ func _initialize() -> void:
 	assert(victory_stack.mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	assert(combat_screen._victory_center.get_global_rect().position.distance_to(combat_screen._combat_window.get_global_rect().position) < 1.0)
 	assert(combat_screen._victory_center.size.distance_to(combat_screen._combat_window.size) < 1.0)
+	var victory_center_rect: Rect2 = combat_screen._victory_center.get_global_rect()
+	var combat_window_rect: Rect2 = combat_screen._combat_window.get_global_rect()
+	assert(victory_center_rect.end.distance_to(combat_window_rect.end) < 1.0)
+	assert(combat_dim.get_global_rect().position.distance_to(combat_window_rect.position) < 1.0)
+	assert(combat_dim.get_global_rect().end.distance_to(combat_window_rect.end) < 1.0)
+	assert(click_blocker.get_global_rect().size.distance_to(combat_screen.get_global_rect().size) < 1.0)
 	assert(combat_screen._fight_button_row.z_index > combat_screen._victory_overlay.z_index)
 	assert(combat_screen._combat_stage.visible)
 	assert(combat_screen._combat_stage.outcome_pose == "victory")
@@ -501,6 +557,7 @@ func _initialize() -> void:
 	combat_screen._view_log_button.pressed.emit()
 	print("log overlay visible after View Combat Log (expect true): %s" % combat_screen._log_overlay.visible)
 	assert(combat_screen._log_overlay.visible)
+	assert(combat_screen._log_overlay.z_index > combat_screen._map_overlay.z_index)
 
 	var close_button = null
 	for node in combat_screen._log_overlay.find_children("*", "Button", true, false):
@@ -560,27 +617,27 @@ func _initialize() -> void:
 	var next_drunk_buddy_button: Button = combat_screen._map_overlay._map_node_buttons[1]
 	assert(defeated_mouthy_button.disabled)
 	var defeated_marker: Label = defeated_mouthy_button.find_child("TavernDefeatedMarker", true, false)
-	var defeated_actor: TextureRect = defeated_mouthy_button.find_child("MapActorMarker", true, false)
-	assert(defeated_marker != null and defeated_actor != null)
-	assert(defeated_marker.position == defeated_actor.position)
-	assert(defeated_marker.size == defeated_actor.size)
-	assert(defeated_marker.z_index > defeated_actor.z_index)
+	assert(defeated_marker != null)
+	assert(defeated_mouthy_button.find_child("MapActorMarker", true, false) == null)
+	assert(defeated_marker.size == combat_screen._map_overlay.MAP_ACTOR_MARKER_SIZE)
 	assert(defeated_mouthy_button.tooltip_text == "")
 	assert(not next_drunk_buddy_button.disabled)
 	assert(next_drunk_buddy_button.find_child("TavernDefeatedMarker", true, false) == null)
 	var next_drunk_buddy_style_before: StyleBoxFlat = next_drunk_buddy_button.get_theme_stylebox("normal")
-	assert(next_drunk_buddy_style_before.bg_color == UIColors.PANEL.darkened(0.08))
-	assert(next_drunk_buddy_button.find_child("TavernAvailablePulse", true, false) != null)
+	assert(next_drunk_buddy_style_before.bg_color == UIColors.TRANSPARENT)
+	assert(next_drunk_buddy_button.get_meta("tavern_visual_state") == "available")
+	assert(next_drunk_buddy_button.find_child("TavernAvailablePulse", true, false) == null)
 	assert(combat_screen._map_overlay._map_proceed_button.disabled)
 	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
 	await process_frame
 	var next_drunk_buddy_style_after: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[1].get_theme_stylebox("normal")
-	assert(next_drunk_buddy_style_after.border_color == CardStyle.ACCENT_COLOR)
+	assert(next_drunk_buddy_style_after.border_color == UIColors.TRANSPARENT)
+	assert(combat_screen._map_overlay._map_node_buttons[1].get_meta("tavern_visual_state") == "selected")
 	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
 	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
 	await process_frame
 	assert(combat_screen._map_overlay._map_proceed_button.disabled)
-	assert(combat_screen._map_overlay._map_node_buttons[1].find_child("TavernAvailablePulse", true, false) != null)
+	assert(combat_screen._map_overlay._map_node_buttons[1].find_child("TavernAvailablePulse", true, false) == null)
 	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
@@ -604,7 +661,8 @@ func _initialize() -> void:
 	assert(combat_screen._map_overlay._map_close_button.visible)
 	assert(combat_screen._map_overlay._map_node_buttons[1].disabled)
 	var current_map_style: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[1].get_theme_stylebox("normal")
-	assert(current_map_style.border_color == CardStyle.ACCENT_COLOR)
+	assert(current_map_style.border_color == UIColors.TRANSPARENT)
+	assert(combat_screen._map_overlay._map_node_buttons[1].get_meta("tavern_visual_state") == "selected")
 	combat_screen._map_overlay._map_close_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._map_overlay.visible)
@@ -643,10 +701,17 @@ func _initialize() -> void:
 	skill_build_panel._on_lock_pressed()
 	assert(build_state.build_locked)
 	assert(not enemy_panel._fight_button.disabled)
+	# This screen-level progression check needs a deterministic second win
+	# so it can verify Drunk Buddy's authored reward/shop handoff while
+	# balance values continue to move independently.
+	var drunk_buddy_fixture: Monster = enemy_panel.monster()
+	drunk_buddy_fixture.hp = 100
+	drunk_buddy_fixture.armor = 0
 	enemy_panel.fight_pressed.emit()
 	await process_frame
 	assert(combat_screen._victory_overlay.visible)
 	assert(combat_screen._log_overlay._log_label.text.contains("Drunk Buddy"))
+	print("reward after second win: %s" % _reward_row_text(combat_screen))
 	assert(_reward_row_text(combat_screen).contains(": 18g"))
 	assert(_reward_row_text(combat_screen).contains("Lucky Coin"))
 	assert(_reward_row_text(combat_screen).contains("shop access"))
@@ -919,9 +984,15 @@ func _initialize() -> void:
 	assert(combat_screen._contract_overlay.visible)
 	assert(not combat_screen._secondary_subclass_overlay.visible)
 	assert(combat_screen._contract_overlay._contract_options_box.get_child_count() == 1)
+	assert(combat_screen._contract_overlay._contract_title_label.text == "Choose a Contract")
+	assert(not combat_screen._contract_overlay._contract_body_label.visible)
 	var vyra_button: Button = combat_screen._contract_overlay._contract_options_box.get_child(0)
-	assert(vyra_button.text.contains(combat_screen._contract_overlay.CONTRACT_VYRA_NAME))
-	assert(vyra_button.text.contains("Reward: 120g"))
+	assert(vyra_button.text == "")
+	assert(_card_label_text(vyra_button, "ContractBossNameLabel") == "Vyra")
+	assert(_card_label_text(vyra_button, "ContractLocationLabel").begins_with("Location:"))
+	assert(_card_label_text(vyra_button, "ContractGoldLabel") == "120g")
+	assert(_contract_card_icon(vyra_button).custom_minimum_size == Vector2(44, 44))
+	assert(_card_label_font_size(vyra_button, "ContractBossNameLabel") > _card_label_font_size(vyra_button, "ContractLocationLabel"))
 	assert(combat_screen._contract_overlay._contract_action_button.disabled)
 	assert(vyra_button.find_child("ContractChoicePulse", true, false) != null)
 	vyra_button.pressed.emit()
@@ -996,26 +1067,28 @@ func _initialize() -> void:
 	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.PLANNING)
 	assert(build_state.current_route_node.id == "route.gilded_serpent.portly_cook")
-	await create_timer(1.5).timeout
+	await create_timer(audio_manager.CONTRACT_ENTRY_FADE_SECONDS + 0.15).timeout
 	assert(not audio_manager._fireplace_player.playing)
 	assert(not audio_manager._chatter_player.playing)
 	assert(not audio_manager._tavern_theme_player.playing)
-	assert(audio_manager._rain_player.playing)
+	assert(not audio_manager._rain_player.playing)
 	assert(audio_manager._night_player.playing)
 	assert(audio_manager._serpent_theme_player.playing)
 	assert(audio_manager._serpent_theme_player.volume_db < audio_manager._night_player.volume_db)
-	assert(audio_manager._serpent_theme_player.volume_db < audio_manager._rain_player.volume_db)
 	assert(combat_screen._status_label.text.contains("Portly Cook"))
 	assert(not combat_screen._status_label.visible)
 	assert(enemy_panel._title_label.text == "Portly Cook")
 	assert(enemy_panel._info_label.text.contains("Fight Window: 20s"))
 	assert(not enemy_panel._info_label.text.contains("Contract:"))
-	# P2:R7:T5: Portly Cook is a 0-armor/0-poison-resist target, so its
-	# preview shows the "no notable pressure" line and its authored Basic
-	# Gear reward, both derived from real Monster/EncounterReward data.
 	assert(not enemy_panel._info_label.text.contains("Damage Goal:"))
-	assert(enemy_panel._info_label.text.contains("Pressure: No notable defensive pressure."))
-	assert(enemy_panel._info_label.text.contains("Reward: 26g, Basic Gear"))
+	assert(enemy_panel._info_label.text.contains("HP: 360"))
+	assert(enemy_panel._info_label.text.contains("Armor: 0"))
+	assert(enemy_panel._info_label.text.contains("Resistance: 0%"))
+	assert(not enemy_panel._info_label.text.contains("Cleanse:"))
+	assert(not enemy_panel._info_label.text.contains("Stun:"))
+	assert(not enemy_panel._info_label.text.contains("Interrupt:"))
+	assert(not enemy_panel._info_label.text.contains("Pressure:"))
+	assert(not enemy_panel._info_label.text.contains("Reward:"))
 	assert(enemy_panel._fight_button.disabled)
 	assert(build_state.needs_secondary_subclass_choice())
 	combat_screen._show_talent_overlay()
@@ -1114,6 +1187,10 @@ func _initialize() -> void:
 	map_button.pressed.emit()
 	await process_frame
 	assert(combat_screen._map_overlay.visible)
+	var map_backdrop = combat_screen._map_overlay.get_child(0) as Control
+	assert(map_backdrop != null)
+	assert(map_backdrop.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	assert(is_equal_approx(map_backdrop.offset_top, combat_screen._map_overlay.TOP_CHROME_CLICKTHROUGH_CLEARANCE))
 	assert(combat_screen._map_overlay._map_close_button.visible)
 	combat_screen._map_overlay.visible = false
 	menu_button.pressed.emit()
@@ -1163,3 +1240,23 @@ func _reward_row_font_size(combat_screen) -> int:
 		if child is Label:
 			return child.get_theme_font_size("font_size")
 	return 0
+
+
+func _card_label_text(card: Button, label_name: String) -> String:
+	var label: Label = card.find_child(label_name, true, false)
+	assert(label != null)
+	return label.text
+
+
+func _card_label_font_size(card: Button, label_name: String) -> int:
+	var label: Label = card.find_child(label_name, true, false)
+	assert(label != null)
+	return label.get_theme_font_size("font_size")
+
+
+func _contract_card_icon(card: Button) -> TextureRect:
+	var content: HBoxContainer = card.find_child("ContractOfferContent", true, false)
+	assert(content != null)
+	var icon: TextureRect = content.find_child("Icon", true, false)
+	assert(icon != null)
+	return icon

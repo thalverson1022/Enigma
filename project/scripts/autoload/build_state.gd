@@ -27,10 +27,11 @@ enum RunOutcome {
 }
 
 const INVENTORY_CAPACITY := 3
+const TALENT_POINT_CAP := 10
 const SELL_VALUE_RATIO := 0.5
-const GILDED_SERPENT_CONTRACT_PATH := "res://data/contracts/the_gilded_serpent.tres"
 const DEFAULT_ADVENTURE_SEED := 1
 const RunRngSystem = preload("res://scripts/systems/run_rng.gd")
+const ContractOfferSourceScript = preload("res://scripts/systems/contract_offer_source.gd")
 const SHOP_REROLL_INITIAL_COST := 5
 const SHOP_REROLL_COST_STEP := 5
 
@@ -61,9 +62,14 @@ var pending_reward_choices: Array[GearItem] = []
 var equipped_weapon: GearItem = null
 var equipped_trinket: GearItem = null
 var equipped_charm: GearItem = null
+var pending_contract_offers: Array[ContractDef] = []
 var active_contract: ContractDef = null
 var current_route_node: ContractRouteNode = null
 var claimed_route_reward_ids: Array[String] = []
+var completed_contract_count: int = 0
+var highest_run_dps: float = 0.0
+var run_encounter_history: Array[Dictionary] = []
+var contract_offer_index: int = 0
 var current_encounter_index: int = 0
 var encounter_failure_counts: Dictionary = {}
 var run_phase: int = RunPhase.PLANNING
@@ -117,9 +123,14 @@ func reset(preserve_adventure_seed: bool = false) -> void:
 	equipped_weapon = null
 	equipped_trinket = null
 	equipped_charm = null
+	pending_contract_offers = []
 	active_contract = null
 	current_route_node = null
 	claimed_route_reward_ids = []
+	completed_contract_count = 0
+	highest_run_dps = 0.0
+	run_encounter_history = []
+	contract_offer_index = 0
 	current_encounter_index = 0
 	encounter_failure_counts = {}
 	run_phase = RunPhase.PLANNING
@@ -216,13 +227,31 @@ func choose_current_tavern_encounter() -> bool:
 
 
 func pending_contract_offer() -> bool:
-	return run_phase == RunPhase.CONTRACT_OFFER and active_contract != null and current_route_node != null
+	return (
+		run_phase == RunPhase.CONTRACT_OFFER
+		and active_contract != null
+		and current_route_node != null
+		and not pending_contract_offers.is_empty()
+	)
 
 
-func start_contract_offer() -> bool:
-	var contract: ContractDef = load(GILDED_SERPENT_CONTRACT_PATH)
+func start_contract_offer(context: Dictionary = {}) -> bool:
+	var offer_context := context.duplicate(true)
+	if offer_context.is_empty():
+		offer_context = ContractOfferSourceScript.offer_context(
+			adventure_seed,
+			contract_offer_index,
+			completed_contract_count
+		)
+	if not offer_context.has("earned_talent_points"):
+		offer_context["earned_talent_points"] = earned_talent_points
+	var offers: Array[ContractDef] = ContractOfferSourceScript.contract_offers(offer_context)
+	var contract: ContractDef = offers[0] if not offers.is_empty() else null
 	if contract == null or contract.offer_node == null:
 		return false
+	contract_offer_index = int(offer_context.get("contract_offer_index", contract_offer_index))
+	completed_contract_count = int(offer_context.get("completed_contract_count", completed_contract_count))
+	pending_contract_offers = offers
 	active_contract = contract
 	current_route_node = contract.offer_node
 	run_phase = RunPhase.CONTRACT_OFFER
@@ -234,14 +263,90 @@ func start_contract_offer() -> bool:
 	return true
 
 
-func accept_contract_offer() -> bool:
+func start_generated_contract_loop_offer(settings: Dictionary = {}, generated_offer_count: int = 3) -> bool:
+	return start_contract_offer(ContractOfferSourceScript.offer_context(
+		adventure_seed,
+		contract_offer_index,
+		completed_contract_count,
+		-1,
+		settings,
+		false,
+		true,
+		generated_offer_count
+	))
+
+
+func select_pending_contract_offer(contract_id: String) -> bool:
+	if not pending_contract_offer():
+		return false
+	var contract := pending_contract_offer_by_id(contract_id)
+	if contract == null or contract.offer_node == null:
+		return false
+	active_contract = contract
+	current_route_node = contract.offer_node
+	run_state_changed.emit()
+	return true
+
+
+func pending_contract_offer_by_id(contract_id: String) -> ContractDef:
+	if contract_id == "":
+		return null
+	for contract in pending_contract_offers:
+		if contract != null and _contract_offer_key(contract) == contract_id:
+			return contract
+	return null
+
+
+func contract_offer_key(contract: ContractDef) -> String:
+	return _contract_offer_key(contract)
+
+
+func _contract_offer_key(contract: ContractDef) -> String:
+	if contract == null:
+		return ""
+	if contract.id != "":
+		return contract.id
+	if contract.generated_route_id != "":
+		return contract.generated_route_id
+	return "%s:%s" % [contract.display_name, contract.source_seed]
+
+
+func accept_contract_offer(contract_id: String = "") -> bool:
+	if contract_id != "" and not select_pending_contract_offer(contract_id):
+		return false
 	if not pending_contract_offer():
 		return false
 	if current_route_node.next_nodes.is_empty():
 		return false
-	current_route_node = current_route_node.next_nodes[0]
+	if active_contract == null or not active_contract.has_generated_route_state():
+		current_route_node = current_route_node.next_nodes[0]
 	run_phase = RunPhase.CONTRACT_ROUTE
 	run_outcome = RunOutcome.NONE
+	set_locked(false)
+	run_state_changed.emit()
+	return true
+
+
+func can_return_to_contract_offer() -> bool:
+	return (
+		run_phase == RunPhase.CONTRACT_ROUTE
+		and active_contract != null
+		and active_contract.offer_node != null
+		and current_route_node == active_contract.offer_node
+		and not pending_contract_offers.is_empty()
+		and claimed_route_reward_ids.is_empty()
+	)
+
+
+func return_to_contract_offer() -> bool:
+	if not can_return_to_contract_offer():
+		return false
+	if active_contract.offer_node == null:
+		return false
+	current_route_node = active_contract.offer_node
+	run_phase = RunPhase.CONTRACT_OFFER
+	run_outcome = RunOutcome.NONE
+	last_fight_won = false
 	set_locked(false)
 	run_state_changed.emit()
 	return true
@@ -270,13 +375,9 @@ func choose_secondary_tree(tree: SubclassTree) -> bool:
 
 
 func choose_contract_route_node(node: ContractRouteNode) -> bool:
-	if run_phase != RunPhase.CONTRACT_ROUTE:
+	if not can_commit_contract_route_node(node):
 		return false
-	if node == null or current_route_node == null:
-		return false
-	if not current_route_node.next_nodes.has(node):
-		return false
-	if node.monster == null or node.duration_ms <= 0:
+	if not _prepare_contract_route_node_for_combat(node):
 		return false
 	current_route_node = node
 	run_phase = RunPhase.PLANNING
@@ -287,10 +388,68 @@ func choose_contract_route_node(node: ContractRouteNode) -> bool:
 	return true
 
 
+func can_commit_contract_route_node(node: ContractRouteNode) -> bool:
+	if run_phase != RunPhase.CONTRACT_ROUTE:
+		return false
+	if node == null or current_route_node == null:
+		return false
+	if not current_route_node.next_nodes.has(node):
+		return false
+	return _contract_route_node_has_commit_payload(node)
+
+
+func _contract_route_node_has_commit_payload(node: ContractRouteNode) -> bool:
+	if node == null:
+		return false
+	if node.monster != null and node.duration_ms > 0:
+		return true
+	if active_contract == null or not active_contract.has_generated_route_state():
+		return false
+	if not (node.node_type in [
+		ContractRouteNode.NodeType.FIGHT,
+		ContractRouteNode.NodeType.CAPTAIN,
+		ContractRouteNode.NodeType.ELITE,
+		ContractRouteNode.NodeType.BOSS,
+	]):
+		return false
+	return not node.generated_encounter_payload.is_empty()
+
+
+func _prepare_contract_route_node_for_combat(node: ContractRouteNode) -> bool:
+	if node == null:
+		return false
+	if node.monster != null and node.duration_ms > 0:
+		return true
+	if active_contract == null or not active_contract.has_generated_route_state():
+		return false
+	if node.generated_encounter_payload.is_empty():
+		return false
+	var draft := GeneratedMonsterDraft.from_dictionary(node.generated_encounter_payload)
+	if draft == null or draft.hp <= 0 or draft.duration_ms <= 0:
+		return false
+	var monster := draft.to_monster()
+	monster.display_name = _generated_route_monster_display_name(node, draft)
+	node.monster = monster
+	node.duration_ms = draft.duration_ms
+	return true
+
+
+func _generated_route_monster_display_name(node: ContractRouteNode, draft: GeneratedMonsterDraft) -> String:
+	var combat_name := String(node.combat_preview.get("monster_name", ""))
+	if combat_name != "":
+		return combat_name
+	var route_name := String(node.route_preview.get("monster_name", ""))
+	if route_name != "":
+		return route_name
+	return draft.display_name
+
+
 func start_fight() -> bool:
 	if not can_start_current_fight():
 		return false
 	tavern_map_choice_made = false
+	if is_contract_fight_active():
+		pending_contract_offers = []
 	run_phase = RunPhase.FIGHTING
 	run_outcome = RunOutcome.NONE
 	run_state_changed.emit()
@@ -331,6 +490,32 @@ func finish_fight(won: bool) -> void:
 			run_phase = RunPhase.RUN_ENDED
 			set_locked(false)
 	run_state_changed.emit()
+
+
+func record_fight_dps(dps: float) -> void:
+	highest_run_dps = maxf(highest_run_dps, maxf(0.0, dps))
+
+
+func record_fight_result(result: CombatResolver.CombatResult, monster: Monster) -> void:
+	if result == null or monster == null:
+		return
+	record_fight_dps(result.dps)
+	var summary := CombatRecap.summarize(result, monster)
+	run_encounter_history.append({
+		"fight_number": run_encounter_history.size() + 1,
+		"contract_count": completed_contract_count + 1 if active_contract != null else 0,
+		"contract_name": active_contract.display_name if active_contract != null else "Tavern",
+		"enemy_name": monster.display_name,
+		"enemy_role": _current_enemy_history_role(),
+		"enemy_color": _current_enemy_history_color().to_html(false),
+		"enemy_hp": monster.hp,
+		"duration_ms": result.duration_ms,
+		"total_damage": result.total_damage,
+		"player_dps": result.dps,
+		"required_dps": float(summary.get("required_dps", 0.0)),
+		"dps_difference": result.dps - float(summary.get("required_dps", 0.0)),
+		"is_win": result.is_win,
+	})
 
 
 func failure_count_for_current_encounter() -> int:
@@ -469,7 +654,7 @@ func skip_pending_reward_gear() -> bool:
 
 func should_open_shop_after_current_reward() -> bool:
 	if is_contract_fight_active():
-		return shop_unlocked and current_route_node != null and not current_route_node.next_nodes.is_empty()
+		return shop_unlocked or _is_terminal_contract_victory_pending()
 	return shop_unlocked and current_encounter_index + 1 < RunFlow.encounter_count()
 
 
@@ -555,8 +740,7 @@ func continue_after_win() -> bool:
 		return false
 	if is_contract_fight_active():
 		if current_route_node.next_nodes.is_empty():
-			end_run(true, RunOutcome.CONTRACT_VICTORY)
-			return false
+			return _complete_contract_and_offer_next()
 		run_phase = RunPhase.CONTRACT_ROUTE
 		run_outcome = RunOutcome.NONE
 		last_fight_won = false
@@ -575,6 +759,24 @@ func continue_after_win() -> bool:
 		run_outcome = RunOutcome.CONTRACT_VICTORY if active_contract != null else RunOutcome.FIGHT_WIN
 	run_state_changed.emit()
 	return has_next
+
+
+func _complete_contract_and_offer_next() -> bool:
+	completed_contract_count += 1
+	contract_offer_index += 1
+	claimed_route_reward_ids = []
+	pending_contract_offers = []
+	active_contract = null
+	current_route_node = null
+	run_phase = RunPhase.CONTRACT_OFFER
+	run_outcome = RunOutcome.NONE
+	last_fight_won = false
+	shop_unlocked = false
+	set_locked(false)
+	if start_generated_contract_loop_offer():
+		return true
+	end_run(true, RunOutcome.CONTRACT_VICTORY)
+	return false
 
 
 func _generate_tavern_shop_offers(round_index: int, reroll_key: Variant) -> Array[GearItem]:
@@ -776,6 +978,16 @@ func _current_reward_context_key() -> String:
 	return "encounter:%d" % current_encounter_index
 
 
+func _is_terminal_contract_victory_pending() -> bool:
+	return (
+		is_contract_fight_active()
+		and run_phase == RunPhase.RESULT
+		and last_fight_won
+		and current_route_node != null
+		and current_route_node.next_nodes.is_empty()
+	)
+
+
 func end_run(won: bool, outcome: int = RunOutcome.NONE) -> void:
 	last_fight_won = won
 	if outcome != RunOutcome.NONE:
@@ -802,6 +1014,36 @@ func _current_fight_key() -> String:
 	return "encounter:%d" % current_encounter_index
 
 
+func _current_enemy_history_role() -> String:
+	if current_route_node == null:
+		return "Normal"
+	match current_route_node.node_type:
+		ContractRouteNode.NodeType.BOSS:
+			return "Boss"
+		ContractRouteNode.NodeType.ELITE:
+			return "Elite"
+		ContractRouteNode.NodeType.CAPTAIN:
+			return "Captain"
+		_:
+			if current_route_node.monster_presentation_type.strip_edges() != "":
+				return current_route_node.monster_presentation_type.capitalize()
+			return "Normal"
+
+
+func _current_enemy_history_color() -> Color:
+	if current_route_node == null:
+		return UIColors.TEXT_POISON
+	match current_route_node.node_type:
+		ContractRouteNode.NodeType.BOSS:
+			return UIColors.TEXT_WARNING
+		ContractRouteNode.NodeType.ELITE:
+			return UIColors.TEXT_MAGIC
+		ContractRouteNode.NodeType.CAPTAIN:
+			return UIColors.TIER_MASTER
+		_:
+			return UIColors.TEXT_POISON
+
+
 func add_gold(amount: int) -> void:
 	gold += amount
 	build_changed.emit()
@@ -817,7 +1059,7 @@ func modified_gold_reward(base_amount: int) -> int:
 
 
 func add_talent_points(amount: int) -> void:
-	earned_talent_points += amount
+	earned_talent_points = clampi(earned_talent_points + amount, 0, TALENT_POINT_CAP)
 	build_changed.emit()
 
 

@@ -24,6 +24,23 @@ extends Control
 
 enum Kind { NORMAL, CRIT, POISON_TICK, PROC }
 
+
+class CritCrossOutOverlay:
+	extends Control
+
+	const LINE_COLOR := Color(1.0, 0.08, 0.05, 0.96)
+	const LINE_OUTLINE := Color(0.16, 0.0, 0.0, 0.88)
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var pad := 8.0
+		var start := Vector2(pad, size.y - pad)
+		var finish := Vector2(size.x - pad, pad)
+		draw_line(start, finish, LINE_OUTLINE, 10.0, true)
+		draw_line(start, finish, LINE_COLOR, 6.0, true)
+
 ## Popup lifetime from spawn to fully faded/freed.
 const POPUP_DURATION_SEC := 1.35
 ## Comic-book popup font (Pirata One reads as a heavy action word; swap for
@@ -67,6 +84,8 @@ const POPUP_NORMAL_COLOR := UIColors.TEXT_NORMAL
 const POPUP_CRIT_COLOR := UIColors.TEXT_GOLD
 const POPUP_TICK_COLOR := UIColors.TEXT_POISON
 const POPUP_PROC_COLOR := UIColors.TEXT_MAGIC
+const POPUP_NEGATED_ACTUAL_FONT_SIZE := 54
+const POPUP_NEGATED_GAP_PX := 18.0
 
 ## Set true while a Skip flush is in progress -- suppresses new spawns so a
 ## skip doesn't spray the whole remaining timeline's popups at once.
@@ -166,6 +185,65 @@ func spawn(text: String, kind: int) -> void:
 	tween.finished.connect(_on_popup_finished.bind(label, kind))
 
 
+func spawn_crit_negated(skill_name: String, reduced_damage: float, prevented_damage: float) -> void:
+	if skip_active:
+		return
+	if _active_count >= POPUP_MAX_ACTIVE:
+		return
+	var original_damage := reduced_damage + maxf(prevented_damage, 0.0)
+	var root := Control.new()
+	root.name = "CritNegationPopup"
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(root)
+
+	var skill_label := _make_popup_label(skill_name, POPUP_CRIT_FONT_SIZE, POPUP_CRIT_COLOR)
+	root.add_child(skill_label)
+	skill_label.reset_size()
+	skill_label.position = Vector2.ZERO
+
+	var original := _make_popup_label("-%.0f!" % original_damage, POPUP_CRIT_FONT_SIZE, POPUP_CRIT_COLOR)
+	root.add_child(original)
+	original.reset_size()
+	original.position = Vector2(skill_label.size.x + 8.0, 0.0)
+
+	var cross := CritCrossOutOverlay.new()
+	cross.name = "CritCrossOutOverlay"
+	cross.size = original.size
+	cross.position = original.position
+	cross.z_index = 3
+	root.add_child(cross)
+
+	var actual := _make_popup_label("-%.0f!" % reduced_damage, POPUP_NEGATED_ACTUAL_FONT_SIZE, POPUP_CRIT_COLOR)
+	root.add_child(actual)
+	actual.reset_size()
+	actual.position = Vector2(original.position.x + original.size.x + POPUP_NEGATED_GAP_PX, maxf(0.0, (original.size.y - actual.size.y) * 0.5))
+
+	root.size = Vector2(skill_label.size.x + 8.0 + original.size.x + POPUP_NEGATED_GAP_PX + actual.size.x, maxf(original.size.y, actual.size.y))
+	root.pivot_offset = root.size * 0.5
+	root.position = _spawn_position(Kind.CRIT, root.size)
+	root.scale = Vector2.ONE * POPUP_CRIT_PUNCH_SCALE
+	_active_count += 1
+
+	var tween := root.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(root, "scale", Vector2.ONE, POPUP_CRIT_PUNCH_SEC)
+	tween.tween_property(root, "position:y", root.position.y - POPUP_RISE_PX, POPUP_RISE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(root, "modulate:a", 0.0, POPUP_DURATION_SEC - POPUP_FADE_DELAY_SEC).set_delay(POPUP_FADE_DELAY_SEC)
+	tween.finished.connect(_on_crit_negation_popup_finished.bind(root))
+
+
+func _make_popup_label(text: String, font_size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_override("font", POPUP_FONT)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	label.add_theme_constant_override("outline_size", 5)
+	return label
+
+
 func _spawn_position(kind: int, label_size: Vector2) -> Vector2:
 	if kind == Kind.POISON_TICK and _combat_stage != null:
 		var enemy_local: Vector2 = get_global_transform().affine_inverse() * _combat_stage.enemy_popup_global_position()
@@ -190,6 +268,11 @@ func _on_popup_finished(label: Label, kind: int) -> void:
 	if kind == Kind.POISON_TICK:
 		_active_tick_count = maxi(_active_tick_count - 1, 0)
 	label.queue_free()
+
+
+func _on_crit_negation_popup_finished(root: Control) -> void:
+	_active_count = maxi(_active_count - 1, 0)
+	root.queue_free()
 
 
 func _poison_tick_font_size() -> int:

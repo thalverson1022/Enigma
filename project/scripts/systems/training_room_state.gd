@@ -23,13 +23,65 @@ const DEFAULT_DURATION_MS := 20000
 const DEFAULT_FIGHT_SEED := 1
 const DEFAULT_TARGET_ARMOR := 0
 const DEFAULT_TARGET_POISON_RESIST := 0.0
+const GENERATED_MONSTER_KIND := "normal"
+const GENERATED_MONSTER_TEMPO := "standard"
+const GENERATED_MONSTER_SEED_CONTEXT := "training_room_generated_monster"
+const GENERATED_MONSTER_SEED_MAX := 2147483647
+const TARGET_DEFENSE_FIELDS := [
+	"armor",
+	"poison_resistance",
+	"dodge_chance",
+	"crit_negation",
+	"block",
+	"absorb",
+	"cleanse_threshold",
+	"suppress",
+	"slow",
+	"stun_duration_ms",
+	"interrupt_skip_count",
+]
+const TARGET_PRESETS := [
+	{
+		"id": "blank",
+		"name": "Blank",
+		"defenses": {},
+	},
+	{
+		"id": "armored",
+		"name": "Armored",
+		"defenses": {"armor": 80},
+	},
+	{
+		"id": "fortified",
+		"name": "Fortified",
+		"defenses": {"armor": 100, "crit_negation": 0.5, "block": 3.0},
+	},
+	{
+		"id": "warded",
+		"name": "Warded",
+		"defenses": {"poison_resistance": 0.25, "absorb": 5.0, "suppress": 0.25},
+	},
+	{
+		"id": "nimble",
+		"name": "Nimble",
+		"defenses": {"dodge_chance": 0.12, "crit_negation": 0.55},
+	},
+	{
+		"id": "hexed",
+		"name": "Hexed",
+		"defenses": {"cleanse_threshold": 5, "suppress": 0.35},
+	},
+	{
+		"id": "devious",
+		"name": "Devious",
+		"defenses": {"cleanse_threshold": 5, "slow": 0.25, "stun_duration_ms": 300, "interrupt_skip_count": 1},
+	},
+]
 ## Practice Room only measures damage dealt in a fixed window -- it never
-## checks win/loss -- but CombatResolver.resolve()/CombatResultFormatter
-## still read Monster.hp (for the shared CombatResult.is_win flag), so the
-## practice target needs *some* value here even though nothing in Training
-## Room's own UI ever displays or depends on it. Deliberately huge so is_win
-## never trips.
-const PRACTICE_TARGET_HP := 999999
+## shows win/loss -- but stun needs a hidden max-HP reference for its "large
+## hit" threshold. Keep this low enough that ordinary Rogue burst can exercise
+## stun in the harness without adding an HP control to the target card.
+const PRACTICE_TARGET_HP := 100
 
 var selected_class: ClassDef = null
 var selected_trees: Array[SubclassTree] = []
@@ -60,6 +112,8 @@ var practice_charm: GearItem
 var selected_target: Monster
 var duration_ms: int = DEFAULT_DURATION_MS
 var fight_seed: int = DEFAULT_FIGHT_SEED
+var generated_monster_draft: GeneratedMonsterDraft = null
+var generated_monster_difficulty_id: int = 1
 
 ## P2:R10:T6 -- the most recent practice fight's raw result, for the reused
 ## CombatResultFormatter/CombatRecap presentation to render. Never written
@@ -67,6 +121,7 @@ var fight_seed: int = DEFAULT_FIGHT_SEED
 ## Practice Room never calls `BuildState.finish_fight()` or advances any
 ## encounter/route state.
 var last_result: CombatResolver.CombatResult = null
+var _generated_roll_index: int = 0
 
 
 func _init() -> void:
@@ -74,14 +129,14 @@ func _init() -> void:
 	practice_weapon = _make_practice_item(GearItem.SlotType.WEAPON, "Custom Weapon")
 	practice_trinket = _make_practice_item(GearItem.SlotType.TRINKET, "Custom Trinket")
 	practice_charm = _make_practice_item(GearItem.SlotType.CHARM, "Custom Charm")
-	# Not a seeded roster entry (P2:R10:T5 reworked this into adjustable
-	# Armor/Poison Resist values, post-R10 UI-feedback pass) -- a plain
-	# in-memory Monster this state owns and mutates directly, never a .tres.
+	# Not a seeded roster entry -- a plain in-memory Monster this state owns
+	# and mutates directly for Practice Room defense checks, never a .tres.
 	selected_target = Monster.new()
 	selected_target.display_name = "Practice Target"
 	selected_target.hp = PRACTICE_TARGET_HP
 	selected_target.armor = DEFAULT_TARGET_ARMOR
 	selected_target.poison_resistance = DEFAULT_TARGET_POISON_RESIST
+	_reset_target_defenses()
 	# Practice items begin as empty shells so entering Practice Room has no
 	# equipped gear. The rarity-first invariant still applies once a player
 	# picks Basic/Master/Cursed: that choice equips the item and fills the
@@ -359,6 +414,149 @@ func set_target_armor(value: int) -> void:
 func set_target_poison_resistance(value: float) -> void:
 	selected_target.poison_resistance = clampf(value, 0.0, 1.0)
 	fight_setup_changed.emit()
+
+
+func set_target_defense(field: String, value: Variant) -> void:
+	generated_monster_draft = null
+	match field:
+		"armor":
+			selected_target.armor = maxi(0, int(value))
+		"poison_resistance":
+			selected_target.poison_resistance = clampf(float(value), 0.0, 1.0)
+		"dodge_chance":
+			selected_target.dodge_chance = clampf(float(value), 0.0, 1.0)
+		"crit_negation":
+			selected_target.crit_negation = clampf(float(value), 0.0, 1.0)
+		"block":
+			selected_target.block = maxf(0.0, float(value))
+		"absorb":
+			selected_target.absorb = maxf(0.0, float(value))
+		"cleanse_threshold":
+			selected_target.cleanse_threshold = maxi(0, int(value))
+		"suppress":
+			selected_target.suppress = clampf(float(value), 0.0, 10.0)
+		"slow":
+			selected_target.slow = clampf(float(value), 0.0, 10.0)
+		"stun_duration_ms":
+			selected_target.stun_duration_ms = maxi(0, int(value))
+		"interrupt_skip_count":
+			selected_target.interrupt_skip_count = maxi(0, int(value))
+		_:
+			return
+	fight_setup_changed.emit()
+
+
+func apply_target_preset(preset_id: String) -> void:
+	generated_monster_draft = null
+	_reset_target_defenses()
+	for preset in TARGET_PRESETS:
+		if preset["id"] == preset_id:
+			for field in preset["defenses"]:
+				_apply_target_defense_silent(field, preset["defenses"][field])
+			fight_setup_changed.emit()
+			return
+	fight_setup_changed.emit()
+
+
+func target_defense_snapshot() -> Dictionary:
+	return {
+		"armor": selected_target.armor,
+		"poison_resistance": selected_target.poison_resistance,
+		"dodge_chance": selected_target.dodge_chance,
+		"crit_negation": selected_target.crit_negation,
+		"block": selected_target.block,
+		"absorb": selected_target.absorb,
+		"cleanse_threshold": selected_target.cleanse_threshold,
+		"suppress": selected_target.suppress,
+		"slow": selected_target.slow,
+		"stun_duration_ms": selected_target.stun_duration_ms,
+		"interrupt_skip_count": selected_target.interrupt_skip_count,
+	}
+
+
+func _reset_target_defenses() -> void:
+	for field in TARGET_DEFENSE_FIELDS:
+		_apply_target_defense_silent(field, 0)
+
+
+func _apply_target_defense_silent(field: String, value: Variant) -> void:
+	match field:
+		"armor":
+			selected_target.armor = maxi(0, int(value))
+		"poison_resistance":
+			selected_target.poison_resistance = clampf(float(value), 0.0, 1.0)
+		"dodge_chance":
+			selected_target.dodge_chance = clampf(float(value), 0.0, 1.0)
+		"crit_negation":
+			selected_target.crit_negation = clampf(float(value), 0.0, 1.0)
+		"block":
+			selected_target.block = maxf(0.0, float(value))
+		"absorb":
+			selected_target.absorb = maxf(0.0, float(value))
+		"cleanse_threshold":
+			selected_target.cleanse_threshold = maxi(0, int(value))
+		"suppress":
+			selected_target.suppress = clampf(float(value), 0.0, 10.0)
+		"slow":
+			selected_target.slow = clampf(float(value), 0.0, 10.0)
+		"stun_duration_ms":
+			selected_target.stun_duration_ms = maxi(0, int(value))
+		"interrupt_skip_count":
+			selected_target.interrupt_skip_count = maxi(0, int(value))
+
+
+func roll_generated_target(difficulty_id: int, seed: int = -1) -> GeneratedMonsterDraft:
+	generated_monster_difficulty_id = difficulty_id
+	var library := RuntimeArchetypeLibraryLoader.load_default()
+	var roll_seed := seed if seed >= 0 else _next_generated_monster_seed(difficulty_id)
+	var input := _generated_monster_input(difficulty_id, roll_seed, library)
+	var draft := RuntimeMonsterGenerator.generate(input, library)
+	generated_monster_draft = draft
+	if not draft.has_errors():
+		selected_target = draft.to_monster()
+		duration_ms = draft.duration_ms
+		fight_seed = draft.source_seed
+	fight_setup_changed.emit()
+	return draft
+
+
+func _next_generated_monster_seed(difficulty_id: int) -> int:
+	_generated_roll_index += 1
+	var seed := RunRng.seed_for_context(
+		DEFAULT_FIGHT_SEED,
+		GENERATED_MONSTER_SEED_CONTEXT,
+		[difficulty_id, _generated_roll_index, Time.get_ticks_msec()]
+	)
+	return (seed % GENERATED_MONSTER_SEED_MAX) + 1
+
+
+func _generated_monster_input(difficulty_id: int, seed: int, library: RuntimeArchetypeLibrary) -> RuntimeGenerationInput:
+	var available := library.available_for(difficulty_id, GENERATED_MONSTER_KIND)
+	if available.is_empty():
+		return RuntimeGenerationInput.from_dictionary({
+			"seed": seed,
+			"difficulty": difficulty_id,
+			"kind": GENERATED_MONSTER_KIND,
+			"tempoProfile": GENERATED_MONSTER_TEMPO,
+		})
+
+	var rng := RunRng.rng_for_context(seed, GENERATED_MONSTER_SEED_CONTEXT, [difficulty_id, "archetypes"])
+	var primary: RuntimeArchetypeDef = available[rng.randi_range(0, available.size() - 1)]
+	var secondary_id := ""
+	if available.size() > 1:
+		var secondary: RuntimeArchetypeDef = available[rng.randi_range(0, available.size() - 2)]
+		if secondary == primary:
+			secondary = available[available.size() - 1]
+		secondary_id = secondary.id
+
+	return RuntimeGenerationInput.from_dictionary({
+		"seed": seed,
+		"archetypeA": primary.id,
+		"archetypeB": secondary_id,
+		"difficulty": difficulty_id,
+		"kind": GENERATED_MONSTER_KIND,
+		"tempoProfile": GENERATED_MONSTER_TEMPO,
+	})
 
 
 func set_duration_ms(ms: int) -> void:

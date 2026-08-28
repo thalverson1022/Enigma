@@ -2,8 +2,9 @@ extends Control
 ## Title screen: entry point of the game. Menu order: "New Adventure"
 ## (starts the real flow), "Resume Adventure" (resume -- always present,
 ## disabled when no save exists), "Practice Room" (P2:R10 freeform practice
-## mode), "Exit". No game logic here, per docs/Conventions.md's UI
-## architecture principle.
+## mode), "Contract Test" (debug shortcut into the current contract flow),
+## "Exit". No game logic here, per docs/Conventions.md's UI architecture
+## principle.
 ##
 ## Layout per user direction: everything centered on the canvas, large
 ## title / smaller subtitle, menu set apart in a bordered card. Uses direct
@@ -14,6 +15,7 @@ extends Control
 signal adventure_pressed
 signal continue_pressed
 signal training_room_pressed
+signal contract_test_pressed
 
 const FLOW_TEXT := preload("res://scripts/ui/adventure_flow_text.gd")
 const TITLE_FONT_SIZE := 48
@@ -130,6 +132,12 @@ func _ready() -> void:
 	training_room_button.tooltip_text = FLOW_TEXT.TOOLTIP_PRACTICE_ROOM
 	training_room_button.pressed.connect(func(): training_room_pressed.emit())
 	card_vbox.add_child(training_room_button)
+
+	var contract_test_button := Button.new()
+	contract_test_button.text = "Contract Test"
+	contract_test_button.tooltip_text = "Skip setup and open the current contract test flow."
+	contract_test_button.pressed.connect(func(): contract_test_pressed.emit())
+	card_vbox.add_child(contract_test_button)
 
 	var exit_button := Button.new()
 	exit_button.text = "Exit"

@@ -10,7 +10,7 @@ extends RefCounted
 static func format(result: CombatResolver.CombatResult, monster: Monster) -> String:
 	var lines: PackedStringArray = []
 	lines.append("Target:")
-	lines.append("  %s -- %d HP, %d Armor, %.0f%% Poison Resist" % [
+	lines.append("  %s -- %d HP, %d Armor, %.0f%% Resist" % [
 		monster.display_name, monster.hp, monster.armor, monster.poison_resistance * 100.0
 	])
 	lines.append("  Combat window: %.0fs" % (result.duration_ms / 1000.0))
@@ -40,13 +40,13 @@ static func format(result: CombatResolver.CombatResult, monster: Monster) -> Str
 
 ## Practice Room's own result narrative -- same timeline/summary shape as
 ## format() above, but with no HP/win-loss framing at all: Practice Room only
-## measures damage dealt against a target's Armor/Poison Resist in a fixed
+## measures damage dealt against a target's Armor/Resist in a fixed
 ## window, it never checks whether the target is "defeated" (post-R10
 ## UI-feedback pass removed the HP concept from Practice Room entirely).
 static func format_practice(result: CombatResolver.CombatResult, monster: Monster) -> String:
 	var lines: PackedStringArray = []
 	lines.append("Practice Target:")
-	lines.append("  %s -- %d Armor, %.0f%% Poison Resist" % [
+	lines.append("  %s -- %d Armor, %.0f%% Resist" % [
 		monster.display_name, monster.armor, monster.poison_resistance * 100.0
 	])
 	lines.append("  Combat window: %.0fs" % (result.duration_ms / 1000.0))
@@ -85,7 +85,7 @@ static func _timeline(result: CombatResolver.CombatResult) -> PackedStringArray:
 		else:
 			var tick := result.tick_events[tick_index]
 			tick_index += 1
-			if tick.damage > 0.0:
+			if tick.damage > 0.0 or tick.absorbed_amount > 0.0:
 				lines.append(_tick_line(tick))
 	return lines
 
@@ -95,6 +95,16 @@ static func _timeline(result: CombatResolver.CombatResult) -> PackedStringArray:
 ## like Mithril Karambit's) -- user-requested, so these are easy to spot
 ## while scanning the log instead of reading identically to an ordinary hit.
 static func _cast_line(event: CombatResolver.CastEvent) -> String:
+	if event.was_interrupted:
+		var interrupt_note := "skipped" if event.interrupt_skipped else "interrupted"
+		var skill_name := event.skill.display_name if event.skill != null else "Attack"
+		var skip_note := ""
+		if event.interrupt_triggered and event.interrupt_skip_count_applied > 0:
+			skip_note = " (%d future skip%s)" % [
+				event.interrupt_skip_count_applied,
+				"" if event.interrupt_skip_count_applied == 1 else "s",
+			]
+		return "[%.1fs] INTERRUPT %s %s%s" % [event.time_ms / 1000.0, skill_name, interrupt_note, skip_note]
 	var clauses: PackedStringArray = []
 	var source_damage := _contribution_damage(event, "cast")
 	var source_crit := _contribution_crit(event, "cast")
@@ -103,6 +113,8 @@ static func _cast_line(event: CombatResolver.CastEvent) -> String:
 		source_crit = event.is_crit
 	if source_damage > 0.0:
 		clauses.append(("CRITS for %.1f" if source_crit else "hits for %.1f") % source_damage)
+	elif event.blocked_amount > 0.0:
+		clauses.append("hits for 0.0 (blocked %.1f)" % event.blocked_amount)
 	if event.poison_stacks_applied > 0:
 		clauses.append("applies %d poison stack%s" % [
 			event.poison_stacks_applied, "" if event.poison_stacks_applied == 1 else "s"
@@ -110,9 +122,11 @@ static func _cast_line(event: CombatResolver.CastEvent) -> String:
 	if event.armor_reduction_applied > 0:
 		clauses.append("shreds %d armor" % event.armor_reduction_applied)
 	if event.poison_resistance_reduction_applied > 0.0:
-		clauses.append("reduces poison resistance by %d%%" % roundi(event.poison_resistance_reduction_applied * 100.0))
+		clauses.append("reduces resistance by %d%%" % roundi(event.poison_resistance_reduction_applied * 100.0))
 	if event.min_cast_time_proc_applied:
 		clauses.append("procs at minimum cast speed")
+	if event.stun_duration_ms > 0:
+		clauses.append("triggers stun for %s" % _format_stun_duration(event.stun_duration_ms))
 	var trigger_clauses := _triggered_contribution_clauses(event)
 	if not trigger_clauses.is_empty():
 		clauses.append_array(trigger_clauses)
@@ -156,6 +170,13 @@ static func _triggered_contribution_clauses(event: CombatResolver.CastEvent) -> 
 	return clauses
 
 
+static func _format_stun_duration(duration_ms: int) -> String:
+	var seconds := float(duration_ms) / 1000.0
+	if is_equal_approx(seconds, roundf(seconds)):
+		return "%ds" % int(roundf(seconds))
+	return "%.1fs" % seconds
+
+
 ## "a" / "a and b" / "a, b and c" -- reads as prose instead of a
 ## comma-separated field list.
 static func _join_clauses(clauses: PackedStringArray) -> String:
@@ -167,4 +188,5 @@ static func _join_clauses(clauses: PackedStringArray) -> String:
 
 static func _tick_line(tick: CombatResolver.TickEvent) -> String:
 	var stacks_note := "1 stack remains" if tick.stacks_remaining == 1 else "%d stacks remain" % tick.stacks_remaining
-	return "[%.1fs] DOT       Poison ticks for %.1f -- %s" % [tick.time_ms / 1000.0, tick.damage, stacks_note]
+	var absorb_note := " (absorbed %.1f)" % tick.absorbed_amount if tick.absorbed_amount > 0.0 else ""
+	return "[%.1fs] DOT       Poison ticks for %.1f%s -- %s" % [tick.time_ms / 1000.0, tick.damage, absorb_note, stacks_note]

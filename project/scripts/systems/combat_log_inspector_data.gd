@@ -63,7 +63,7 @@ static func _timeline_rows(result: CombatResolver.CombatResult) -> Array[Diction
 	var poison_row: Dictionary = {}
 	var has_poison_row := false
 	for tick in result.tick_events:
-		if tick.damage <= 0.0:
+		if tick.damage <= 0.0 and tick.absorbed_amount <= 0.0:
 			continue
 		if not has_poison_row:
 			poison_row = _row_for(row_by_key, rows, "Poison Ticks", KIND_POISON, POISON_ICON)
@@ -136,7 +136,7 @@ static func _max_event_damage(result: CombatResolver.CombatResult) -> float:
 		for contribution in event.damage_contributions:
 			max_damage = maxf(max_damage, float(contribution.get("damage", 0.0)))
 	for tick in result.tick_events:
-		if tick.damage > 0.0:
+		if tick.damage > 0.0 or tick.absorbed_amount > 0.0:
 			max_damage = maxf(max_damage, tick.damage)
 	return max_damage
 

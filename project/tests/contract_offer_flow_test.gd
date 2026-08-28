@@ -66,9 +66,15 @@ func _initialize() -> void:
 	_require(combat_screen._contract_overlay._contract_options_box.get_child_count() == 1, "Expected one contract option (Vyra).")
 	_require(combat_screen._contract_overlay._contract_options_box.alignment == BoxContainer.ALIGNMENT_BEGIN, "Expected contract options to stack from the top like a list.")
 	_require(combat_screen._contract_overlay._contract_options_box.position.y < 160.0, "Expected the contract list to start near the top of the Contract Window.")
+	_require(combat_screen._contract_overlay._contract_title_label.text == "Choose a Contract", "Expected the contract picker header to invite contract choice.")
+	_require(not combat_screen._contract_overlay._contract_body_label.visible, "Expected contract picker subtext to be hidden.")
 	var vyra_button: Button = combat_screen._contract_overlay._contract_options_box.get_child(0)
-	_require(vyra_button.text.contains(combat_screen._contract_overlay.CONTRACT_VYRA_NAME), "Expected Vyra's contract card label.")
-	_require(vyra_button.text.contains("Reward: 120g"), "Expected Vyra's authored gold reward on her contract card.")
+	_require(vyra_button.text == "", "Expected Vyra's contract card to use composed labels instead of button text.")
+	_require(_card_label_text(vyra_button, "ContractBossNameLabel") == "Vyra", "Expected Vyra's boss name on her contract card.")
+	_require(_card_label_text(vyra_button, "ContractLocationLabel").begins_with("Location:"), "Expected Vyra's contract card to show a location line.")
+	_require(_card_label_text(vyra_button, "ContractGoldLabel") == "120g", "Expected Vyra's authored gold reward on her contract card.")
+	_require(_contract_card_icon(vyra_button).custom_minimum_size == Vector2(44, 44), "Expected contract card icon to be larger than the header icon.")
+	_require(_card_label_font_size(vyra_button, "ContractBossNameLabel") > _card_label_font_size(vyra_button, "ContractLocationLabel"), "Expected boss name to use a larger font than the card details.")
 	_require(combat_screen._contract_overlay._contract_action_button.disabled, "Expected Proceed disabled before a contract is selected.")
 	_require(vyra_button.find_child("ContractChoicePulse", true, false) != null, "Expected available contract card to pulse.")
 	vyra_button.pressed.emit()
@@ -163,7 +169,7 @@ func _initialize() -> void:
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected clicking Door Guard to select only, not commit.")
 	_require(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree", "Expected current route to remain at the route-choice hub before Proceed.")
 	_require(not combat_screen._map_overlay._map_proceed_button.disabled, "Expected Proceed enabled after selecting Door Guard.")
-	_require(combat_screen._map_overlay._map_story_label.text == "Selected Route: Door Guard\nThe direct approach... I like it.", "Expected selected route story text to use Door Guard's authored flavor.")
+	_require(_normalized_story_text(combat_screen._map_overlay._map_story_label.text) == "Selected Route: Door Guard\nThe direct approach... I like it.", "Expected selected route story text to use Door Guard's authored flavor.")
 	_require(combat_screen._map_overlay._map_proceed_button.tooltip_text == "Proceed to Door Guard as your next fight.", "Expected selected route tooltip to name the fight being committed.")
 	_require(combat_screen._map_overlay._map_node_buttons[0].find_child("ContractAvailablePulse", true, false) == null, "Expected selected Door Guard to stop pulsing.")
 	var door_selected_style: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
@@ -181,7 +187,7 @@ func _initialize() -> void:
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected switching to Portly Cook to select only, not commit.")
 	_require(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree", "Expected current route to remain at the hub after switching pending selection.")
 	_require(not combat_screen._map_overlay._map_proceed_button.disabled, "Expected Proceed enabled after switching to Portly Cook.")
-	_require(combat_screen._map_overlay._map_story_label.text == "Selected Route: Portly Cook\nA coward still gets paid.", "Expected selected route story text to use Portly Cook's authored flavor.")
+	_require(_normalized_story_text(combat_screen._map_overlay._map_story_label.text) == "Selected Route: Portly Cook\nA coward still gets paid.", "Expected selected route story text to use Portly Cook's authored flavor.")
 	_require(combat_screen._map_overlay._map_node_buttons[0].find_child("ContractAvailablePulse", true, false) != null, "Expected unselected Door Guard to pulse again after switching.")
 	_require(combat_screen._map_overlay._map_node_buttons[1].find_child("ContractAvailablePulse", true, false) == null, "Expected selected Portly Cook to stop pulsing.")
 
@@ -196,13 +202,8 @@ func _initialize() -> void:
 	_require(not combat_screen._enemy_panel._info_label.text.contains("Target:"), "Expected enemy panel body to omit redundant target label.")
 	_require(combat_screen._enemy_panel._info_label.text.contains("Fight Window: 20s"), "Expected enemy panel to show route window.")
 	_require(not combat_screen._enemy_panel._info_label.text.contains("Contract:"), "Expected enemy panel to omit contract context.")
-	# P2:R7:T5 (already shipped, predates this test's last update) added
-	# always-visible damage goal/Reward/Pressure lines to every enemy panel
-	# state, including route targets -- these were stale assertions against
-	# the pre-T5 panel; updated to match Portly Cook's real authored data,
-	# same values combat_screen_test.gd's Portly Cook check already asserts.
-	_require(combat_screen._enemy_panel._info_label.text.contains("Pressure: No notable defensive pressure."), "Expected enemy panel's real pressure label for Portly Cook (0 armor/0%% resist).")
-	_require(combat_screen._enemy_panel._info_label.text.contains("Reward: 26g, Basic Gear"), "Expected enemy panel's real reward preview for Portly Cook.")
+	_require(not combat_screen._enemy_panel._info_label.text.contains("Pressure:"), "Expected enemy panel to keep route pressure out of the authored target detail.")
+	_require(not combat_screen._enemy_panel._info_label.text.contains("Reward:"), "Expected enemy panel to keep route rewards on the route map and outcome surfaces.")
 	_require(combat_screen._enemy_panel._fight_button.disabled, "Expected route fight blocked until build lock.")
 
 	combat_screen._show_talent_overlay()
@@ -234,6 +235,30 @@ func _initialize() -> void:
 
 	print("Contract offer flow check: OK")
 	quit()
+
+
+func _normalized_story_text(text: String) -> String:
+	return text.replace("\r\n", "\n").replace("\r", "\n").strip_edges()
+
+
+func _card_label_text(card: Button, label_name: String) -> String:
+	var label: Label = card.find_child(label_name, true, false)
+	_require(label != null, "Expected contract card label %s." % label_name)
+	return label.text
+
+
+func _card_label_font_size(card: Button, label_name: String) -> int:
+	var label: Label = card.find_child(label_name, true, false)
+	_require(label != null, "Expected contract card label %s." % label_name)
+	return label.get_theme_font_size("font_size")
+
+
+func _contract_card_icon(card: Button) -> TextureRect:
+	var content: HBoxContainer = card.find_child("ContractOfferContent", true, false)
+	_require(content != null, "Expected composed contract card content.")
+	var icon: TextureRect = content.find_child("Icon", true, false)
+	_require(icon != null, "Expected contract card icon.")
+	return icon
 
 
 func _require(condition: bool, message: String) -> void:

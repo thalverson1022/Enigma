@@ -35,6 +35,7 @@ class DebugGridOverlay:
 		_draw_sprite_frame(combat_stage.enemy_actor_anchor, combat_stage._enemy_sprite)
 		_draw_marker(combat_stage._sprite_anchor_point(combat_stage.player_actor_anchor, combat_stage._player_sprite, combat_stage._player_current_anchor_point), Color(1.0, 1.0, 0.25, 0.95), 5.0)
 		_draw_marker(combat_stage._sprite_anchor_point(combat_stage.enemy_actor_anchor, combat_stage._enemy_sprite, combat_stage.PEASANT_ANCHOR_POINT), Color(1.0, 1.0, 0.25, 0.95), 5.0)
+		_draw_slow_snow_anchor()
 
 	func _draw_marker(point: Vector2, color: Color, radius: float) -> void:
 		draw_circle(point, radius, color)
@@ -46,6 +47,15 @@ class DebugGridOverlay:
 			return
 		var frame_rect := Rect2(anchor.position + combat_stage._sprite_render_top_left(sprite), sprite.size * sprite.scale)
 		draw_rect(frame_rect, Color(1.0, 0.0, 0.0, 0.9), false, 2.0)
+
+	func _draw_slow_snow_anchor() -> void:
+		if combat_stage.player_actor_anchor == null:
+			return
+		var snow_rect: Rect2 = combat_stage._slow_snow_field_rect()
+		var anchor_point: Vector2 = snow_rect.position + snow_rect.size * 0.5
+		var color := Color(0.55, 0.9, 1.0, 0.95)
+		draw_rect(snow_rect, Color(color.r, color.g, color.b, 0.16), false, 2.0)
+		_draw_marker(anchor_point, color, 7.0)
 
 
 class ContactShadow:
@@ -65,6 +75,186 @@ class ContactShadow:
 			var alpha := lerpf(0.04, 0.22, progress)
 			draw_circle(Vector2.ZERO, layer_radius, Color(0.0, 0.0, 0.0, alpha), true, -1.0, true)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+class StunStarsEffect:
+	extends Control
+
+	const STAR_COLOR := Color(1.0, 0.86, 0.22, 0.96)
+	const STAR_OUTLINE := Color(0.18, 0.08, 0.0, 0.82)
+	const ORBIT_CENTER := Vector2(75.0, 42.0)
+	const ORBIT_RADIUS := Vector2(44.0, 12.0)
+	const STAR_RADIUS := 10.0
+	const STAR_COUNT := 3
+	const ROTATION_SPEED := 5.4
+
+	var elapsed_sec := 0.0
+	var duration_sec := 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_process(true)
+
+	func _process(delta: float) -> void:
+		elapsed_sec += delta
+		queue_redraw()
+		if duration_sec > 0.0 and elapsed_sec >= duration_sec:
+			queue_free()
+
+	func _draw() -> void:
+		var pulse := 0.86 + sin(elapsed_sec * 9.0) * 0.14
+		for index in STAR_COUNT:
+			var angle := elapsed_sec * ROTATION_SPEED + TAU * float(index) / float(STAR_COUNT)
+			var depth := 0.72 + 0.28 * sin(angle)
+			var point := ORBIT_CENTER + Vector2(cos(angle) * ORBIT_RADIUS.x, sin(angle) * ORBIT_RADIUS.y)
+			_draw_star(point, STAR_RADIUS * pulse * depth)
+
+	func _draw_star(center: Vector2, radius: float) -> void:
+		var points := PackedVector2Array()
+		for index in 10:
+			var angle := -PI * 0.5 + TAU * float(index) / 10.0
+			var point_radius := radius if index % 2 == 0 else radius * 0.46
+			points.append(center + Vector2(cos(angle), sin(angle)) * point_radius)
+		draw_colored_polygon(points, STAR_OUTLINE)
+		var inner := PackedVector2Array()
+		for point in points:
+			inner.append(center + (point - center) * 0.76)
+		draw_colored_polygon(inner, STAR_COLOR)
+
+
+class CleanseBurstEffect:
+	extends Control
+
+	const BURST_COLOR := Color(0.78, 0.92, 1.0, 0.92)
+	const BURST_CORE := Color(1.0, 1.0, 1.0, 0.78)
+	const DURATION_SEC := 0.72
+	const MAX_RADIUS := 108.0
+	const SECOND_PULSE_DELAY := 0.28
+
+	var elapsed_sec := 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_process(true)
+
+	func _process(delta: float) -> void:
+		elapsed_sec += delta
+		queue_redraw()
+		if elapsed_sec >= DURATION_SEC:
+			queue_free()
+
+	func _draw() -> void:
+		var center := size * 0.5
+		_draw_pulse(center, clampf(elapsed_sec / 0.46, 0.0, 1.0), 1.0)
+		if elapsed_sec >= SECOND_PULSE_DELAY:
+			_draw_pulse(center, clampf((elapsed_sec - SECOND_PULSE_DELAY) / 0.44, 0.0, 1.0), 0.82)
+		var core_alpha := maxf(0.0, 1.0 - elapsed_sec / DURATION_SEC)
+		draw_circle(center, lerpf(9.0, 2.0, clampf(elapsed_sec / DURATION_SEC, 0.0, 1.0)), Color(BURST_CORE.r, BURST_CORE.g, BURST_CORE.b, 0.34 * core_alpha), true)
+
+	func _draw_pulse(center: Vector2, progress: float, strength: float) -> void:
+		var eased := 1.0 - pow(1.0 - progress, 2.0)
+		var alpha := 1.0 - progress
+		var ring_radius := lerpf(18.0, MAX_RADIUS, eased)
+		draw_arc(center, ring_radius, 0.0, TAU, 72, Color(BURST_COLOR.r, BURST_COLOR.g, BURST_COLOR.b, BURST_COLOR.a * alpha * strength), 5.0, true)
+		draw_arc(center, ring_radius * 0.6, 0.0, TAU, 72, Color(BURST_CORE.r, BURST_CORE.g, BURST_CORE.b, BURST_CORE.a * alpha * strength), 2.5, true)
+
+
+class InterruptSlashEffect:
+	extends Control
+
+	const DURATION_SEC := 0.38
+	const SLASH_COLOR := Color(1.0, 0.18, 0.12, 0.96)
+	const SLASH_CORE := Color(1.0, 0.78, 0.48, 0.86)
+	const RING_COLOR := Color(0.95, 0.12, 0.2, 0.58)
+
+	var elapsed_sec := 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_process(true)
+
+	func _process(delta: float) -> void:
+		elapsed_sec += delta
+		queue_redraw()
+		if elapsed_sec >= DURATION_SEC:
+			queue_free()
+
+	func _draw() -> void:
+		var center := size * 0.5
+		var progress := clampf(elapsed_sec / DURATION_SEC, 0.0, 1.0)
+		var snap := sin(progress * PI)
+		var alpha := 1.0 - progress
+		var slash_extent := lerpf(30.0, 70.0, minf(progress * 2.0, 1.0))
+		var slash_width := lerpf(8.0, 3.0, progress)
+		_draw_slash(center, Vector2(-slash_extent, -34.0), Vector2(slash_extent, 34.0), slash_width, alpha)
+		_draw_slash(center, Vector2(-slash_extent, 34.0), Vector2(slash_extent, -34.0), slash_width, alpha)
+		draw_arc(center, lerpf(18.0, 58.0, progress), 0.0, TAU, 44, Color(RING_COLOR.r, RING_COLOR.g, RING_COLOR.b, RING_COLOR.a * alpha), 3.0, true)
+		for index in 6:
+			var angle := TAU * float(index) / 6.0 + elapsed_sec * 9.0
+			var spark_start := center + Vector2(cos(angle), sin(angle)) * lerpf(16.0, 42.0, progress)
+			var spark_end := spark_start + Vector2(cos(angle), sin(angle)) * (8.0 + 8.0 * snap)
+			draw_line(spark_start, spark_end, Color(SLASH_CORE.r, SLASH_CORE.g, SLASH_CORE.b, alpha * 0.8), 2.0, true)
+
+	func _draw_slash(center: Vector2, start_offset: Vector2, end_offset: Vector2, width: float, alpha: float) -> void:
+		draw_line(center + start_offset, center + end_offset, Color(0.18, 0.02, 0.02, alpha * 0.92), width + 5.0, true)
+		draw_line(center + start_offset, center + end_offset, Color(SLASH_COLOR.r, SLASH_COLOR.g, SLASH_COLOR.b, SLASH_COLOR.a * alpha), width, true)
+		draw_line(center + start_offset * 0.84, center + end_offset * 0.84, Color(SLASH_CORE.r, SLASH_CORE.g, SLASH_CORE.b, SLASH_CORE.a * alpha), maxf(1.5, width * 0.34), true)
+
+
+class SlowAuraEffect:
+	extends Control
+
+	const FROST_COLOR := Color(0.55, 0.86, 1.0, 0.62)
+	const FROST_CORE := Color(0.88, 0.97, 1.0, 0.48)
+	const BREATH_COLOR := Color(0.86, 0.96, 1.0, 0.58)
+	const BREATH_INTERVAL_SEC := 1.1
+	const BREATH_LIFETIME_SEC := 1.05
+	const MOTE_COUNT := 14
+
+	var elapsed_sec := 0.0
+	var strength := 0.0
+	var breath_emit_sec := 0.0
+	var breaths: Array[Dictionary] = []
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_process(true)
+
+	func _process(delta: float) -> void:
+		elapsed_sec += delta
+		breath_emit_sec += delta
+		if breath_emit_sec >= BREATH_INTERVAL_SEC:
+			breath_emit_sec = 0.0
+			breaths.append({"age": 0.0, "offset": sin(elapsed_sec * 2.7) * 5.0})
+		for breath in breaths:
+			breath["age"] = float(breath.get("age", 0.0)) + delta
+		breaths = breaths.filter(func(breath): return float(breath.get("age", 0.0)) < BREATH_LIFETIME_SEC)
+		queue_redraw()
+
+	func _draw() -> void:
+		var slow_alpha := clampf(0.38 + strength * 0.5, 0.38, 0.82)
+		var foot_center := Vector2(size.x * 0.48, size.y * 0.78)
+		draw_set_transform(foot_center, 0.0, Vector2(1.0, 0.34))
+		draw_arc(Vector2.ZERO, 48.0, 0.0, TAU, 64, Color(FROST_COLOR.r, FROST_COLOR.g, FROST_COLOR.b, FROST_COLOR.a * slow_alpha), 4.0, true)
+		draw_arc(Vector2.ZERO, 30.0 + sin(elapsed_sec * 3.2) * 3.0, 0.0, TAU, 64, Color(FROST_CORE.r, FROST_CORE.g, FROST_CORE.b, FROST_CORE.a * slow_alpha), 2.0, true)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+		for index in MOTE_COUNT:
+			var seed := float(index) * 12.9898
+			var x := 24.0 + fposmod(seed * 19.17, size.x - 48.0)
+			var y := 16.0 + fposmod(elapsed_sec * (18.0 + float(index % 5) * 3.0) + seed * 7.31, size.y * 0.66)
+			var twinkle := 0.5 + sin(elapsed_sec * 4.0 + seed) * 0.5
+			draw_circle(Vector2(x + sin(elapsed_sec * 1.7 + seed) * 5.0, y), 1.5 + twinkle * 1.2, Color(FROST_CORE.r, FROST_CORE.g, FROST_CORE.b, 0.18 + 0.32 * twinkle * slow_alpha), true)
+
+		var mouth := Vector2(size.x * 0.58, size.y * 0.30)
+		for breath in breaths:
+			var age := float(breath.get("age", 0.0))
+			var progress := clampf(age / BREATH_LIFETIME_SEC, 0.0, 1.0)
+			var alpha := (1.0 - progress) * 0.58
+			var center := mouth + Vector2(18.0 + progress * 34.0, -8.0 - progress * 18.0 + float(breath.get("offset", 0.0)))
+			var radius := lerpf(4.0, 15.0, progress)
+			draw_circle(center, radius, Color(BREATH_COLOR.r, BREATH_COLOR.g, BREATH_COLOR.b, alpha), true)
+			draw_circle(center + Vector2(radius * 0.5, -radius * 0.24), radius * 0.55, Color(BREATH_COLOR.r, BREATH_COLOR.g, BREATH_COLOR.b, alpha * 0.6), true)
 
 
 const ACTOR_SIZE := Vector2(160, 148)
@@ -94,6 +284,39 @@ const HIRED_GOON_VISUAL_KEY := "hired_goon"
 const VYRA_VISUAL_KEY := "vyra"
 const KNIVES_VISUAL_KEY := "knives"
 const PRACTICE_DUMMY_VISUAL_KEY := "practice_dummy"
+const STATIC_ENEMY_SPRITE_SCALE := 0.145
+const STATIC_ENEMY_LAYOUT_FRAME_SIZE := Vector2(1254, 1254)
+const STATIC_ENEMY_ANCHOR_RATIO := Vector2(0.5, 0.42)
+const SWAMP_GREEN_SLIME_VISUAL_KEY := "swamp_green_slime"
+const SWAMP_GOBLIN_VISUAL_KEY := "swamp_goblin"
+const SWAMP_BOG_RAT_VISUAL_KEY := "swamp_bog_rat"
+const SWAMP_GIANT_LEECH_VISUAL_KEY := "swamp_giant_leech"
+const SWAMP_POISON_FROG_VISUAL_KEY := "swamp_poison_frog"
+const SWAMP_TROLL_VISUAL_KEY := "swamp_troll"
+const SWAMP_BOG_WITCH_VISUAL_KEY := "swamp_bog_witch"
+const SWAMP_HYDRA_SPAWN_VISUAL_KEY := "swamp_hydra_spawn"
+const SWAMP_MIRE_KNIGHT_VISUAL_KEY := "swamp_mire_knight"
+const SWAMP_GREEN_HAG_VISUAL_KEY := "swamp_green_hag"
+const SWAMP_HYDRA_VISUAL_KEY := "swamp_hydra"
+const SWAMP_ANCIENT_TROLL_VISUAL_KEY := "swamp_ancient_troll"
+const SWAMP_SLIME_QUEEN_VISUAL_KEY := "swamp_slime_queen"
+const SWAMP_DROWNED_MATRIARCH_VISUAL_KEY := "swamp_drowned_matriarch"
+const SWAMP_BOGHEART_COLOSSUS_VISUAL_KEY := "swamp_bogheart_colossus"
+const CAVE_VAMPIRE_BAT_VISUAL_KEY := "cave_vampire_bat"
+const CAVE_WOLF_SPIDER_VISUAL_KEY := "cave_wolf_spider"
+const CAVE_GOBLIN_VISUAL_KEY := "cave_goblin"
+const CAVE_TROGLODYTE_VISUAL_KEY := "cave_troglodyte"
+const CAVE_OGRE_VISUAL_KEY := "cave_ogre"
+const CAVE_TROLL_VISUAL_KEY := "cave_troll"
+const CAVE_GIANT_CENTIPEDE_VISUAL_KEY := "cave_giant_centipede"
+const CAVE_BASILISK_VISUAL_KEY := "cave_basilisk"
+const CAVE_BRUTE_VISUAL_KEY := "cave_brute"
+const CAVE_ECHOING_SEER_VISUAL_KEY := "cave_echoing_seer"
+const CAVE_PURPLE_WYRM_VISUAL_KEY := "cave_purple_wyrm"
+const CAVE_GOBLIN_KING_VISUAL_KEY := "cave_goblin_king"
+const CAVE_ANCIENT_BASILISK_VISUAL_KEY := "cave_ancient_basilisk"
+const CAVE_DEEP_MAW_VISUAL_KEY := "cave_deep_maw"
+const CAVE_GEMVEIN_TYRANT_VISUAL_KEY := "cave_gemvein_tyrant"
 const ANIMATION_PHYSICAL := "physical"
 const ANIMATION_POISON := "poison"
 const ANIMATION_TICK := "poison_tick"
@@ -105,6 +328,7 @@ const STAGE_GRID_MIN := -5.0
 const STAGE_GRID_MAX := 5.0
 const STAGE_GRID_MARGIN_PX := 12.0
 const PLAYER_STAGE_GRID := Vector2(-1.0, 2.0)
+const STUN_STAR_STAGE_GRID_Y := 0.0
 const ENEMY_STAGE_GRID := Vector2(1.0, 1.0)
 const ACTOR_GROUP_STAGE_OFFSET_PX := Vector2(38.0, 0.0)
 const CONTACT_SHADOW_MIN_SIZE := Vector2(54.0, 18.0)
@@ -114,8 +338,14 @@ const MAX_CAST_ANIMATION_SEC := 0.42
 const TRIGGERED_FOLLOWUP_ANIMATION_SEC := 0.18
 const TICK_PULSE_SEC := 0.22
 const POISON_VISIBLE_STACK_CAP := 5
+const STUN_JOLT_SEC := 0.08
+const STUN_JOLT_OFFSET := Vector2(-7.0, 0.0)
+const DODGE_AFTERIMAGE_SEC := 0.28
+const DODGE_AFTERIMAGE_ALPHA := 0.38
+const DODGE_AFTERIMAGE_OFFSETS := [Vector2(-26.0, 0.0), Vector2(0.0, -2.0), Vector2(26.0, 0.0)]
+const DODGE_SHIFT_OFFSET := Vector2(18.0, 0.0)
+const DODGE_SHIFT_SEC := 0.09
 const OUTCOME_POSE_SEC := 0.24
-const OUTCOME_FLASH_SEC := 0.18
 const FIGHT_INTRO_SEC := 0.42
 const FIGHT_INTRO_PLAYER_OFFSET := Vector2(-18.0, 0.0)
 const FIGHT_INTRO_ENEMY_OFFSET := Vector2(18.0, 0.0)
@@ -131,6 +361,17 @@ const BANDIT_COIN_SPRITE_CONTACT_OFFSET := Vector2(-10.0, -12.0)
 const BANDIT_COIN_FALLBACK_IMPACT_OFFSET := Vector2(80.0, 82.0)
 const BANDIT_COIN_SPREAD_X_RANGE := Vector2(-34.0, 20.0)
 const BANDIT_COIN_SPREAD_Y_RANGE := Vector2(-38.0, 14.0)
+const ADVENTURE_ENEMY_HIT_EFFECT_OFFSET := Vector2(0.0, 40.0)
+const MECHANIC_TEXT_FONT := preload("res://assets/fonts/PirataOne-Regular.ttf")
+const MECHANIC_TEXT_FONT_SIZE := 24
+const MECHANIC_TEXT_FLOAT_SEC := 0.58
+const MECHANIC_TEXT_RISE_PX := 24.0
+const CLEANSE_BURST_SIZE := Vector2(236, 236)
+const INTERRUPT_SLASH_SIZE := Vector2(166, 128)
+const INTERRUPT_PLAYER_EFFECT_OFFSET := Vector2(36.0, -28.0)
+const SLOW_AURA_SIZE := Vector2(210, 190)
+const SLOW_AURA_OFFSET_X := -26.0
+const SLOW_SNOW_STAGE_GRID_Y := 0.0
 const PLAYER_ANIMATION_MANIFEST_PATHS := {
 	"idle": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/idle/animation_manifest.json",
 	"attack_physical": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/attack1/animation_manifest.json",
@@ -174,6 +415,100 @@ const ENEMY_ANIMATION_PATHS := {
 		"hurt": "res://assets/placeholder_combat_sprites/townsfolk/medieval_thief_sprite_sheet.png",
 		"defeat": "res://assets/placeholder_combat_sprites/townsfolk/medieval_thief_sprite_sheet.png",
 	},
+	SWAMP_GREEN_SLIME_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/slime.png", "hurt": "res://assets/enemies/swamp/slime.png", "defeat": "res://assets/enemies/swamp/slime.png"},
+	SWAMP_GOBLIN_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/goblin.png", "hurt": "res://assets/enemies/swamp/goblin.png", "defeat": "res://assets/enemies/swamp/goblin.png"},
+	SWAMP_BOG_RAT_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/rat.png", "hurt": "res://assets/enemies/swamp/rat.png", "defeat": "res://assets/enemies/swamp/rat.png"},
+	SWAMP_GIANT_LEECH_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/leech.png", "hurt": "res://assets/enemies/swamp/leech.png", "defeat": "res://assets/enemies/swamp/leech.png"},
+	SWAMP_POISON_FROG_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/frog.png", "hurt": "res://assets/enemies/swamp/frog.png", "defeat": "res://assets/enemies/swamp/frog.png"},
+	SWAMP_TROLL_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/Troll.png", "hurt": "res://assets/enemies/swamp/Troll.png", "defeat": "res://assets/enemies/swamp/Troll.png"},
+	SWAMP_BOG_WITCH_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/witch.png", "hurt": "res://assets/enemies/swamp/witch.png", "defeat": "res://assets/enemies/swamp/witch.png"},
+	SWAMP_HYDRA_SPAWN_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/baby_hydra.png", "hurt": "res://assets/enemies/swamp/baby_hydra.png", "defeat": "res://assets/enemies/swamp/baby_hydra.png"},
+	SWAMP_MIRE_KNIGHT_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/Mire_Knight.png", "hurt": "res://assets/enemies/swamp/Mire_Knight.png", "defeat": "res://assets/enemies/swamp/Mire_Knight.png"},
+	SWAMP_GREEN_HAG_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/Green_Hag.png", "hurt": "res://assets/enemies/swamp/Green_Hag.png", "defeat": "res://assets/enemies/swamp/Green_Hag.png"},
+	SWAMP_HYDRA_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/Big_Hydra.png", "hurt": "res://assets/enemies/swamp/Big_Hydra.png", "defeat": "res://assets/enemies/swamp/Big_Hydra.png"},
+	SWAMP_ANCIENT_TROLL_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/Troll_Boss.png", "hurt": "res://assets/enemies/swamp/Troll_Boss.png", "defeat": "res://assets/enemies/swamp/Troll_Boss.png"},
+	SWAMP_SLIME_QUEEN_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/Slime_Queen.png", "hurt": "res://assets/enemies/swamp/Slime_Queen.png", "defeat": "res://assets/enemies/swamp/Slime_Queen.png"},
+	SWAMP_DROWNED_MATRIARCH_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/Downed_Matriarch.png", "hurt": "res://assets/enemies/swamp/Downed_Matriarch.png", "defeat": "res://assets/enemies/swamp/Downed_Matriarch.png"},
+	SWAMP_BOGHEART_COLOSSUS_VISUAL_KEY: {"idle": "res://assets/enemies/swamp/Bog_Colossus.png", "hurt": "res://assets/enemies/swamp/Bog_Colossus.png", "defeat": "res://assets/enemies/swamp/Bog_Colossus.png"},
+	CAVE_VAMPIRE_BAT_VISUAL_KEY: {"idle": "res://assets/enemies/cave/bat.png", "hurt": "res://assets/enemies/cave/bat.png", "defeat": "res://assets/enemies/cave/bat.png"},
+	CAVE_WOLF_SPIDER_VISUAL_KEY: {"idle": "res://assets/enemies/cave/spider.png", "hurt": "res://assets/enemies/cave/spider.png", "defeat": "res://assets/enemies/cave/spider.png"},
+	CAVE_GOBLIN_VISUAL_KEY: {"idle": "res://assets/enemies/cave/goblin.png", "hurt": "res://assets/enemies/cave/goblin.png", "defeat": "res://assets/enemies/cave/goblin.png"},
+	CAVE_TROGLODYTE_VISUAL_KEY: {"idle": "res://assets/enemies/cave/troglodyte.png", "hurt": "res://assets/enemies/cave/troglodyte.png", "defeat": "res://assets/enemies/cave/troglodyte.png"},
+	CAVE_OGRE_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Ogre.png", "hurt": "res://assets/enemies/cave/Ogre.png", "defeat": "res://assets/enemies/cave/Ogre.png"},
+	CAVE_TROLL_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Troll.png", "hurt": "res://assets/enemies/cave/Troll.png", "defeat": "res://assets/enemies/cave/Troll.png"},
+	CAVE_GIANT_CENTIPEDE_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Giant_Centipede.png", "hurt": "res://assets/enemies/cave/Giant_Centipede.png", "defeat": "res://assets/enemies/cave/Giant_Centipede.png"},
+	CAVE_BASILISK_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Basilisk.png", "hurt": "res://assets/enemies/cave/Basilisk.png", "defeat": "res://assets/enemies/cave/Basilisk.png"},
+	CAVE_BRUTE_VISUAL_KEY: {"idle": "res://assets/enemies/cave/cave_brute.png", "hurt": "res://assets/enemies/cave/cave_brute.png", "defeat": "res://assets/enemies/cave/cave_brute.png"},
+	CAVE_ECHOING_SEER_VISUAL_KEY: {"idle": "res://assets/enemies/cave/echoing_seer.png", "hurt": "res://assets/enemies/cave/echoing_seer.png", "defeat": "res://assets/enemies/cave/echoing_seer.png"},
+	CAVE_PURPLE_WYRM_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Purple_cave_wyrm.png", "hurt": "res://assets/enemies/cave/Purple_cave_wyrm.png", "defeat": "res://assets/enemies/cave/Purple_cave_wyrm.png"},
+	CAVE_GOBLIN_KING_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Goblin_king.png", "hurt": "res://assets/enemies/cave/Goblin_king.png", "defeat": "res://assets/enemies/cave/Goblin_king.png"},
+	CAVE_ANCIENT_BASILISK_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Ancient_basilisk.png", "hurt": "res://assets/enemies/cave/Ancient_basilisk.png", "defeat": "res://assets/enemies/cave/Ancient_basilisk.png"},
+	CAVE_DEEP_MAW_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Deep_maw.png", "hurt": "res://assets/enemies/cave/Deep_maw.png", "defeat": "res://assets/enemies/cave/Deep_maw.png"},
+	CAVE_GEMVEIN_TYRANT_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Gemvein_tyrant.png", "hurt": "res://assets/enemies/cave/Gemvein_tyrant.png", "defeat": "res://assets/enemies/cave/Gemvein_tyrant.png"},
+}
+const STATIC_ENEMY_VISUAL_KEYS := [
+	SWAMP_GREEN_SLIME_VISUAL_KEY,
+	SWAMP_GOBLIN_VISUAL_KEY,
+	SWAMP_BOG_RAT_VISUAL_KEY,
+	SWAMP_GIANT_LEECH_VISUAL_KEY,
+	SWAMP_POISON_FROG_VISUAL_KEY,
+	SWAMP_TROLL_VISUAL_KEY,
+	SWAMP_BOG_WITCH_VISUAL_KEY,
+	SWAMP_HYDRA_SPAWN_VISUAL_KEY,
+	SWAMP_MIRE_KNIGHT_VISUAL_KEY,
+	SWAMP_GREEN_HAG_VISUAL_KEY,
+	SWAMP_HYDRA_VISUAL_KEY,
+	SWAMP_ANCIENT_TROLL_VISUAL_KEY,
+	SWAMP_SLIME_QUEEN_VISUAL_KEY,
+	SWAMP_DROWNED_MATRIARCH_VISUAL_KEY,
+	SWAMP_BOGHEART_COLOSSUS_VISUAL_KEY,
+	CAVE_VAMPIRE_BAT_VISUAL_KEY,
+	CAVE_WOLF_SPIDER_VISUAL_KEY,
+	CAVE_GOBLIN_VISUAL_KEY,
+	CAVE_TROGLODYTE_VISUAL_KEY,
+	CAVE_OGRE_VISUAL_KEY,
+	CAVE_TROLL_VISUAL_KEY,
+	CAVE_GIANT_CENTIPEDE_VISUAL_KEY,
+	CAVE_BASILISK_VISUAL_KEY,
+	CAVE_BRUTE_VISUAL_KEY,
+	CAVE_ECHOING_SEER_VISUAL_KEY,
+	CAVE_PURPLE_WYRM_VISUAL_KEY,
+	CAVE_GOBLIN_KING_VISUAL_KEY,
+	CAVE_ANCIENT_BASILISK_VISUAL_KEY,
+	CAVE_DEEP_MAW_VISUAL_KEY,
+	CAVE_GEMVEIN_TYRANT_VISUAL_KEY,
+]
+const STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY := {
+	SWAMP_GREEN_SLIME_VISUAL_KEY: true,
+	SWAMP_GOBLIN_VISUAL_KEY: false,
+	SWAMP_BOG_RAT_VISUAL_KEY: false,
+	SWAMP_GIANT_LEECH_VISUAL_KEY: true,
+	SWAMP_POISON_FROG_VISUAL_KEY: false,
+	SWAMP_TROLL_VISUAL_KEY: true,
+	SWAMP_BOG_WITCH_VISUAL_KEY: false,
+	SWAMP_HYDRA_SPAWN_VISUAL_KEY: true,
+	SWAMP_MIRE_KNIGHT_VISUAL_KEY: false,
+	SWAMP_GREEN_HAG_VISUAL_KEY: true,
+	SWAMP_HYDRA_VISUAL_KEY: true,
+	SWAMP_ANCIENT_TROLL_VISUAL_KEY: true,
+	SWAMP_SLIME_QUEEN_VISUAL_KEY: true,
+	SWAMP_DROWNED_MATRIARCH_VISUAL_KEY: false,
+	SWAMP_BOGHEART_COLOSSUS_VISUAL_KEY: true,
+	CAVE_VAMPIRE_BAT_VISUAL_KEY: false,
+	CAVE_WOLF_SPIDER_VISUAL_KEY: false,
+	CAVE_GOBLIN_VISUAL_KEY: false,
+	CAVE_TROGLODYTE_VISUAL_KEY: false,
+	CAVE_OGRE_VISUAL_KEY: true,
+	CAVE_TROLL_VISUAL_KEY: true,
+	CAVE_GIANT_CENTIPEDE_VISUAL_KEY: false,
+	CAVE_BASILISK_VISUAL_KEY: false,
+	CAVE_BRUTE_VISUAL_KEY: false,
+	CAVE_ECHOING_SEER_VISUAL_KEY: false,
+	CAVE_PURPLE_WYRM_VISUAL_KEY: true,
+	CAVE_GOBLIN_KING_VISUAL_KEY: true,
+	CAVE_ANCIENT_BASILISK_VISUAL_KEY: false,
+	CAVE_DEEP_MAW_VISUAL_KEY: false,
+	CAVE_GEMVEIN_TYRANT_VISUAL_KEY: false,
 }
 const ENEMY_ANIMATION_REGIONS := {
 	PRACTICE_DUMMY_VISUAL_KEY: {
@@ -230,6 +565,69 @@ const ENEMY_VISUAL_KEYS_BY_NAME := {
 	"Vyra": VYRA_VISUAL_KEY,
 	"Knives": KNIVES_VISUAL_KEY,
 	"Practice Target": PRACTICE_DUMMY_VISUAL_KEY,
+	"Green Slime": SWAMP_GREEN_SLIME_VISUAL_KEY,
+	"Swamp Goblin": SWAMP_GOBLIN_VISUAL_KEY,
+	"Bog Rat": SWAMP_BOG_RAT_VISUAL_KEY,
+	"Giant Leech": SWAMP_GIANT_LEECH_VISUAL_KEY,
+	"Poison Frog": SWAMP_POISON_FROG_VISUAL_KEY,
+	"Troll": SWAMP_TROLL_VISUAL_KEY,
+	"Bog Witch": SWAMP_BOG_WITCH_VISUAL_KEY,
+	"Swamp Troll": SWAMP_TROLL_VISUAL_KEY,
+	"Hydra Spawn": SWAMP_HYDRA_SPAWN_VISUAL_KEY,
+	"Mire Knight": SWAMP_MIRE_KNIGHT_VISUAL_KEY,
+	"Green Hag": SWAMP_GREEN_HAG_VISUAL_KEY,
+	"Swamp Hydra": SWAMP_HYDRA_VISUAL_KEY,
+	"Ancient Troll": SWAMP_ANCIENT_TROLL_VISUAL_KEY,
+	"Slime Queen": SWAMP_SLIME_QUEEN_VISUAL_KEY,
+	"The Drowned Matriarch": SWAMP_DROWNED_MATRIARCH_VISUAL_KEY,
+	"Drowned Matriarch": SWAMP_DROWNED_MATRIARCH_VISUAL_KEY,
+	"Bogheart Colossus": SWAMP_BOGHEART_COLOSSUS_VISUAL_KEY,
+	"Vampire Bat": CAVE_VAMPIRE_BAT_VISUAL_KEY,
+	"Wolf Spider": CAVE_WOLF_SPIDER_VISUAL_KEY,
+	"Goblin": CAVE_GOBLIN_VISUAL_KEY,
+	"Troglodyte": CAVE_TROGLODYTE_VISUAL_KEY,
+	"Ogre": CAVE_OGRE_VISUAL_KEY,
+	"Cave Troll": CAVE_TROLL_VISUAL_KEY,
+	"Giant Centipede": CAVE_GIANT_CENTIPEDE_VISUAL_KEY,
+	"Basilisk": CAVE_BASILISK_VISUAL_KEY,
+	"Cave Brute": CAVE_BRUTE_VISUAL_KEY,
+	"Echoing Seer": CAVE_ECHOING_SEER_VISUAL_KEY,
+	"Purple Cave Wyrm": CAVE_PURPLE_WYRM_VISUAL_KEY,
+	"The Goblin King": CAVE_GOBLIN_KING_VISUAL_KEY,
+	"Goblin King": CAVE_GOBLIN_KING_VISUAL_KEY,
+	"Ancient Basilisk": CAVE_ANCIENT_BASILISK_VISUAL_KEY,
+	"The Deep Maw": CAVE_DEEP_MAW_VISUAL_KEY,
+	"Deep Maw": CAVE_DEEP_MAW_VISUAL_KEY,
+	"Gemvein Tyrant": CAVE_GEMVEIN_TYRANT_VISUAL_KEY,
+}
+const ENEMY_PRESENTATION_VISUAL_ALIASES := {
+	"Giant Green Slime": "Green Slime",
+	"Veteran Swamp Goblin": "Swamp Goblin",
+	"Giant Bog Rat": "Bog Rat",
+	"Elder Leech": "Giant Leech",
+	"Giant Poison Frog": "Poison Frog",
+	"Giant Vampire Bat": "Vampire Bat",
+	"Giant Wolf Spider": "Wolf Spider",
+	"Veteran Goblin": "Goblin",
+	"Veteran Troglodyte": "Troglodyte",
+	"Veteran Ogre": "Ogre",
+	"Ancient Restless Spirit": "Restless Spirit",
+	"Dire Rat": "Giant Rat",
+	"Giant Wolf": "Wolf",
+	"Ancient Skeleton": "Skeleton",
+	"Ancient Zombie": "Zombie",
+	"Giant Spider": "Spider",
+	"Veteran Forest Goblin": "Forest Goblin",
+	"Ancient Wisp": "Wisp",
+	"Ancient Treant Sapling": "Treant Sapling",
+	"Alpha Dire Wolf": "Dire Wolf",
+	"Giant Rat": "Rat",
+	"Ancient Undead Guard": "Undead Guard",
+	"Veteran Bandit": "Bandit",
+	"Veteran Cultist": "Cultist",
+	"Ancient Animated Armor": "Animated Armor",
+	"Ancient Animated Statue": "Animated Statue",
+	"Giant Scarab": "Scarab",
 }
 const PRACTICE_DUMMY_REACTION_FRAME_PATHS := [
 	[
@@ -298,7 +696,9 @@ var _player_base_position := Vector2.ZERO
 var _enemy_base_position := Vector2.ZERO
 var _player_tween: Tween
 var _enemy_tween: Tween
-var _outcome_flash: ColorRect
+var _stun_stars_effect: StunStarsEffect
+var _slow_aura_effect: SlowAuraEffect
+var _player_stun_freeze_until_msec := 0
 var _effect_rng := RandomNumberGenerator.new()
 var _effect_generation := 0
 var bandit_blade_effect_active := false
@@ -321,9 +721,18 @@ var cast_animation_count := 0
 var poison_tick_pulse_count := 0
 var poison_stack_tint_updates := 0
 var last_poison_stack_tint_stacks := 0
+var stun_effect_count := 0
+var last_stun_duration_ms := 0
+var cleanse_effect_count := 0
+var interrupt_effect_count := 0
+var slow_effect_active := false
+var slow_effect_count := 0
+var last_slow_strength := 0.0
+var mechanic_text_count := 0
+var last_mechanic_text := ""
+var dodge_effect_count := 0
+var dodge_afterimage_count := 0
 var outcome_pose := ""
-var outcome_flash_count := 0
-var last_outcome_flash_was_victory := false
 var last_player_animation_key := ""
 var last_player_animation_frame_count := 0
 var last_player_animation_frame_path := ""
@@ -353,6 +762,13 @@ func _process(delta: float) -> void:
 	if not _player_animation_playing:
 		set_process(false)
 		return
+	if _player_stun_freeze_until_msec > 0:
+		if Time.get_ticks_msec() < _player_stun_freeze_until_msec:
+			return
+		_player_stun_freeze_until_msec = 0
+		if _player_animation_key == "idle":
+			_set_player_animation("idle", true)
+			return
 	_player_animation_elapsed += delta
 	if _player_animation_elapsed < _player_animation_frame_sec:
 		return
@@ -384,7 +800,7 @@ func _notification(what: int) -> void:
 		_layout_stage()
 
 
-func configure(player_name: String, enemy_name: String) -> void:
+func configure(player_name: String, enemy_name: String, enemy_visual_name: String = "") -> void:
 	if player_actor_anchor != null:
 		player_actor_anchor.visible = true
 	if enemy_actor_anchor != null:
@@ -395,9 +811,10 @@ func configure(player_name: String, enemy_name: String) -> void:
 		_enemy_name_label.text = enemy_name
 	_apply_actor_name_visibility()
 	_player_visual_key = PLAYER_VISUAL_KEY
-	_enemy_visual_key = _enemy_visual_key_for(enemy_name)
+	_enemy_visual_key = enemy_visual_key_for(enemy_visual_name if enemy_visual_name != "" else enemy_name)
 	_set_player_animation("idle", true)
 	_apply_enemy_visual("idle")
+	_layout_stage()
 	_clear_status_visuals()
 
 
@@ -423,9 +840,8 @@ func reset_state() -> void:
 	_kill_actor_tweens()
 	_effect_generation += 1
 	_clear_bandit_coin_particles()
+	_clear_status_visuals()
 	modulate = Color.WHITE
-	if _outcome_flash != null:
-		_outcome_flash.color.a = 0.0
 	last_cast_animation_kind = ""
 	last_cast_min_cast_proc_was_timing_event = false
 	last_enemy_recoil_delay_sec = 0.0
@@ -444,9 +860,18 @@ func reset_state() -> void:
 	poison_tick_pulse_count = 0
 	poison_stack_tint_updates = 0
 	last_poison_stack_tint_stacks = 0
+	stun_effect_count = 0
+	last_stun_duration_ms = 0
+	cleanse_effect_count = 0
+	interrupt_effect_count = 0
+	slow_effect_active = false
+	slow_effect_count = 0
+	last_slow_strength = 0.0
+	mechanic_text_count = 0
+	last_mechanic_text = ""
+	dodge_effect_count = 0
+	dodge_afterimage_count = 0
 	outcome_pose = ""
-	outcome_flash_count = 0
-	last_outcome_flash_was_victory = false
 	last_player_animation_key = ""
 	last_player_animation_frame_count = 0
 	last_player_animation_frame_path = ""
@@ -488,10 +913,36 @@ func play_fight_intro(animate: bool = true) -> float:
 
 func restore_practice_idle_pose() -> void:
 	_kill_actor_tweens()
+	_clear_stun_effect()
+	_clear_slow_effect()
+	clear_transient_effects()
 	_set_player_animation("idle", true)
 	_set_enemy_animation("idle")
 	_restore_actor_layout()
 	outcome_pose = ""
+
+
+func clear_transient_effects() -> void:
+	_clear_bandit_coin_particles()
+
+
+func set_slow_effect_active(active: bool, strength: float = 0.0, announce: bool = false) -> void:
+	last_slow_strength = maxf(strength, 0.0) if active else 0.0
+	slow_effect_active = active and last_slow_strength > 0.0
+	_clear_slow_effect()
+	if not slow_effect_active or player_actor_anchor == null:
+		return
+	var effect := SlowAuraEffect.new()
+	effect.name = "SlowAuraEffect"
+	effect.size = SLOW_AURA_SIZE
+	effect.position = _slow_aura_position()
+	effect.strength = clampf(last_slow_strength, 0.0, 1.0)
+	effect.z_index = 12
+	_slow_aura_effect = effect
+	player_actor_anchor.add_child(effect)
+	slow_effect_count += 1
+	if announce:
+		_spawn_mechanic_text("Slowed", _player_effect_anchor_point() + Vector2(0.0, -64.0), Color(0.62, 0.86, 1.0, 1.0), true)
 
 
 func play_cast_presentation(cast: CombatResolver.CastEvent, playback_speed: float = 1.0, animate: bool = true) -> float:
@@ -547,8 +998,16 @@ func play_cast_impact(cast: CombatResolver.CastEvent, animate: bool = true) -> f
 	if cast == null:
 		return 0.0
 	if not animate:
+		if cast.was_interrupted:
+			play_interrupt_effect(false)
+		if cast.was_dodged:
+			play_dodge_effect(false)
 		return 0.0
-	if cast.physical_damage > 0.0 or cast.poison_stacks_applied > 0:
+	if cast.was_interrupted:
+		play_interrupt_effect(animate)
+	elif cast.was_dodged:
+		play_dodge_effect(animate)
+	elif cast.physical_damage > 0.0 or cast.blocked_amount > 0.0 or cast.poison_stacks_applied > 0:
 		_play_enemy_recoil(0.0, cast.is_crit)
 	if bandit_blade_effect_active and cast.physical_damage > 0.0:
 		_play_bandit_coin_spray(0.0, cast.is_crit)
@@ -628,10 +1087,71 @@ func set_poison_stacks(stacks: int, _animate: bool = true) -> void:
 	enemy_actor_anchor.modulate = _enemy_poison_modulate()
 
 
+func play_stun_effect(duration_ms: int, animate: bool = true) -> void:
+	stun_effect_count += 1
+	last_stun_duration_ms = duration_ms
+	if duration_ms <= 0 or player_status_anchor == null:
+		return
+	_clear_stun_effect()
+	var effect := StunStarsEffect.new()
+	effect.name = "StunStarsEffect"
+	effect.duration_sec = float(duration_ms) / 1000.0
+	effect.size = STATUS_SIZE
+	effect.z_index = 20
+	_stun_stars_effect = effect
+	player_status_anchor.add_child(effect)
+	_freeze_player_idle_for_stun(duration_ms, animate)
+	_spawn_mechanic_text("Stunned", _stun_star_anchor_point() + Vector2(0.0, 20.0), Color(1.0, 0.86, 0.22, 1.0), animate)
+	if animate and player_actor_anchor != null:
+		_play_stun_jolt()
+
+
+func play_cleanse_effect(animate: bool = true) -> void:
+	cleanse_effect_count += 1
+	var center := _enemy_effect_anchor_point()
+	if center == Vector2.ZERO:
+		return
+	var burst := CleanseBurstEffect.new()
+	burst.name = "CleanseBurstEffect"
+	burst.size = CLEANSE_BURST_SIZE
+	burst.position = center - CLEANSE_BURST_SIZE * 0.5
+	burst.z_index = 18
+	add_child(burst)
+	_spawn_mechanic_text("Cleansed", center + Vector2(0.0, -48.0), Color(0.78, 0.92, 1.0, 1.0), animate)
+	if animate:
+		_play_cleanse_enemy_flash()
+
+
+func play_interrupt_effect(animate: bool = true) -> void:
+	interrupt_effect_count += 1
+	var center := _player_effect_anchor_point()
+	if center == Vector2.ZERO:
+		return
+	var slash := InterruptSlashEffect.new()
+	slash.name = "InterruptSlashEffect"
+	slash.size = INTERRUPT_SLASH_SIZE
+	slash.position = center - INTERRUPT_SLASH_SIZE * 0.5
+	slash.z_index = 28
+	add_child(slash)
+	_spawn_mechanic_text("Interrupted", center + Vector2(0.0, -62.0), Color(1.0, 0.34, 0.24, 1.0), animate)
+	if animate:
+		_play_interrupt_player_flash()
+
+
+func play_dodge_effect(animate: bool = true) -> void:
+	dodge_effect_count += 1
+	var center := _enemy_effect_anchor_point()
+	if center != Vector2.ZERO:
+		_spawn_mechanic_text("Dodged", center + Vector2(0.0, -54.0), Color(0.86, 0.92, 1.0, 1.0), animate)
+	if not animate:
+		return
+	_spawn_dodge_afterimages()
+	_play_dodge_shift()
+
+
 func play_outcome_pose(victory: bool, animate: bool = true) -> void:
 	outcome_pose = OUTCOME_VICTORY if victory else OUTCOME_DEFEAT
-	outcome_flash_count += 1
-	last_outcome_flash_was_victory = victory
+	_clear_stun_effect()
 	if victory:
 		_set_enemy_animation("defeat")
 	else:
@@ -639,7 +1159,6 @@ func play_outcome_pose(victory: bool, animate: bool = true) -> void:
 	if not animate:
 		return
 	_kill_actor_tweens()
-	_play_outcome_flash(victory)
 	if victory and _is_practice_dummy_target():
 		_set_enemy_animation("idle")
 		if enemy_actor_anchor != null:
@@ -726,21 +1245,18 @@ func expected_player_sprite_paths() -> PackedStringArray:
 
 
 func expected_enemy_sprite_paths(enemy_name: String) -> PackedStringArray:
-	return PackedStringArray(_enemy_animation_paths_for(_enemy_visual_key_for(enemy_name)).values())
+	return PackedStringArray(_enemy_animation_paths_for(enemy_visual_key_for(enemy_name)).values())
 
 
 func expected_enemy_sprite_region(enemy_name: String, animation_key: String) -> Rect2:
-	return _animation_region_for(_enemy_animation_regions_for(_enemy_visual_key_for(enemy_name)), animation_key, PEASANT_FRAME_SIZE)
+	var visual_key := enemy_visual_key_for(enemy_name)
+	if _is_static_enemy_visual_key(visual_key):
+		var texture := _texture_from_path(_enemy_animation_paths_for(visual_key).get(animation_key, _enemy_animation_paths_for(visual_key).get("idle", "")))
+		return Rect2(Vector2.ZERO, texture.get_size() if texture != null else STATIC_ENEMY_LAYOUT_FRAME_SIZE)
+	return _animation_region_for(_enemy_animation_regions_for(visual_key), animation_key, PEASANT_FRAME_SIZE)
 
 
 func _build_stage() -> void:
-	_outcome_flash = ColorRect.new()
-	_outcome_flash.name = "OutcomeFlash"
-	_outcome_flash.color = Color(1.0, 1.0, 1.0, 0.0)
-	_outcome_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_outcome_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_outcome_flash)
-
 	player_actor_anchor = _make_anchor("PlayerActorAnchor", ACTOR_SIZE)
 	player_actor_anchor.z_index = 3
 	add_child(player_actor_anchor)
@@ -849,8 +1365,20 @@ func _make_contact_shadow(shadow_name: String) -> ContactShadow:
 	return shadow
 
 
-func _enemy_visual_key_for(enemy_name: String) -> String:
-	return ENEMY_VISUAL_KEYS_BY_NAME.get(enemy_name, "")
+static func enemy_visual_key_for(enemy_name: String) -> String:
+	var normalized_name := enemy_name.strip_edges()
+	if ENEMY_VISUAL_KEYS_BY_NAME.has(normalized_name):
+		return ENEMY_VISUAL_KEYS_BY_NAME[normalized_name]
+	if ENEMY_PRESENTATION_VISUAL_ALIASES.has(normalized_name):
+		var alias_name := String(ENEMY_PRESENTATION_VISUAL_ALIASES[normalized_name])
+		if ENEMY_VISUAL_KEYS_BY_NAME.has(alias_name):
+			return ENEMY_VISUAL_KEYS_BY_NAME[alias_name]
+	for prefix in ["Veteran "]:
+		if normalized_name.begins_with(prefix):
+			var base_name := normalized_name.trim_prefix(prefix)
+			if ENEMY_VISUAL_KEYS_BY_NAME.has(base_name):
+				return ENEMY_VISUAL_KEYS_BY_NAME[base_name]
+	return ""
 
 
 func _enemy_animation_paths_for(visual_key: String) -> Dictionary:
@@ -1158,6 +1686,9 @@ func _set_enemy_animation(kind: String) -> void:
 
 
 func _apply_enemy_visual(animation_key: String) -> void:
+	if _is_static_enemy_visual():
+		_apply_static_enemy_visual(animation_key)
+		return
 	_apply_actor_visual(_enemy_sprite, _enemy_actor_card, _enemy_animation_paths_for(_enemy_visual_key), _enemy_animation_regions_for(_enemy_visual_key), animation_key, PEASANT_FRAME_SIZE, _enemy_sprite_scale(), _enemy_flip_h(), _enemy_anchor_point())
 
 
@@ -1165,16 +1696,57 @@ func _is_practice_dummy_target() -> bool:
 	return _enemy_visual_key == PRACTICE_DUMMY_VISUAL_KEY
 
 
+func _is_static_enemy_visual() -> bool:
+	return _is_static_enemy_visual_key(_enemy_visual_key)
+
+
+func _is_static_enemy_visual_key(visual_key: String) -> bool:
+	return STATIC_ENEMY_VISUAL_KEYS.has(visual_key)
+
+
 func _enemy_sprite_scale() -> float:
+	if _is_static_enemy_visual():
+		return STATIC_ENEMY_SPRITE_SCALE
 	return PRACTICE_DUMMY_SPRITE_SCALE if _is_practice_dummy_target() else PEASANT_SPRITE_SCALE
 
 
 func _enemy_anchor_point() -> Vector2:
+	if _is_static_enemy_visual():
+		return STATIC_ENEMY_LAYOUT_FRAME_SIZE * STATIC_ENEMY_ANCHOR_RATIO
 	return PRACTICE_DUMMY_ANCHOR_POINT if _is_practice_dummy_target() else PEASANT_ANCHOR_POINT
 
 
 func _enemy_flip_h() -> bool:
+	if _is_static_enemy_visual():
+		return bool(STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY.get(_enemy_visual_key, false))
 	return false if _is_practice_dummy_target() else true
+
+
+func _enemy_layout_frame_size() -> Vector2:
+	return STATIC_ENEMY_LAYOUT_FRAME_SIZE if _is_static_enemy_visual() else Vector2(PEASANT_FRAME_SIZE)
+
+
+func _static_enemy_anchor_point(frame_size: Vector2) -> Vector2:
+	return Vector2(frame_size.x * STATIC_ENEMY_ANCHOR_RATIO.x, frame_size.y * STATIC_ENEMY_ANCHOR_RATIO.y)
+
+
+func _apply_static_enemy_visual(animation_key: String) -> void:
+	if _enemy_sprite == null or _enemy_actor_card == null:
+		return
+	var paths := _enemy_animation_paths_for(_enemy_visual_key)
+	var texture := _texture_from_path(paths.get(animation_key, paths.get("idle", "")))
+	_enemy_sprite.texture = texture
+	_enemy_sprite.size = texture.get_size() if texture != null else STATIC_ENEMY_LAYOUT_FRAME_SIZE
+	var sprite_scale := _enemy_sprite_scale()
+	_enemy_sprite.scale = Vector2(sprite_scale, sprite_scale)
+	_enemy_sprite.pivot_offset = _enemy_sprite.size * 0.5
+	_enemy_sprite.position = _sprite_position_for_anchor(_enemy_sprite.size, _static_enemy_anchor_point(_enemy_sprite.size), sprite_scale)
+	_enemy_sprite.flip_h = _enemy_flip_h()
+	_enemy_sprite.visible = texture != null
+	_enemy_actor_card.visible = false
+	_update_contact_shadow(_enemy_contact_shadow, _enemy_sprite, Rect2(Vector2.ZERO, _enemy_sprite.size))
+	if _debug_grid_overlay != null:
+		_debug_grid_overlay.queue_redraw()
 
 
 func _apply_enemy_frame_path(path: String) -> void:
@@ -1234,6 +1806,9 @@ func _play_enemy_recoil(delay_sec: float, is_crit: bool) -> void:
 	if _is_practice_dummy_target():
 		_play_practice_dummy_reaction(delay_sec)
 		return
+	if _is_static_enemy_visual():
+		_play_static_enemy_hit_reaction(delay_sec, is_crit)
+		return
 	var recoil_distance := RECOIL_DISTANCE_PX * (1.45 if is_crit else 1.0)
 	var recoil_out_sec := 0.09 if is_crit else 0.07
 	var recoil_back_sec := 0.16 if is_crit else 0.13
@@ -1246,6 +1821,21 @@ func _play_enemy_recoil(delay_sec: float, is_crit: bool) -> void:
 	_enemy_tween.parallel().tween_property(enemy_actor_anchor, "modulate", hurt_color, recoil_out_sec)
 	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position, recoil_back_sec)
 	_enemy_tween.parallel().tween_property(enemy_actor_anchor, "modulate", _enemy_poison_modulate(), recoil_back_sec)
+	_enemy_tween.tween_callback(func(): _set_enemy_animation("idle"))
+
+
+func _play_static_enemy_hit_reaction(delay_sec: float, is_crit: bool) -> void:
+	var flash_color := UIColors.COMBAT_CRIT_FLASH if is_crit else UIColors.COMBAT_HIT_FLASH
+	var shake_px := 12.0 if is_crit else 8.0
+	_enemy_tween = create_tween()
+	_enemy_tween.tween_interval(delay_sec)
+	_enemy_tween.tween_callback(func(): _set_enemy_animation("hurt"))
+	_enemy_tween.tween_property(enemy_actor_anchor, "modulate", flash_color, 0.045)
+	_enemy_tween.parallel().tween_property(enemy_actor_anchor, "position", _enemy_base_position + Vector2(shake_px, -2.0), 0.045)
+	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position + Vector2(-shake_px * 0.7, 2.0), 0.055)
+	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position + Vector2(shake_px * 0.35, 0.0), 0.045)
+	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position, 0.07)
+	_enemy_tween.parallel().tween_property(enemy_actor_anchor, "modulate", _enemy_poison_modulate(), 0.11)
 	_enemy_tween.tween_callback(func(): _set_enemy_animation("idle"))
 
 
@@ -1326,24 +1916,132 @@ func _spawn_bandit_coin_particles(coin_count: int, impact_position: Vector2) -> 
 
 func _bandit_coin_impact_position() -> Vector2:
 	if _enemy_sprite != null and _enemy_sprite.visible and _enemy_sprite.texture != null:
-		return _sprite_anchor_point(enemy_actor_anchor, _enemy_sprite, PEASANT_ANCHOR_POINT) + BANDIT_COIN_SPRITE_CONTACT_OFFSET
-	return enemy_actor_anchor.position + BANDIT_COIN_FALLBACK_IMPACT_OFFSET
+		return _sprite_anchor_point(enemy_actor_anchor, _enemy_sprite, PEASANT_ANCHOR_POINT) + BANDIT_COIN_SPRITE_CONTACT_OFFSET + _enemy_hit_effect_offset()
+	return enemy_actor_anchor.position + BANDIT_COIN_FALLBACK_IMPACT_OFFSET + _enemy_hit_effect_offset()
 
 
 func _clear_bandit_coin_particles() -> void:
 	for child in get_children():
-		if String(child.name).begins_with("BanditCoinParticle"):
+		var child_name := String(child.name)
+		if child_name.begins_with("BanditCoinParticle") or child_name.begins_with("MechanicText") or child_name.begins_with("CleanseBurstEffect") or child_name.begins_with("InterruptSlashEffect") or child_name.begins_with("DodgeAfterimage"):
+			remove_child(child)
 			child.queue_free()
 
 
-func _play_outcome_flash(victory: bool) -> void:
-	if _outcome_flash == null:
+func _spawn_dodge_afterimages() -> void:
+	if enemy_actor_anchor == null or _enemy_sprite == null or not _enemy_sprite.visible or _enemy_sprite.texture == null:
 		return
-	_outcome_flash.color = UIColors.COMBAT_VICTORY_FLASH if victory else UIColors.COMBAT_DEFEAT_FLASH
-	var peak_alpha := 0.2 if victory else 0.18
+	for offset in DODGE_AFTERIMAGE_OFFSETS:
+		var ghost := TextureRect.new()
+		ghost.name = "DodgeAfterimage"
+		ghost.texture = _enemy_sprite.texture
+		ghost.size = _enemy_sprite.size
+		ghost.scale = _enemy_sprite.scale
+		ghost.pivot_offset = _enemy_sprite.pivot_offset
+		ghost.position = enemy_actor_anchor.position + _enemy_sprite.position + offset
+		ghost.flip_h = _enemy_sprite.flip_h
+		ghost.expand_mode = _enemy_sprite.expand_mode
+		ghost.stretch_mode = _enemy_sprite.stretch_mode
+		ghost.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ghost.modulate = Color(0.78, 0.9, 1.0, DODGE_AFTERIMAGE_ALPHA)
+		ghost.z_index = enemy_actor_anchor.z_index + 1
+		add_child(ghost)
+		dodge_afterimage_count += 1
+		var drift: Vector2 = offset.normalized() * 10.0 if offset.length() > 0.0 else Vector2(0.0, -8.0)
+		var tween := ghost.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(ghost, "position", ghost.position + drift, DODGE_AFTERIMAGE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(ghost, "modulate:a", 0.0, DODGE_AFTERIMAGE_SEC)
+		tween.finished.connect(ghost.queue_free)
+
+
+func _play_dodge_shift() -> void:
+	if enemy_actor_anchor == null:
+		return
+	_kill_enemy_tween()
+	_enemy_tween = create_tween()
+	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position + DODGE_SHIFT_OFFSET, DODGE_SHIFT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position, DODGE_SHIFT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+func _spawn_mechanic_text(text: String, center: Vector2, color: Color, animate: bool = true) -> void:
+	mechanic_text_count += 1
+	last_mechanic_text = text
+	if not animate:
+		return
+	var label := Label.new()
+	label.name = "MechanicText"
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", MECHANIC_TEXT_FONT)
+	label.add_theme_font_size_override("font_size", MECHANIC_TEXT_FONT_SIZE)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	label.add_theme_constant_override("outline_size", 5)
+	label.size = Vector2(132, 34)
+	label.position = center - label.size * 0.5
+	label.z_index = 32
+	add_child(label)
+	var tween := label.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(label, "position", label.position + Vector2(0.0, -MECHANIC_TEXT_RISE_PX), MECHANIC_TEXT_FLOAT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "modulate:a", 0.0, MECHANIC_TEXT_FLOAT_SEC * 0.55).set_delay(MECHANIC_TEXT_FLOAT_SEC * 0.45)
+	tween.finished.connect(label.queue_free)
+
+
+func _enemy_effect_anchor_point() -> Vector2:
+	if enemy_actor_anchor == null:
+		return Vector2.ZERO
+	if _enemy_sprite != null and _enemy_sprite.visible:
+		return enemy_actor_anchor.position + _sprite_render_top_left(_enemy_sprite) + _enemy_sprite.size * _enemy_sprite.scale * 0.5 + _enemy_hit_effect_offset()
+	return enemy_actor_anchor.position + ACTOR_SIZE * 0.5 + _enemy_hit_effect_offset()
+
+
+func _enemy_hit_effect_offset() -> Vector2:
+	return Vector2.ZERO if _is_practice_dummy_target() else ADVENTURE_ENEMY_HIT_EFFECT_OFFSET
+
+
+func _player_effect_anchor_point() -> Vector2:
+	if player_actor_anchor == null:
+		return Vector2.ZERO
+	if _player_sprite != null and _player_sprite.visible:
+		return player_actor_anchor.position + _sprite_render_top_left(_player_sprite) + _player_sprite.size * _player_sprite.scale * 0.5 + INTERRUPT_PLAYER_EFFECT_OFFSET
+	return player_actor_anchor.position + ACTOR_SIZE * 0.5 + INTERRUPT_PLAYER_EFFECT_OFFSET
+
+
+func _play_cleanse_enemy_flash() -> void:
+	if enemy_actor_anchor == null:
+		return
+	var previous_enemy_tween := _enemy_tween
 	var tween := create_tween()
-	tween.tween_property(_outcome_flash, "color:a", peak_alpha, OUTCOME_FLASH_SEC * 0.35)
-	tween.tween_property(_outcome_flash, "color:a", 0.0, OUTCOME_FLASH_SEC * 0.65)
+	_enemy_tween = tween
+	tween.tween_callback(func():
+		if previous_enemy_tween != null and previous_enemy_tween.is_valid():
+			previous_enemy_tween.kill()
+	)
+	tween.tween_property(enemy_actor_anchor, "modulate", Color(0.78, 0.92, 1.0, 1.0), 0.08)
+	tween.tween_property(enemy_actor_anchor, "modulate", _enemy_poison_modulate(), 0.18)
+
+
+func _play_interrupt_player_flash() -> void:
+	if player_actor_anchor == null:
+		return
+	var previous_player_tween := _player_tween
+	var tween := create_tween()
+	_player_tween = tween
+	tween.tween_callback(func():
+		if previous_player_tween != null and previous_player_tween.is_valid():
+			previous_player_tween.kill()
+	)
+	tween.tween_property(player_actor_anchor, "modulate", Color(1.0, 0.42, 0.34, 1.0), 0.06)
+	tween.tween_property(player_actor_anchor, "position", _player_base_position + Vector2(-10.0, 0.0), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.set_parallel(true)
+	tween.tween_property(player_actor_anchor, "modulate", Color.WHITE, 0.16)
+	tween.tween_property(player_actor_anchor, "position", _player_base_position, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.set_parallel(false)
 
 
 func _restore_actor_layout() -> void:
@@ -1358,19 +2056,63 @@ func _restore_actor_layout() -> void:
 func _clear_status_visuals() -> void:
 	last_poison_stack_tint_stacks = 0
 	outcome_pose = ""
+	_clear_stun_effect()
+	_clear_slow_effect()
+	_clear_bandit_coin_particles()
 	if player_actor_anchor != null:
 		player_actor_anchor.modulate = Color.WHITE
 	if enemy_actor_anchor != null:
 		enemy_actor_anchor.modulate = Color.WHITE
-	if _outcome_flash != null:
-		_outcome_flash.color.a = 0.0
-
-
 func _enemy_poison_modulate() -> Color:
 	if last_poison_stack_tint_stacks <= 0:
 		return Color.WHITE
 	var intensity := clampf(float(last_poison_stack_tint_stacks) / float(POISON_VISIBLE_STACK_CAP), 0.0, 1.0)
 	return Color(lerpf(0.9, 0.46, intensity), 1.0, lerpf(0.9, 0.52, intensity), 1.0)
+
+
+func _clear_stun_effect() -> void:
+	if _stun_stars_effect != null:
+		if is_instance_valid(_stun_stars_effect):
+			if _stun_stars_effect.get_parent() != null:
+				_stun_stars_effect.get_parent().remove_child(_stun_stars_effect)
+			_stun_stars_effect.queue_free()
+		_stun_stars_effect = null
+	_player_stun_freeze_until_msec = 0
+
+
+func _clear_slow_effect() -> void:
+	if _slow_aura_effect != null:
+		if is_instance_valid(_slow_aura_effect):
+			if _slow_aura_effect.get_parent() != null:
+				_slow_aura_effect.get_parent().remove_child(_slow_aura_effect)
+			_slow_aura_effect.queue_free()
+		_slow_aura_effect = null
+
+
+func _freeze_player_idle_for_stun(duration_ms: int, animate: bool) -> void:
+	if _player_sprite == null:
+		return
+	_set_player_animation("idle", false)
+	if not animate:
+		return
+	_player_stun_freeze_until_msec = Time.get_ticks_msec() + duration_ms
+	_player_animation_playing = true
+	set_process(true)
+
+
+func _play_stun_jolt() -> void:
+	if player_actor_anchor == null:
+		return
+	var previous_player_tween := _player_tween
+	var tween := create_tween()
+	_player_tween = tween
+	tween.tween_callback(func():
+		if previous_player_tween != null and previous_player_tween.is_valid():
+			previous_player_tween.kill()
+	)
+	tween.tween_property(player_actor_anchor, "position", _player_base_position + STUN_JOLT_OFFSET, STUN_JOLT_SEC)
+	tween.tween_property(player_actor_anchor, "position", _player_base_position - STUN_JOLT_OFFSET * 0.5, STUN_JOLT_SEC)
+	tween.tween_property(player_actor_anchor, "position", _player_base_position, STUN_JOLT_SEC)
 
 
 func _kill_actor_tweens() -> void:
@@ -1405,7 +2147,7 @@ func _layout_stage() -> void:
 	var enemy_offset := PRACTICE_DUMMY_STAGE_OFFSET if practice_dummy else ACTOR_GROUP_STAGE_OFFSET_PX
 	var enemy_grid := PRACTICE_DUMMY_STAGE_GRID if practice_dummy else ENEMY_STAGE_GRID
 	var player_position := _actor_position_for_grid(stage_size, PLAYER_STAGE_GRID, Vector2(ROGUE_FRAME_SIZE), ROGUE_ANCHOR_POINT, ROGUE_SPRITE_SCALE, ACTOR_GROUP_STAGE_OFFSET_PX)
-	var enemy_position := _actor_position_for_grid(stage_size, enemy_grid, Vector2(PEASANT_FRAME_SIZE), _enemy_anchor_point(), _enemy_sprite_scale(), enemy_offset)
+	var enemy_position := _actor_position_for_grid(stage_size, enemy_grid, _enemy_layout_frame_size(), _enemy_anchor_point(), _enemy_sprite_scale(), enemy_offset)
 	var actor_y := minf(player_position.y, enemy_position.y)
 
 	player_actor_anchor.position = player_position
@@ -1415,10 +2157,41 @@ func _layout_stage() -> void:
 	_apply_outcome_pose_position_after_layout(previous_player_base, previous_enemy_base, previous_player_position, previous_enemy_position)
 	contact_effect_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5 + ACTOR_GROUP_STAGE_OFFSET_PX.x, actor_y + ACTOR_SIZE.y * 0.35)
 	floating_text_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5 + ACTOR_GROUP_STAGE_OFFSET_PX.x, maxf(safe_top_px, actor_y - CONTACT_SIZE.y * 0.75))
-	player_status_anchor.position = Vector2(player_position.x + ACTOR_SIZE.x * 0.5 - STATUS_SIZE.x * 0.5, maxf(safe_top_px, player_position.y - STATUS_SIZE.y - 8.0))
+	var stun_star_anchor_point := Vector2(player_position.x + ACTOR_SIZE.x * 0.5, _stage_point_for_grid(Vector2(PLAYER_STAGE_GRID.x, STUN_STAR_STAGE_GRID_Y)).y)
+	player_status_anchor.position = stun_star_anchor_point - StunStarsEffect.ORBIT_CENTER
 	enemy_status_anchor.position = Vector2(enemy_position.x + ACTOR_SIZE.x * 0.5 - STATUS_SIZE.x * 0.5, maxf(safe_top_px, enemy_position.y - STATUS_SIZE.y - 8.0))
+	if _slow_aura_effect != null and is_instance_valid(_slow_aura_effect):
+		_slow_aura_effect.position = _slow_aura_position()
 	if _debug_grid_overlay != null:
 		_debug_grid_overlay.queue_redraw()
+
+
+func _stun_star_anchor_point() -> Vector2:
+	if player_status_anchor == null:
+		return Vector2.ZERO
+	return player_status_anchor.position + StunStarsEffect.ORBIT_CENTER
+
+
+func _slow_snow_field_rect() -> Rect2:
+	if player_actor_anchor == null:
+		return Rect2()
+	var aura_position := player_actor_anchor.position + _slow_aura_position()
+	var snow_position := aura_position + Vector2(24.0, 16.0)
+	var snow_size := Vector2(maxf(SLOW_AURA_SIZE.x - 48.0, 0.0), SLOW_AURA_SIZE.y * 0.66 - 16.0)
+	return Rect2(snow_position, snow_size)
+
+
+func _slow_aura_position() -> Vector2:
+	if player_actor_anchor == null:
+		return Vector2(SLOW_AURA_OFFSET_X, 0.0)
+	var snow_center_local := _slow_snow_center_local()
+	var target_y := _stage_point_for_grid(Vector2(PLAYER_STAGE_GRID.x, SLOW_SNOW_STAGE_GRID_Y)).y
+	return Vector2(SLOW_AURA_OFFSET_X, target_y - player_actor_anchor.position.y - snow_center_local.y)
+
+
+func _slow_snow_center_local() -> Vector2:
+	var snow_size := Vector2(maxf(SLOW_AURA_SIZE.x - 48.0, 0.0), SLOW_AURA_SIZE.y * 0.66 - 16.0)
+	return Vector2(24.0, 16.0) + snow_size * 0.5
 
 
 func _apply_outcome_pose_position_after_layout(

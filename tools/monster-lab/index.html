@@ -15,70 +15,139 @@
         </div>
         <div class="header-actions">
           <button id="reset-button" type="button" class="secondary-action">Reset</button>
-          <button id="generate-button" type="button" class="primary-action">Generate Monster</button>
+          <button id="generate-button" type="button" class="primary-action">Generate Batch</button>
         </div>
       </header>
 
+      <section class="assembly-line" aria-label="Monster Lab assembly line">
+        <section class="panel-section assembly-step archetype-step">
+          <div class="step-kicker">Step 1</div>
+          <div class="section-heading">
+            <h2>Build Archetype</h2>
+            <span id="archetype-save-state">Select archetype</span>
+          </div>
+          <div class="button-row catalog-import-actions">
+            <button id="import-archetypes-button" type="button" class="secondary-action">Import Library</button>
+            <input id="import-archetypes-input" type="file" accept="application/json,.json" />
+          </div>
+          <label class="field">
+            <span>Library Name</span>
+            <input id="archetype-library-name" type="text" autocomplete="off" value="DawnBringer Monster Archetypes" />
+          </label>
+          <label class="field">
+            <span>Archetype</span>
+            <select id="archetype-editor-select"></select>
+          </label>
+          <label class="field">
+            <span>Archetype Name</span>
+            <input id="custom-archetype-name" type="text" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>HP Bias</span>
+            <input id="custom-hp-bias" type="range" min="70" max="150" step="1" value="100" />
+          </label>
+          <label class="field">
+            <span>Tags</span>
+            <input id="archetype-tags" type="text" autocomplete="off" placeholder="fortified, physical_check" />
+          </label>
+          <div class="archetype-meta-grid">
+            <label class="field">
+              <span>Unlock</span>
+              <select id="archetype-unlock-difficulty"></select>
+            </label>
+            <label class="field">
+              <span>Route Weight</span>
+              <input id="archetype-route-weight" type="number" min="0" max="200" step="1" value="80" />
+            </label>
+          </div>
+          <div class="kind-checks" aria-label="Allowed monster kinds">
+            <label><input id="archetype-kind-normal" type="checkbox" value="normal" /> <span>Normal</span></label>
+            <label><input id="archetype-kind-elite" type="checkbox" value="elite" /> <span>Elite</span></label>
+            <label><input id="archetype-kind-boss" type="checkbox" value="boss" /> <span>Boss</span></label>
+          </div>
+          <div class="button-row archetype-actions">
+            <button id="new-archetype-button" type="button" class="secondary-action">New</button>
+            <button id="save-archetype-button" type="button" class="primary-action">Save</button>
+            <button id="delete-archetype-button" type="button" class="secondary-action">Delete</button>
+          </div>
+          <div class="builder-help">Enable mechanics, set their low/high value range, then choose how quickly they climb with encounter difficulty.</div>
+          <div id="custom-mechanics" class="custom-mechanics"></div>
+          <div class="button-row catalog-export-actions">
+            <button id="export-archetypes-button" type="button" class="secondary-action">Export Library</button>
+          </div>
+        </section>
+
+        <section class="panel-section assembly-step generator-step">
+          <div class="step-kicker">Step 2</div>
+          <div class="section-heading">
+            <h2>Generator</h2>
+            <span id="seed-readout">Seed 4001</span>
+          </div>
+          <label class="field">
+            <span>Archetype A</span>
+            <select id="archetype-a"></select>
+          </label>
+          <label class="field">
+            <span>Archetype B</span>
+            <select id="archetype-b"></select>
+          </label>
+          <label class="field">
+            <span>Secondary Scale <strong id="secondary-scale-readout">10</strong></span>
+            <input id="secondary-scale" type="range" min="1" max="10" step="1" value="10" />
+          </label>
+          <label class="field">
+            <span>Difficulty</span>
+            <select id="difficulty"></select>
+          </label>
+          <label class="field">
+            <span>Tempo</span>
+            <select id="tempo-profile"></select>
+          </label>
+          <label class="field">
+            <span>Monster Kind</span>
+            <select id="monster-kind">
+              <option value="normal">Normal</option>
+              <option value="elite">Elite</option>
+              <option value="boss">Boss</option>
+              <option value="bespoke">Bespoke</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Batch Size</span>
+            <input id="batch-size" type="number" min="3" max="16" step="1" value="8" />
+          </label>
+          <div class="generator-mechanics-wrap">
+            <div class="section-heading compact-heading">
+              <h2>Available Mechanics</h2>
+              <span>Ranked weight</span>
+            </div>
+            <div id="generator-mechanics" class="generator-mechanics"></div>
+          </div>
+          <button id="generate-batch-button" type="button" class="primary-action wide-action">Generate Batch</button>
+        </section>
+
+        <section class="panel-section assembly-step candidate-step">
+          <div class="step-kicker">Step 3</div>
+          <div class="section-heading">
+            <h2>Candidate Queue</h2>
+            <span id="candidate-count">0 monsters</span>
+          </div>
+          <div id="candidate-summary" class="candidate-summary"></div>
+          <div id="candidate-list" class="candidate-list"></div>
+        </section>
+      </section>
+
       <section class="dashboard">
-        <aside class="control-panel" aria-label="Monster generation controls">
+        <aside class="control-panel" aria-label="Selected monster tuning controls">
           <section class="panel-section">
             <div class="section-heading">
-              <h2>Generator</h2>
-              <span id="seed-readout">Seed 4001</span>
+              <h2>Selected Monster</h2>
+              <span>Manual pass</span>
             </div>
-            <label class="field">
-              <span>Archetype A</span>
-              <select id="archetype-a"></select>
-            </label>
-            <label class="field">
-              <span>Archetype B</span>
-              <select id="archetype-b"></select>
-            </label>
-            <label class="field">
-              <span>Difficulty</span>
-              <select id="difficulty"></select>
-            </label>
-            <label class="field">
-              <span>Monster Kind</span>
-              <select id="monster-kind">
-                <option value="normal">Normal</option>
-                <option value="elite">Elite</option>
-                <option value="boss">Boss</option>
-                <option value="bespoke">Bespoke</option>
-              </select>
-            </label>
             <label class="field">
               <span>Name</span>
               <input id="monster-name" type="text" autocomplete="off" />
             </label>
-          </section>
-
-          <section class="panel-section">
-            <div class="section-heading">
-              <h2>Archetype Builder</h2>
-              <span>Custom pools</span>
-            </div>
-            <div class="builder-tabs" role="tablist" aria-label="Custom archetype slots">
-              <button id="edit-custom-a" type="button" class="tab-button active-tab">Custom A</button>
-              <button id="edit-custom-b" type="button" class="tab-button">Custom B</button>
-            </div>
-            <label class="field">
-              <span>Archetype Name</span>
-              <input id="custom-archetype-name" type="text" autocomplete="off" />
-            </label>
-            <label class="field">
-              <span>HP Bias</span>
-              <input id="custom-hp-bias" type="range" min="70" max="150" step="1" value="100" />
-            </label>
-            <div class="builder-help">Enable mechanics, set their low/high value range, then choose how quickly they climb with encounter difficulty.</div>
-            <div id="custom-mechanics" class="custom-mechanics"></div>
-          </section>
-
-          <section class="panel-section">
-            <div class="section-heading">
-              <h2>Bespoke Tuning</h2>
-              <span>Manual overrides</span>
-            </div>
             <div id="stat-controls" class="slider-stack"></div>
             <label class="toggle-row">
               <input id="lock-mechanics" type="checkbox" />
@@ -98,12 +167,20 @@
 
           <div class="summary-grid" aria-label="Monster summary">
             <article class="metric">
-              <span>HP</span>
+              <span>Raw HP</span>
               <strong id="hp-readout">0</strong>
             </article>
             <article class="metric">
               <span>Effective HP</span>
               <strong id="ehp-readout">0</strong>
+            </article>
+            <article class="metric">
+              <span>Duration</span>
+              <strong id="duration-readout">0s</strong>
+            </article>
+            <article class="metric">
+              <span>Target DPS</span>
+              <strong id="target-dps-readout">0-0</strong>
             </article>
             <article class="metric">
               <span>Required DPS</span>
@@ -121,6 +198,14 @@
               <span id="mechanics-count">0 selected</span>
             </div>
             <div id="mechanics-grid" class="mechanics-grid"></div>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <h2>Matchup Preview</h2>
+              <span>Route language</span>
+            </div>
+            <div id="matchup-preview" class="matchup-preview"></div>
           </section>
 
           <section class="panel-section">
@@ -190,7 +275,7 @@
           <section class="panel-section">
             <div class="section-heading">
               <h2>Warnings</h2>
-              <span id="warning-count">0 flags</span>
+              <span id="warning-count">0 notices</span>
             </div>
             <div id="warnings" class="warnings"></div>
           </section>

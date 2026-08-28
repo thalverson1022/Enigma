@@ -32,7 +32,7 @@ extends Control
 ## testable here). Reworked post-R10 (UI-feedback pass): the target card no
 ## longer picks between 3 preset monsters -- Practice Room only measures
 ## damage dealt in a fixed window, never whether the target dies, so it's
-## just adjustable Armor/Poison Resist values on a single practice target
+## just adjustable defenses on a single practice target
 ## with no HP concept anywhere in the UI.
 ##
 ## P2:R10:T6 scope, extended post-R10: a Fight button (centered under the
@@ -247,16 +247,26 @@ func _ready() -> void:
 	center_column.add_child(_skill_build_panel)
 	_skill_build_panel.custom_minimum_size = Vector2(0, PRACTICE_SKILL_BUILD_MIN_HEIGHT)
 
+	var right_scroll := ScrollContainer.new()
+	right_scroll.name = "RightColumnScroll"
+	right_scroll.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0)
+	right_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	columns.add_child(right_scroll)
+
 	var right_column := VBoxContainer.new()
 	right_column.name = "RightColumn"
 	right_column.add_theme_constant_override("separation", 6)
 	right_column.custom_minimum_size = Vector2(SIDE_COLUMN_WIDTH, 0)
-	columns.add_child(right_column)
+	right_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_scroll.add_child(right_column)
 
 	_target_panel = TrainingTargetPanel.new()
 	_target_panel.name = "TargetPanel"
-	_target_panel.armor_changed.connect(_on_target_armor_changed)
-	_target_panel.poison_resist_changed.connect(_on_target_poison_resist_changed)
+	_target_panel.defense_changed.connect(_on_target_defense_changed)
+	_target_panel.preset_selected.connect(_on_target_preset_selected)
+	_target_panel.generated_roll_requested.connect(_on_generated_roll_requested)
+	_target_panel.generated_seed_requested.connect(_on_generated_seed_requested)
 	right_column.add_child(_target_panel)
 
 	_build_fight_setup_panel(right_column)
@@ -274,6 +284,7 @@ func _ready() -> void:
 	_state.build_changed.connect(_invalidate_result_review)
 	_state.lock_changed.connect(_refresh_fight_button)
 	_state.fight_setup_changed.connect(_refresh_target_panel)
+	_state.fight_setup_changed.connect(_refresh_fight_setup_controls)
 	_state.fight_setup_changed.connect(_refresh_combat_view_fight_window)
 	_state.fight_setup_changed.connect(_invalidate_result_review)
 	_state.fight_finished.connect(_on_state_fight_finished)
@@ -803,11 +814,35 @@ func _on_target_poison_resist_changed(value: float) -> void:
 	_state.set_target_poison_resistance(value)
 
 
-## Pushes the target's current Armor/Poison Resist into the card -- called
+func _on_target_defense_changed(field: String, value: Variant) -> void:
+	_state.set_target_defense(field, value)
+
+
+func _on_target_preset_selected(preset_id: String) -> void:
+	_state.apply_target_preset(preset_id)
+
+
+func _on_generated_roll_requested(difficulty_id: int) -> void:
+	_state.roll_generated_target(difficulty_id)
+
+
+func _on_generated_seed_requested(difficulty_id: int, seed: int) -> void:
+	_state.roll_generated_target(difficulty_id, seed)
+
+
+## Pushes the target's current defenses into the card -- called
 ## once up front and again on every fight_setup_changed (target or duration
 ## edits).
 func _refresh_target_panel() -> void:
-	_target_panel.refresh(_state.selected_target.armor, _state.selected_target.poison_resistance)
+	_target_panel.refresh_defenses(_state.target_defense_snapshot())
+	_target_panel.refresh_generated_info(_state.generated_monster_draft)
+
+
+func _refresh_fight_setup_controls() -> void:
+	if _duration_spin != null:
+		_duration_spin.value = _state.duration_ms / 1000.0
+	if _seed_spin != null:
+		_seed_spin.value = _state.fight_seed
 
 
 func _refresh_combat_view_fight_window() -> void:

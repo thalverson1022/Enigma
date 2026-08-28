@@ -195,7 +195,7 @@ func _skill_effect_summary(skill: Skill) -> String:
 		elif effect is ArmorReductionEffect:
 			parts.append("-%d armor" % effect.amount)
 		elif effect is PoisonResistanceReductionEffect:
-			parts.append("-%d%% poison resist" % roundi(effect.reduction_fraction * 100.0))
+			parts.append("-%d%% resist" % roundi(effect.reduction_fraction * 100.0))
 		elif effect is StackScalingPhysicalDamageEffect:
 			parts.append("+%.0f dmg/poison stack" % effect.damage_per_stack)
 	if skill.poison_stacks_applied > 0 and not has_poison_effect:

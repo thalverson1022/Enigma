@@ -15,12 +15,16 @@ const PANEL_MIN_HEIGHT := 184
 const ORDER_BADGE_FONT_SIZE := 11
 const REMOVE_BADGE_FONT_SIZE := 14
 const SLOT_COUNT_FONT_SIZE := 22
+const INTERRUPT_LOCK_ICON_SIZE := Vector2(46, 46)
+const INTERRUPT_LOCK_ICON_COLOR := Color(1.0, 0.08, 0.06, 0.92)
+const INTERRUPT_LOCK_ICON_OUTLINE := Color(0.12, 0.0, 0.0, 0.9)
 const ACTIVE_SLOT_COLOR := UIColors.BUILD_ACTIVE
 const ACTIVE_SLOT_BG := UIColors.BUILD_ACTIVE_BG
 const PULSE_SLOT_COLOR := UIColors.BUILD_PROC
 const PULSE_SLOT_BG := UIColors.BUILD_PROC_BG
 const PROGRESS_FILL_COLOR := UIColors.BUILD_PROGRESS_FILL
 const PROC_PROGRESS_FILL_COLOR := UIColors.BUILD_PROC_PROGRESS_FILL
+const SLOW_PROGRESS_FILL_COLOR := Color(0.38, 0.72, 1.0, 0.48)
 const LOCK_ICON := preload("res://assets/ui/icons/build_lock.png")
 const UNLOCK_ICON := preload("res://assets/ui/icons/build_unlock.png")
 const LOCK_BUTTON_SIZE := Vector2(50, 50)
@@ -41,8 +45,30 @@ var _lock_button_icon: TextureRect
 var _lock_holder: CenterContainer
 var _slot_buttons: Array[Button] = []
 var _slot_fills: Array[ColorRect] = []
+var _slot_interrupt_overlays: Array[Control] = []
+var _interrupt_locked_skill_ids := {}
 var _active_index := -1
 var _pulse_tween: Tween
+var _slow_effect_active := false
+
+
+class InterruptLockOverlay:
+	extends Control
+
+	var icon_color := Color(1.0, 0.08, 0.06, 0.92)
+	var outline_color := Color(0.12, 0.0, 0.0, 0.9)
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var center := size * 0.5
+		var radius := minf(size.x, size.y) * 0.42
+		draw_arc(center, radius, 0.0, TAU, 56, outline_color, 9.0, true)
+		draw_arc(center, radius, 0.0, TAU, 56, icon_color, 6.0, true)
+		var diagonal := Vector2(radius * 0.62, radius * 0.62)
+		draw_line(center - diagonal, center + diagonal, outline_color, 10.0, true)
+		draw_line(center - diagonal, center + diagonal, icon_color, 7.0, true)
 
 
 func _ready() -> void:
@@ -152,6 +178,7 @@ func _refresh() -> void:
 	_update_slot_count_label()
 	_slot_buttons = []
 	_slot_fills = []
+	_slot_interrupt_overlays = []
 	for child in _slots_box.get_children():
 		if child is Button:
 			child.disabled = state.build_locked
@@ -183,7 +210,7 @@ func _refresh() -> void:
 
 		var fill := ColorRect.new()
 		fill.name = "CastProgressFill"
-		fill.color = PROGRESS_FILL_COLOR
+		fill.color = _progress_fill_color(false)
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		fill.anchor_left = 0.0
 		fill.anchor_top = 0.0
@@ -195,6 +222,9 @@ func _refresh() -> void:
 		fill.offset_bottom = 0.0
 		fill.z_index = 3
 		slot.add_child(fill)
+		var interrupt_overlay := _make_interrupt_lock_overlay()
+		interrupt_overlay.visible = _interrupt_locked_skill_ids.has(_skill_lock_key(skill))
+		slot.add_child(interrupt_overlay)
 
 		# Cast-order number, top-left corner -- makes the left-to-right
 		# rotation order explicit rather than only implied by position.
@@ -228,6 +258,7 @@ func _refresh() -> void:
 		_slots_box.add_child(slot)
 		_slot_buttons.append(slot)
 		_slot_fills.append(fill)
+		_slot_interrupt_overlays.append(interrupt_overlay)
 
 
 func highlight_rotation_index(index: int, pulse: bool = false) -> void:
@@ -251,7 +282,7 @@ func set_cast_progress(index: int, progress: float, proc: bool = false) -> void:
 		var fill: ColorRect = _slot_fills[i]
 		var clamped := clampf(progress if i == _active_index else 0.0, 0.0, 1.0)
 		fill.anchor_right = clamped
-		fill.color = PROC_PROGRESS_FILL_COLOR if proc and i == _active_index else PROGRESS_FILL_COLOR
+		fill.color = _progress_fill_color(proc and i == _active_index)
 
 
 func clear_combat_highlight() -> void:
@@ -262,6 +293,28 @@ func clear_combat_highlight() -> void:
 		_apply_slot_style(_slot_buttons[i], false, false)
 		if i < _slot_fills.size():
 			_slot_fills[i].anchor_right = 0.0
+
+
+func set_interrupt_locked_skill(skill: Skill, locked: bool) -> void:
+	var key := _skill_lock_key(skill)
+	if key == "":
+		return
+	if locked:
+		_interrupt_locked_skill_ids[key] = true
+	else:
+		_interrupt_locked_skill_ids.erase(key)
+	_apply_interrupt_locks()
+
+
+func clear_interrupt_locks() -> void:
+	_interrupt_locked_skill_ids.clear()
+	_apply_interrupt_locks()
+
+
+func set_slow_effect_active(active: bool) -> void:
+	_slow_effect_active = active
+	for fill in _slot_fills:
+		fill.color = _progress_fill_color(false)
 
 
 func _glyph_for(skill: Skill) -> String:
@@ -290,6 +343,45 @@ func _add_skill_icon(slot: Button, skill: Skill) -> void:
 	icon.offset_bottom = -SLOT_ICON_INSET
 	icon.z_index = 2
 	slot.add_child(icon)
+
+
+func _make_interrupt_lock_overlay() -> Control:
+	var overlay := InterruptLockOverlay.new()
+	overlay.name = "InterruptLockOverlay"
+	overlay.icon_color = INTERRUPT_LOCK_ICON_COLOR
+	overlay.outline_color = INTERRUPT_LOCK_ICON_OUTLINE
+	overlay.custom_minimum_size = INTERRUPT_LOCK_ICON_SIZE
+	overlay.set_anchors_preset(Control.PRESET_CENTER)
+	overlay.offset_left = -INTERRUPT_LOCK_ICON_SIZE.x * 0.5
+	overlay.offset_right = INTERRUPT_LOCK_ICON_SIZE.x * 0.5
+	overlay.offset_top = -INTERRUPT_LOCK_ICON_SIZE.y * 0.5
+	overlay.offset_bottom = INTERRUPT_LOCK_ICON_SIZE.y * 0.5
+	overlay.z_index = 7
+	overlay.visible = false
+	return overlay
+
+
+func _apply_interrupt_locks() -> void:
+	for i in _slot_interrupt_overlays.size():
+		var overlay := _slot_interrupt_overlays[i]
+		if overlay == null:
+			continue
+		var skill: Skill = state.rotation[i] if i < state.rotation.size() else null
+		overlay.visible = _interrupt_locked_skill_ids.has(_skill_lock_key(skill))
+
+
+func _progress_fill_color(proc: bool) -> Color:
+	if proc:
+		return PROC_PROGRESS_FILL_COLOR
+	return SLOW_PROGRESS_FILL_COLOR if _slow_effect_active else PROGRESS_FILL_COLOR
+
+
+func _skill_lock_key(skill: Skill) -> String:
+	if skill == null:
+		return ""
+	if skill.id != "":
+		return skill.id
+	return skill.resource_path if skill.resource_path != "" else skill.display_name
 
 
 func _on_slot_pressed(index: int) -> void:

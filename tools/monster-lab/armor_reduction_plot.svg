@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="560" viewBox="0 0 980 560">
+<rect width="100%" height="100%" fill="#101820"/>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#e8eef2} .muted{fill:#9fb0ba} .grid{stroke:#314553;stroke-width:1} .axis{stroke:#b8c7cf;stroke-width:1.5} .curve{fill:none;stroke:#77d9d0;stroke-width:4;stroke-linecap:round;stroke-linejoin:round} .zero{stroke:#f0c36b;stroke-width:1.5;stroke-dasharray:6 6} .point{fill:#f0c36b;stroke:#101820;stroke-width:2}</style>
+<text x="490.0" y="26" text-anchor="middle" font-size="20" font-weight="700">Armor Damage Reduction Curve (-100 to 100)</text>
+<text x="490.0" y="542" text-anchor="middle" class="muted" font-size="14">Armor</text>
+<text x="18" y="280.0" text-anchor="middle" class="muted" font-size="14" transform="rotate(-90 18 280.0)">Damage reduction % (negative = vulnerability)</text>
+<line class="grid" x1="76" y1="496.00" x2="952" y2="496.00"/>
+<text x="66" y="501.00" text-anchor="end" class="muted" font-size="13">-40%</text>
+<line class="grid" x1="76" y1="410.12" x2="952" y2="410.12"/>
+<text x="66" y="415.12" text-anchor="end" class="muted" font-size="13">-25%</text>
+<line class="grid" x1="76" y1="267.00" x2="952" y2="267.00"/>
+<text x="66" y="272.00" text-anchor="end" class="muted" font-size="13">0%</text>
+<line class="grid" x1="76" y1="123.88" x2="952" y2="123.88"/>
+<text x="66" y="128.88" text-anchor="end" class="muted" font-size="13">25%</text>
+<line class="grid" x1="76" y1="38.00" x2="952" y2="38.00"/>
+<text x="66" y="43.00" text-anchor="end" class="muted" font-size="13">40%</text>
+<line class="grid" x1="76.00" y1="38" x2="76.00" y2="496"/>
+<text x="76.00" y="520" text-anchor="middle" class="muted" font-size="13">-100</text>
+<line class="grid" x1="295.00" y1="38" x2="295.00" y2="496"/>
+<text x="295.00" y="520" text-anchor="middle" class="muted" font-size="13">-50</text>
+<line class="grid" x1="514.00" y1="38" x2="514.00" y2="496"/>
+<text x="514.00" y="520" text-anchor="middle" class="muted" font-size="13">0</text>
+<line class="grid" x1="733.00" y1="38" x2="733.00" y2="496"/>
+<text x="733.00" y="520" text-anchor="middle" class="muted" font-size="13">50</text>
+<line class="grid" x1="952.00" y1="38" x2="952.00" y2="496"/>
+<text x="952.00" y="520" text-anchor="middle" class="muted" font-size="13">100</text>
+<line class="zero" x1="76" y1="267.00" x2="952" y2="267.00"/>
+<line class="axis" x1="76" y1="496" x2="952" y2="496"/>
+<line class="axis" x1="76" y1="38" x2="76" y2="496"/>
+<path class="curve" d="M 76.00 481.69 L 80.38 480.61 L 84.76 479.52 L 89.14 478.42 L 93.52 477.31 L 97.90 476.18 L 102.28 475.05 L 106.66 473.90 L 111.04 472.74 L 115.42 471.57 L 119.80 470.39 L 124.18 469.19 L 128.56 467.98 L 132.94 466.76 L 137.32 465.53 L 141.70 464.28 L 146.08 463.02 L 150.46 461.74 L 154.84 460.45 L 159.22 459.15 L 163.60 457.83 L 167.98 456.50 L 172.36 455.15 L 176.74 453.79 L 181.12 452.41 L 185.50 451.02 L 189.88 449.61 L 194.26 448.18 L 198.64 446.74 L 203.02 445.28 L 207.40 443.80 L 211.78 442.31 L 216.16 440.79 L 220.54 439.26 L 224.92 437.72 L 229.30 436.15 L 233.68 434.56 L 238.06 432.95 L 242.44 431.33 L 246.82 429.68 L 251.20 428.02 L 255.58 426.33 L 259.96 424.62 L 264.34 422.89 L 268.72 421.13 L 273.10 419.36 L 277.48 417.56 L 281.86 415.74 L 286.24 413.89 L 290.62 412.02 L 295.00 410.12 L 299.38 408.20 L 303.76 406.26 L 308.14 404.28 L 312.52 402.28 L 316.90 400.25 L 321.28 398.20 L 325.66 396.11 L 330.04 394.00 L 334.42 391.85 L 338.80 389.68 L 343.18 387.47 L 347.56 385.23 L 351.94 382.96 L 356.32 380.66 L 360.70 378.32 L 365.08 375.95 L 369.46 373.54 L 373.84 371.09 L 378.22 368.61 L 382.60 366.09 L 386.98 363.53 L 391.36 360.93 L 395.74 358.28 L 400.12 355.60 L 404.50 352.87 L 408.88 350.10 L 413.26 347.29 L 417.64 344.43 L 422.02 341.52 L 426.40 338.56 L 430.78 335.56 L 435.16 332.50 L 439.54 329.39 L 443.92 326.22 L 448.30 323.01 L 452.68 319.73 L 457.06 316.40 L 461.44 313.00 L 465.82 309.55 L 470.20 306.03 L 474.58 302.45 L 478.96 298.81 L 483.34 295.09 L 487.72 291.30 L 492.10 287.45 L 496.48 283.51 L 500.86 279.51 L 505.24 275.42 L 509.62 271.25 L 514.00 267.00 L 518.38 262.75 L 522.76 258.58 L 527.14 254.49 L 531.52 250.49 L 535.90 246.55 L 540.28 242.70 L 544.66 238.91 L 549.04 235.19 L 553.42 231.55 L 557.80 227.97 L 562.18 224.45 L 566.56 221.00 L 570.94 217.60 L 575.32 214.27 L 579.70 210.99 L 584.08 207.78 L 588.46 204.61 L 592.84 201.50 L 597.22 198.44 L 601.60 195.44 L 605.98 192.48 L 610.36 189.57 L 614.74 186.71 L 619.12 183.90 L 623.50 181.12 L 627.88 178.40 L 632.26 175.72 L 636.64 173.07 L 641.02 170.47 L 645.40 167.91 L 649.78 165.39 L 654.16 162.91 L 658.54 160.46 L 662.92 158.05 L 667.30 155.68 L 671.68 153.34 L 676.06 151.04 L 680.44 148.77 L 684.82 146.53 L 689.20 144.32 L 693.58 142.15 L 697.96 140.00 L 702.34 137.89 L 706.72 135.80 L 711.10 133.75 L 715.48 131.72 L 719.86 129.72 L 724.24 127.74 L 728.62 125.80 L 733.00 123.88 L 737.38 121.98 L 741.76 120.11 L 746.14 118.26 L 750.52 116.44 L 754.90 114.64 L 759.28 112.87 L 763.66 111.11 L 768.04 109.38 L 772.42 107.67 L 776.80 105.98 L 781.18 104.32 L 785.56 102.67 L 789.94 101.05 L 794.32 99.44 L 798.70 97.85 L 803.08 96.28 L 807.46 94.74 L 811.84 93.21 L 816.22 91.69 L 820.60 90.20 L 824.98 88.72 L 829.36 87.26 L 833.74 85.82 L 838.12 84.39 L 842.50 82.98 L 846.88 81.59 L 851.26 80.21 L 855.64 78.85 L 860.02 77.50 L 864.40 76.17 L 868.78 74.85 L 873.16 73.55 L 877.54 72.26 L 881.92 70.98 L 886.30 69.72 L 890.68 68.47 L 895.06 67.24 L 899.44 66.02 L 903.82 64.81 L 908.20 63.61 L 912.58 62.43 L 916.96 61.26 L 921.34 60.10 L 925.72 58.95 L 930.10 57.82 L 934.48 56.69 L 938.86 55.58 L 943.24 54.48 L 947.62 53.39 L 952.00 52.31"/>
+<circle class="point" cx="76.00" cy="481.69" r="5"/>
+<text x="76.00" y="503.69" text-anchor="middle" font-size="12">-37.5%</text>
+<circle class="point" cx="295.00" cy="410.12" r="5"/>
+<text x="295.00" y="432.12" text-anchor="middle" font-size="12">-25.0%</text>
+<circle class="point" cx="514.00" cy="267.00" r="5"/>
+<text x="514.00" y="255.00" text-anchor="middle" font-size="12">+0.0%</text>
+<circle class="point" cx="733.00" cy="123.88" r="5"/>
+<text x="733.00" y="111.88" text-anchor="middle" font-size="12">+25.0%</text>
+<circle class="point" cx="952.00" cy="52.31" r="5"/>
+<text x="952.00" y="40.31" text-anchor="middle" font-size="12">+37.5%</text>
+<text x="181.12" y="444.47" text-anchor="middle" fill="#ffb86b" font-size="14">negative armor increases damage taken</text>
+<text x="803.08" y="89.53" text-anchor="middle" fill="#77d9d0" font-size="14">positive armor reduces physical damage</text>
+</svg>

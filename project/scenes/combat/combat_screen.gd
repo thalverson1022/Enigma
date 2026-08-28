@@ -48,6 +48,15 @@ const HUD_RESISTANCE_ICON := preload("res://assets/combat_ui_icons/resistance.pn
 const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
 const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
 const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
+const MECHANIC_DODGE_ICON := preload("res://assets/ui/icons/mechanics/dodge.png")
+const MECHANIC_CRIT_NEGATION_ICON := preload("res://assets/ui/icons/mechanics/crit_negation.png")
+const MECHANIC_BLOCK_ICON := preload("res://assets/ui/icons/mechanics/block.png")
+const MECHANIC_ABSORB_ICON := preload("res://assets/ui/icons/mechanics/absorb.png")
+const MECHANIC_CLEANSE_ICON := preload("res://assets/ui/icons/mechanics/cleanse.png")
+const MECHANIC_SUPPRESS_ICON := preload("res://assets/ui/icons/mechanics/suppress.png")
+const MECHANIC_SLOW_ICON := preload("res://assets/ui/icons/mechanics/slow.png")
+const MECHANIC_STUN_ICON := preload("res://assets/ui/icons/mechanics/stun.png")
+const MECHANIC_INTERRUPT_ICON := preload("res://assets/ui/icons/mechanics/interrupt.png")
 const UI_MAP_ICON := preload("res://assets/ui/icons/map.png")
 const UI_GOLD_ICON := preload("res://assets/ui/icons/gold.png")
 const UI_CLOCK_ICON_PATH := "res://assets/ui/icons/clock.png"
@@ -98,6 +107,14 @@ const PLAYBACK_OUTCOME_REVEAL_DELAY_SEC := 0.75
 const PLAYER_DEFEAT_POSE_HOLD_SEC := 1.0
 const TAVERN_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/tavern_dummy_background_2.jpg")
 const CONTRACT_BACKGROUND_TEXTURE := preload("res://assets/backgrounds/contract_exterior.jpg")
+const BIOME_BACKGROUND_TEXTURE_PATHS := {
+	"Swamp": "res://assets/backgrounds/biomes/swamp.jpg",
+	"Cave": "res://assets/backgrounds/biomes/cave.jpg",
+	"Graveyard": "res://assets/backgrounds/biomes/graveyard.jpg",
+	"Haunted Forest": "res://assets/backgrounds/biomes/forest.jpg",
+	"Ruined Keep": "res://assets/backgrounds/biomes/keep.jpg",
+	"Ancient Ruins": "res://assets/backgrounds/biomes/ruins.jpg",
+}
 const TAVERN_BACKGROUND_TINT := UIColors.SCRIM_SOFT
 
 
@@ -198,6 +215,7 @@ var _fight_timer_label: Label
 var _hud_name_label: Label
 var _hud_hp_text_label: Label
 var _hud_health_bar: ProgressBar
+var _hud_effect_row: HBoxContainer
 var _hud_status_row: HBoxContainer
 var _hud_info_label: Label
 var _hud_resist_label: Label
@@ -229,6 +247,7 @@ var instant_playback: bool = DisplayServer.get_name() == "headless"
 var _playback_active := false
 var _playback_presenter: CombatPlaybackPresenter
 var _playback_controls: PlaybackControls
+var hud_status_chip_flash_count := 0
 var _skip_playback_on_fight := false
 var _skill_build_panel
 var _gear_panel
@@ -252,6 +271,7 @@ var _tavern_background: TextureRect
 var _tavern_fireplace_overlay
 var _contract_moon_bat_overlay
 var _tavern_background_tint: ColorRect
+var _biome_background_texture_cache := {}
 var _combat_play_area: Control
 var _combat_stage
 var _popup_layer: CombatPopupLayer
@@ -379,7 +399,7 @@ func _ready() -> void:
 	_playback_presenter.set_combat_stage(_combat_stage)
 	_playback_presenter.set_skill_build_panel(_skill_build_panel)
 	_playback_presenter.set_popup_layer(_popup_layer)
-	_playback_presenter.set_hud_widgets(_hud_hp_text_label, _hud_health_bar, _hud_info_label, _hud_resist_label, _clear_hud_status_chips, _add_hud_status_chip)
+	_playback_presenter.set_hud_widgets(_hud_hp_text_label, _hud_health_bar, _hud_info_label, _hud_resist_label, _clear_hud_status_chips, _add_hud_status_chip, _flash_hud_status_chips)
 	_playback_presenter.finished.connect(_on_playback_finished)
 	add_child(_playback_presenter)
 
@@ -406,7 +426,7 @@ func _ready() -> void:
 	_view_log_button.text = "Combat Log"
 	_view_log_button.custom_minimum_size = fight_button.custom_minimum_size
 	_view_log_button.disabled = true
-	_view_log_button.pressed.connect(func(): _log_overlay.visible = true)
+	_view_log_button.pressed.connect(func(): _log_overlay.show_log())
 	_fight_button_row.add_child(_view_log_button)
 	_sync_combat_play_area_reserved_height()
 	call_deferred("_sync_combat_play_area_reserved_height")
@@ -428,6 +448,7 @@ func _ready() -> void:
 	_map_overlay = MAP_OVERLAY_SCENE.instantiate()
 	_map_overlay.tavern_proceed_pressed.connect(_on_tavern_proceed_pressed)
 	_map_overlay.contract_offer_pressed.connect(_on_contract_map_pressed)
+	_map_overlay.contract_back_requested.connect(_on_contract_back_requested)
 	_map_overlay.route_node_pressed.connect(_on_contract_route_node_pressed)
 	add_child(_map_overlay)
 	_talent_overlay = TALENT_OVERLAY_SCENE.instantiate()
@@ -445,6 +466,7 @@ func _ready() -> void:
 	add_child(_secondary_subclass_overlay)
 	_log_overlay = LOG_OVERLAY_SCENE.instantiate()
 	add_child(_log_overlay)
+	_log_overlay.set_run_history(BuildState.run_encounter_history)
 	BuildState.build_changed.connect(_on_build_state_changed)
 	BuildState.run_state_changed.connect(_on_run_state_changed)
 	BuildState.lock_changed.connect(_update_header_status)
@@ -718,7 +740,7 @@ func _sync_combat_play_area_reserved_height() -> void:
 ## a compact block at the top of the black Combat panel -- enemy name + HP
 ## text over a health bar, a small status-chip row (poison stacks / armor
 ## shredded / resist shredded, post-fight only), and a one-line info readout
-## of current armor / poison resist. Intended to sit beside
+## of current armor / resistance. Intended to sit beside
 ## the enemy animations once those exist in a later phase; for now it's the
 ## HUD alone, anchored to the top edge so the panel center stays free.
 ## Presentation-only: every value comes from the current Monster resource
@@ -779,7 +801,7 @@ func _build_enemy_hud() -> VBoxContainer:
 	values_row.anchor_right = 1.0
 	values_row.anchor_top = 0.0
 	values_row.anchor_bottom = 0.0
-	values_row.offset_left = -300.0
+	values_row.offset_left = -560.0
 	values_row.offset_right = 0.0
 	values_row.offset_top = 18.0
 	values_row.offset_bottom = FIGHT_TIMER_BADGE_SIZE.y
@@ -821,6 +843,12 @@ func _build_enemy_hud() -> VBoxContainer:
 	_hud_resist_label.name = "ResistText"
 	_hud_resist_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	values_row.add_child(_hud_resist_label)
+
+	_hud_effect_row = HBoxContainer.new()
+	_hud_effect_row.name = "EnemyEffectRow"
+	_hud_effect_row.alignment = BoxContainer.ALIGNMENT_END
+	_hud_effect_row.add_theme_constant_override("separation", 10)
+	values_row.add_child(_hud_effect_row)
 	_enemy_hud.add_child(name_row)
 
 	_hud_health_bar = ProgressBar.new()
@@ -899,10 +927,12 @@ func _refresh_enemy_hud() -> void:
 		_update_combat_stage_target(null)
 		return
 	_set_enemy_hud_display(enemy.display_name, float(enemy.hp), enemy.hp, enemy.armor, enemy.poison_resistance)
+	_refresh_enemy_effect_chips(enemy)
 	_clear_hud_status_chips()
 	_add_hud_status_chip("x0", UIColors.TEXT_POISON, HUD_POISON_ICON)
 	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON)
 	_add_hud_status_chip("x0", UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
+	_add_interrupt_status_chip(enemy, 0)
 	_enemy_hud.visible = true
 	_refresh_fight_timer_badge()
 	_update_combat_stage_target(enemy)
@@ -932,11 +962,14 @@ func _render_enemy_hud_post_fight() -> void:
 	var peak_stacks := _hud_peak_poison_stacks(result.tick_events)
 	var shred_stacks := _hud_armor_reduction_cast_count(result.cast_events)
 	var decay_stacks := _hud_poison_resistance_reduction_cast_count(result.cast_events)
+	var interrupt_repeats := _hud_interrupt_repeat_count(result.cast_events)
 	_set_enemy_hud_display(monster.display_name, remaining, monster.hp, final_armor, final_resist)
+	_refresh_enemy_effect_chips(monster)
 	_clear_hud_status_chips()
 	_add_hud_status_chip("x%d" % peak_stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
 	_add_hud_status_chip("x%d" % shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
 	_add_hud_status_chip("x%d" % decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
+	_add_interrupt_status_chip(monster, interrupt_repeats)
 	_enemy_hud.visible = true
 	_refresh_fight_timer_badge()
 
@@ -955,6 +988,63 @@ func _set_enemy_hud_display(display_name: String, hp_remaining: float, hp_max: i
 	if _hud_resist_label != null:
 		_hud_resist_label.text = "%.0f%%" % (poison_resistance * 100.0)
 	_refresh_fight_timer_badge()
+
+
+func _refresh_enemy_effect_chips(monster: Monster) -> void:
+	if _hud_effect_row == null:
+		return
+	_clear_enemy_effect_chips()
+	if monster == null:
+		return
+	for indicator in _enemy_effect_indicators(monster):
+		_add_enemy_effect_chip(indicator)
+
+
+func _clear_enemy_effect_chips() -> void:
+	if _hud_effect_row == null:
+		return
+	for child in _hud_effect_row.get_children():
+		_hud_effect_row.remove_child(child)
+		child.queue_free()
+
+
+func _add_enemy_effect_chip(indicator: Dictionary) -> void:
+	var chip: HBoxContainer = COMBAT_STATUS_ICONS.add_icon_label(
+		_hud_effect_row,
+		indicator["icon"],
+		String(indicator["text"]),
+		indicator["color"],
+		"EnemyEffectChip"
+	)
+	chip.set_meta("effect_id", indicator["id"])
+	chip.tooltip_text = String(indicator["tooltip"])
+
+
+func _enemy_effect_indicators(monster: Monster) -> Array:
+	if monster == null:
+		return []
+	var indicators := []
+	_add_enemy_effect_indicator(indicators, "dodge_chance", monster.dodge_chance > 0.0, MECHANIC_DODGE_ICON, "%.0f%%" % (monster.dodge_chance * 100.0), UIColors.TEXT_WARNING, "Dodge")
+	_add_enemy_effect_indicator(indicators, "crit_negation", monster.crit_negation > 0.0, MECHANIC_CRIT_NEGATION_ICON, "%.0f%%" % (monster.crit_negation * 100.0), UIColors.TEXT_WARNING, "Crit Negate")
+	_add_enemy_effect_indicator(indicators, "block", monster.block > 0.0, MECHANIC_BLOCK_ICON, "%.0f" % monster.block, UIColors.TEXT_WARNING, "Block")
+	_add_enemy_effect_indicator(indicators, "absorb", monster.absorb > 0.0, MECHANIC_ABSORB_ICON, "%.0f" % monster.absorb, UIColors.TEXT_MAGIC, "Absorb")
+	_add_enemy_effect_indicator(indicators, "cleanse_threshold", monster.cleanse_threshold > 0, MECHANIC_CLEANSE_ICON, "%d" % monster.cleanse_threshold, UIColors.TEXT_POISON, "Cleanse")
+	_add_enemy_effect_indicator(indicators, "suppress", monster.suppress > 0.0, MECHANIC_SUPPRESS_ICON, "%.0f%%" % (monster.suppress * 100.0), UIColors.TEXT_MAGIC, "Suppress")
+	_add_enemy_effect_indicator(indicators, "slow", monster.slow > 0.0, MECHANIC_SLOW_ICON, "%.0f%%" % (monster.slow * 100.0), UIColors.TEXT_MAGIC, "Slow")
+	_add_enemy_effect_indicator(indicators, "stun_duration_ms", monster.stun_duration_ms > 0, MECHANIC_STUN_ICON, _format_stun_duration(monster.stun_duration_ms), UIColors.TEXT_MAGIC, "Stun")
+	return indicators
+
+
+func _add_enemy_effect_indicator(indicators: Array, id: String, enabled: bool, icon: Texture2D, text: String, color: Color, label: String) -> void:
+	if not enabled:
+		return
+	indicators.append({
+		"id": id,
+		"icon": icon,
+		"text": text,
+		"color": color,
+		"tooltip": "%s: %s" % [label, text],
+	})
 
 
 func _set_fight_timer_visible(is_visible: bool) -> void:
@@ -1011,6 +1101,42 @@ func _add_hud_status_chip(text: String, color: Color, icon: Texture2D = null) ->
 	_hud_status_row.add_child(chip)
 
 
+func _flash_hud_status_chips() -> void:
+	hud_status_chip_flash_count += 1
+	_flash_status_chip_row(_hud_status_row)
+
+
+func _flash_status_chip_row(row: HBoxContainer) -> void:
+	if row == null:
+		return
+	for child in row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		if icon == null or not [HUD_POISON_ICON, HUD_SHRED_ICON, HUD_DECAY_ICON].has(icon.texture):
+			continue
+		child.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		child.scale = Vector2.ONE
+		child.pivot_offset = child.size * 0.5
+		var tween := child.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(child, "scale", Vector2(1.2, 1.2), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(child, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.1)
+		tween.chain().tween_property(child, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.parallel().tween_property(child, "modulate", Color.WHITE, 0.18)
+
+
+func _add_interrupt_status_chip(monster: Monster, repeat_count: int) -> void:
+	if monster == null or monster.interrupt_skip_count <= 0:
+		return
+	_add_hud_status_chip("%d/%d" % [repeat_count, CombatResolver.INTERRUPT_REPEAT_THRESHOLD], UIColors.TEXT_MAGIC, MECHANIC_INTERRUPT_ICON)
+
+
+func _format_stun_duration(duration_ms: int) -> String:
+	var seconds := float(duration_ms) / 1000.0
+	if is_equal_approx(seconds, roundf(seconds)):
+		return "%ds" % int(roundf(seconds))
+	return "%.1fs" % seconds
+
+
 ## Stores a resolved fight for the HUD's post-fight display state and
 ## refreshes immediately. Called from _on_fight_pressed() for both outcomes.
 func _show_enemy_hud_post_fight(result: CombatResolver.CombatResult, monster: Monster) -> void:
@@ -1035,7 +1161,21 @@ func _update_combat_stage_target(monster: Monster) -> void:
 	if monster == null:
 		_combat_stage.clear_target()
 		return
-	_combat_stage.configure("Rogue", monster.display_name)
+	_combat_stage.configure("Rogue", monster.display_name, _combat_stage_visual_name(monster))
+
+
+func _combat_stage_visual_name(monster: Monster) -> String:
+	if monster == null:
+		return ""
+	if BuildState.current_route_node == null:
+		return monster.display_name
+	var biome := BuildState.current_route_node.biome
+	if biome == "" and BuildState.active_contract != null:
+		biome = BuildState.active_contract.selected_biome
+	var biome_name := "%s %s" % [biome, monster.display_name]
+	if CombatStage.enemy_visual_key_for(biome_name) != "":
+		return biome_name
+	return monster.display_name
 
 
 ## Enemy HP left after the resolved fight, clamped to [0, monster.hp] --
@@ -1047,12 +1187,14 @@ func _hud_post_fight_hp(result: CombatResolver.CombatResult, monster: Monster) -
 	return clampf(float(monster.hp) - result.total_damage, 0.0, float(monster.hp))
 
 
-## Sum of every cast's applied armor reduction -- the same per-event field
-## CombatRecap uses for post-fight summaries.
+## Active armor reduction at fight end, replaying cleanse resets from the
+## resolved event timeline.
 func _hud_total_armor_reduction(cast_events: Array) -> int:
 	var total := 0
 	for event in cast_events:
 		total += event.armor_reduction_applied
+		if event.cleanse_triggered:
+			total = 0
 	return total
 
 
@@ -1061,6 +1203,8 @@ func _hud_armor_reduction_cast_count(cast_events: Array) -> int:
 	for event in cast_events:
 		if event.armor_reduction_applied > 0:
 			total += 1
+		if event.cleanse_triggered:
+			total = 0
 	return total
 
 
@@ -1069,26 +1213,29 @@ func _hud_poison_resistance_reduction_cast_count(cast_events: Array) -> int:
 	for event in cast_events:
 		if event.poison_resistance_reduction_applied > 0.0:
 			total += 1
+		if event.cleanse_triggered:
+			total = 0
 	return total
 
 
-## The monster's armor at fight end: base armor minus every applied
-## reduction, mirroring CombatResolver's own additive bookkeeping
-## (current_armor -= reduction per event; not clamped, matching the
-## resolver). Not new combat math -- just replaying the recorded events.
+func _hud_interrupt_repeat_count(cast_events: Array) -> int:
+	var repeat_count := 0
+	for event in cast_events:
+		repeat_count = event.interrupt_repeat_count_after
+	return repeat_count
+
+
+## The monster's armor at fight end: base armor minus active reduction after
+## replaying any cleanse resets. Not new combat math -- just replaying the
+## recorded events.
 func _hud_final_armor(result: CombatResolver.CombatResult, monster: Monster) -> int:
 	if monster == null or result == null:
 		return 0
 	return monster.armor - _hud_total_armor_reduction(result.cast_events)
 
 
-## The monster's poison resistance at fight end: the base value with each
-## recorded per-cast reduction applied multiplicatively, mirroring
-## CombatResolver's `current_poison_resistance *= 1.0 - fraction`. Exact for
-## every authored skill (each applies at most one
-## PoisonResistanceReductionEffect per cast; CastEvent sums fractions within
-## one cast, so a hypothetical multi-reduction cast would read slightly
-## stronger here than the resolver applied).
+## The monster's resistance at fight end: the base value with active
+## reductions replayed and cleanse resets honored.
 func _hud_final_poison_resist(result: CombatResolver.CombatResult, monster: Monster) -> float:
 	if monster == null or result == null:
 		return 0.0
@@ -1096,6 +1243,8 @@ func _hud_final_poison_resist(result: CombatResolver.CombatResult, monster: Mons
 	for event in result.cast_events:
 		if event.poison_resistance_reduction_applied > 0.0:
 			resist *= 1.0 - clampf(event.poison_resistance_reduction_applied, 0.0, 1.0)
+		if event.cleanse_triggered:
+			resist = monster.poison_resistance
 	return resist
 
 
@@ -1126,7 +1275,7 @@ func _hud_peak_poison_stacks(tick_events: Array) -> int:
 ## window, but dashboard controls such as View Combat Log remain usable.
 func _build_victory_overlay() -> void:
 	_victory_overlay = Control.new()
-	_victory_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_victory_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_victory_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_victory_overlay.z_index = RESULT_OVERLAY_Z_INDEX
 	_victory_overlay.visible = false
@@ -1136,7 +1285,7 @@ func _build_victory_overlay() -> void:
 	backdrop.name = "VictoryClickBlocker"
 	backdrop.color = Color(0.0, 0.0, 0.0, 0.0)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_victory_overlay.add_child(backdrop)
 
 	# Deliberately positioned over the combat window only: the screen-level
@@ -1152,14 +1301,14 @@ func _build_victory_overlay() -> void:
 	combat_dim.name = "VictoryCombatDim"
 	combat_dim.color = UIColors.RESULT_DIM
 	combat_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	combat_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	combat_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_victory_combat_dim = combat_dim
 	center.add_child(combat_dim)
 
 	var content_center := CenterContainer.new()
 	content_center.name = "VictoryContentCenter"
 	content_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	content_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.add_child(content_center)
 
 	var stack := VBoxContainer.new()
@@ -1272,7 +1421,7 @@ func _show_defeat_banner(result: CombatResolver.CombatResult, monster: Monster) 
 	_victory_title_label.add_theme_color_override("font_color", title_color)
 	_victory_top_rule.color = Color(title_color.r, title_color.g, title_color.b, 0.72)
 	_outcome_message_label.visible = false
-	_victory_recap_label.text = "\n".join(_build_victory_recap_lines(result, monster))
+	_victory_recap_label.text = "\n".join(_build_defeat_recap_lines(result, monster))
 	_victory_reward_row.visible = false
 	_continue_button.visible = false
 	_outcome_retry_button.visible = bool(presentation["show_retry"])
@@ -1298,10 +1447,19 @@ func _set_result_button_layer_active(active: bool) -> void:
 func _position_victory_center_over_combat_window() -> void:
 	if _combat_window == null or _victory_center == null:
 		return
+	if _victory_overlay != null:
+		_victory_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var target_rect := _combat_window.get_global_rect()
 	var overlay_origin := _victory_overlay.get_global_rect().position
+	_victory_center.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_victory_center.position = target_rect.position - overlay_origin
 	_victory_center.size = target_rect.size
+	if _victory_combat_dim != null:
+		_victory_combat_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if _victory_overlay != null:
+		var click_blocker := _victory_overlay.find_child("VictoryClickBlocker", true, false) as ColorRect
+		if click_blocker != null:
+			click_blocker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 func _prepare_victory_reveal_animation() -> void:
@@ -1362,6 +1520,13 @@ func _build_victory_recap_lines(result: CombatResolver.CombatResult, monster: Mo
 	lines.append("Total Damage: %.1f (needed %d)" % [summary["total_damage"], summary["damage_required"]])
 	lines.append(_biggest_hit_text(summary))
 	lines.append(_damage_split_text(summary))
+	return lines
+
+
+func _build_defeat_recap_lines(result: CombatResolver.CombatResult, monster: Monster) -> PackedStringArray:
+	var lines := _build_victory_recap_lines(result, monster)
+	lines.append("Contracts Completed: %d" % BuildState.completed_contract_count)
+	lines.append("Highest DPS This Run: %.1f" % BuildState.highest_run_dps)
 	return lines
 
 
@@ -1586,7 +1751,7 @@ func _show_talent_overlay() -> void:
 ## so this reconstructs it from the BuildState fields that do persist.
 func _show_initial_map_if_needed() -> void:
 	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
-		_contract_overlay.show_greeting()
+		_show_contract_offer_overlay()
 		return
 	if _is_awaiting_contract_choice():
 		_contract_overlay.show_contract_choice()
@@ -1612,6 +1777,22 @@ func _is_awaiting_contract_choice() -> bool:
 	)
 
 
+func _show_contract_offer_overlay() -> void:
+	if _pending_contract_offers_are_generated_only():
+		_contract_overlay.show_offer_choice()
+	else:
+		_contract_overlay.show_greeting()
+
+
+func _pending_contract_offers_are_generated_only() -> bool:
+	if BuildState.pending_contract_offers.is_empty():
+		return false
+	for offer in BuildState.pending_contract_offers:
+		if offer == null or not offer.has_generated_route_state():
+			return false
+	return true
+
+
 func _on_map_button_pressed() -> void:
 	_show_map_overlay(true)
 
@@ -1628,7 +1809,7 @@ func _show_story_overlay() -> void:
 
 func _on_intro_story_proceed_pressed() -> void:
 	_story_overlay.visible = false
-	AudioManager.play_tavern_map_rain()
+	AudioManager.transition_to_tavern_intro_ambience()
 	_show_map_overlay(false)
 
 
@@ -1656,7 +1837,11 @@ func _on_contract_route_node_pressed(node: ContractRouteNode) -> void:
 	if node == null:
 		return
 	if BuildState.choose_contract_route_node(node):
-		AudioManager.transition_to_contract_ambience()
+		var audio_biome := _contract_audio_biome_for_node(node)
+		if audio_biome != "":
+			AudioManager.transition_to_contract_biome_ambience(audio_biome)
+		else:
+			AudioManager.transition_to_contract_ambience()
 		_map_overlay.close()
 		_status_label.visible = false
 		_recap_label.visible = false
@@ -1665,14 +1850,30 @@ func _on_contract_route_node_pressed(node: ContractRouteNode) -> void:
 		_autosave()
 
 
+func _on_contract_back_requested() -> void:
+	if BuildState.return_to_contract_offer():
+		_map_overlay.close()
+		_status_label.visible = false
+		_recap_label.visible = false
+		_reset_enemy_hud()
+		_show_contract_offer_overlay()
+		_autosave()
+
+
 
 ## The real commit point: contract_overlay.gd's PITCH step hands off here
 ## rather than mutating BuildState itself. On failure the overlay correctly
 ## stays on PITCH, since only a success path hides it.
-func _on_contract_accept_requested() -> void:
-	if BuildState.accept_contract_offer():
+func _on_contract_accept_requested(contract_id: String = "") -> void:
+	if BuildState.accept_contract_offer(contract_id):
 		_contract_overlay.visible = false
-		_contract_overlay.show_contract_choice()
+		if _is_awaiting_contract_choice():
+			_contract_overlay.show_contract_choice()
+		else:
+			_status_label.visible = false
+			_recap_label.visible = false
+			_reset_enemy_hud()
+			_show_map_overlay(false)
 		_autosave()
 
 
@@ -1695,6 +1896,7 @@ func _show_shop_overlay() -> void:
 	_recap_label.visible = false
 	_view_log_button.visible = false
 	_retry_button.visible = false
+	_outcome_title_label.visible = false
 	_restart_adventure_button.visible = false
 	_shop_overlay.refresh()
 	_shop_overlay.visible = true
@@ -1815,7 +2017,9 @@ func _on_fight_pressed() -> void:
 	var monster: Monster = _enemy_panel.monster()
 	var duration_ms: int = _enemy_panel.duration_ms()
 	var result: CombatResolver.CombatResult = CombatResolver.resolve(rotation, stats, monster, duration_ms, BuildState.current_combat_rng_seed())
+	BuildState.record_fight_result(result, monster)
 	_log_overlay.set_result(result, monster, CombatResultFormatter.format(result, monster))
+	_log_overlay.set_run_history(BuildState.run_encounter_history)
 	if not instant_playback:
 		# Real-time playback path (user-requested combat-playback addition):
 		# every state mutation below is IDENTICAL to instant mode and happens
@@ -1916,10 +2120,12 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 	# Pre-fight HUD state, driven directly (signal refreshes are suspended
 	# while _playback_active).
 	_set_enemy_hud_display(monster.display_name, float(monster.hp), monster.hp, monster.armor, monster.poison_resistance)
+	_refresh_enemy_effect_chips(monster)
 	_clear_hud_status_chips()
 	_add_hud_status_chip("x0", UIColors.TEXT_POISON, HUD_POISON_ICON)
 	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON)
 	_add_hud_status_chip("x0", UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
+	_add_interrupt_status_chip(monster, 0)
 	_enemy_hud.visible = true
 	# Full window always plays on both a win and a loss (adjustment round 1,
 	# 2026-07-19) -- a win used to truncate at the recorded kill moment; the
@@ -2019,6 +2225,7 @@ func _on_playback_finished(result: CombatResolver.CombatResult, monster: Monster
 
 
 func _on_continue_pressed() -> void:
+	var should_return_to_tavern_audio := _is_terminal_contract_reward_pending()
 	var reward_gold := 0
 	var reward_talent_points := 0
 	var reward_gold_source_rect := Rect2()
@@ -2059,6 +2266,8 @@ func _on_continue_pressed() -> void:
 		_status_label.text = FLOW_TEXT.STATUS_SHOP_DECISION
 		_show_shop_overlay()
 		return
+	if should_return_to_tavern_audio:
+		AudioManager.transition_to_tavern_ambience()
 	_advance_after_reward_or_shop()
 
 
@@ -2149,6 +2358,7 @@ func _on_talent_secondary_tree_chosen(tree: SubclassTree) -> void:
 
 
 func _on_reward_choice_pressed(gear: GearItem, source: Control = null) -> void:
+	var should_return_to_tavern_audio := _is_terminal_contract_reward_pending()
 	if BuildState.choose_pending_reward_gear(gear):
 		if _gear_panel != null:
 			await _gear_panel.animate_gain_from_source(gear, source)
@@ -2160,6 +2370,8 @@ func _on_reward_choice_pressed(gear: GearItem, source: Control = null) -> void:
 			return
 		_status_label.visible = false
 		_view_log_button.visible = true
+		if should_return_to_tavern_audio:
+			AudioManager.transition_to_tavern_ambience()
 		_advance_after_reward_or_shop()
 	else:
 		_pulse_inventory_blocked_control(source)
@@ -2167,6 +2379,7 @@ func _on_reward_choice_pressed(gear: GearItem, source: Control = null) -> void:
 
 
 func _on_reward_choice_skip_pressed() -> void:
+	var should_return_to_tavern_audio := _is_terminal_contract_reward_pending()
 	if not BuildState.skip_pending_reward_gear():
 		return
 	_reward_choice_overlay.visible = false
@@ -2177,7 +2390,35 @@ func _on_reward_choice_skip_pressed() -> void:
 		return
 	_status_label.visible = false
 	_view_log_button.visible = true
+	if should_return_to_tavern_audio:
+		AudioManager.transition_to_tavern_ambience()
 	_advance_after_reward_or_shop()
+
+
+func _contract_audio_biome_for_node(node: ContractRouteNode) -> String:
+	if node != null and _has_biome_contract_audio(node.biome):
+		return node.biome
+	if BuildState.active_contract != null:
+		if _has_biome_contract_audio(BuildState.active_contract.selected_biome):
+			return BuildState.active_contract.selected_biome
+	return ""
+
+
+func _has_biome_contract_audio(biome: String) -> bool:
+	return (
+		AudioManager.BIOME_MUSIC_PATHS.has(biome)
+		or biome in ["Forest", "Keep", "Ancient Keep", "Ruins"]
+	)
+
+
+func _is_terminal_contract_reward_pending() -> bool:
+	return (
+		BuildState.is_contract_fight_active()
+		and BuildState.run_phase == BuildState.RunPhase.RESULT
+		and BuildState.last_fight_won
+		and BuildState.current_route_node != null
+		and BuildState.current_route_node.next_nodes.is_empty()
+	)
 
 
 func _pulse_inventory_blocked_control(control: Control) -> void:
@@ -2207,7 +2448,7 @@ func _advance_after_reward_or_shop() -> void:
 	_reset_enemy_hud()
 	var advanced := BuildState.continue_after_win()
 	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
-		_contract_overlay.show_greeting()
+		_show_contract_offer_overlay()
 	elif BuildState.run_phase == BuildState.RunPhase.CONTRACT_ROUTE:
 		_status_label.text = FLOW_TEXT.NEXT_ROUTE_ON_MAP
 		_show_map_overlay(false)
@@ -2274,8 +2515,34 @@ func _update_combat_background() -> void:
 func _combat_background_texture() -> Texture2D:
 	match BuildState.run_phase:
 		BuildState.RunPhase.PLANNING, BuildState.RunPhase.FIGHTING, BuildState.RunPhase.RESULT, BuildState.RunPhase.RUN_ENDED:
+			var biome_texture := _current_route_biome_background_texture()
+			if biome_texture != null:
+				return biome_texture
 			return CONTRACT_BACKGROUND_TEXTURE if BuildState.active_contract != null else TAVERN_BACKGROUND_TEXTURE
 	return null
+
+
+func _current_route_biome_background_texture() -> Texture2D:
+	if BuildState.active_contract == null or BuildState.current_route_node == null:
+		return null
+	var biome := BuildState.current_route_node.biome
+	if biome == "" and BuildState.active_contract != null:
+		biome = BuildState.active_contract.selected_biome
+	return _biome_background_texture(biome)
+
+
+func _biome_background_texture(biome: String) -> Texture2D:
+	var resource_path := String(BIOME_BACKGROUND_TEXTURE_PATHS.get(biome, ""))
+	if resource_path == "":
+		return null
+	if _biome_background_texture_cache.has(resource_path):
+		return _biome_background_texture_cache[resource_path] as Texture2D
+	var image := Image.load_from_file(ProjectSettings.globalize_path(resource_path))
+	if image == null or image.is_empty():
+		return null
+	var texture := ImageTexture.create_from_image(image)
+	_biome_background_texture_cache[resource_path] = texture
+	return texture
 
 
 ## Pure BuildState -> label lookup for the current run phase, matching the

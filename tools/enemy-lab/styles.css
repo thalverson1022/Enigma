@@ -1,0 +1,331 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b1117;
+  --surface: #101820;
+  --surface-strong: #17232d;
+  --surface-deep: #081018;
+  --border: #2d3c47;
+  --text: #f6fafc;
+  --soft: #c8d5df;
+  --muted: #9bacba;
+  --gold: #f0c36b;
+  --teal: #77d9d0;
+  --danger: #be6a56;
+  --violet: #9b87d7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    linear-gradient(180deg, #0e171f 0%, var(--bg) 52%, #0a0e12 100%);
+  color: var(--text);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+select,
+input {
+  min-height: 38px;
+  border: 1px solid #48606f;
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+button {
+  padding: 8px 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+button:hover,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  border-color: var(--teal);
+  outline: none;
+}
+
+select,
+input {
+  width: 100%;
+  padding: 8px 10px;
+}
+
+input[readonly] {
+  color: var(--muted);
+}
+
+textarea {
+  width: 100%;
+  min-height: 190px;
+  resize: vertical;
+  border: 1px solid #344552;
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface-deep);
+  color: #dce7ed;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: 1.8rem;
+}
+
+h2 {
+  margin-bottom: 0;
+  font-size: 1rem;
+}
+
+.app-shell {
+  display: grid;
+  gap: 16px;
+  width: min(1680px, calc(100vw - 28px));
+  margin: 0 auto;
+  padding: 18px 0 28px;
+}
+
+.app-header,
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgb(16 24 32 / 92%);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 78px;
+  padding: 14px 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--gold);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.header-actions,
+.button-row,
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.primary-action {
+  border-color: #449b93;
+  background: #14302f;
+  color: #e8fffc;
+}
+
+.secondary-action {
+  border-color: #425463;
+  background: #121c25;
+  color: #dce7ed;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(460px, 1fr) minmax(330px, 410px);
+  gap: 14px;
+  align-items: start;
+}
+
+.panel {
+  min-width: 0;
+  padding: 12px;
+}
+
+.section-heading span,
+.field > span,
+.file-field > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.field,
+.file-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.file-field input {
+  color: var(--soft);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+#prompt-output {
+  min-height: 260px;
+}
+
+.button-row {
+  margin-top: 12px;
+}
+
+.button-row button {
+  flex: 1 1 0;
+}
+
+.candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.candidate-card {
+  display: grid;
+  gap: 8px;
+  min-height: 188px;
+  border: 1px solid rgb(156 171 186 / 22%);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgb(8 16 24 / 42%);
+  text-align: left;
+}
+
+.candidate-card:hover,
+.candidate-card:focus-visible,
+.candidate-card.selected {
+  border-color: var(--teal);
+  background: #14302f;
+}
+
+.candidate-card canvas {
+  width: 128px;
+  height: 128px;
+  justify-self: center;
+  image-rendering: pixelated;
+  background:
+    linear-gradient(45deg, rgb(255 255 255 / 8%) 25%, transparent 25%),
+    linear-gradient(-45deg, rgb(255 255 255 / 8%) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgb(255 255 255 / 8%) 75%),
+    linear-gradient(-45deg, transparent 75%, rgb(255 255 255 / 8%) 75%);
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  background-size: 16px 16px;
+}
+
+.candidate-card strong,
+.candidate-card span {
+  display: block;
+}
+
+.candidate-card strong {
+  font-size: 0.86rem;
+}
+
+.candidate-card span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 300px;
+  overflow: hidden;
+  border: 1px solid #24313c;
+  border-radius: 8px;
+  margin-top: 12px;
+  background:
+    linear-gradient(180deg, #111c26 0%, #0b1117 62%, #15130f 100%);
+}
+
+.stage-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--biome-gradient, linear-gradient(180deg, #14202b, #0a1016));
+  opacity: 0.82;
+}
+
+.floor-line {
+  position: absolute;
+  right: 28px;
+  bottom: 50px;
+  left: 28px;
+  height: 2px;
+  background: rgb(240 195 107 / 34%);
+}
+
+#preview-canvas {
+  position: relative;
+  width: 256px;
+  height: 256px;
+  image-rendering: pixelated;
+}
+
+#preview-canvas.hit {
+  animation: hit-flash 420ms ease-out 1;
+}
+
+@keyframes hit-flash {
+  0% {
+    filter: brightness(1);
+    translate: 0 0;
+  }
+  18% {
+    filter: brightness(2.4) saturate(0.3);
+    translate: -9px 1px;
+  }
+  46% {
+    filter: brightness(1.25);
+    translate: 7px -2px;
+  }
+  100% {
+    filter: brightness(1);
+    translate: 0 0;
+  }
+}
+
+@media (max-width: 1160px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .app-header,
+  .header-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

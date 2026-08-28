@@ -172,7 +172,7 @@ func _initialize() -> void:
 	_require(build_state.run_outcome == BuildState.RunOutcome.FIGHT_LOSS_RETRY, "Expected first non-Vyra contract loss to offer one retry.")
 	_require(build_state.can_retry_current_encounter(), "Expected one do-over for a non-Vyra contract node.")
 
-	print("contract boss win should mark contract victory")
+	print("contract boss win should move from Vyra into the generated loop")
 	build_state.reset(true)
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
@@ -183,9 +183,15 @@ func _initialize() -> void:
 	_require(build_state.current_route_node != null, "Expected Vyra route node.")
 	build_state.run_phase = BuildState.RunPhase.RESULT
 	build_state.last_fight_won = true
-	_require(build_state.continue_after_win() == false, "Expected final contract node to have no next route.")
-	_require(build_state.run_phase == BuildState.RunPhase.RUN_ENDED, "Expected Vyra win to end the run.")
-	_require(build_state.run_outcome == BuildState.RunOutcome.CONTRACT_VICTORY, "Expected contract victory outcome.")
+	_require(build_state.should_open_shop_after_current_reward(), "Expected Vyra completion to unlock the between-contract shop.")
+	_require(build_state.open_shop_round(), "Expected Vyra completion to open the between-contract shop.")
+	_require(build_state.close_shop_round(), "Expected between-contract shop to close before generated offers.")
+	_require(build_state.continue_after_win(), "Expected Vyra completion to offer the next generated contract.")
+	_require(build_state.completed_contract_count == 1, "Expected Vyra completion to increment completed-contract count.")
+	_require(build_state.contract_offer_index == 1, "Expected Vyra completion to increment offer index.")
+	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_OFFER, "Expected Vyra win to enter generated contract offers.")
+	_require(build_state.active_contract != null and build_state.active_contract.has_generated_route_state(), "Expected next contract after Vyra to be generated.")
+	_require(build_state.pending_contract_offers.size() == 3, "Expected generated loop to present three generated offers.")
 
 	print("")
 	if _failed:

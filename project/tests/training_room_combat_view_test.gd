@@ -32,8 +32,14 @@ func _initialize() -> void:
 	view.finished.connect(func(): _finished_count += 1)
 
 	_check_initial_practice_target_sprite(view)
+	_check_custom_named_practice_target_keeps_dummy_sprite(view)
 	_check_damage_readout(view)
+	_check_stun_effect_uses_shared_stage(view)
+	_check_dodge_effect_uses_shared_stage(view)
+	_check_interrupt_effect_uses_shared_stage(view)
+	_check_slow_effect_uses_shared_stage(view)
 	_check_realtime_status_readout(view)
+	_check_cleanse_resets_visible_shred(view)
 	# A frame between checks that spawn/free popups: play() only
 	# queue_free()s the previous fight's popups, which stay in
 	# get_children() until the next idle frame (same well-known Godot quirk
@@ -41,6 +47,8 @@ func _initialize() -> void:
 	# the next check's popup count would include stale ones from this fight.
 	await process_frame
 	_check_no_popup_for_zero_stack_ticks(view)
+	await process_frame
+	_check_absorbed_zero_damage_tick_still_presents(view)
 	await process_frame
 	_check_poison_stack_application_tints_enemy_without_popup(view)
 	await process_frame
@@ -51,6 +59,8 @@ func _initialize() -> void:
 	_check_legendary_proc_popup_highlight(view)
 	await process_frame
 	_check_crit_popup_highlight(view)
+	await process_frame
+	_check_crit_negation_popup(view)
 	await process_frame
 	await _check_realtime_intro_gates_timeline(view)
 	await process_frame
@@ -71,7 +81,7 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	print("-- Initial Practice Room stage shows the Practice Target sprite --")
 	_require(view._combat_stage != null, "Expected Practice Room combat view to own a stage layer before playback.")
 	_require(view._combat_stage._enemy_name_label.text == "Practice Target", "Expected initial Practice Room stage enemy label to be Practice Target, not the default Enemy card.")
-	_require(not view._combat_stage.debug_grid_visible, "Expected Practice Room to hide the combat-stage debug grid now that sprite placement tuning is done.")
+	_require(not view._combat_stage.debug_grid_visible, "Expected Practice Room to hide the combat-stage debug grid outside placement tuning.")
 	_require(view._combat_stage.enemy_sprite_available(), "Expected initial Practice Room stage to show the imported Practice Target sprite.")
 	_require(view._combat_stage._enemy_sprite.size == Vector2(32, 32), "Expected Practice Target sprite rect to stay at one 32px training-dummy frame, not stretch to the actor box.")
 	_require(view._combat_stage._enemy_sprite.scale == Vector2(view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE, view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE), "Expected Practice Target sprite to use the smaller Practice dummy scale.")
@@ -84,7 +94,7 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	_require(damage_icon != null and damage_icon.texture != null, "Expected Practice Room damage readout to use the sword icon.")
 	_require(damage_icon.texture.resource_name == "PracticeDamageSwordIcon", "Expected Practice Room damage readout to use the copied sword icon.")
 	_require(view._info_label.text == "0", "Expected initial Practice Room armor readout to be visible before fighting.")
-	_require(view._resist_label.text == "0%", "Expected initial Practice Room poison resistance readout to be visible before fighting.")
+	_require(view._resist_label.text == "0%", "Expected initial Practice Room resistance readout to be visible before fighting.")
 	_require(view._fight_timer_badge != null and view._fight_timer_badge.visible, "Expected Practice Room to show the Adventure-style fight timer badge.")
 	_require(view._fight_timer_badge.get_parent().name == "FightTimerCell", "Expected Practice Room fight timer to sit centered in the combat HUD lane.")
 	_require(view._fight_timer_badge.find_child("ClockIcon", true, false) != null, "Expected Practice Room fight timer to include the clock icon.")
@@ -98,6 +108,24 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	for child in view._status_row.get_children():
 		initial_chips.append(_status_chip_text(child))
 	_require(initial_chips == PackedStringArray(["x0", "x0", "x0"]), "Expected initial Practice Room poison/Shred/Decay chips to be visible at x0.")
+
+
+func _check_custom_named_practice_target_keeps_dummy_sprite(view: TrainingRoomCombatView) -> void:
+	print("-- Custom-named Practice Room target keeps the training dummy sprite --")
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	var monster := Monster.new()
+	monster.display_name = "Generated Test Monster"
+	monster.hp = 100
+	var result := CombatResolver.resolve([stab], player, monster, 1500, 11)
+
+	view.play(result, monster)
+	_require(view._combat_stage._enemy_name_label.text == monster.display_name, "Expected Practice Room stage label to keep the generated monster name.")
+	_require(view._combat_stage.enemy_sprite_available(), "Expected custom-named Practice Room targets to keep using the training dummy sprite.")
+	_require(view._combat_stage._enemy_sprite.size == Vector2(32, 32), "Expected custom-named Practice Room target to render as one 32px dummy frame.")
+	_require(view._combat_stage._enemy_sprite.scale == Vector2(view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE, view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE), "Expected custom-named Practice Room target to keep the dummy scale.")
 
 
 ## Returns [CombatResolver.CombatResult, Monster] -- GDScript has no tuple
@@ -139,6 +167,86 @@ func _check_damage_readout(view: TrainingRoomCombatView) -> void:
 	_require(view._name_label.text == monster.display_name, "Name label should show the target's display name.")
 
 
+func _check_stun_effect_uses_shared_stage(view: TrainingRoomCombatView) -> void:
+	print("-- Practice Room playback triggers the shared stun-star stage effect --")
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	var monster := Monster.new()
+	monster.display_name = "Practice Target"
+	monster.hp = 50
+	monster.stun_duration_ms = 500
+	var result := CombatResolver.resolve([stab], player, monster, 3000, 3)
+	view.play(result, monster)
+	_require(view._combat_stage.stun_effect_count > 0, "Expected Practice Room playback to trigger the shared player stun stars.")
+	_require(view._combat_stage.last_stun_duration_ms == monster.stun_duration_ms, "Expected Practice Room stun stars to use the monster stun duration.")
+
+
+func _check_dodge_effect_uses_shared_stage(view: TrainingRoomCombatView) -> void:
+	print("-- Practice Room playback triggers the shared dodge afterimage effect --")
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	var monster := Monster.new()
+	monster.display_name = "Dodging Target"
+	monster.hp = 50
+	monster.dodge_chance = 1.0
+	var result := CombatResolver.resolve([stab], player, monster, 1500, 3)
+	_require(result.cast_events.size() > 0 and result.cast_events[0].was_dodged, "Test setup error: expected the target to dodge the first Practice Room cast.")
+	view.play(result, monster)
+	_require(view._combat_stage.dodge_effect_count > 0, "Expected Practice Room playback to trigger the shared enemy dodge afterimages.")
+	_require(view._combat_stage.last_mechanic_text == "Dodged", "Expected Practice Room dodge playback to show the Dodged mechanic label.")
+	var found_zero_popup := false
+	for child in view._popup_layer.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child is Label and child.text == "Stab 0.0":
+			found_zero_popup = true
+	_require(found_zero_popup, "Expected dodged Practice Room attacks to keep the numeric Stab 0.0 popup.")
+
+
+func _check_interrupt_effect_uses_shared_stage(view: TrainingRoomCombatView) -> void:
+	print("-- Practice Room playback triggers the shared interrupt slash effect --")
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	var monster := Monster.new()
+	monster.display_name = "Interrupting Target"
+	monster.hp = 100000
+	monster.interrupt_skip_count = 1
+	var result := CombatResolver.resolve([stab], player, monster, 5200, 3)
+	_require(result.cast_events.any(func(cast): return cast.interrupt_triggered), "Test setup error: expected repeated Stab casts to trigger Interrupt.")
+	view.play(result, monster)
+	_require(view._combat_stage.interrupt_effect_count > 0, "Expected Practice Room playback to trigger the shared interrupt slash.")
+	_require(view._combat_stage.last_mechanic_text == "Interrupted", "Expected Practice Room interrupt playback to show the Interrupted mechanic label.")
+	var found_interrupt_popup := false
+	for child in view._popup_layer.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child is Label and child.text == "Stab interrupted":
+			found_interrupt_popup = true
+	_require(found_interrupt_popup, "Expected Practice Room interrupted casts to keep the Stab interrupted popup.")
+
+
+func _check_slow_effect_uses_shared_stage(view: TrainingRoomCombatView) -> void:
+	print("-- Practice Room playback triggers the shared slow frost and breath effect --")
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	var monster := Monster.new()
+	monster.display_name = "Chilling Target"
+	monster.hp = 100000
+	monster.slow = 0.35
+	var result := CombatResolver.resolve([stab], player, monster, 3000, 3)
+	view.play(result, monster)
+	_require(view._combat_stage.slow_effect_count > 0, "Expected Practice Room playback to trigger the shared player frost aura.")
+	_require(is_equal_approx(view._combat_stage.last_slow_strength, monster.slow), "Expected Practice Room slow aura to use the monster slow strength.")
+
+
 func _check_realtime_intro_gates_timeline(view: TrainingRoomCombatView) -> void:
 	print("-- Realtime Practice Room playback waits for the shared fight intro --")
 	var result_and_monster: Array = _known_result()
@@ -168,7 +276,7 @@ func _check_realtime_intro_gates_timeline(view: TrainingRoomCombatView) -> void:
 	_require(audio_manager.attack_sfx_play_count > sfx_before_count, "Expected realtime Practice Room physical attacks to play sword SFX.")
 	_require(view._playback == null, "Expected Practice Room playback to clear itself before the final hold.")
 	_require(view._combat_stage.outcome_pose == "", "Expected Practice Room to return to idle instead of showing a win/loss pose.")
-	_require(view._combat_stage.outcome_flash_count == 0, "Expected Practice Room to avoid Adventure-style outcome flashes.")
+	_require(view._combat_stage.get_node_or_null("OutcomeFlash") == null, "Expected Practice Room to avoid Adventure-style outcome flashes.")
 	_require(view._controls_row.visible, "Expected Practice Room playback controls to stay visible during the final hold.")
 	_require(view._fight_timer_label.text == "8s", "Expected Practice Room timer to return to the configured duration after playback clears.")
 
@@ -213,7 +321,7 @@ func _check_skip_bypasses_realtime_outcome_hold(view: TrainingRoomCombatView) ->
 	_require(view._playback == null, "Expected Practice Room skip to clear playback.")
 	_require(view._controls_row.visible, "Expected Practice Room controls to stay visible after skip.")
 	_require(view._combat_stage.outcome_pose == "", "Expected Practice Room skip to return both actors to idle, not a win/loss pose.")
-	_require(view._combat_stage.outcome_flash_count == 0, "Expected Practice Room skip to avoid Adventure-style outcome flashes.")
+	_require(view._combat_stage.get_node_or_null("OutcomeFlash") == null, "Expected Practice Room skip to avoid Adventure-style outcome flashes.")
 	_require(view._combat_stage.practice_dummy_reaction_count > before_reaction_count, "Expected damaging Practice Room hits to request a random training dummy reaction.")
 	_require(view._combat_stage.last_practice_dummy_reaction_frame_count >= 4, "Expected the random training dummy reaction to include multiple animation frames.")
 	_require(view._combat_stage.enemy_sprite_available(), "Expected the training dummy to stay visible after reaction frames are flushed.")
@@ -260,9 +368,9 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 	print("armor value label (expect current armor %d): %s" % [expected_current_armor, view._info_label.text])
 	_require(view._info_label.text == "%d" % expected_current_armor, "Shield-labeled armor value should show current armor after Shred.")
 	_require(view._info_label.get_parent().get_node_or_null("ArmorIcon") != null, "Expected the Practice Room combat window's armor readout to include the shield icon.")
-	_require(view._resist_label.text == "%.0f%%" % (view._resist * 100.0), "Resistance value should show current poison resistance after Decay.")
+	_require(view._resist_label.text == "%.0f%%" % (view._resist * 100.0), "Resistance value should show current magical resistance after Decay.")
 	var resist_icon := view._resist_label.get_parent().get_node_or_null("PoisonResistIcon") as TextureRect
-	_require(resist_icon != null and resist_icon.texture == HUD_RESISTANCE_ICON, "Expected the Practice Room combat window's poison resistance readout to include the resistance icon.")
+	_require(resist_icon != null and resist_icon.texture == HUD_RESISTANCE_ICON, "Expected the Practice Room combat window's resistance readout to include the resistance icon.")
 
 	var chip_texts: PackedStringArray = []
 	for child in view._status_row.get_children():
@@ -295,6 +403,39 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 	_require(_status_chip_font_size(view._status_row, HUD_POISON_ICON) == 24, "Expected Practice Room combat status values to use the larger number font.")
 
 
+func _check_cleanse_resets_visible_shred(view: TrainingRoomCombatView) -> void:
+	print("-- Cleanse resets visible Shred from an armor-only Rending Slash macro --")
+	var rending_slash: Skill = load("res://data/skills/rending_slash.tres")
+	var rotation: Array[Skill] = [rending_slash]
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	player.crit_multiplier = 2.0
+	var monster := Monster.new()
+	monster.display_name = "Cleansing Dummy"
+	monster.hp = 100000
+	monster.armor = 100
+	monster.cleanse_threshold = 5
+	var result := CombatResolver.resolve(rotation, player, monster, 7000, 3)
+	_require(result.cast_events.size() == 5, "Expected exactly five Rending Slash casts before the cleanse assertion.")
+	_require(result.cast_events[4].cleanse_triggered, "Expected the fifth Rending Slash cast to trigger cleanse.")
+	var flash_count_before := view.status_chip_flash_count
+
+	view.play(result, monster)
+	print("visible armor=%s, armor_reduced=%d, shred_stacks=%d (expect 100, 0, 0)" % [
+		view._info_label.text, view._armor_reduced, view._shred_stacks
+	])
+	_require(view._armor_reduced == 0, "Cleanse should clear active visible armor reduction.")
+	_require(view._shred_stacks == 0, "Cleanse should clear the visible Shred stack chip.")
+	_require(view._info_label.text == "100", "Cleanse should restore the visible armor readout to base armor.")
+	_require(view._combat_stage.cleanse_effect_count > 0, "Cleanse should trigger the shared cleanse burst animation in Practice Room.")
+	_require(view._combat_stage.last_mechanic_text == "Cleansed", "Cleanse should spawn a small Cleansed mechanic label in Practice Room.")
+	_require(view.status_chip_flash_count > flash_count_before, "Cleanse should flash the zeroed Practice Room status chips.")
+	var summary := CombatRecap.summarize(result, monster)
+	_require(summary["final_armor"] == 100, "Combat recap final armor should honor cleanse resets.")
+	_require(summary["active_armor_reduction_casts"] == 0, "Combat recap active Shred stacks should honor cleanse resets.")
+
+
 func _status_chip_text(chip: Node) -> String:
 	if chip is Label:
 		return chip.text
@@ -325,6 +466,8 @@ func _expected_final_stacks(result: CombatResolver.CombatResult) -> int:
 			stacks = event.tick.stacks_remaining
 		else:
 			stacks = mini(stacks + event.cast.poison_stacks_applied, CombatResolver.MAX_POISON_STACKS)
+			if event.cast.cleanse_triggered:
+				stacks = 0
 	return stacks
 
 
@@ -365,6 +508,39 @@ func _check_no_popup_for_zero_stack_ticks(view: TrainingRoomCombatView) -> void:
 			poison_popups += 1
 	print("poison popups spawned for an all-zero-stack fight (expect 0): %d" % poison_popups)
 	_require(poison_popups == 0, "A zero-damage poison tick must not spawn a popup.")
+
+
+func _check_absorbed_zero_damage_tick_still_presents(view: TrainingRoomCombatView) -> void:
+	print("-- Fully absorbed poison tick still presents as a 0-damage hit --")
+	var poison_strike: Skill = load("res://data/skills/poison_strike.tres")
+	var rotation: Array[Skill] = [poison_strike]
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	player.poison_damage_per_tick = 8.0
+	var monster := Monster.new()
+	monster.display_name = "Absorbing Dummy"
+	monster.hp = 100000
+	monster.absorb = 20.0
+	var result := CombatResolver.resolve(rotation, player, monster, 2500, 3)
+	_require(result.tick_events.any(func(tick): return tick.damage == 0.0 and tick.absorbed_amount > 0.0), "Test setup error: expected a fully absorbed poison tick.")
+
+	view.play(result, monster)
+	var found_absorbed_popup := false
+	for child in view._popup_layer.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child is Label and child.text == "Poison 0.0":
+			found_absorbed_popup = true
+	print("found Poison 0.0 popup for fully absorbed tick (expect true): %s" % found_absorbed_popup)
+	_require(found_absorbed_popup, "A fully absorbed poison tick should still spawn a 0-damage popup.")
+
+	var practice_log := CombatResultFormatter.format_practice(result, monster)
+	print(practice_log)
+	_require(practice_log.contains("Poison ticks for 0.0 (absorbed 8.0)"), "Combat log should show fully absorbed poison ticks as 0-damage hits.")
+	var inspector := CombatLogInspectorData.build(result, monster)
+	var poison_rows: Array = (inspector["timeline_rows"] as Array).filter(func(row): return String(row["kind"]) == CombatLogInspectorData.KIND_POISON)
+	_require(poison_rows.size() == 1, "Combat Log inspector should include a poison timeline row for fully absorbed ticks.")
 
 
 func _check_popup_for_damaging_poison_ticks(view: TrainingRoomCombatView) -> void:
@@ -524,6 +700,34 @@ func _check_crit_popup_highlight(view: TrainingRoomCombatView) -> void:
 				found_gold_crit_popup = true
 	print("found a gold larger crit popup without literal CRIT text (expect true): %s" % found_gold_crit_popup)
 	_require(found_gold_crit_popup, "Expected at least one gold, larger crit popup using color/size/font instead of literal 'CRIT' text.")
+
+
+func _check_crit_negation_popup(view: TrainingRoomCombatView) -> void:
+	print("-- Crit negation shows crossed-out would-have-been crit plus reduced damage --")
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var rotation: Array[Skill] = [stab]
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 1.0
+	player.crit_multiplier = 2.0
+	var monster := Monster.new()
+	monster.display_name = "Crit Negation Dummy"
+	monster.hp = 100000
+	monster.crit_negation = 0.5
+	var result := CombatResolver.resolve(rotation, player, monster, 1600, 1)
+	_require(not result.cast_events.is_empty(), "Expected casts in this known crit-negation fight.")
+	_require(result.cast_events[0].is_crit and result.cast_events[0].crit_negation_damage_prevented > 0.0, "Test setup error: expected crit negation to prevent final damage.")
+
+	view.play(result, monster)
+	var found_negation_popup := false
+	for child in view._popup_layer.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		var cross := child.get_node_or_null("CritCrossOutOverlay")
+		if child.name == "CritNegationPopup" and cross != null and cross.position.x > 0.0:
+			found_negation_popup = true
+	print("found crossed-out crit-negation popup (expect true): %s" % found_negation_popup)
+	_require(found_negation_popup, "Expected crit-negated crits to show the crossed-out crit popup.")
 
 
 func _require(condition: bool, message: String) -> void:

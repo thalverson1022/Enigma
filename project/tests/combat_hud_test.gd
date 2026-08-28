@@ -2,7 +2,7 @@ extends SceneTree
 ## Focused check for the enemy status HUD added to the black Combat panel
 ## (user-requested combat-HUD addition to the P2:R7 pass, 2026-07-18):
 ## pre-fight the HUD shows the current Monster at full HP/base armor/base
-## poison resist/zero stacks; post-fight it reflects the resolved
+## resistance/zero stacks; post-fight it reflects the resolved
 ## CombatResult (empty bar on a win, remaining HP on a loss, final armor/
 ## resist after any shred, peak poison stacks); and it resets to the
 ## pre-fight state at new-fight transitions (retry). Follows
@@ -17,12 +17,23 @@ const HUD_RESISTANCE_ICON := preload("res://assets/combat_ui_icons/resistance.pn
 const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
 const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
 const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
+const MECHANIC_DODGE_ICON := preload("res://assets/ui/icons/mechanics/dodge.png")
+const MECHANIC_CRIT_NEGATION_ICON := preload("res://assets/ui/icons/mechanics/crit_negation.png")
+const MECHANIC_BLOCK_ICON := preload("res://assets/ui/icons/mechanics/block.png")
+const MECHANIC_ABSORB_ICON := preload("res://assets/ui/icons/mechanics/absorb.png")
+const MECHANIC_CLEANSE_ICON := preload("res://assets/ui/icons/mechanics/cleanse.png")
+const MECHANIC_SUPPRESS_ICON := preload("res://assets/ui/icons/mechanics/suppress.png")
+const MECHANIC_SLOW_ICON := preload("res://assets/ui/icons/mechanics/slow.png")
+const MECHANIC_STUN_ICON := preload("res://assets/ui/icons/mechanics/stun.png")
+const MECHANIC_INTERRUPT_ICON := preload("res://assets/ui/icons/mechanics/interrupt.png")
 
 var _failed := false
 
 
 func _initialize() -> void:
 	await _check_post_fight_helpers_against_known_fight()
+	await _check_post_fight_helpers_honor_cleanse()
+	await _check_enemy_effect_indicator_helpers()
 	await _check_hidden_before_map_choice()
 	await _check_live_pre_fight_and_win()
 	await _check_live_loss_and_retry_reset()
@@ -35,7 +46,7 @@ func _initialize() -> void:
 
 
 ## Deterministic CombatResolver.resolve() fight exercising every mechanic
-## the HUD derives (armor reduction, poison resistance reduction, poison
+## the HUD derives (armor reduction, resistance reduction, poison
 ## stacks) against a monster too big to kill, so the post-fight helpers'
 ## outputs can be compared against independently computed values (not by
 ## re-calling the code under test).
@@ -82,7 +93,7 @@ func _check_post_fight_helpers_against_known_fight() -> void:
 		if stacks_before > expected_peak_stacks:
 			expected_peak_stacks = stacks_before
 	_require(expected_armor_reduction > 0, "Expected Rending Slash to shred armor at least once in this known fight.")
-	_require(expected_resist < monster.poison_resistance, "Expected Beguiling Strike to reduce poison resistance in this known fight.")
+	_require(expected_resist < monster.poison_resistance, "Expected Beguiling Strike to reduce resistance in this known fight.")
 	_require(expected_peak_stacks > 0, "Expected Poison Strike to stack poison in this known fight.")
 
 	var combat_screen := _instantiate_combat_screen()
@@ -105,10 +116,10 @@ func _check_post_fight_helpers_against_known_fight() -> void:
 	)
 
 	var final_resist: float = combat_screen._hud_final_poison_resist(result, monster)
-	print("final poison resist: %.3f (base %.3f)" % [final_resist, monster.poison_resistance])
+	print("final resist: %.3f (base %.3f)" % [final_resist, monster.poison_resistance])
 	_require(
 		is_equal_approx(final_resist, expected_resist),
-		"Expected final poison resist to apply each recorded reduction multiplicatively."
+		"Expected final resistance to apply each recorded reduction multiplicatively."
 	)
 
 	var peak_stacks: int = combat_screen._hud_peak_poison_stacks(result.tick_events)
@@ -142,6 +153,113 @@ func _check_post_fight_helpers_against_known_fight() -> void:
 		is_equal_approx(combat_screen._hud_post_fight_hp(result, small_monster), 0.0),
 		"Expected post-fight HP to clamp to zero when total damage exceeds monster HP."
 	)
+
+	combat_screen.queue_free()
+
+
+func _check_post_fight_helpers_honor_cleanse() -> void:
+	var rending_slash: Skill = load("res://data/skills/rending_slash.tres")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	player.crit_multiplier = 2.0
+	var monster := Monster.new()
+	monster.display_name = "Cleanse HUD Dummy"
+	monster.hp = 100000
+	monster.armor = 100
+	monster.cleanse_threshold = 5
+	var result: CombatResolver.CombatResult = CombatResolver.resolve([rending_slash], player, monster, 7000, 3)
+	_require(result.cast_events.size() == 5, "Expected exactly five Rending Slash casts for the cleanse HUD check.")
+	_require(result.cast_events[4].cleanse_triggered, "Expected the fifth Rending Slash cast to trigger cleanse.")
+
+	var combat_screen := _instantiate_combat_screen()
+	await process_frame
+	print("-- Post-fight helper cleanse reset check --")
+	_require(combat_screen._hud_final_armor(result, monster) == monster.armor, "Expected final armor to return to base after cleanse.")
+	_require(combat_screen._hud_armor_reduction_cast_count(result.cast_events) == 0, "Expected active Shred count to return to zero after cleanse.")
+	combat_screen._show_enemy_hud_post_fight(result, monster)
+	_require(combat_screen._hud_info_label.text == "%d" % monster.armor, "Expected post-fight armor readout to return to base after cleanse.")
+	var has_zero_shred_icon := false
+	for child in combat_screen._hud_status_row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		if icon != null and icon.texture == HUD_SHRED_ICON and _status_chip_text(child) == "x0":
+			has_zero_shred_icon = true
+	_require(has_zero_shred_icon, "Expected post-fight Shred chip to show x0 after cleanse.")
+	combat_screen.queue_free()
+
+
+func _check_enemy_effect_indicator_helpers() -> void:
+	var combat_screen := _instantiate_combat_screen()
+	await process_frame
+	print("-- Enemy effect indicator HUD checks --")
+
+	var monster := Monster.new()
+	monster.display_name = "Effect HUD Dummy"
+	monster.hp = 1000
+	monster.armor = 80
+	monster.poison_resistance = 0.25
+	monster.dodge_chance = 0.12
+	monster.crit_negation = 0.5
+	monster.block = 3.0
+	monster.absorb = 5.0
+	monster.cleanse_threshold = 4
+	monster.suppress = 0.35
+	monster.slow = 0.2
+	monster.stun_duration_ms = 300
+	monster.interrupt_skip_count = 1
+
+	var indicators: Array = combat_screen._enemy_effect_indicators(monster)
+	_require(indicators.size() == 8, "Expected nonzero secondary defenses/effects to produce HUD indicators without duplicating armor/resist or the live interrupt counter.")
+	for id in [
+		"dodge_chance",
+		"crit_negation",
+		"block",
+		"absorb",
+		"cleanse_threshold",
+		"suppress",
+		"slow",
+		"stun_duration_ms",
+	]:
+		_require(_indicator_ids(indicators).has(id), "Expected effect indicator for %s." % id)
+	var expected_icons := {
+		"dodge_chance": MECHANIC_DODGE_ICON,
+		"crit_negation": MECHANIC_CRIT_NEGATION_ICON,
+		"block": MECHANIC_BLOCK_ICON,
+		"absorb": MECHANIC_ABSORB_ICON,
+		"cleanse_threshold": MECHANIC_CLEANSE_ICON,
+		"suppress": MECHANIC_SUPPRESS_ICON,
+		"slow": MECHANIC_SLOW_ICON,
+		"stun_duration_ms": MECHANIC_STUN_ICON,
+	}
+	for indicator in indicators:
+		var id := String(indicator["id"])
+		_require(indicator["icon"] == expected_icons[id], "Expected %s to use its assigned mechanic icon." % id)
+
+	combat_screen._set_enemy_hud_display(monster.display_name, float(monster.hp), monster.hp, monster.armor, monster.poison_resistance)
+	combat_screen._refresh_enemy_effect_chips(monster)
+	_require(combat_screen._hud_effect_row.get_parent().name == "CombatValuesRow", "Expected secondary enemy effect chips to share the armor/resist HUD line.")
+	_require(combat_screen._hud_effect_row.get_child_count() == 8, "Expected the HUD effect row to render secondary enemy effects while interrupt lives in the status row.")
+	_require(not _has_effect_chip(combat_screen._hud_effect_row, "armor", HUD_ARMOR_ICON, "80"), "Expected armor to stay in the existing armor value slot, not duplicate as an effect chip.")
+	_require(not _has_effect_chip(combat_screen._hud_effect_row, "poison_resistance", HUD_RESISTANCE_ICON, "25%"), "Expected resist to stay in the existing resist value slot, not duplicate as an effect chip.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "block", MECHANIC_BLOCK_ICON, "3"), "Expected block effect chip on the armor/resist line.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "absorb", MECHANIC_ABSORB_ICON, "5"), "Expected absorb effect chip on the armor/resist line.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "suppress", MECHANIC_SUPPRESS_ICON, "35%"), "Expected suppress effect chip on the armor/resist line.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "cleanse_threshold", MECHANIC_CLEANSE_ICON, "4"), "Expected cleanse effect chip on the armor/resist line.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "slow", MECHANIC_SLOW_ICON, "20%"), "Expected slow effect chip on the armor/resist line.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "stun_duration_ms", MECHANIC_STUN_ICON, "0.3s"), "Expected stun effect chip on the armor/resist line.")
+	_require(not _indicator_ids(indicators).has("interrupt_skip_count"), "Expected interrupt to stay out of the static effect row.")
+	combat_screen._clear_hud_status_chips()
+	combat_screen._add_interrupt_status_chip(monster, 0)
+	_require(_has_status_chip(combat_screen._hud_status_row, MECHANIC_INTERRUPT_ICON, "0/3"), "Expected interrupt to render as a live status counter.")
+	_require(not _effect_row_text(combat_screen._hud_effect_row).contains("seed"), "Enemy effect HUD must not expose seed/debug text.")
+	_require(not _effect_row_text(combat_screen._hud_effect_row).contains("fortified"), "Enemy effect HUD must not expose archetype tags.")
+	_require(not _effect_row_text(combat_screen._hud_effect_row).contains("budget"), "Enemy effect HUD must not expose budget/debug text.")
+
+	var plain := Monster.new()
+	plain.display_name = "Plain HUD Dummy"
+	plain.hp = 100
+	combat_screen._refresh_enemy_effect_chips(plain)
+	_require(combat_screen._hud_effect_row.get_child_count() == 0, "Expected zero-defense monsters to keep the effect row clean.")
 
 	combat_screen.queue_free()
 
@@ -203,12 +321,16 @@ func _check_live_pre_fight_and_win() -> void:
 		"Expected the shield-labeled pre-fight armor value to show base armor."
 	)
 	_require(combat_screen._hud_info_label.get_parent().get_node_or_null("ArmorIcon") != null, "Expected the armor readout to include the selected shield icon.")
-	_require(combat_screen._hud_resist_label.text == "%.0f%%" % (monster.poison_resistance * 100.0), "Expected the skull-labeled pre-fight poison resistance value.")
+	_require(combat_screen._hud_resist_label.text == "%.0f%%" % (monster.poison_resistance * 100.0), "Expected the resistance value.")
 	var resist_icon := combat_screen._hud_resist_label.get_parent().get_node_or_null("PoisonResistIcon") as TextureRect
-	_require(resist_icon != null and resist_icon.texture == HUD_RESISTANCE_ICON, "Expected the poison resistance readout to include the selected resistance icon.")
+	_require(resist_icon != null and resist_icon.texture == HUD_RESISTANCE_ICON, "Expected the resistance readout to include the selected resistance icon.")
 	_require(_has_status_chip(combat_screen._hud_status_row, HUD_POISON_ICON, "x0"), "Expected Poison stack chip to stay visible at x0 pre-fight.")
 	_require(_has_status_chip(combat_screen._hud_status_row, HUD_SHRED_ICON, "x0"), "Expected Shred stack chip to stay visible at x0 pre-fight.")
 	_require(_has_status_chip(combat_screen._hud_status_row, HUD_DECAY_ICON, "x0"), "Expected Decay stack chip to stay visible at x0 pre-fight.")
+	if monster.interrupt_skip_count > 0:
+		_require(_has_status_chip(combat_screen._hud_status_row, MECHANIC_INTERRUPT_ICON, "0/3"), "Expected Interrupt counter chip to stay visible at 0/3 pre-fight.")
+	else:
+		_require(not _has_status_chip_with_icon(combat_screen._hud_status_row, MECHANIC_INTERRUPT_ICON), "Expected monsters without Interrupt to omit the interrupt counter chip.")
 	_require(combat_screen._hud_status_row.alignment == BoxContainer.ALIGNMENT_END, "Expected debuff stack chips to sit right-aligned below the health bar.")
 	_require(_status_chip_font_size(combat_screen._hud_status_row, HUD_POISON_ICON) == 24, "Expected combat status values to use the larger number font.")
 	_require(combat_screen._fight_timer_badge != null and combat_screen._fight_timer_badge.visible, "Expected a raised fight-window timer badge once a target is selected.")
@@ -360,6 +482,136 @@ func _check_live_pre_fight_and_win() -> void:
 		combat_screen._combat_stage.expected_enemy_sprite_region("Knives", "defeat") == Rect2(Vector2(0, 224), Vector2(32, 32)),
 		"Expected Knives defeat to use the first prone frame from medieval thief sheet row 8."
 	)
+	var swamp_sprite_cases := [
+		{"name": "Green Slime", "path": "res://assets/enemies/swamp/slime.png", "size": Vector2(1254, 1254)},
+		{"name": "Swamp Goblin", "path": "res://assets/enemies/swamp/goblin.png", "size": Vector2(1254, 1254)},
+		{"name": "Bog Rat", "path": "res://assets/enemies/swamp/rat.png", "size": Vector2(1254, 1254)},
+		{"name": "Giant Leech", "path": "res://assets/enemies/swamp/leech.png", "size": Vector2(1254, 1254)},
+		{"name": "Poison Frog", "path": "res://assets/enemies/swamp/frog.png", "size": Vector2(1254, 1254)},
+		{"name": "Troll", "path": "res://assets/enemies/swamp/Troll.png", "size": Vector2(1254, 1254)},
+		{"name": "Bog Witch", "path": "res://assets/enemies/swamp/witch.png", "size": Vector2(1254, 1254)},
+		{"name": "Hydra Spawn", "path": "res://assets/enemies/swamp/baby_hydra.png", "size": Vector2(1254, 1254)},
+		{"name": "Mire Knight", "path": "res://assets/enemies/swamp/Mire_Knight.png", "size": Vector2(1254, 1254)},
+		{"name": "Green Hag", "path": "res://assets/enemies/swamp/Green_Hag.png", "size": Vector2(1254, 1254)},
+		{"name": "Swamp Hydra", "path": "res://assets/enemies/swamp/Big_Hydra.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Troll", "path": "res://assets/enemies/swamp/Troll_Boss.png", "size": Vector2(1254, 1254)},
+		{"name": "Slime Queen", "path": "res://assets/enemies/swamp/Slime_Queen.png", "size": Vector2(1254, 1254)},
+		{"name": "The Drowned Matriarch", "path": "res://assets/enemies/swamp/Downed_Matriarch.png", "size": Vector2(1360, 1157)},
+		{"name": "Bogheart Colossus", "path": "res://assets/enemies/swamp/Bog_Colossus.png", "size": Vector2(1254, 1254)},
+	]
+	for sprite_case in swamp_sprite_cases:
+		var swamp_name: String = sprite_case["name"]
+		var swamp_path: String = sprite_case["path"]
+		var swamp_size: Vector2 = sprite_case["size"]
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(swamp_name).has(swamp_path),
+			"Expected %s to resolve to %s." % [swamp_name, swamp_path]
+		)
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_region(swamp_name, "hurt") == Rect2(Vector2.ZERO, swamp_size),
+			"Expected %s static hurt frame to use the full PNG." % swamp_name
+		)
+	var left_facing_swamp_cases := [
+		"Green Slime",
+		"Troll",
+		"Hydra Spawn",
+		"Green Hag",
+		"Swamp Hydra",
+		"Ancient Troll",
+		"Slime Queen",
+		"Bogheart Colossus",
+	]
+	for swamp_name in left_facing_swamp_cases:
+		var visual_key: String = combat_screen._combat_stage.enemy_visual_key_for(swamp_name)
+		_require(
+			bool(combat_screen._combat_stage.STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY.get(visual_key, false)),
+			"Expected %s to be flipped horizontally so it faces left toward the player." % swamp_name
+		)
+	_require(
+		combat_screen._combat_stage.expected_enemy_sprite_paths("Veteran Green Slime").has("res://assets/enemies/swamp/slime.png"),
+		"Expected Veteran-prefixed Swamp enemies to reuse their base static sprite."
+	)
+	var promoted_sprite_cases := [
+		{"name": "Giant Green Slime", "path": "res://assets/enemies/swamp/slime.png"},
+		{"name": "Veteran Swamp Goblin", "path": "res://assets/enemies/swamp/goblin.png"},
+		{"name": "Giant Bog Rat", "path": "res://assets/enemies/swamp/rat.png"},
+		{"name": "Elder Leech", "path": "res://assets/enemies/swamp/leech.png"},
+		{"name": "Giant Poison Frog", "path": "res://assets/enemies/swamp/frog.png"},
+		{"name": "Giant Vampire Bat", "path": "res://assets/enemies/cave/bat.png"},
+		{"name": "Giant Wolf Spider", "path": "res://assets/enemies/cave/spider.png"},
+		{"name": "Veteran Goblin", "path": "res://assets/enemies/cave/goblin.png"},
+		{"name": "Veteran Troglodyte", "path": "res://assets/enemies/cave/troglodyte.png"},
+		{"name": "Veteran Ogre", "path": "res://assets/enemies/cave/Ogre.png"},
+	]
+	for promoted_case in promoted_sprite_cases:
+		var promoted_name := String(promoted_case["name"])
+		var promoted_path := String(promoted_case["path"])
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(promoted_name).has(promoted_path),
+			"Expected promoted captain name %s to reuse %s." % [promoted_name, promoted_path]
+		)
+	var promoted_map_monster := Monster.new()
+	promoted_map_monster.display_name = "Giant Poison Frog"
+	_require(
+		combat_screen._map_overlay._map_actor_visual_key(promoted_map_monster) == combat_screen._combat_stage.SWAMP_POISON_FROG_VISUAL_KEY,
+		"Expected map marker lookup to reuse the base Poison Frog sprite for Giant Poison Frog."
+	)
+	var cave_sprite_cases := [
+		{"name": "Vampire Bat", "path": "res://assets/enemies/cave/bat.png", "size": Vector2(1254, 1254)},
+		{"name": "Wolf Spider", "path": "res://assets/enemies/cave/spider.png", "size": Vector2(1254, 1254)},
+		{"name": "Goblin", "path": "res://assets/enemies/cave/goblin.png", "size": Vector2(1254, 1254)},
+		{"name": "Troglodyte", "path": "res://assets/enemies/cave/troglodyte.png", "size": Vector2(1254, 1254)},
+		{"name": "Ogre", "path": "res://assets/enemies/cave/Ogre.png", "size": Vector2(1254, 1254)},
+		{"name": "Cave Troll", "path": "res://assets/enemies/cave/Troll.png", "size": Vector2(1254, 1254)},
+		{"name": "Giant Centipede", "path": "res://assets/enemies/cave/Giant_Centipede.png", "size": Vector2(1254, 1254)},
+		{"name": "Basilisk", "path": "res://assets/enemies/cave/Basilisk.png", "size": Vector2(1254, 1254)},
+		{"name": "Cave Brute", "path": "res://assets/enemies/cave/cave_brute.png", "size": Vector2(1254, 1254)},
+		{"name": "Echoing Seer", "path": "res://assets/enemies/cave/echoing_seer.png", "size": Vector2(1254, 1254)},
+		{"name": "Purple Cave Wyrm", "path": "res://assets/enemies/cave/Purple_cave_wyrm.png", "size": Vector2(1254, 1254)},
+		{"name": "The Goblin King", "path": "res://assets/enemies/cave/Goblin_king.png", "size": Vector2(1290, 1219)},
+		{"name": "Ancient Basilisk", "path": "res://assets/enemies/cave/Ancient_basilisk.png", "size": Vector2(1254, 1254)},
+		{"name": "The Deep Maw", "path": "res://assets/enemies/cave/Deep_maw.png", "size": Vector2(1254, 1254)},
+		{"name": "Gemvein Tyrant", "path": "res://assets/enemies/cave/Gemvein_tyrant.png", "size": Vector2(1287, 1222)},
+	]
+	for sprite_case in cave_sprite_cases:
+		var cave_name: String = sprite_case["name"]
+		var cave_path: String = sprite_case["path"]
+		var cave_size: Vector2 = sprite_case["size"]
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(cave_name).has(cave_path),
+			"Expected %s to resolve to %s." % [cave_name, cave_path]
+		)
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_region(cave_name, "hurt") == Rect2(Vector2.ZERO, cave_size),
+			"Expected %s static hurt frame to use the full PNG." % cave_name
+		)
+	combat_screen._combat_stage.configure("Rogue", "Green Slime")
+	_require(combat_screen._combat_stage.enemy_sprite_available(), "Expected a configured Swamp enemy to show its static sprite.")
+	_require(combat_screen._combat_stage._enemy_sprite.size == Vector2(1254, 1254), "Expected static Swamp sprites to use the full PNG dimensions.")
+	_require(combat_screen._combat_stage._enemy_sprite.scale == Vector2(0.145, 0.145), "Expected static Swamp sprites to use the static sprite scale.")
+	_require(combat_screen._combat_stage._enemy_sprite.flip_h, "Expected right-facing static Swamp sprites like Green Slime to flip toward the player.")
+	combat_screen._combat_stage.configure("Rogue", "Bog Rat")
+	_require(not combat_screen._combat_stage._enemy_sprite.flip_h, "Expected already-left-facing static Swamp sprites like Bog Rat to keep their authored facing.")
+	combat_screen._combat_stage.configure("Rogue", "Troll", "Cave Troll")
+	_require(
+		combat_screen._combat_stage.expected_enemy_sprite_paths("Cave Troll").has("res://assets/enemies/cave/Troll.png"),
+		"Expected biome-qualified Cave Troll to resolve to Cave art instead of the Swamp Troll name collision."
+	)
+	_require(combat_screen._combat_stage._enemy_sprite.flip_h, "Expected right-facing Cave Troll to flip toward the player.")
+	var cave_troll_node := ContractRouteNode.new()
+	cave_troll_node.biome = "Cave"
+	cave_troll_node.monster = Monster.new()
+	cave_troll_node.monster.display_name = "Troll"
+	build_state.current_route_node = cave_troll_node
+	_require(combat_screen._combat_stage_visual_name(cave_troll_node.monster) == "Cave Troll", "Expected generated Cave Troll combat to use the biome-qualified visual lookup.")
+	_require(combat_screen._map_overlay._map_actor_visual_name(cave_troll_node) == "Cave Troll", "Expected generated Cave Troll map marker to use the biome-qualified visual lookup.")
+	build_state.current_route_node = null
+	combat_screen._combat_stage.configure("Rogue", "Ogre")
+	_require(combat_screen._combat_stage._enemy_sprite.flip_h, "Expected right-facing Cave Ogre to flip toward the player.")
+	combat_screen._combat_stage.configure("Rogue", "The Goblin King")
+	_require(combat_screen._combat_stage._enemy_sprite.flip_h, "Expected right-facing Cave Goblin King to flip toward the player.")
+	combat_screen._combat_stage.configure("Rogue", "Purple Cave Wyrm")
+	_require(combat_screen._combat_stage._enemy_sprite.flip_h, "Expected right-facing Purple Cave Wyrm to flip toward the player.")
 	_require(
 		combat_screen._combat_stage.player_sprite_available() == ResourceLoader.exists("res://assets/placeholder_combat_sprites/rogue_bandit/animations/idle/frames/frame_001.png"),
 		"Expected Rogue sprite availability to match whether the imported normalized idle frame exists."
@@ -490,10 +742,41 @@ func _status_chip_text(chip: Node) -> String:
 	return ""
 
 
+func _indicator_ids(indicators: Array) -> PackedStringArray:
+	var ids := PackedStringArray()
+	for indicator in indicators:
+		ids.append(String(indicator.get("id", "")))
+	return ids
+
+
+func _has_effect_chip(row: HBoxContainer, effect_id: String, icon_texture: Texture2D, text: String) -> bool:
+	for child in row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		if icon != null and icon.texture == icon_texture and _status_chip_text(child) == text and child.get_meta("effect_id", "") == effect_id:
+			return true
+	return false
+
+
+func _effect_row_text(row: HBoxContainer) -> String:
+	var parts := PackedStringArray()
+	for child in row.get_children():
+		parts.append(_status_chip_text(child))
+		parts.append(String(child.tooltip_text))
+	return " ".join(parts).to_lower()
+
+
 func _has_status_chip(row: HBoxContainer, icon_texture: Texture2D, text: String) -> bool:
 	for child in row.get_children():
 		var icon := child.get_node_or_null("Icon") as TextureRect
 		if icon != null and icon.texture == icon_texture and _status_chip_text(child) == text:
+			return true
+	return false
+
+
+func _has_status_chip_with_icon(row: HBoxContainer, icon_texture: Texture2D) -> bool:
+	for child in row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		if icon != null and icon.texture == icon_texture:
 			return true
 	return false
 

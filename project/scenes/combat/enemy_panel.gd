@@ -8,7 +8,7 @@ extends PanelContainer
 signal fight_pressed
 
 const CARD_TITLE_FONT_SIZE := 20
-const PANEL_MIN_HEIGHT := 190
+const PANEL_MIN_HEIGHT := 230
 const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
 
 ## Data-derived thresholds for the "why this target pressures certain
@@ -18,8 +18,8 @@ const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
 ## flagged automatically without further authoring. Armor 100 sits above the
 ## roster's common 0/20 baseline (~35%+ physical damage reduction per
 ## Current_Mechanics_Reference.md's `armorReduction = 0.75*armor/(armor+100)`
-## curve); poison resistance 0.25 matches Balance_Baseline_Report.md's noted
-## "25% to 40%" band used to deliberately pressure poison-heavy builds.
+## curve); resistance 0.25 matches Balance_Baseline_Report.md's noted
+## "25% to 40%" band used to deliberately pressure magical builds.
 const ARMOR_HIGH_THRESHOLD := 100
 const POISON_RESIST_HIGH_THRESHOLD := 0.25
 
@@ -45,12 +45,13 @@ func _ready() -> void:
 	_title_label.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
 	content.add_child(_title_label)
 
-	# RichTextLabel (not Label) so the Poison Resist line can carry the
-	# semantic poison-text color (P2:R7:T2) without a second label node.
+	# RichTextLabel (not Label) so the Resist line can carry semantic color
+	# without a second label node.
 	_info_label = RichTextLabel.new()
 	_info_label.bbcode_enabled = true
 	_info_label.fit_content = true
 	_info_label.scroll_active = false
+	_info_label.add_theme_font_size_override("normal_font_size", 17)
 	content.add_child(_info_label)
 
 	# Not added to `content` -- combat_screen.gd parents this into the
@@ -128,7 +129,7 @@ func _refresh() -> void:
 	if BuildState.run_phase == BuildState.RunPhase.RUN_ENDED:
 		var ended_enemy: Monster = _terminal_target_monster()
 		if ended_enemy != null:
-			_set_enemy_state(ended_enemy, _terminal_target_duration_ms(), _terminal_target_reward())
+			_set_enemy_state(ended_enemy, _terminal_target_duration_ms())
 		else:
 			_set_empty_state("No Target", "No enemy target is available.")
 		_update_fight_button()
@@ -167,68 +168,87 @@ func _terminal_target_duration_ms() -> int:
 	return BuildState.current_target_duration_ms()
 
 
-func _terminal_target_reward() -> EncounterReward:
-	if BuildState.active_contract != null and BuildState.current_route_node != null and BuildState.current_route_node.monster != null:
-		return BuildState.current_route_node.reward
-	return BuildState.current_reward()
-
-
-func _set_enemy_state(enemy: Monster, duration: int, reward: EncounterReward = null) -> void:
+func _set_enemy_state(enemy: Monster, duration: int) -> void:
 	_title_label.text = enemy.display_name
+	_info_label.text = _enemy_combat_info_text(enemy, duration)
+
+
+func _enemy_combat_info_text(enemy: Monster, duration: int) -> String:
 	var lines: PackedStringArray = []
-	var reward_preview := reward if reward != null else BuildState.current_reward()
 	lines.append("HP: %d" % enemy.hp)
-	lines.append("Armor: %d" % enemy.armor)
-	# Wrapped whole-line, so `.text.contains("Poison Resist: X%")` still
-	# finds the exact contiguous substring inside the bbcode tags.
-	lines.append("[color=#%s]Poison Resist: %.0f%%[/color]" % [UIColors.TEXT_POISON.to_html(false), enemy.poison_resistance * 100.0])
 	lines.append("Fight Window: %.0fs" % (duration / 1000.0))
-	lines.append(BuildState.current_attempts_text())
-	lines.append(_reward_preview_text(reward_preview))
-	lines.append(_build_pressure_text(enemy))
-	_info_label.text = "\n".join(lines)
+	lines.append("")
+	lines.append("Armor: %d" % enemy.armor)
+	var physical_rows := _physical_defense_rows(enemy)
+	if not physical_rows.is_empty():
+		lines.append_array(physical_rows)
+	lines.append("")
+	lines.append("[color=#%s]Resistance: %.0f%%[/color]" % [UIColors.TEXT_MAGIC.to_html(false), enemy.poison_resistance * 100.0])
+	var magical_rows := _magical_defense_rows(enemy)
+	if not magical_rows.is_empty():
+		lines.append_array(magical_rows)
+	var control_rows := _control_mechanic_rows(enemy)
+	if not control_rows.is_empty():
+		lines.append("")
+		lines.append_array(control_rows)
+	return "\n".join(lines)
+
+
+func _physical_defense_rows(enemy: Monster) -> PackedStringArray:
+	var lines := PackedStringArray()
+	if not is_zero_approx(enemy.block):
+		lines.append("Block: %s" % _stat_number(enemy.block))
+	if not is_zero_approx(enemy.dodge_chance):
+		lines.append("Dodge: %.0f%%" % (enemy.dodge_chance * 100.0))
+	if not is_zero_approx(enemy.crit_negation):
+		lines.append("Crit Negation: %.0f%%" % (enemy.crit_negation * 100.0))
+	if not is_zero_approx(enemy.slow):
+		lines.append("Slow: %.0f%%" % (enemy.slow * 100.0))
+	return lines
+
+
+func _magical_defense_rows(enemy: Monster) -> PackedStringArray:
+	var lines := PackedStringArray()
+	if not is_zero_approx(enemy.absorb):
+		lines.append("Absorb: %s" % _stat_number(enemy.absorb))
+	if not is_zero_approx(enemy.suppress):
+		lines.append("Suppress: %.0f%%" % (enemy.suppress * 100.0))
+	return lines
+
+
+func _control_mechanic_rows(enemy: Monster) -> PackedStringArray:
+	var lines := PackedStringArray()
+	if enemy.cleanse_threshold > 0:
+		lines.append("Cleanse: %d hits" % enemy.cleanse_threshold)
+	if enemy.stun_duration_ms > 0:
+		lines.append("Stun: %.0f%%/%ss" % [
+			CombatResolver.STUN_TRIGGER_HIT_PERCENT * 100.0,
+			_seconds_number(enemy.stun_duration_ms),
+		])
+	if enemy.interrupt_skip_count > 0:
+		lines.append("Interrupt: %d / %d" % [
+			CombatResolver.INTERRUPT_REPEAT_THRESHOLD,
+			enemy.interrupt_skip_count,
+		])
+	return lines
+
+
+func _stat_number(value: float) -> String:
+	if is_equal_approx(value, roundf(value)):
+		return str(int(roundf(value)))
+	return "%.1f" % value
+
+
+func _seconds_number(duration_ms: int) -> String:
+	var seconds := float(duration_ms) / 1000.0
+	if is_equal_approx(seconds, roundf(seconds)):
+		return str(int(roundf(seconds)))
+	return "%.1f" % seconds
 
 
 func _set_empty_state(title: String, body: String) -> void:
 	_title_label.text = title
 	_info_label.text = body
-
-
-## Compact known-reward preview, read directly from the encounter/route
-## node's authored EncounterReward -- shown before the fight, not only via
-## the post-fight reward claim UI. Mirrors the field set combat_screen.gd's
-## post-fight `_reward_text()` already reads (gold/talent points/fixed and
-## choice gear/generated gear tier/shop unlock), kept as its own compact
-## one-line helper here since the pre-fight preview and the post-fight recap
-## serve different UI moments.
-func _reward_preview_text(reward: EncounterReward) -> String:
-	if reward == null:
-		return "Reward: none"
-	var parts: PackedStringArray = []
-	if reward.gold_amount > 0:
-		parts.append("%dg" % reward.gold_amount)
-	if reward.talent_points > 0:
-		parts.append("%d talent point%s" % [
-			reward.talent_points,
-			"" if reward.talent_points == 1 else "s",
-		])
-	for gear in reward.fixed_gear_rewards:
-		if gear != null:
-			parts.append(gear.display_name)
-	if reward.gear_choice_rewards.size() > 0:
-		var gear_names: PackedStringArray = []
-		for gear in reward.gear_choice_rewards:
-			if gear != null:
-				gear_names.append(gear.display_name)
-		if not gear_names.is_empty():
-			parts.append("choose %s" % " or ".join(gear_names))
-	if reward.generated_gear_choice_count > 0:
-		parts.append("%s Gear" % GearGenerator.TIER_NAMES[reward.generated_gear_tier])
-	if reward.unlocks_shop:
-		parts.append("shop access")
-	if parts.is_empty():
-		return "Reward: none"
-	return "Reward: %s" % ", ".join(parts)
 
 
 ## Short, data-derived "why this target pressures certain builds" line
@@ -242,9 +262,9 @@ func _build_pressure_text(enemy: Monster) -> String:
 	var high_armor := enemy.armor >= ARMOR_HIGH_THRESHOLD
 	var high_poison_resist := enemy.poison_resistance >= POISON_RESIST_HIGH_THRESHOLD
 	if high_armor and high_poison_resist:
-		return "Pressure: Heavy armor and poison resistance -- physical and poison builds both struggle."
+		return "Pressure: Heavy armor and resistance -- physical and magical builds both struggle."
 	elif high_armor:
 		return "Pressure: Heavy armor -- physical builds struggle here."
 	elif high_poison_resist:
-		return "Pressure: High poison resistance -- poison builds struggle here."
+		return "Pressure: High resistance -- magical builds struggle here."
 	return "Pressure: No notable defensive pressure."

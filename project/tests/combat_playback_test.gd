@@ -291,6 +291,8 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	root.add_child(stage)
 	await process_frame
 	stage.size = Vector2(640, 360)
+	await process_frame
+	_require(stage.get_node_or_null("OutcomeFlash") == null, "Expected the combat stage to avoid the removed end-of-fight flash rectangle.")
 	stage.configure("Rogue", "Mouthy Drunk")
 	stage.reset_state()
 	_require(is_equal_approx(stage._player_animation_frame_sec, 0.15), "Expected Rogue idle animation to use the slower 150ms frame cadence.")
@@ -416,6 +418,15 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	stage.configure("Rogue", "Tavern Bouncer")
 	_require(stage.last_poison_stack_tint_stacks == 0, "Expected configuring a new target to clear stale poison tint stacks.")
 	_require(stage.enemy_actor_anchor.modulate == Color.WHITE, "Expected a newly configured target to start without the previous enemy's poison tint.")
+	var enemy_sprite_center: Vector2 = stage.enemy_actor_anchor.position + stage._sprite_render_top_left(stage._enemy_sprite) + stage._enemy_sprite.size * stage._enemy_sprite.scale * 0.5
+	_require(
+		stage._enemy_effect_anchor_point().y > enemy_sprite_center.y,
+		"Expected Adventure enemy hit effects like cleanse pulses to sit lower than the raw sprite center."
+	)
+	_require(
+		stage._bandit_coin_impact_position().y > stage._sprite_anchor_point(stage.enemy_actor_anchor, stage._enemy_sprite, stage.PEASANT_ANCHOR_POINT).y,
+		"Expected Adventure Bandit Blade coins to burst lower against the visible enemy sprite."
+	)
 
 	var crit_cast := CombatResolver.CastEvent.new()
 	crit_cast.skill = load("res://data/skills/stab.tres")
@@ -428,21 +439,84 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	_require(stage.last_contact_feedback_was_crit, "Expected crit enemy recoil to be marked distinctly.")
 	_require(stage.bandit_coin_spray_count == 3, "Expected Bandit Blade to add coin particles to each physical-damage hit while active.")
 	_require(stage.last_bandit_coin_count == stage.BANDIT_COIN_CRIT_COUNT, "Expected Bandit Blade crits to get a slightly richer coin spray.")
+
+	var dodged_cast := CombatResolver.CastEvent.new()
+	dodged_cast.skill = load("res://data/skills/stab.tres")
+	dodged_cast.was_dodged = true
+	dodged_cast.time_ms = 700
+	var contact_feedback_before_dodge: int = stage.contact_feedback_count
+	stage.play_cast_impact(dodged_cast, true)
+	_require(stage.dodge_effect_count == 1, "Expected a dodged cast to request one enemy afterimage dodge effect.")
+	_require(stage.dodge_afterimage_count == stage.DODGE_AFTERIMAGE_OFFSETS.size(), "Expected dodge to spawn one afterimage per authored offset.")
+	_require(stage.last_mechanic_text == "Dodged", "Expected dodge to spawn a small Dodged mechanic label.")
+	_require(stage.get_node_or_null("MechanicText") != null, "Expected animated mechanic text to exist while its float tween is active.")
+	stage.clear_transient_effects()
+	_require(stage.get_node_or_null("MechanicText") == null, "Expected transient cleanup to remove active mechanic text when playback is skipped.")
+	_require(stage.contact_feedback_count == contact_feedback_before_dodge, "Expected dodged casts to skip normal enemy hit recoil.")
 	stage.reset_state()
 	_require(stage.bandit_coin_spray_count == 0, "Expected reset_state() to clear Bandit Blade coin spray counters.")
+	_require(stage.dodge_effect_count == 0, "Expected reset_state() to clear dodge visual counters.")
+
+	var interrupted_cast := CombatResolver.CastEvent.new()
+	interrupted_cast.skill = load("res://data/skills/stab.tres")
+	interrupted_cast.was_interrupted = true
+	interrupted_cast.interrupt_triggered = true
+	interrupted_cast.time_ms = 700
+	stage.play_cast_impact(interrupted_cast, false)
+	_require(stage.interrupt_effect_count == 1, "Expected interrupted casts to request one red cut-off effect.")
+	_require(stage.get_node_or_null("InterruptSlashEffect") != null, "Expected interrupted casts to spawn the shared interrupt slash visual.")
+	_require(stage.last_mechanic_text == "Interrupted", "Expected interrupt to spawn a small Interrupted mechanic label.")
+	stage.reset_state()
+	_require(stage.interrupt_effect_count == 0, "Expected reset_state() to clear interrupt visual counters.")
+	_require(stage.get_node_or_null("InterruptSlashEffect") == null, "Expected reset_state() to clear interrupt slash visuals.")
 
 	stage.play_poison_tick_pulse(false)
 	_require(stage.poison_tick_pulse_count == 1, "Expected poison ticks to use a status pulse instead of a Rogue attack animation.")
 
+	stage.set_slow_effect_active(true, 0.35, false)
+	_require(stage.slow_effect_active, "Expected slow to mark its persistent combat-stage frost visual active.")
+	_require(stage.slow_effect_count == 1, "Expected slow to spawn one shared frost aura effect.")
+	_require(is_equal_approx(stage.last_slow_strength, 0.35), "Expected slow visuals to remember the monster slow strength.")
+	_require(stage.player_actor_anchor.get_node_or_null("SlowAuraEffect") != null, "Expected slow to attach the frost aura and breath layer to the player actor.")
+	var snow_center_y: float = stage._slow_snow_field_rect().position.y + stage._slow_snow_field_rect().size.y * 0.5
+	_require(is_equal_approx(snow_center_y, stage._stage_point_for_grid(Vector2(stage.PLAYER_STAGE_GRID.x, stage.SLOW_SNOW_STAGE_GRID_Y)).y), "Expected the slow snow field center to land on the requested grid Y=0 line.")
+	stage.reset_state()
+	_require(not stage.slow_effect_active, "Expected reset_state() to clear the slow visual active flag.")
+	_require(stage.player_actor_anchor.get_node_or_null("SlowAuraEffect") == null, "Expected reset_state() to clear the frost aura and breath layer.")
+
+	stage.play_stun_effect(500, false)
+	_require(stage.stun_effect_count == 1, "Expected stun events to request one circling-star status effect.")
+	_require(stage.last_stun_duration_ms == 500, "Expected the stun visual to record the resolver stun duration.")
+	_require(stage.player_status_anchor.get_node_or_null("StunStarsEffect") != null, "Expected stun stars to attach above the player via the shared status anchor.")
+	_require(stage.last_mechanic_text == "Stunned", "Expected stun to spawn a small Stunned mechanic label.")
+	_require(CombatStageScript.StunStarsEffect.ORBIT_CENTER.y > 24.0, "Expected stun stars to sit closer to the Rogue sprite than the first pass.")
+	_require(CombatStageScript.StunStarsEffect.STAR_RADIUS >= 10.0, "Expected stun stars to be large enough to read at combat scale.")
+	var stun_anchor_point: Vector2 = stage._stun_star_anchor_point()
+	var player_sprite_anchor: Vector2 = stage._sprite_anchor_point(stage.player_actor_anchor, stage._player_sprite, stage._player_current_anchor_point)
+	_require(is_equal_approx(stun_anchor_point.x, player_sprite_anchor.x), "Expected stun stars to keep the Rogue-aligned X anchor.")
+	_require(is_equal_approx(stun_anchor_point.y, stage._stage_point_for_grid(Vector2(stage.PLAYER_STAGE_GRID.x, stage.STUN_STAR_STAGE_GRID_Y)).y), "Expected stun stars to land on the grid Y=0 line.")
+	stage.play_stun_effect(500, true)
+	_require(stage.last_player_animation_key == "idle", "Expected stun to force the Rogue into a frozen idle pose.")
+	_require(not stage._player_animation_loop, "Expected stun to freeze the Rogue idle loop while stars are active.")
+	_require(stage._player_stun_freeze_until_msec > Time.get_ticks_msec(), "Expected animated stun to keep the Rogue frozen for the stun duration.")
+	stage.reset_state()
+	_require(stage.player_status_anchor.get_node_or_null("StunStarsEffect") == null, "Expected reset_state() to clear active stun stars.")
+	_require(stage._player_stun_freeze_until_msec == 0, "Expected reset_state() to clear the Rogue stun freeze.")
+	_require(stage.mechanic_text_count == 0, "Expected reset_state() to clear mechanic text counters.")
+
+	stage.play_cleanse_effect(false)
+	_require(stage.cleanse_effect_count == 1, "Expected cleanse events to request one cleanse burst.")
+	_require(stage.get_node_or_null("CleanseBurstEffect") != null, "Expected cleanse to spawn a visible burst effect on the stage.")
+	_require(stage.last_mechanic_text == "Cleansed", "Expected cleanse to spawn a small Cleansed mechanic label.")
+	_require(stage.get_node_or_null("MechanicText") == null, "Expected non-animated cleanse playback, including skip flushes, not to leave a permanent Cleansed label.")
+	stage.reset_state()
+	_require(stage.get_node_or_null("CleanseBurstEffect") == null, "Expected reset_state() to clear active cleanse bursts.")
+
 	stage.play_outcome_pose(true, false)
 	_require(stage.outcome_pose == CombatStageScript.OUTCOME_VICTORY, "Expected a won fight to record the enemy defeat pose.")
-	_require(stage.outcome_flash_count == 1, "Expected victory to record one outcome flash beat.")
-	_require(stage.last_outcome_flash_was_victory, "Expected the outcome flash to know this was a victory.")
 
 	stage.play_outcome_pose(false, false)
 	_require(stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected a lost fight to record the player defeat pose.")
-	_require(stage.outcome_flash_count == 2, "Expected defeat to record another outcome flash beat.")
-	_require(not stage.last_outcome_flash_was_victory, "Expected the outcome flash to know this was a defeat.")
 	_require(stage.last_player_animation_key == "defeat", "Expected a lost fight to select the Rogue death animation.")
 	_require(stage.last_player_animation_frame_count == 5, "Expected the Rogue death animation to expose its five authored frames.")
 	_require(is_equal_approx(stage.player_defeat_animation_duration_sec(), 0.5), "Expected the Rogue death animation to play out over 0.5s before the hold.")
@@ -454,7 +528,6 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	_require(stage.poison_stack_tint_updates == 0, "Expected reset_state() to clear poison stack tint counters for the next fight.")
 	_require(stage.last_poison_stack_tint_stacks == 0, "Expected reset_state() to clear the active poison stack tint.")
 	_require(stage.outcome_pose == "", "Expected reset_state() to clear the previous outcome pose.")
-	_require(stage.outcome_flash_count == 0, "Expected reset_state() to clear outcome flash counters.")
 
 	stage.queue_free()
 	await process_frame
@@ -546,6 +619,10 @@ func _check_live_playback_win() -> void:
 
 	var fight_enemy_panel = combat_screen._enemy_panel
 	var monster: Monster = fight_enemy_panel.monster()
+	monster.hp = 50
+	monster.cleanse_threshold = 1
+	monster.stun_duration_ms = 500
+	monster.slow = 0.25
 	# Cleared so the has_save() assertion below proves the FIGHT's autosave
 	# specifically fired before playback started.
 	SaveSystem.delete_save()
@@ -569,6 +646,8 @@ func _check_live_playback_win() -> void:
 	_require(combat_screen._combat_stage._enemy_name_label.text == monster.display_name, "Expected the combat stage enemy label data to track the current target mid-playback.")
 	_require(not combat_screen._combat_stage._enemy_name_label.visible, "Expected Adventure playback to hide the enemy name inside the combat window.")
 	_require(combat_screen._combat_stage.fight_intro_count == 1, "Expected the combat stage to play one start-of-fight intro.")
+	_require(combat_screen._combat_stage.slow_effect_count == 1, "Expected Adventure/contract playback to show the shared slow frost aura at fight start.")
+	_require(is_equal_approx(combat_screen._combat_stage.last_slow_strength, monster.slow), "Expected Adventure/contract slow aura to use the monster slow strength.")
 	_require(combat_screen._playback_presenter._intro_remaining_sec > 0.0, "Expected playback to begin with a visual intro before the combat clock advances.")
 	_require(combat_screen._playback_presenter._playback.events_fired() == 0, "Expected no timeline events to fire during the fight intro setup.")
 	_require(
@@ -587,6 +666,9 @@ func _check_live_playback_win() -> void:
 	# bookkeeping, and the outcome stays hidden.
 	combat_screen._process(combat_screen._playback_presenter._intro_remaining_sec + 2.0)
 	_require(combat_screen._playback_presenter._playback.events_fired() > 0, "Expected events to have fired 2s in.")
+	_require(combat_screen._combat_stage.stun_effect_count > 0, "Expected Adventure/contract playback to trigger the shared player stun stars.")
+	_require(combat_screen._combat_stage.last_stun_duration_ms == monster.stun_duration_ms, "Expected Adventure/contract stun stars to use the monster stun duration.")
+	_require(combat_screen.hud_status_chip_flash_count > 0, "Expected Adventure/contract cleanse to flash the zeroed HUD status chips.")
 	var expected_hp: float = float(monster.hp) - combat_screen._playback_presenter._playback.damage_dealt()
 	_require(
 		combat_screen._hud_hp_text_label.text == "%d/%d" % [ceili(expected_hp), monster.hp],
@@ -603,7 +685,6 @@ func _check_live_playback_win() -> void:
 	_require(combat_screen._playback_controls.visible, "Expected the playback controls to stay visible after the reveal.")
 	_require(combat_screen._hud_hp_text_label.text == "0/%d" % monster.hp, "Expected the HUD snapped to the exact post-fight state (dead enemy).")
 	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_VICTORY, "Expected skip to still snap the enemy into the victory pose.")
-	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected skip to record the victory outcome beat without waiting.")
 	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
 	_require(combat_screen._victory_overlay.visible, "Expected the victory banner revealed after the skipped-win pose hold.")
 	_require(not combat_screen._view_log_button.disabled, "Expected the combat log unlocked after the reveal.")
@@ -642,7 +723,6 @@ func _check_natural_playback_win_reveal_timing() -> void:
 	_require(combat_screen._view_log_button.disabled, "Expected the combat log to stay locked during the natural outcome pose hold.")
 	_require(combat_screen._map_button.disabled, "Expected the Map button to stay locked during the natural outcome pose hold.")
 	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_VICTORY, "Expected the enemy defeat pose to land before the victory banner appears.")
-	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected natural victory to play one outcome flash beat.")
 
 	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
 	_require(combat_screen._victory_overlay.visible, "Expected the victory banner after the natural reveal hold.")
@@ -701,7 +781,6 @@ func _check_live_playback_loss() -> void:
 	_require(combat_screen._playback_controls._time_label == null or not combat_screen._playback_controls._time_label.visible, "Expected the old playback time readout to stay hidden.")
 	_require(combat_screen._fight_timer_label.visible, "Expected the fight-window timer badge to remain the visible combat timer.")
 	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected skip to enter the player defeat pose before the overlay.")
-	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected skip to record the defeat outcome beat without waiting.")
 	_require(combat_screen._combat_stage.last_player_animation_key == "defeat", "Expected skipped losses to use the Rogue death pose.")
 	_require(combat_screen._combat_stage.player_actor_anchor.modulate == Color.WHITE, "Expected skipped losses not to tint the Rogue red during death.")
 	_require(combat_screen._combat_stage.last_player_animation_frame_path.ends_with("/death/frames/frame_001.png"), "Expected skipped losses to start on the first death frame.")
@@ -734,10 +813,12 @@ func _check_natural_playback_loss_reveal_timing() -> void:
 	await process_frame
 	combat_screen.instant_playback = false
 	build_state.set_locked(true)
-	combat_screen._enemy_panel.monster().hp = 100000
+	var monster: Monster = combat_screen._enemy_panel.monster()
+	monster.hp = 100000
 
 	print("-- Natural playback loss reveal timing --")
 	combat_screen._enemy_panel.fight_pressed.emit()
+	_require(not build_state.last_fight_won, "Expected the impossible-HP target to guarantee a natural playback loss.")
 	var duration_sec := float(combat_screen._playback_presenter._playback.timeline_end_ms()) / 1000.0
 	combat_screen._process(combat_screen._playback_presenter._intro_remaining_sec + duration_sec + 0.1)
 	_require(not combat_screen._playback_active, "Expected losing playback to finish before the natural reveal hold expires.")
@@ -746,7 +827,6 @@ func _check_natural_playback_loss_reveal_timing() -> void:
 	_require(combat_screen._view_log_button.disabled, "Expected combat log locked during the natural loss hold.")
 	_require(combat_screen._map_button.disabled, "Expected map locked during the natural loss hold.")
 	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_DEFEAT, "Expected the player defeat pose before the loss UI appears.")
-	_require(combat_screen._combat_stage.outcome_flash_count == 1, "Expected natural defeat to play one outcome flash beat.")
 	_require(combat_screen._combat_stage.last_player_animation_key == "defeat", "Expected natural losses to play the Rogue death animation before the UI appears.")
 
 	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
@@ -785,12 +865,14 @@ func _check_playback_speed_persists() -> void:
 	await process_frame
 	combat_screen.instant_playback = false
 	build_state.set_locked(true)
-	combat_screen._enemy_panel.monster().hp = 100000
+	var monster: Monster = combat_screen._enemy_panel.monster()
+	monster.hp = 100000
 
 	var fight_enemy_panel = combat_screen._enemy_panel
 
 	print("-- Live playback speed persists across fights --")
 	fight_enemy_panel.fight_pressed.emit()
+	_require(not build_state.last_fight_won, "Expected the impossible-HP target to guarantee the first speed-persistence fight is a loss.")
 	_require(is_equal_approx(combat_screen._playback_presenter._playback.speed, 1.0), "Expected the first-ever fight of a session to start at the default 1x.")
 
 	# Pick 4x mid-playback via the real speed button (index 2 of
@@ -806,9 +888,11 @@ func _check_playback_speed_persists() -> void:
 	_require(build_state.run_phase == build_state.RunPhase.PLANNING, "Expected retry to return to planning.")
 	_require(not build_state.needs_tavern_map_choice(), "Expected the retry-bug fix to make the same encounter immediately fightable again.")
 	build_state.set_locked(true)
-	combat_screen._enemy_panel.monster().hp = 100000
+	monster = combat_screen._enemy_panel.monster()
+	monster.hp = 100000
 
 	fight_enemy_panel.fight_pressed.emit()
+	_require(not build_state.last_fight_won, "Expected the impossible-HP target to guarantee the retried speed-persistence fight is a loss.")
 	_require(combat_screen._playback_active, "Expected the second fight to also enter playback.")
 	_require(
 		is_equal_approx(combat_screen._playback_presenter._playback.speed, 4.0),

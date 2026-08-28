@@ -31,7 +31,10 @@ static func summarize(result: CombatResolver.CombatResult, monster: Monster = nu
 	var crit_count := 0
 	var armor_reduction_total := 0
 	var armor_reduction_casts := 0
+	var active_armor_reduction_total := 0
+	var active_armor_reduction_casts := 0
 	var poison_resistance_reduction_casts := 0
+	var active_poison_resistance_reduction_casts := 0
 	var final_poison_resistance := monster.poison_resistance if monster != null else 0.0
 	for event in result.cast_events:
 		physical += event.physical_damage
@@ -44,15 +47,23 @@ static func summarize(result: CombatResolver.CombatResult, monster: Monster = nu
 		if event.armor_reduction_applied > 0:
 			armor_reduction_total += event.armor_reduction_applied
 			armor_reduction_casts += 1
+			active_armor_reduction_total += event.armor_reduction_applied
+			active_armor_reduction_casts += 1
 		if event.poison_resistance_reduction_applied > 0.0:
 			final_poison_resistance *= 1.0 - clampf(event.poison_resistance_reduction_applied, 0.0, 1.0)
 			poison_resistance_reduction_casts += 1
+			active_poison_resistance_reduction_casts += 1
+		if event.cleanse_triggered:
+			active_armor_reduction_total = 0
+			active_armor_reduction_casts = 0
+			final_poison_resistance = monster.poison_resistance if monster != null else 0.0
+			active_poison_resistance_reduction_casts = 0
 
 	var poison := 0.0
 	var poison_tick_count := 0
 	var peak_poison_stacks := 0
 	for tick in result.tick_events:
-		if tick.damage <= 0.0:
+		if tick.damage <= 0.0 and tick.absorbed_amount <= 0.0:
 			continue
 		poison += tick.damage
 		poison_tick_count += 1
@@ -92,9 +103,12 @@ static func summarize(result: CombatResolver.CombatResult, monster: Monster = nu
 		"poison_pct": poison_pct,
 		"armor_reduction_total": armor_reduction_total,
 		"armor_reduction_casts": armor_reduction_casts,
+		"active_armor_reduction_total": active_armor_reduction_total,
+		"active_armor_reduction_casts": active_armor_reduction_casts,
 		"base_armor": monster.armor if monster != null else 0,
-		"final_armor": (monster.armor - armor_reduction_total) if monster != null else 0,
+		"final_armor": (monster.armor - active_armor_reduction_total) if monster != null else 0,
 		"poison_resistance_reduction_casts": poison_resistance_reduction_casts,
+		"active_poison_resistance_reduction_casts": active_poison_resistance_reduction_casts,
 		"base_poison_resistance": monster.poison_resistance if monster != null else 0.0,
 		"final_poison_resistance": final_poison_resistance,
 		"poison_tick_count": poison_tick_count,

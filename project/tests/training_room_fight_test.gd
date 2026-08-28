@@ -39,6 +39,7 @@ func _initialize() -> void:
 	var skill_build_panel = training_room.find_child("SkillBuildPanel", true, false)
 	var columns: HBoxContainer = training_room.find_child("Columns", true, false)
 	var left_column: VBoxContainer = training_room.find_child("LeftColumn", true, false)
+	var right_column_scroll: ScrollContainer = training_room.find_child("RightColumnScroll", true, false)
 	var right_column: VBoxContainer = training_room.find_child("RightColumn", true, false)
 	assert(fight_button != null)
 	assert(result_log != null)
@@ -47,6 +48,7 @@ func _initialize() -> void:
 	assert(skill_build_panel != null)
 	assert(columns != null)
 	assert(left_column != null)
+	assert(right_column_scroll != null)
 	assert(right_column != null)
 
 	# -- Layout regression check: Practice Room should keep Adventure-like
@@ -55,6 +57,9 @@ func _initialize() -> void:
 	assert(not (columns.get_parent() is ScrollContainer))
 	assert(columns.size_flags_vertical == Control.SIZE_EXPAND_FILL)
 	assert(left_column.custom_minimum_size == Vector2(training_room.SIDE_COLUMN_WIDTH, 0))
+	assert(right_column_scroll.custom_minimum_size == Vector2(training_room.SIDE_COLUMN_WIDTH, 0))
+	assert(right_column_scroll.size_flags_vertical == Control.SIZE_EXPAND_FILL)
+	assert(right_column_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED)
 	assert(right_column.custom_minimum_size == Vector2(training_room.SIDE_COLUMN_WIDTH, 0))
 	assert(fight_button.custom_minimum_size == training_room.FIGHT_BUTTON_SIZE)
 	assert(view_log_button.custom_minimum_size == training_room.LOG_BUTTON_SIZE)

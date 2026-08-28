@@ -45,6 +45,22 @@ func _initialize() -> void:
 	build_state.set_locked(true)
 	build_state.start_fight()
 	build_state.finish_fight(false)
+	build_state.record_fight_dps(42.5)
+	build_state.run_encounter_history.append({
+		"fight_number": 1,
+		"contract_count": 0,
+		"contract_name": "Tavern",
+		"enemy_name": "Save Test Bruiser",
+		"enemy_role": "Tavern",
+		"enemy_color": UIColors.TEXT_NORMAL.to_html(false),
+		"enemy_hp": 90,
+		"duration_ms": 18000,
+		"total_damage": 765.0,
+		"player_dps": 42.5,
+		"required_dps": 5.0,
+		"dps_difference": 37.5,
+		"is_win": false,
+	})
 	_require(build_state.run_outcome == build_state.RunOutcome.FIGHT_LOSS_RETRY, "Expected a retryable loss before saving.")
 	_require(build_state.failure_count_for_current_encounter() == 1, "Expected one recorded failure before saving.")
 
@@ -139,6 +155,25 @@ func _state_signature(state) -> String:
 	parts.append("shop_round_index:%d" % state.shop_round_index)
 	for offer in state.shop_offers:
 		parts.append("shop_offer:%s" % _gear_signature(offer))
+	parts.append("completed_contract_count:%d" % state.completed_contract_count)
+	parts.append("highest_run_dps:%.2f" % state.highest_run_dps)
+	for entry in state.run_encounter_history:
+		parts.append("run_history:%d|%d|%s|%s|%s|%s|%d|%d|%.2f|%.2f|%.2f|%.2f|%s" % [
+			int(entry.get("fight_number", 0)),
+			int(entry.get("contract_count", 0)),
+			String(entry.get("contract_name", "")),
+			String(entry.get("enemy_name", "")),
+			String(entry.get("enemy_role", "")),
+			String(entry.get("enemy_color", "")),
+			int(entry.get("enemy_hp", 0)),
+			int(entry.get("duration_ms", 0)),
+			float(entry.get("total_damage", 0.0)),
+			float(entry.get("player_dps", 0.0)),
+			float(entry.get("required_dps", 0.0)),
+			float(entry.get("dps_difference", 0.0)),
+			bool(entry.get("is_win", false)),
+		])
+	parts.append("contract_offer_index:%d" % state.contract_offer_index)
 	parts.append("encounter_index:%d" % state.current_encounter_index)
 	parts.append("failure_counts:%s" % JSON.stringify(state.encounter_failure_counts))
 	parts.append("run_phase:%d" % state.run_phase)

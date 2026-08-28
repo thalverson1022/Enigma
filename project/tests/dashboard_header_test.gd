@@ -141,8 +141,8 @@ func _initialize() -> void:
 	build_state.pending_reward_choices = no_reward_choices
 	build_state.run_state_changed.emit()
 
-	# -- Contract victory --
-	print("contract victory header")
+	# -- Between-contract shop after Vyra --
+	print("between-contract shop header")
 	var contract: ContractDef = load("res://data/contracts/the_gilded_serpent.tres")
 	var vyra_node := _find_route_node(contract.offer_node, "route.gilded_serpent.vyra")
 	_require(vyra_node != null, "Expected Vyra route node.")
@@ -152,9 +152,9 @@ func _initialize() -> void:
 	build_state.last_fight_won = true
 	combat_screen._on_continue_pressed()
 	await process_frame
-	_require(build_state.run_outcome == BuildState.RunOutcome.CONTRACT_VICTORY, "Expected contract victory outcome.")
-	_require(combat_screen._phase_label.text == "Phase: Contract Victory", "Expected contract victory phase text, got: %s" % combat_screen._phase_label.text)
-	_require(combat_screen._next_action_label.text == "Next: Start a new Adventure.", "Expected start-new-adventure next action, got: %s" % combat_screen._next_action_label.text)
+	_require(build_state.shop_round_pending, "Expected Vyra completion to open a between-contract shop.")
+	_require(combat_screen._phase_label.text == "Phase: Shop", "Expected shop phase text, got: %s" % combat_screen._phase_label.text)
+	_require(combat_screen._next_action_label.text == "Next: Buy gear or leave the shop.", "Expected shop next action, got: %s" % combat_screen._next_action_label.text)
 
 	print("")
 	print("Dashboard header check: OK")

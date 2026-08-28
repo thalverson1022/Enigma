@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_check_summary_with_no_casts()
 	_check_log_inspector_data()
 	_check_combat_log_readability_format()
+	_check_zero_value_mitigated_hits_remain_visible()
 	await _check_live_win_recap()
 	await _check_live_loss_recap()
 	if _failed:
@@ -297,6 +298,34 @@ func _check_combat_log_readability_format() -> void:
 	_require(not practice_log.contains("VICTORY") and not practice_log.contains("DEFEAT") and not practice_log.contains("Result:"), "Expected Practice Room log to avoid Adventure win/loss language.")
 
 
+func _check_zero_value_mitigated_hits_remain_visible() -> void:
+	var blocked_skill := Skill.new()
+	blocked_skill.display_name = "Blocked Jab"
+	blocked_skill.base_execution_ms = 1000
+	blocked_skill.min_execution_ms = 500
+	var physical := PhysicalDamageEffect.new()
+	physical.amount = 10.0
+	blocked_skill.effects = [physical]
+	var blocked_monster := Monster.new()
+	blocked_monster.display_name = "Blocking Dummy"
+	blocked_monster.hp = 1000
+	blocked_monster.block = 50.0
+	var blocked_result := CombatResolver.resolve([blocked_skill], PlayerStats.new(), blocked_monster, 1000, 3)
+	var blocked_log := CombatResultFormatter.format_practice(blocked_result, blocked_monster)
+	_require(blocked_log.contains("Blocked Jab hits for 0.0 (blocked 10.0)"), "Expected fully blocked physical hits to remain visible as zero-value hits.")
+
+	var poison_strike: Skill = load("res://data/skills/poison_strike.tres")
+	var absorb_player := PlayerStats.new()
+	absorb_player.poison_damage_per_tick = 8.0
+	var absorb_monster := Monster.new()
+	absorb_monster.display_name = "Absorbing Dummy"
+	absorb_monster.hp = 1000
+	absorb_monster.absorb = 20.0
+	var absorb_result := CombatResolver.resolve([poison_strike], absorb_player, absorb_monster, 2500, 3)
+	var absorb_log := CombatResultFormatter.format_practice(absorb_result, absorb_monster)
+	_require(absorb_log.contains("Poison ticks for 0.0 (absorbed 8.0)"), "Expected fully absorbed poison ticks to remain visible as zero-value hits.")
+
+
 func _has_timeline_row(rows: Array, label: String) -> bool:
 	return not _timeline_row(rows, label).is_empty()
 
@@ -374,6 +403,8 @@ func _check_live_win_recap() -> void:
 	_require(recap_text.contains("Biggest Hit:"), "Expected the live win recap to report the best landed hit.")
 	_require(recap_text.contains("Physical:"), "Expected the live win recap to include the physical/poison split.")
 	_require(not recap_text.contains("DPS:"), "Expected victory recap to omit DPS detail.")
+	_require(not recap_text.contains("Contracts Completed:"), "Expected victory recap to omit run-loss summary detail.")
+	_require(not recap_text.contains("Highest DPS This Run:"), "Expected victory recap to omit run-loss summary detail.")
 	_require(not recap_text.contains("Crits:"), "Expected victory recap to omit crit count detail.")
 	_require(not combat_screen._recap_label.visible, "Expected the loss-path recap label to stay hidden on a win.")
 
@@ -390,6 +421,8 @@ func _check_live_loss_recap() -> void:
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
 	build_state.choose_current_tavern_encounter()
+	build_state.completed_contract_count = 3
+	build_state.record_fight_dps(123.4)
 	var stab: Skill = load("res://data/skills/stab.tres")
 	var loss_rotation: Array[Skill] = [stab]
 	build_state.rotation = loss_rotation
@@ -415,6 +448,8 @@ func _check_live_loss_recap() -> void:
 	_require(recap_text.contains("Biggest Hit: Stab"), "Expected the loss recap to report the best landed hit.")
 	_require(recap_text.contains("Physical:"), "Expected the loss recap to include the physical/poison split.")
 	_require(not recap_text.contains("DPS:"), "Expected defeat recap to match victory by omitting DPS detail.")
+	_require(recap_text.contains("Contracts Completed: 3"), "Expected defeat recap to include completed contract count.")
+	_require(recap_text.contains("Highest DPS This Run: 123.4"), "Expected defeat recap to include best run DPS.")
 	_require(not recap_text.contains("Crits:"), "Expected defeat recap to match victory by omitting crit count detail.")
 	_require(not recap_text.contains("Armor reduced"), "Expected no armor reduction line for a no-op rotation.")
 	_require(not recap_text.contains("ticks"), "Expected no poison summary line for a physical-only rotation.")

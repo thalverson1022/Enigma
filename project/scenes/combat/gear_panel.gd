@@ -158,6 +158,7 @@ func _ready() -> void:
 ## (trinket over charm), matching the mockup's positions.
 func _build_doll() -> VBoxContainer:
 	var doll := VBoxContainer.new()
+	doll.alignment = BoxContainer.ALIGNMENT_END
 	doll.add_theme_constant_override("separation", 8)
 
 	_helm_slot = _make_slot(HELM_SLOT_SIZE)
