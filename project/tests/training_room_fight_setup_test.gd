@@ -8,6 +8,10 @@ extends SceneTree
 ## killable HP target. Run with:
 ##   godot --headless -s res://tests/training_room_fight_setup_test.gd
 
+const MECHANIC_DODGE_ICON := preload("res://assets/ui/icons/mechanics/dodge.png")
+const MECHANIC_BLOCK_ICON := preload("res://assets/ui/icons/mechanics/block.png")
+const MECHANIC_INTERRUPT_ICON := preload("res://assets/ui/icons/mechanics/interrupt.png")
+
 
 func _initialize() -> void:
 	var build_state = root.get_node("BuildState")
@@ -32,18 +36,44 @@ func _initialize() -> void:
 
 	var character_stats_panel = training_room.find_child("CharacterStatsPanel", true, false)
 	var target_panel: TrainingTargetPanel = training_room.find_child("TargetPanel", true, false)
+	var primary_archetype_option: OptionButton = training_room.find_child("PrimaryArchetypeOption", true, false)
+	var secondary_archetype_option: OptionButton = training_room.find_child("SecondaryArchetypeOption", true, false)
 	var generated_difficulty_option: OptionButton = training_room.find_child("GeneratedDifficultyOption", true, false)
-	var generated_seed_spin: SpinBox = training_room.find_child("GeneratedSeedSpin", true, false)
+	var generated_type_option: OptionButton = training_room.find_child("GeneratedTypeOption", true, false)
+	var fight_seed_spin: SpinBox = training_room.find_child("FightSeedSpin", true, false)
+	var practice_gold_spin: SpinBox = training_room.find_child("PracticeGoldSpin", true, false)
 	var roll_generated_button: Button = training_room.find_child("RollGeneratedMonsterButton", true, false)
-	var generate_from_seed_button: Button = training_room.find_child("GenerateFromSeedButton", true, false)
-	var generated_info: Label = training_room.find_child("GeneratedMonsterInfo", true, false)
 	assert(character_stats_panel != null)
 	assert(target_panel != null)
+	assert(primary_archetype_option != null)
+	assert(secondary_archetype_option != null)
 	assert(generated_difficulty_option != null)
-	assert(generated_seed_spin != null)
+	assert(generated_type_option != null)
+	assert(fight_seed_spin != null)
+	assert(practice_gold_spin != null)
 	assert(roll_generated_button != null)
-	assert(generate_from_seed_button != null)
-	assert(generated_info != null)
+	assert(training_room.find_child("GeneratedMonsterInfo", true, false) == null)
+	assert(_all_label_texts(training_room).has("Seed"))
+	assert(primary_archetype_option.get_item_text(0) == "None")
+	assert(secondary_archetype_option.get_item_text(0) == "None")
+	assert(_option_texts(generated_type_option) == PackedStringArray(["normal", "captain", "elite", "boss"]))
+	assert(_target_control_labels(target_panel) == PackedStringArray([
+		"Difficulty",
+		"Type",
+		"Main",
+		"Secondary",
+		"Armor",
+		"Block",
+		"Dodge %",
+		"Crit Negate %",
+		"Resist %",
+		"Absorb",
+		"Suppress %",
+		"Slow %",
+		"Cleanse",
+		"Stun ms",
+		"Interrupt",
+	]))
 
 	# -- Defaults: all defenses 0, 20s, seed 1, 0 practice gold --
 	var target: Monster = training_room._state.selected_target
@@ -80,49 +110,72 @@ func _initialize() -> void:
 	})
 	assert(training_room._state.duration_ms == 20000)
 	assert(training_room._state.fight_seed == 1)
+	assert(int(fight_seed_spin.value) == 1)
 	assert(training_room._state.gold == 0)
-	assert(generated_info.text.contains("No generated target"))
+	_select_option_by_id(generated_difficulty_option, 1)
+	_select_option_by_metadata(generated_type_option, "normal")
+	assert(_option_has_metadata(primary_archetype_option, "fortified"))
+	assert(not _option_has_metadata(primary_archetype_option, "riftbound"))
+	_select_option_by_id(generated_difficulty_option, 3)
+	_select_option_by_metadata(generated_type_option, "elite")
+	assert(_option_has_metadata(primary_archetype_option, "riftbound"))
+	_select_option_by_metadata(primary_archetype_option, "riftbound")
+	_select_option_by_id(generated_difficulty_option, 1)
+	assert(primary_archetype_option.get_item_text(0) == "None")
+	assert(primary_archetype_option.selected == 0)
+	assert(not _option_has_metadata(primary_archetype_option, "riftbound"))
+	var default_target_id: String = target.id
+	var default_fight_seed: int = training_room._state.fight_seed
+	roll_generated_button.pressed.emit()
+	await process_frame
+	assert(training_room._state.generated_monster_draft == null)
+	assert(training_room._state.selected_target == target)
+	assert(training_room._state.selected_target.id == default_target_id)
+	assert(training_room._state.fight_seed == default_fight_seed)
 
 	# -- Testing-only runtime generated target roller --
-	generated_difficulty_option.select(generated_difficulty_option.get_item_index(2))
+	_select_option_by_id(generated_difficulty_option, 2)
+	_select_option_by_metadata(generated_type_option, "normal")
+	_select_option_by_metadata(primary_archetype_option, "fortified")
 	roll_generated_button.pressed.emit()
 	await process_frame
 	assert(training_room._state.generated_monster_draft != null)
 	assert(training_room._state.generated_monster_difficulty_id == 2)
 	var random_draft: GeneratedMonsterDraft = training_room._state.generated_monster_draft
 	var random_seed := random_draft.source_seed
-	assert(int(generated_seed_spin.value) == random_seed)
 
 	roll_generated_button.pressed.emit()
 	await process_frame
 	assert(training_room._state.generated_monster_draft != null)
 	assert(training_room._state.generated_monster_draft.source_seed != random_seed)
 
-	generated_difficulty_option.select(generated_difficulty_option.get_item_index(3))
-	generated_seed_spin.value = 44004
-	generate_from_seed_button.pressed.emit()
+	_select_option_by_id(generated_difficulty_option, 3)
+	_select_option_by_metadata(generated_type_option, "captain")
+	_select_option_by_metadata(primary_archetype_option, "fortified")
+	_select_option_by_metadata(secondary_archetype_option, "warded")
+	roll_generated_button.pressed.emit()
 	await process_frame
 	var draft: GeneratedMonsterDraft = training_room._state.generated_monster_draft
-	var seeded_signature := _draft_signature(draft)
+	assert(not draft.has_errors())
+	assert(draft.source_input.monster_kind == "captain")
+	assert(draft.archetype_ids == PackedStringArray(["fortified", "warded"]))
 	var hard_draft := draft
-	generate_from_seed_button.pressed.emit()
-	await process_frame
-	assert(_draft_signature(training_room._state.generated_monster_draft) == seeded_signature)
-	assert(int(generated_seed_spin.value) == 44004)
 
-	generated_difficulty_option.select(generated_difficulty_option.get_item_index(4))
-	generated_seed_spin.value = 44004
-	generate_from_seed_button.pressed.emit()
+	_select_option_by_id(generated_difficulty_option, 4)
+	_select_option_by_metadata(generated_type_option, "boss")
+	roll_generated_button.pressed.emit()
 	await process_frame
 	assert(training_room._state.generated_monster_draft != null)
 	assert(training_room._state.generated_monster_draft.source_input.difficulty_id == 4)
+	assert(training_room._state.generated_monster_draft.source_input.monster_kind == "boss")
 	assert(training_room._state.generated_monster_draft.budget_metadata["budget"] > hard_draft.budget_metadata["budget"])
 	assert(training_room._state.generated_monster_draft.pressure_metadata["target_dps_range"][0] > hard_draft.pressure_metadata["target_dps_range"][0])
-	assert(_draft_signature(training_room._state.generated_monster_draft) != seeded_signature)
 
-	generated_difficulty_option.select(generated_difficulty_option.get_item_index(3))
-	generated_seed_spin.value = 44004
-	generate_from_seed_button.pressed.emit()
+	_select_option_by_id(generated_difficulty_option, 3)
+	_select_option_by_metadata(generated_type_option, "normal")
+	_select_option_by_metadata(primary_archetype_option, "warded")
+	_select_option_by_metadata(secondary_archetype_option, "")
+	roll_generated_button.pressed.emit()
 	await process_frame
 	draft = training_room._state.generated_monster_draft
 	target = training_room._state.selected_target
@@ -141,39 +194,14 @@ func _initialize() -> void:
 	assert(training_room._state.duration_ms == draft.duration_ms)
 	assert(training_room._state.fight_seed == draft.source_seed)
 	assert((training_room._duration_spin as SpinBox).value == roundi(float(draft.duration_ms) / 1000.0))
-	assert((training_room._seed_spin as SpinBox).value == draft.source_seed)
-	assert(not generated_info.text.contains(draft.display_name))
-	assert(generated_info.text.contains("HP"))
-	assert(generated_info.text.contains("Seed: %d" % draft.source_seed))
-	assert(not generated_info.text.contains("Identity"))
-	assert(generated_info.text.contains("Difficulty: Hard"))
-	assert(generated_info.text.contains("Kind: Normal"))
-	assert(generated_info.text.contains("Tempo: Standard"))
-	assert(generated_info.text.contains("Archetypes:"))
-	assert(generated_info.text.contains("Tags:"))
-	assert(not generated_info.text.contains("Target DPS:"))
-	assert(not generated_info.text.contains("Pressure"))
-	assert(not generated_info.text.contains("Status:"))
-	assert(not generated_info.text.contains("Required DPS:"))
-	assert(not generated_info.text.contains("Effective HP:"))
-	assert(not generated_info.text.contains("Target Range:"))
-	assert(not generated_info.text.contains("Matchups:"))
-	assert(not generated_info.text.contains("Defenses"))
-	assert(generated_info.text.contains("Selected Mechanics"))
-	assert(generated_info.text.contains("raw"))
-	assert(generated_info.text.contains("combat"))
-	assert(generated_info.text.contains("field"))
-	assert(generated_info.text.contains("cost"))
-	assert(generated_info.text.contains("Budget"))
-	assert(generated_info.text.contains("Major"))
-	assert(generated_info.text.contains("Notices"))
+	assert(int(fight_seed_spin.value) == draft.source_seed)
 	for field in draft.defense_overrides:
 		var spin: SpinBox = target_panel._defense_spins[field]
 		var expected: Variant = draft.defense_overrides[field]
 		if TrainingTargetPanel.PERCENT_FIELDS.has(field):
 			assert(spin.value == roundi(float(expected) * 100.0))
 		else:
-			assert(is_equal_approx(spin.value, float(expected)))
+			assert(absf(spin.value - float(expected)) <= maxf(0.001, spin.step))
 
 	# -- Target defense adjustment --
 	training_room._on_target_defense_changed("armor", 160)
@@ -221,8 +249,12 @@ func _initialize() -> void:
 	assert((target_panel._defense_spins["cleanse_threshold"] as SpinBox).value == 2)
 	assert((target_panel._defense_spins["stun_duration_ms"] as SpinBox).value == 450)
 	assert((target_panel._defense_spins["interrupt_skip_count"] as SpinBox).value == 2)
+	assert(training_room._combat_view._info_label.text == "160")
+	assert(training_room._combat_view._resist_label.text == "35%")
+	assert(_has_chip(training_room._combat_view._mechanic_row, MECHANIC_DODGE_ICON, "20%"))
+	assert(_has_chip(training_room._combat_view._mechanic_row, MECHANIC_BLOCK_ICON, "4"))
+	assert(_has_chip(training_room._combat_view._status_row, MECHANIC_INTERRUPT_ICON, "0/3"))
 	assert(training_room._state.generated_monster_draft == null)
-	assert(generated_info.text.contains("No generated target"))
 
 	# -- Presets mirror Monster Lab archetype identities and reset fields not
 	# used by that identity. Devious now includes timing disruption because
@@ -256,19 +288,19 @@ func _initialize() -> void:
 
 	# -- Duration --
 	training_room._on_duration_changed(35.0)
+	training_room._on_fight_seed_changed(12345.0)
 	await process_frame
 	print("duration_ms after setting 35s (expect 35000): %d" % training_room._state.duration_ms)
 	assert(training_room._state.duration_ms == 35000)
+	assert(training_room._state.fight_seed == 12345)
+	assert(int(fight_seed_spin.value) == 12345)
 	assert(training_room._combat_view._fight_timer_label.text == "35s")
 
-	# -- Seed, independent of the real Adventure seed --
+	# -- Generated target seeds stay internal to Practice Room --
 	build_state.set_adventure_seed(999)
-	training_room._on_fight_seed_changed(777.0)
-	await process_frame
-	print("practice fight_seed=%d (expect 777), real adventure_seed=%d (expect 999, unchanged by the above)" % [
+	print("practice fight_seed=%d, real adventure_seed=%d (expect 999, unchanged by Practice Room)" % [
 		training_room._state.fight_seed, build_state.adventure_seed
 	])
-	assert(training_room._state.fight_seed == 777)
 	assert(build_state.adventure_seed == 999)
 
 	# -- Practice gold feeds resolved stats live (Bandit Blade gold-scaling,
@@ -284,6 +316,7 @@ func _initialize() -> void:
 		training_room._state.gold, build_state.gold, real_gold_before
 	])
 	assert(training_room._state.gold == 200)
+	assert(int(practice_gold_spin.value) == 200)
 	assert(build_state.gold == real_gold_before)
 	assert(character_stats_panel._stats_label.text != stats_text_before_gold)
 
@@ -294,6 +327,15 @@ func _initialize() -> void:
 	)
 	print("resolved bonus_physical_damage at 200 practice gold (expect 20.0): %.2f" % resolved.bonus_physical_damage)
 	assert(is_equal_approx(resolved.bonus_physical_damage, 20.0))
+
+	training_room._state.add_practice_combat_gold(6)
+	await process_frame
+	print("practice stolen-gold preview=%d, practice gold spin=%d (expect 6, 206)" % [
+		training_room._state.combat_stolen_gold, int(practice_gold_spin.value)
+	])
+	assert(training_room._state.combat_stolen_gold == 6)
+	assert(training_room._state.gold == 206)
+	assert(int(practice_gold_spin.value) == 206)
 
 	print("")
 	print("Practice Room fight setup check: OK")
@@ -325,15 +367,72 @@ func _assert_target_defenses(target: Monster, expected: Dictionary) -> void:
 		assert(target.interrupt_skip_count == int(expected["interrupt_skip_count"]))
 
 
-func _draft_signature(draft: GeneratedMonsterDraft) -> String:
-	if draft == null:
-		return ""
-	return "%s|%s|%d|%d|%s|%s|%s" % [
-		draft.id,
-		draft.display_name,
-		draft.hp,
-		draft.duration_ms,
-		str(draft.archetype_ids),
-		str(draft.defense_overrides),
-		str(draft.selected_mechanics),
-	]
+func _has_chip(row: Container, icon_texture: Texture2D, text: String) -> bool:
+	for child in row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		var label := child.get_node_or_null("Text") as Label
+		if icon != null and label != null and icon.texture == icon_texture and label.text == text:
+			return true
+	return false
+
+
+func _option_texts(option: OptionButton) -> PackedStringArray:
+	var texts := PackedStringArray()
+	for index in range(option.item_count):
+		texts.append(option.get_item_text(index))
+	return texts
+
+
+func _select_option_by_metadata(option: OptionButton, metadata: String) -> void:
+	for index in range(option.item_count):
+		if str(option.get_item_metadata(index)) == metadata:
+			option.select(index)
+			option.item_selected.emit(index)
+			return
+	assert(false)
+
+
+func _select_option_by_id(option: OptionButton, id: int) -> void:
+	var index := option.get_item_index(id)
+	assert(index >= 0)
+	option.select(index)
+	option.item_selected.emit(index)
+
+
+func _option_has_metadata(option: OptionButton, metadata: String) -> bool:
+	for index in range(option.item_count):
+		if str(option.get_item_metadata(index)) == metadata:
+			return true
+	return false
+
+
+func _all_label_texts(root: Node) -> PackedStringArray:
+	var labels := PackedStringArray()
+	for label in root.find_children("*", "Label", true, false):
+		labels.append((label as Label).text)
+	return labels
+
+
+func _target_control_labels(target_panel: TrainingTargetPanel) -> PackedStringArray:
+	var labels := PackedStringArray()
+	for label in target_panel.find_children("*", "Label", true, false):
+		var text := (label as Label).text
+		if [
+			"Difficulty",
+			"Type",
+			"Main",
+			"Secondary",
+			"Armor",
+			"Block",
+			"Dodge %",
+			"Crit Negate %",
+			"Resist %",
+			"Absorb",
+			"Suppress %",
+			"Slow %",
+			"Cleanse",
+			"Stun ms",
+			"Interrupt",
+		].has(text):
+			labels.append(text)
+	return labels

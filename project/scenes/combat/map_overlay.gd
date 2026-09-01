@@ -34,6 +34,17 @@ signal route_node_pressed(node: ContractRouteNode)
 const MAP_NODE_SIZE := Vector2(190, 150)
 const CONTRACT_MAP_SIZE := Vector2(840, 470)
 const CONTRACT_NODE_SIZE := Vector2(164, 108)
+const HIDEOUT_CONTRACT_MAP_SIZE := Vector2(1020, 500)
+const HIDEOUT_NODE_FRAME_TEXTURE_PATH := "res://assets/ui/map/biome_frames/hideout_box.png"
+const HIDEOUT_NODE_HIGHLIGHT_TEXTURE_PATH := "res://assets/ui/map/biome_frames/hideout_box_gray.png"
+const HIDEOUT_NODE_SIZE := Vector2(150, 118)
+const HIDEOUT_NODE_FRAME_VISUAL_SIZE := Vector2(176, 176)
+const HIDEOUT_NODE_GLOW_PADDING := Vector2(20, 20)
+const HIDEOUT_MAP_TEXT_INSET := Vector2(8, 34)
+const HIDEOUT_MAP_TEXT_MIN_WIDTH := 156.0
+const HIDEOUT_MAP_TEXT_BOTTOM_MARGIN := 64.0
+const HIDEOUT_REWARD_STACK_SIZE := Vector2(150, 52)
+const HIDEOUT_REWARD_STACK_OFFSET_Y := 68.0
 const GENERATED_CONTRACT_MAP_SIZE := Vector2(980, 640)
 const GENERATED_CONTRACT_NODE_SIZE := Vector2(148, 116)
 const GENERATED_MAP_TEXT_INSET := Vector2(14, 10)
@@ -43,6 +54,7 @@ const GENERATED_REWARD_STACK_SIZE := Vector2(216, 58)
 const GENERATED_REWARD_STACK_OFFSET_Y := 60.0
 const GENERATED_REWARD_ICON_SIZE := Vector2(17, 17)
 const GENERATED_REWARD_ICON_BACKING_SIZE := Vector2(21, 21)
+const GENERATED_REWARD_PILL_MIN_SIZE := Vector2(58, 23)
 const GENERATED_REWARD_AMOUNT_FONT_SIZE := 21
 const GENERATED_MAP_MARGIN := Vector2(16, 16)
 const GENERATED_MAP_OFFSET_LIMIT := Vector2(14, 12)
@@ -76,7 +88,7 @@ const MAP_REWARD_ICON_SIZE := Vector2(24, 24)
 const MAP_TEXT_BLOCK_LEFT := 76.0
 const MAP_TEXT_BLOCK_TOP := 26.0
 const MAP_TEXT_BLOCK_BOTTOM := 34.0
-const TOP_CHROME_CLICKTHROUGH_CLEARANCE := 58.0
+const TOP_CHROME_CLICKTHROUGH_CLEARANCE := 88.0
 ## Tavern map's art box -- the exterior shot shown while choosing a Tavern
 ## encounter, replacing the earlier plain black placeholder.
 const TAVERN_MAP_ART_TEXTURE := preload("res://assets/backgrounds/Tavern__Exterior.jpg")
@@ -328,7 +340,8 @@ func _ready() -> void:
 	_map_story_label = Label.new()
 	_map_story_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_map_story_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_map_story_label.custom_minimum_size = Vector2(760, 0)
+	_map_story_label.custom_minimum_size = Vector2(860, 0)
+	_map_story_label.add_theme_constant_override("line_spacing", 0)
 	content.add_child(_map_story_label)
 
 	# Tavern-only scene art (hidden for Contract Offer/Route, which never set
@@ -502,7 +515,7 @@ func _tavern_edge_state(from_index: int, to_index: int) -> String:
 	var to_state := _tavern_node_state(to_index)
 	if from_state == TavernNodeState.DEFEATED and to_state == TavernNodeState.DEFEATED:
 		return "completed"
-	if from_state == TavernNodeState.DEFEATED and (to_state == TavernNodeState.AVAILABLE or to_state == TavernNodeState.PREVIEWED):
+	if from_state == TavernNodeState.AVAILABLE or from_state == TavernNodeState.PREVIEWED:
 		return "available"
 	return "locked"
 
@@ -597,27 +610,25 @@ func _make_contract_route_schematic() -> Control:
 		return null
 
 	var canvas := Control.new()
-	canvas.custom_minimum_size = CONTRACT_MAP_SIZE
+	canvas.custom_minimum_size = HIDEOUT_CONTRACT_MAP_SIZE
 
 	var positions := {
-		door_guard: Vector2(20, 95),
-		portly_cook: Vector2(20, 320),
-		sleeping: Vector2(235, 20),
-		cloaked: Vector2(235, 135),
-		lazy: Vector2(235, 250),
-		patrol: Vector2(235, 365),
-		knives: Vector2(515, 190),
-		vyra: Vector2(690, 190),
+		door_guard: Vector2(40, 45),
+		portly_cook: Vector2(40, 325),
+		sleeping: Vector2(290, 0),
+		cloaked: Vector2(425, 118),
+		lazy: Vector2(290, 260),
+		patrol: Vector2(425, 390),
+		knives: Vector2(610, 246),
+		vyra: Vector2(850, 244),
 	}
-	_add_contract_route_lines(canvas, positions, door_guard, portly_cook, sleeping, cloaked, lazy, patrol, knives, vyra)
-	_add_contract_route_button(canvas, door_guard, positions[door_guard])
-	_add_contract_route_button(canvas, portly_cook, positions[portly_cook])
-	_add_contract_route_button(canvas, sleeping, positions[sleeping])
-	_add_contract_route_button(canvas, cloaked, positions[cloaked])
-	_add_contract_route_button(canvas, lazy, positions[lazy])
-	_add_contract_route_button(canvas, patrol, positions[patrol])
-	_add_contract_route_button(canvas, knives, positions[knives])
-	_add_contract_route_button(canvas, vyra, positions[vyra])
+	var nodes := [door_guard, portly_cook, sleeping, cloaked, lazy, patrol, knives, vyra]
+	for node in nodes:
+		for next_node in node.next_nodes:
+			if positions.has(next_node):
+				_add_hideout_map_edge(canvas, node, next_node, positions[node], positions[next_node])
+	for node in nodes:
+		_add_hideout_contract_route_button(canvas, node, positions[node])
 	return canvas
 
 
@@ -665,6 +676,17 @@ func _generated_contract_map_theme(biome_override: String = "") -> Dictionary:
 func _apply_generated_contract_map_theme(canvas: Control, theme: Dictionary) -> void:
 	canvas.set_meta("generated_map_theme", String(theme.get("id", "default")))
 	canvas.set_meta("generated_map_biome", String(theme.get("biome", "default")))
+
+
+func _hideout_contract_map_theme() -> Dictionary:
+	var theme := GENERATED_CONTRACT_MAP_THEME_FALLBACK.duplicate(true)
+	theme["id"] = "hideout"
+	theme["biome"] = "Hideout"
+	theme["route"] = Color(0.38, 0.35, 0.31, 0.70)
+	theme["available"] = Color(0.76, 0.68, 0.42, 0.86)
+	theme["selected"] = Color(0.93, 0.84, 0.46, 0.98)
+	theme["completed"] = Color(0.52, 0.68, 0.45, 0.66)
+	return theme
 
 
 func _generated_schematic_nodes(root_node: ContractRouteNode) -> Array[ContractRouteNode]:
@@ -891,6 +913,10 @@ func _contract_node_center(top_left: Vector2) -> Vector2:
 	return top_left + CONTRACT_NODE_SIZE * 0.5
 
 
+func _hideout_node_center(top_left: Vector2) -> Vector2:
+	return top_left + HIDEOUT_NODE_SIZE * 0.5
+
+
 func _generated_node_center(top_left: Vector2) -> Vector2:
 	return top_left + GENERATED_CONTRACT_NODE_SIZE * 0.5
 
@@ -917,6 +943,57 @@ func _add_generated_map_edge(
 	var color := _generated_map_edge_color(state, edge_theme)
 	var width := _generated_map_edge_width(state)
 	_add_generated_map_curve(canvas, points, color, width, state, from_node, to_node, edge_theme)
+
+
+func _add_hideout_map_edge(
+	canvas: Control,
+	from_node: ContractRouteNode,
+	to_node: ContractRouteNode,
+	from_position: Vector2,
+	to_position: Vector2
+) -> void:
+	var start := _hideout_edge_start_point(from_node, to_node, from_position)
+	var end := _hideout_edge_end_point(from_node, to_node, to_position)
+	var points := _generated_edge_curve_points(from_node, to_node, start, end)
+	var state := _generated_map_edge_state(from_node, to_node)
+	var theme := _hideout_contract_map_theme()
+	var color := _generated_map_edge_color(state, theme)
+	var width := _generated_map_edge_width(state)
+	_add_generated_map_curve(canvas, points, color, width, state, from_node, to_node, theme)
+
+
+func _hideout_edge_start_point(from_node: ContractRouteNode, to_node: ContractRouteNode, from_position: Vector2) -> Vector2:
+	var anchor := "right"
+	if _hideout_route_node_matches(from_node, "patrolling_guard") and _hideout_route_node_matches(to_node, "knives"):
+		anchor = "top"
+	return _hideout_edge_anchor_point(from_position, anchor)
+
+
+func _hideout_edge_end_point(from_node: ContractRouteNode, to_node: ContractRouteNode, to_position: Vector2) -> Vector2:
+	var anchor := "left"
+	if _hideout_route_node_matches(to_node, "knives"):
+		if _hideout_route_node_matches(from_node, "sleeping_henchman") or _hideout_route_node_matches(from_node, "cloaked_watchmen"):
+			anchor = "top"
+		elif _hideout_route_node_matches(from_node, "patrolling_guard"):
+			anchor = "bottom"
+	return _hideout_edge_anchor_point(to_position, anchor)
+
+
+func _hideout_edge_anchor_point(position: Vector2, anchor: String) -> Vector2:
+	var center := _hideout_node_center(position)
+	match anchor:
+		"top":
+			return Vector2(center.x, position.y + 8.0)
+		"bottom":
+			return Vector2(center.x, position.y + HIDEOUT_NODE_SIZE.y - 8.0)
+		"left":
+			return Vector2(position.x + 10.0, center.y)
+		_:
+			return Vector2(position.x + HIDEOUT_NODE_SIZE.x - 10.0, center.y)
+
+
+func _hideout_route_node_matches(node: ContractRouteNode, suffix: String) -> bool:
+	return node != null and node.id.ends_with(".%s" % suffix)
 
 
 func _generated_edge_curve_points(
@@ -951,11 +1028,17 @@ func _cubic_bezier(start: Vector2, control_a: Vector2, control_b: Vector2, end: 
 
 
 func _generated_map_edge_state(from_node: ContractRouteNode, to_node: ContractRouteNode) -> String:
-	if _pending_contract_route_node == to_node:
+	if _pending_contract_route_node == to_node and BuildState.current_route_node == from_node:
 		return "selected"
+	if _pending_contract_route_node == from_node and not _route_node_is_completed(to_node):
+		return "selected"
+	if _pending_contract_route_node != null:
+		if _route_node_is_completed(from_node) and _route_node_is_completed(to_node):
+			return "completed"
+		return "locked"
 	if BuildState.current_route_node == from_node and _route_node_is_selectable(to_node):
 		return "available"
-	if BuildState.current_route_node == to_node or _route_node_is_completed(from_node):
+	if _route_node_is_completed(from_node) and _route_node_is_completed(to_node):
 		return "completed"
 	return "locked"
 
@@ -973,7 +1056,7 @@ func _generated_map_edge_color(state: String, theme: Dictionary = {}) -> Color:
 
 
 func _generated_map_edge_width(state: String) -> float:
-	return GENERATED_EDGE_THICKNESS_ACTIVE if state == "selected" or state == "available" else GENERATED_EDGE_THICKNESS
+	return GENERATED_EDGE_THICKNESS_ACTIVE if state == "selected" or state == "available" or state == "completed" else GENERATED_EDGE_THICKNESS
 
 
 func _add_generated_map_curve(
@@ -1007,7 +1090,7 @@ func _add_generated_map_curve(
 		line.set_meta("trail_gap_length", GENERATED_EDGE_TRAIL_GAP_LENGTH)
 		canvas.add_child(line)
 
-	if state == "selected" or state == "available":
+	if state == "selected" or state == "available" or state == "completed":
 		var glint_color := _theme_color(theme, "accent", CONTRACT_LINE_HIGHLIGHT_COLOR, CONTRACT_LINE_HIGHLIGHT_COLOR.a)
 		for segment in trail_segments:
 			var glint := _make_generated_edge_line(segment, glint_color, 1.7)
@@ -1154,6 +1237,35 @@ func _add_contract_route_button(
 	canvas.add_child(button)
 
 
+func _add_hideout_contract_route_button(canvas: Control, node: ContractRouteNode, position: Vector2) -> void:
+	var button := Button.new()
+	button.set_meta("route_node_id", node.id)
+	button.z_index = 2
+	button.position = position
+	button.custom_minimum_size = HIDEOUT_NODE_SIZE
+	button.size = HIDEOUT_NODE_SIZE
+	button.clip_contents = false
+	button.text = ""
+	_disable_map_entry_tooltip(button)
+	var selectable := _route_node_is_selectable(node)
+	button.disabled = not selectable
+	if selectable:
+		button.pressed.connect(_on_contract_route_node_previewed.bind(node))
+	_style_generated_contract_route_node(button, node, selectable)
+	_add_hideout_node_frame(button, String(button.get_meta("route_visual_state", "locked")))
+	_add_map_text_block(
+		button,
+		_authored_route_compact_text(node),
+		not button.disabled,
+		HIDEOUT_MAP_TEXT_INSET,
+		HIDEOUT_MAP_TEXT_BOTTOM_MARGIN,
+		HIDEOUT_MAP_TEXT_MIN_WIDTH
+	)
+	_add_hideout_reward_stack(button, node.reward, not button.disabled)
+	_map_node_buttons.append(button)
+	canvas.add_child(button)
+
+
 func _add_generated_biome_frame(button: Button, node: ContractRouteNode, _enabled: bool) -> void:
 	var biome := _generated_route_node_biome(node)
 	var frame_texture := _generated_biome_frame_texture(biome)
@@ -1186,6 +1298,34 @@ func _add_generated_biome_frame(button: Button, node: ContractRouteNode, _enable
 	button.add_child(frame)
 
 
+func _add_hideout_node_frame(button: Button, visual_state: String) -> void:
+	var frame_texture := _texture_from_path(HIDEOUT_NODE_FRAME_TEXTURE_PATH)
+	if frame_texture == null:
+		return
+	var highlight_texture := _texture_from_path(HIDEOUT_NODE_HIGHLIGHT_TEXTURE_PATH)
+	_add_hideout_node_glow(
+		button,
+		highlight_texture if highlight_texture != null else frame_texture,
+		visual_state,
+		HIDEOUT_NODE_HIGHLIGHT_TEXTURE_PATH
+	)
+	var frame := TextureRect.new()
+	frame.name = "HideoutBiomeFrame"
+	frame.z_index = 3
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.texture = frame_texture
+	frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	frame.custom_minimum_size = HIDEOUT_NODE_FRAME_VISUAL_SIZE
+	frame.size = HIDEOUT_NODE_FRAME_VISUAL_SIZE
+	frame.position = (button.custom_minimum_size - HIDEOUT_NODE_FRAME_VISUAL_SIZE) * 0.5
+	frame.modulate = _generated_biome_frame_modulate(visual_state)
+	frame.set_meta("texture_path", HIDEOUT_NODE_FRAME_TEXTURE_PATH)
+	frame.set_meta("layout_size", button.custom_minimum_size)
+	button.add_child(frame)
+
+
 func _add_generated_biome_glow(button: Button, highlight_texture: Texture2D, visual_state: String, texture_path: String = "") -> void:
 	var glow_color := _generated_biome_glow_color(visual_state)
 	if glow_color.a <= 0.0 or highlight_texture == null:
@@ -1200,6 +1340,34 @@ func _add_generated_biome_glow(button: Button, highlight_texture: Texture2D, vis
 	glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	glow.custom_minimum_size = GENERATED_BIOME_FRAME_VISUAL_SIZE + GENERATED_BIOME_GLOW_PADDING
 	glow.size = GENERATED_BIOME_FRAME_VISUAL_SIZE + GENERATED_BIOME_GLOW_PADDING
+	glow.position = (button.custom_minimum_size - glow.size) * 0.5
+	glow.modulate = glow_color
+	glow.material = _make_map_frame_outline_material()
+	glow.set_meta("route_visual_state", visual_state)
+	glow.set_meta("highlight_style", "gray_silhouette_texture")
+	glow.set_meta("texture_path", texture_path)
+	button.add_child(glow)
+	if visual_state == "available":
+		var tween := glow.create_tween()
+		tween.set_loops()
+		tween.tween_property(glow, "modulate:a", minf(glow_color.a + 0.22, 0.86), AVAILABLE_PULSE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(glow, "modulate:a", glow_color.a, AVAILABLE_PULSE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _add_hideout_node_glow(button: Button, highlight_texture: Texture2D, visual_state: String, texture_path: String = "") -> void:
+	var glow_color := _generated_biome_glow_color(visual_state)
+	if glow_color.a <= 0.0 or highlight_texture == null:
+		return
+	var glow := TextureRect.new()
+	glow.name = "HideoutBiomeGlow"
+	glow.z_index = 2
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.texture = highlight_texture
+	glow.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glow.custom_minimum_size = HIDEOUT_NODE_FRAME_VISUAL_SIZE + HIDEOUT_NODE_GLOW_PADDING
+	glow.size = HIDEOUT_NODE_FRAME_VISUAL_SIZE + HIDEOUT_NODE_GLOW_PADDING
 	glow.position = (button.custom_minimum_size - glow.size) * 0.5
 	glow.modulate = glow_color
 	glow.material = _make_map_frame_outline_material()
@@ -1726,12 +1894,30 @@ func _add_reward_icon_row(button: Button, reward: EncounterReward, enabled: bool
 
 
 func _add_map_reward_piece(row: HBoxContainer, texture: Texture2D, text: String, icon_name: String = "Icon", gear_tier: int = -1) -> void:
+	var backing := PanelContainer.new()
+	backing.name = "MapRewardBacking"
+	backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var backing_style := StyleBoxFlat.new()
+	backing_style.bg_color = Color(0.035, 0.026, 0.020, 0.86)
+	backing_style.border_color = Color(0.90, 0.78, 0.52, 0.48)
+	backing_style.set_border_width_all(1)
+	backing_style.set_corner_radius_all(4)
+	backing.add_theme_stylebox_override("panel", backing_style)
+	row.add_child(backing)
+
+	var content := HBoxContainer.new()
+	content.name = "MapRewardBackingContent"
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_theme_constant_override("separation", 2)
+	backing.add_child(content)
+
 	var icon := CardStyle.make_pixel_icon(texture, MAP_REWARD_ICON_SIZE)
 	icon.name = icon_name
 	if gear_tier >= 0:
 		icon.set_meta("gear_tier", gear_tier)
 		icon.set_meta("gear_rarity_color", _tier_color_for_map_reward(gear_tier))
-	row.add_child(icon)
+	content.add_child(icon)
 	var label := Label.new()
 	label.name = "MapRewardAmount"
 	label.text = text
@@ -1741,7 +1927,7 @@ func _add_map_reward_piece(row: HBoxContainer, texture: Texture2D, text: String,
 	label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
 	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
 	label.add_theme_constant_override("outline_size", 3)
-	row.add_child(label)
+	content.add_child(label)
 
 
 func _add_generated_reward_stack(button: Button, reward: EncounterReward, enabled: bool) -> void:
@@ -1780,6 +1966,24 @@ func _add_tavern_reward_stack(button: Button, reward: EncounterReward, enabled: 
 		stack.add_child(_make_generated_reward_row(entry, TAVERN_REWARD_STACK_SIZE.x))
 
 
+func _add_hideout_reward_stack(button: Button, reward: EncounterReward, enabled: bool) -> void:
+	var entries := _generated_reward_icon_entries(reward)
+	if entries.is_empty():
+		return
+	var stack := VBoxContainer.new()
+	stack.name = "HideoutRewardStack"
+	stack.z_index = 8
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", -2)
+	stack.position = Vector2((button.custom_minimum_size.x - HIDEOUT_REWARD_STACK_SIZE.x) * 0.5, HIDEOUT_REWARD_STACK_OFFSET_Y)
+	stack.size = HIDEOUT_REWARD_STACK_SIZE
+	stack.modulate.a = 1.0 if enabled else 0.72
+	button.add_child(stack)
+	for entry in entries:
+		stack.add_child(_make_generated_reward_row(entry, HIDEOUT_REWARD_STACK_SIZE.x))
+
+
 func _generated_reward_icon_entries(reward: EncounterReward) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	if reward == null:
@@ -1792,6 +1996,7 @@ func _generated_reward_icon_entries(reward: EncounterReward) -> Array[Dictionary
 			"text": "x %d" % gear_count,
 			"color": _tier_color_for_map_reward(gear_tier),
 			"name": "GeneratedGearReward",
+			"gear_tier": gear_tier,
 		})
 	if reward.talent_points > 0:
 		entries.append({
@@ -1816,23 +2021,34 @@ func _make_generated_reward_row(entry: Dictionary, row_width: float = GENERATED_
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 3)
-	row.custom_minimum_size = Vector2(row_width, GENERATED_REWARD_ICON_BACKING_SIZE.y)
+	row.custom_minimum_size = Vector2(row_width, GENERATED_REWARD_PILL_MIN_SIZE.y)
 
 	var backing := PanelContainer.new()
 	backing.name = "GeneratedRewardIconBacking"
 	backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	backing.custom_minimum_size = GENERATED_REWARD_ICON_BACKING_SIZE
+	backing.custom_minimum_size = GENERATED_REWARD_PILL_MIN_SIZE
 	var backing_style := StyleBoxFlat.new()
 	backing_style.bg_color = Color(0.035, 0.026, 0.020, 0.82)
 	backing_style.border_color = Color(0.90, 0.78, 0.52, 0.42)
 	backing_style.set_border_width_all(1)
 	backing_style.set_corner_radius_all(4)
 	backing.add_theme_stylebox_override("panel", backing_style)
+
+	var backing_content := HBoxContainer.new()
+	backing_content.name = "GeneratedRewardBackingContent"
+	backing_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backing_content.alignment = BoxContainer.ALIGNMENT_CENTER
+	backing_content.add_theme_constant_override("separation", 3)
+	backing.add_child(backing_content)
+
 	var icon := CardStyle.make_pixel_icon(entry.get("icon", null), GENERATED_REWARD_ICON_SIZE)
 	icon.name = "GeneratedRewardIcon"
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	backing.add_child(icon)
-	row.add_child(backing)
+	var gear_tier := int(entry.get("gear_tier", -1))
+	if gear_tier >= 0:
+		icon.set_meta("gear_tier", gear_tier)
+		icon.set_meta("gear_rarity_color", _tier_color_for_map_reward(gear_tier))
+	backing_content.add_child(icon)
 
 	var label := Label.new()
 	label.name = "GeneratedRewardAmount"
@@ -1843,7 +2059,8 @@ func _make_generated_reward_row(entry: Dictionary, row_width: float = GENERATED_
 	label.add_theme_color_override("font_color", entry.get("color", UIColors.TEXT_NORMAL))
 	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
 	label.add_theme_constant_override("outline_size", 3)
-	row.add_child(label)
+	backing_content.add_child(label)
+	row.add_child(backing)
 	return row
 
 
@@ -2225,6 +2442,28 @@ func _route_node_button_text(node: ContractRouteNode) -> String:
 	if node.reward_quality_label != "":
 		lines.append(node.reward_quality_label)
 	return "\n".join(lines)
+
+
+func _authored_route_compact_text(node: ContractRouteNode) -> String:
+	if node == null:
+		return _route_preview_monster_name_line(null, "Unknown")
+	var lines := PackedStringArray()
+	lines.append(_route_preview_monster_name_line(node, node.display_name))
+	var tags := _authored_route_archetype_tags(node)
+	if not tags.is_empty():
+		lines.append(_route_preview_tag_line(tags))
+	return "\n".join(lines)
+
+
+func _authored_route_archetype_tags(node: ContractRouteNode) -> Array:
+	var tags := []
+	if node == null or node.monster == null:
+		return tags
+	if node.monster.armor > 0:
+		tags.append("armored")
+	if node.monster.poison_resistance > 0.0:
+		tags.append("resistant")
+	return tags
 
 
 func _route_node_compact_preview(node: ContractRouteNode) -> Dictionary:

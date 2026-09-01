@@ -21,7 +21,7 @@ func _initialize() -> void:
 	# contract route progress, shop round state, and failure tracking.
 	build_state.set_adventure_seed(424242)
 	build_state.set_class(rogue)
-	build_state.select_tree(rogue.trees[1])  # Thief
+	build_state.select_tree(rogue.trees[1])  # Bladedancer
 	build_state.add_talent_points(2)
 	var talent: Talent = rogue.trees[1].talents[0]
 	_require(build_state.select_talent(talent), "Expected talent selection to succeed.")

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/resources/talent.gd" id="1_talent"]
 [ext_resource type="Script" path="res://scripts/resources/prerequisite_group.gd" id="2_group"]
-[ext_resource type="Resource" path="res://data/talents/thief/practiced_rhythm.tres" id="3_practiced_rhythm"]
+[ext_resource type="Resource" path="res://data/talents/bladedancer/practiced_rhythm.tres" id="3_practiced_rhythm"]
 [ext_resource type="Script" path="res://scripts/resources/triggered_skill_effect.gd" id="4_trigger"]
 [ext_resource type="Resource" path="res://data/skills/rending_slash.tres" id="5_rending_slash"]
 

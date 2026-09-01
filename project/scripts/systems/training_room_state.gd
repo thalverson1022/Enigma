@@ -9,20 +9,21 @@ extends RefCounted
 ## names/semantics -- so those panels can take either object interchangeably
 ## via their new `state` property (default `BuildState`).
 ##
-## Talent points are granted in full immediately (`PassiveAllocator.
-## POINT_BUDGET`) rather than earned -- Practice Room is meant for freely
-## testing a fully-built practice character, not replaying Adventure's
-## earn-as-you-go pacing.
+## Talent points are granted in full immediately rather than earned --
+## Practice Room is meant for freely testing a practice character, not
+## replaying Adventure's earn-as-you-go pacing.
 
 signal build_changed
 signal lock_changed
 signal fight_setup_changed
 signal fight_finished
+signal stats_preview_changed
 
 const DEFAULT_DURATION_MS := 20000
 const DEFAULT_FIGHT_SEED := 1
 const DEFAULT_TARGET_ARMOR := 0
 const DEFAULT_TARGET_POISON_RESIST := 0.0
+const PRACTICE_TALENT_POINT_BUDGET := 10
 const GENERATED_MONSTER_KIND := "normal"
 const GENERATED_MONSTER_TEMPO := "standard"
 const GENERATED_MONSTER_SEED_CONTEXT := "training_room_generated_monster"
@@ -86,10 +87,11 @@ const PRACTICE_TARGET_HP := 100
 var selected_class: ClassDef = null
 var selected_trees: Array[SubclassTree] = []
 var selected_talents: Array[Talent] = []
-var earned_talent_points: int = PassiveAllocator.POINT_BUDGET
+var earned_talent_points: int = PRACTICE_TALENT_POINT_BUDGET
 var rotation: Array[Skill] = []
 var build_locked: bool = false
 var gold: int = 0
+var combat_stolen_gold: int = 0
 var equipped_weapon: GearItem = null
 var equipped_trinket: GearItem = null
 var equipped_charm: GearItem = null
@@ -505,11 +507,17 @@ func _apply_target_defense_silent(field: String, value: Variant) -> void:
 			selected_target.interrupt_skip_count = maxi(0, int(value))
 
 
-func roll_generated_target(difficulty_id: int, seed: int = -1) -> GeneratedMonsterDraft:
+func roll_generated_target(
+	difficulty_id: int,
+	seed: int = -1,
+	monster_kind: String = GENERATED_MONSTER_KIND,
+	archetype_a_id: String = "",
+	archetype_b_id: String = ""
+) -> GeneratedMonsterDraft:
 	generated_monster_difficulty_id = difficulty_id
 	var library := RuntimeArchetypeLibraryLoader.load_default()
-	var roll_seed := seed if seed >= 0 else _next_generated_monster_seed(difficulty_id)
-	var input := _generated_monster_input(difficulty_id, roll_seed, library)
+	var roll_seed := seed if seed >= 0 else _next_generated_monster_seed(difficulty_id, monster_kind, archetype_a_id, archetype_b_id)
+	var input := _generated_monster_input(difficulty_id, roll_seed, library, monster_kind, archetype_a_id, archetype_b_id)
 	var draft := RuntimeMonsterGenerator.generate(input, library)
 	generated_monster_draft = draft
 	if not draft.has_errors():
@@ -520,41 +528,56 @@ func roll_generated_target(difficulty_id: int, seed: int = -1) -> GeneratedMonst
 	return draft
 
 
-func _next_generated_monster_seed(difficulty_id: int) -> int:
+func _next_generated_monster_seed(difficulty_id: int, monster_kind: String = GENERATED_MONSTER_KIND, archetype_a_id: String = "", archetype_b_id: String = "") -> int:
 	_generated_roll_index += 1
 	var seed := RunRng.seed_for_context(
 		DEFAULT_FIGHT_SEED,
 		GENERATED_MONSTER_SEED_CONTEXT,
-		[difficulty_id, _generated_roll_index, Time.get_ticks_msec()]
+		[difficulty_id, monster_kind, archetype_a_id, archetype_b_id, _generated_roll_index, Time.get_ticks_msec()]
 	)
 	return (seed % GENERATED_MONSTER_SEED_MAX) + 1
 
 
-func _generated_monster_input(difficulty_id: int, seed: int, library: RuntimeArchetypeLibrary) -> RuntimeGenerationInput:
-	var available := library.available_for(difficulty_id, GENERATED_MONSTER_KIND)
+func _generated_monster_input(
+	difficulty_id: int,
+	seed: int,
+	library: RuntimeArchetypeLibrary,
+	monster_kind: String = GENERATED_MONSTER_KIND,
+	archetype_a_id: String = "",
+	archetype_b_id: String = ""
+) -> RuntimeGenerationInput:
+	var available := library.available_for(difficulty_id, monster_kind)
 	if available.is_empty():
 		return RuntimeGenerationInput.from_dictionary({
 			"seed": seed,
 			"difficulty": difficulty_id,
-			"kind": GENERATED_MONSTER_KIND,
+			"kind": monster_kind,
 			"tempoProfile": GENERATED_MONSTER_TEMPO,
 		})
 
 	var rng := RunRng.rng_for_context(seed, GENERATED_MONSTER_SEED_CONTEXT, [difficulty_id, "archetypes"])
-	var primary: RuntimeArchetypeDef = available[rng.randi_range(0, available.size() - 1)]
-	var secondary_id := ""
-	if available.size() > 1:
-		var secondary: RuntimeArchetypeDef = available[rng.randi_range(0, available.size() - 2)]
-		if secondary == primary:
-			secondary = available[available.size() - 1]
-		secondary_id = secondary.id
+	var has_requested_primary := archetype_a_id != ""
+	var has_requested_secondary := archetype_b_id != ""
+	var primary_id := archetype_a_id
+	var secondary_id := archetype_b_id
+	if primary_id == "" or not library.has_archetype(primary_id):
+		var primary: RuntimeArchetypeDef = available[rng.randi_range(0, available.size() - 1)]
+		primary_id = primary.id
+	if available.size() > 1 and (not has_requested_primary and not has_requested_secondary):
+		if secondary_id == "" or not library.has_archetype(secondary_id) or secondary_id == primary_id:
+			var secondary: RuntimeArchetypeDef = available[rng.randi_range(0, available.size() - 2)]
+			if secondary.id == primary_id:
+				secondary = available[available.size() - 1]
+			secondary_id = secondary.id
+	if secondary_id == primary_id:
+		secondary_id = ""
 
 	return RuntimeGenerationInput.from_dictionary({
 		"seed": seed,
-		"archetypeA": primary.id,
+		"archetypeA": primary_id,
 		"archetypeB": secondary_id,
 		"difficulty": difficulty_id,
-		"kind": GENERATED_MONSTER_KIND,
+		"kind": monster_kind,
 		"tempoProfile": GENERATED_MONSTER_TEMPO,
 	})
 
@@ -575,7 +598,16 @@ func set_fight_seed(value: int) -> void:
 ## live-refresh `character_stats_panel` already listens for.
 func set_practice_gold(amount: int) -> void:
 	gold = maxi(0, amount)
+	combat_stolen_gold = 0
 	build_changed.emit()
+
+
+func add_practice_combat_gold(amount: int) -> void:
+	if amount <= 0:
+		return
+	gold += amount
+	combat_stolen_gold += amount
+	stats_preview_changed.emit()
 
 
 ## Resolves the current practice build and runs one fight against
@@ -588,6 +620,8 @@ func set_practice_gold(amount: int) -> void:
 func run_fight() -> void:
 	if not can_run_fight():
 		return
+	combat_stolen_gold = 0
+	stats_preview_changed.emit()
 	var stats := BuildResolver.resolve_stats(selected_class, selected_trees, selected_talents, equipped_gear(), gold)
 	last_result = CombatResolver.resolve(rotation, stats, selected_target, duration_ms, fight_seed)
 	fight_finished.emit()

@@ -15,7 +15,8 @@ func _initialize() -> void:
 		_require(_audio_file_exists(String(audio_manager.BIOME_MUSIC_PATHS[biome])), "Expected biome music file for %s." % biome)
 	for biome in audio_manager.BIOME_MOOD_PATHS.keys():
 		_require(_audio_file_exists(String(audio_manager.BIOME_MOOD_PATHS[biome])), "Expected biome mood file for %s." % biome)
-	_require(not audio_manager.BIOME_MOOD_PATHS.has("Ruined Keep"), "Expected Ruined Keep to avoid using rain as a fallback mood layer.")
+	_require(audio_manager.BIOME_MOOD_PATHS.has("Ruined Keep"), "Expected Ruined Keep to use rain as its mood layer.")
+	_require(String(audio_manager.BIOME_MOOD_PATHS["Ruined Keep"]) == audio_manager.MENU_RAIN_PATH, "Expected Ruined Keep mood to use the shared rain storm track.")
 	_require(audio_manager.CONTRACT_ENTRY_FADE_SECONDS > audio_manager.DEFAULT_FADE_SECONDS, "Expected contract entry fades to be slower than general UI fades.")
 
 	audio_manager.transition_to_tavern_ambience(0.05)
@@ -46,8 +47,8 @@ func _initialize() -> void:
 	audio_manager.transition_to_contract_biome_ambience("Ancient Keep", 0.05)
 	await create_timer(0.12).timeout
 	_require(audio_manager._current_contract_biome == "Ruined Keep", "Expected Ancient Keep alias to resolve to Ruined Keep audio.")
-	_require(audio_manager._biome_mood_player.stream == null, "Expected Ruined Keep to skip the mood layer instead of using rain.")
-	_require(not audio_manager._biome_mood_player.playing, "Expected Ruined Keep mood player to stay silent without a dedicated mood file.")
+	_require(audio_manager._biome_mood_player.stream != null, "Expected Ruined Keep rain mood stream.")
+	_require(audio_manager._biome_mood_player.playing, "Expected Ruined Keep rain mood to play.")
 	_require(audio_manager._biome_music_player.stream != null, "Expected Ruined Keep music stream.")
 
 	audio_manager.transition_to_contract_biome_ambience("Graveyard", 0.05)

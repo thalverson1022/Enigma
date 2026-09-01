@@ -75,7 +75,7 @@ func _initialize() -> void:
 	assert(not training_room._state.build_locked)
 	assert(fight_button.disabled)
 
-	# -- Build a real practice rotation: Thief + Piercing Blades + Stab --
+	# -- Build a real practice rotation: Bladedancer + Piercing Blades + Stab --
 	training_room._on_primary_tree_selected(rogue.trees[1])
 	var talent_panel = training_room.find_child("TalentPanel", true, false)
 	var piercing_blades: Talent = _find_talent(rogue.trees[1], "talent.piercing_blades")

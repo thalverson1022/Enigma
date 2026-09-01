@@ -7,7 +7,7 @@ extends Control
 
 const CARD_TITLE_FONT_SIZE := 20
 const RUN_ROW_FONT_SIZE := 17
-const MODAL_Z_INDEX := 500
+const MODAL_Z_INDEX := 930
 const INSPECTOR_SCENE := preload("res://scenes/combat/combat_log_inspector.gd")
 
 var _inspector

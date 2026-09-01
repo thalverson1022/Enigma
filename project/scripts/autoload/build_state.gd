@@ -7,6 +7,7 @@ extends Node
 signal build_changed
 signal lock_changed
 signal run_state_changed
+signal stats_preview_changed
 
 enum RunPhase {
 	PLANNING,
@@ -24,6 +25,7 @@ enum RunOutcome {
 	ADVENTURE_RESTART_REQUIRED,
 	CONTRACT_FAILED,
 	CONTRACT_VICTORY,
+	ALL_BOSSES_DEFEATED,
 }
 
 const INVENTORY_CAPACITY := 3
@@ -41,6 +43,7 @@ var selected_talents: Array[Talent] = []
 var rotation: Array[Skill] = []
 var adventure_seed: int = DEFAULT_ADVENTURE_SEED
 var gold: int = 0
+var combat_stolen_gold: int = 0
 var earned_talent_points: int = 0
 var inventory: Array[GearItem] = []
 var claimed_reward_encounter_indices: Array[int] = []
@@ -70,6 +73,7 @@ var completed_contract_count: int = 0
 var highest_run_dps: float = 0.0
 var run_encounter_history: Array[Dictionary] = []
 var contract_offer_index: int = 0
+var defeated_generated_boss_ids: Array[String] = []
 var current_encounter_index: int = 0
 var encounter_failure_counts: Dictionary = {}
 var run_phase: int = RunPhase.PLANNING
@@ -109,6 +113,7 @@ func reset(preserve_adventure_seed: bool = false) -> void:
 	rotation = []
 	adventure_seed = kept_seed if preserve_adventure_seed else DEFAULT_ADVENTURE_SEED
 	gold = 0
+	combat_stolen_gold = 0
 	earned_talent_points = 0
 	inventory = []
 	claimed_reward_encounter_indices = []
@@ -131,6 +136,7 @@ func reset(preserve_adventure_seed: bool = false) -> void:
 	highest_run_dps = 0.0
 	run_encounter_history = []
 	contract_offer_index = 0
+	defeated_generated_boss_ids = []
 	current_encounter_index = 0
 	encounter_failure_counts = {}
 	run_phase = RunPhase.PLANNING
@@ -245,6 +251,9 @@ func start_contract_offer(context: Dictionary = {}) -> bool:
 		)
 	if not offer_context.has("earned_talent_points"):
 		offer_context["earned_talent_points"] = earned_talent_points
+	var defeated_value: Variant = offer_context.get("defeated_generated_boss_ids", [])
+	if not offer_context.has("defeated_generated_boss_ids") or (typeof(defeated_value) == TYPE_ARRAY and defeated_value.is_empty()):
+		offer_context["defeated_generated_boss_ids"] = defeated_generated_boss_ids.duplicate()
 	var offers: Array[ContractDef] = ContractOfferSourceScript.contract_offers(offer_context)
 	var contract: ContractDef = offers[0] if not offers.is_empty() else null
 	if contract == null or contract.offer_node == null:
@@ -447,11 +456,13 @@ func _generated_route_monster_display_name(node: ContractRouteNode, draft: Gener
 func start_fight() -> bool:
 	if not can_start_current_fight():
 		return false
+	combat_stolen_gold = 0
 	tavern_map_choice_made = false
 	if is_contract_fight_active():
 		pending_contract_offers = []
 	run_phase = RunPhase.FIGHTING
 	run_outcome = RunOutcome.NONE
+	stats_preview_changed.emit()
 	run_state_changed.emit()
 	return true
 
@@ -459,6 +470,8 @@ func start_fight() -> bool:
 func finish_fight(won: bool) -> void:
 	last_fight_won = won
 	if won:
+		if _is_generated_boss_fight_active():
+			mark_generated_boss_defeated(active_contract)
 		run_outcome = RunOutcome.FIGHT_WIN
 		run_phase = RunPhase.RESULT
 	else:
@@ -489,6 +502,7 @@ func finish_fight(won: bool) -> void:
 			run_outcome = RunOutcome.CONTRACT_FAILED if is_contract_fight_active() else RunOutcome.ADVENTURE_RESTART_REQUIRED
 			run_phase = RunPhase.RUN_ENDED
 			set_locked(false)
+	clear_combat_stolen_gold()
 	run_state_changed.emit()
 
 
@@ -654,6 +668,8 @@ func skip_pending_reward_gear() -> bool:
 
 func should_open_shop_after_current_reward() -> bool:
 	if is_contract_fight_active():
+		if _is_generated_boss_fight_active() and all_generated_bosses_defeated():
+			return false
 		return shop_unlocked or _is_terminal_contract_victory_pending()
 	return shop_unlocked and current_encounter_index + 1 < RunFlow.encounter_count()
 
@@ -748,7 +764,7 @@ func continue_after_win() -> bool:
 		run_state_changed.emit()
 		return true
 	if current_encounter_index + 1 >= RunFlow.tavern_encounter_count():
-		return start_contract_offer()
+		return start_generated_contract_loop_offer()
 	var has_next := advance_encounter()
 	if has_next:
 		run_phase = RunPhase.PLANNING
@@ -762,21 +778,73 @@ func continue_after_win() -> bool:
 
 
 func _complete_contract_and_offer_next() -> bool:
+	mark_generated_boss_defeated(active_contract)
 	completed_contract_count += 1
 	contract_offer_index += 1
 	claimed_route_reward_ids = []
 	pending_contract_offers = []
 	active_contract = null
 	current_route_node = null
-	run_phase = RunPhase.CONTRACT_OFFER
 	run_outcome = RunOutcome.NONE
 	last_fight_won = false
 	shop_unlocked = false
 	set_locked(false)
+	if all_generated_bosses_defeated():
+		end_run(true, RunOutcome.ALL_BOSSES_DEFEATED)
+		return false
+	run_phase = RunPhase.CONTRACT_OFFER
 	if start_generated_contract_loop_offer():
 		return true
 	end_run(true, RunOutcome.CONTRACT_VICTORY)
 	return false
+
+
+func generated_boss_id_for_contract(contract: ContractDef) -> String:
+	return ContractOfferSourceScript.boss_id_for_contract(contract)
+
+
+func generated_boss_catalog() -> Array[Dictionary]:
+	return ContractOfferSourceScript.generated_boss_catalog()
+
+
+func mark_generated_boss_defeated(contract: ContractDef) -> void:
+	var boss_id := generated_boss_id_for_contract(contract)
+	if boss_id == "" or defeated_generated_boss_ids.has(boss_id):
+		return
+	defeated_generated_boss_ids.append(boss_id)
+	run_state_changed.emit()
+
+
+func is_generated_boss_defeated(boss_id: String) -> bool:
+	return boss_id != "" and defeated_generated_boss_ids.has(boss_id)
+
+
+func defeated_generated_boss_count() -> int:
+	return defeated_generated_boss_ids.size()
+
+
+func generated_bosses_total_count() -> int:
+	return generated_boss_catalog().size()
+
+
+func all_generated_bosses_defeated() -> bool:
+	var catalog := generated_boss_catalog()
+	if catalog.is_empty():
+		return false
+	for entry in catalog:
+		if not defeated_generated_boss_ids.has(String(entry.get("id", ""))):
+			return false
+	return true
+
+
+func _is_generated_boss_fight_active() -> bool:
+	return (
+		is_contract_fight_active()
+		and active_contract != null
+		and active_contract.has_generated_route_state()
+		and current_route_node != null
+		and current_route_node.node_type == ContractRouteNode.NodeType.BOSS
+	)
 
 
 func _generate_tavern_shop_offers(round_index: int, reroll_key: Variant) -> Array[GearItem]:
@@ -1049,13 +1117,24 @@ func add_gold(amount: int) -> void:
 	build_changed.emit()
 
 
+func record_combat_stolen_gold(amount: int) -> void:
+	if amount <= 0:
+		return
+	gold += amount
+	combat_stolen_gold += amount
+	stats_preview_changed.emit()
+
+
+func clear_combat_stolen_gold() -> void:
+	if combat_stolen_gold == 0:
+		return
+	combat_stolen_gold = 0
+	stats_preview_changed.emit()
+
+
 func modified_gold_reward(base_amount: int) -> int:
-	var multiplier := 1.0
-	for gear in equipped_gear():
-		for modifier in gear.affixes:
-			if modifier.stat == StatModifier.StatType.GOLD_REWARDS:
-				multiplier *= 1.0 + modifier.value
-	return max(0, roundi(float(base_amount) * multiplier))
+	var stats := BuildResolver.resolve_stats(selected_class, selected_trees, selected_talents, equipped_gear(), gold)
+	return max(0, int(floor(float(base_amount) * stats.gold_reward_multiplier)))
 
 
 func add_talent_points(amount: int) -> void:

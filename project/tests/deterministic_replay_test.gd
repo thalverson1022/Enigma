@@ -48,9 +48,9 @@ func _check_basic_combat_replay() -> void:
 
 func _check_proc_replay() -> void:
 	var rogue: ClassDef = load("res://data/classes/rogue.tres")
-	var thief: SubclassTree = load("res://data/subclass_trees/thief.tres")
+	var bladedancer: SubclassTree = load("res://data/subclass_trees/bladedancer.tres")
 	var quick_cut: Skill = load("res://data/skills/quick_cut.tres")
-	var opportunity: Talent = load("res://data/talents/thief/opportunity_strikes.tres")
+	var opportunity: Talent = load("res://data/talents/bladedancer/opportunity_strikes.tres")
 	var rotation: Array[Skill] = [quick_cut]
 
 	var monster := Monster.new()
@@ -59,7 +59,7 @@ func _check_proc_replay() -> void:
 	monster.armor = 0
 	monster.poison_resistance = 0.0
 
-	var stats := BuildResolver.resolve_stats(rogue, [thief], [opportunity])
+	var stats := BuildResolver.resolve_stats(rogue, [bladedancer], [opportunity])
 	var first: CombatResolver.CombatResult = CombatResolver.resolve(rotation, stats, monster, 8000, 1)
 	var second: CombatResolver.CombatResult = CombatResolver.resolve(rotation, stats, monster, 8000, 1)
 	_require_equal("proc_replay same-seed replay signature", _combat_signature(second), _combat_signature(first), {

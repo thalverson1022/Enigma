@@ -183,6 +183,7 @@ static func build_modal_panel(root: Control, dismissable: bool) -> PanelContaine
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	root.grow_vertical = Control.GROW_DIRECTION_BOTH
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.z_index = 100
 
 	if dismissable:
@@ -212,6 +213,7 @@ static func build_modal_panel(root: Control, dismissable: bool) -> PanelContaine
 
 	var panel := PanelContainer.new()
 	panel.z_index = 102
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	center.add_child(panel)
 	return panel
 

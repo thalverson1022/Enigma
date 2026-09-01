@@ -7,6 +7,7 @@ const GENERATED_ROLL_CONTEXT := "contract_offer_source.generated"
 const GENERATED_DEBUG_ROLL_CONTEXT := "contract_offer_source.generated_debug"
 const OFFER_TEXT_VERSION := "p4m8.t4.rogue.v1"
 const OFFER_TEXT_CONTEXT := "contract_offer_source.offer_text"
+const GENERATED_OFFER_MAX_ATTEMPTS := 160
 const ContractRouteGeneratorScript := preload("res://scripts/systems/contract_route_generator/contract_route_generator.gd")
 const RunRngScript := preload("res://scripts/systems/run_rng.gd")
 
@@ -42,9 +43,17 @@ static func contract_offers(context: Dictionary = {}) -> Array[ContractDef]:
 			offers.append(gilded_serpent)
 	if bool(context.get("include_generated", false)):
 		var count: int = max(1, int(context.get("generated_offer_count", 1)))
-		for i in count:
-			var generated: ContractDef = generated_contract_offer(context, i)
+		var defeated_boss_ids := _defeated_boss_id_set(context.get("defeated_generated_boss_ids", []))
+		var offered_boss_ids := {}
+		var attempt := 0
+		while _generated_offer_count(offers) < count and attempt < GENERATED_OFFER_MAX_ATTEMPTS:
+			var generated: ContractDef = generated_contract_offer(context, attempt)
+			attempt += 1
 			if generated != null:
+				var boss_id := boss_id_for_contract(generated)
+				if boss_id == "" or defeated_boss_ids.has(boss_id) or offered_boss_ids.has(boss_id):
+					continue
+				offered_boss_ids[boss_id] = true
 				offers.append(generated)
 	return offers
 
@@ -86,11 +95,45 @@ static func offer_context(
 		"include_authored": include_authored,
 		"include_generated": include_generated,
 		"generated_offer_count": generated_offer_count,
+		"defeated_generated_boss_ids": [],
 	}
 
 
 static func authored_offer_paths() -> PackedStringArray:
 	return PackedStringArray([GILDED_SERPENT_CONTRACT_PATH])
+
+
+static func generated_boss_id(biome: String, boss_name: String) -> String:
+	var clean_biome := biome.strip_edges()
+	var clean_boss := boss_name.strip_edges()
+	if clean_biome == "" or clean_boss == "":
+		return ""
+	return "%s::%s" % [clean_biome, clean_boss]
+
+
+static func boss_id_for_contract(contract: ContractDef) -> String:
+	if contract == null or not contract.has_generated_route_state():
+		return ""
+	var biome := contract.selected_biome.strip_edges()
+	if biome == "":
+		biome = _generated_boss_biome(contract)
+	return generated_boss_id(biome, _generated_boss_name(contract))
+
+
+static func generated_boss_catalog() -> Array[Dictionary]:
+	var catalog: Array[Dictionary] = []
+	for biome in ContractRouteGeneratorScript.DEFAULT_ALLOWED_BIOMES:
+		var biome_name := String(biome)
+		var table: Dictionary = ContractRouteGeneratorScript.BIOME_PRESENTATION.get(biome_name, {})
+		var bosses: Array = table.get("boss", []) as Array
+		for boss_name in bosses:
+			var clean_boss := String(boss_name)
+			catalog.append({
+				"id": generated_boss_id(biome_name, clean_boss),
+				"biome": biome_name,
+				"boss_name": clean_boss,
+			})
+	return catalog
 
 
 static func _load_authored_contract(path: String) -> ContractDef:
@@ -161,6 +204,36 @@ static func _generated_boss_name(contract: ContractDef) -> String:
 		if name != "":
 			return name
 	return "Generated Boss"
+
+
+static func _generated_boss_biome(contract: ContractDef) -> String:
+	var boss: ContractRouteNode = _first_node_of_type(contract.offer_node, ContractRouteNode.NodeType.BOSS)
+	if boss != null:
+		if boss.biome != "":
+			return boss.biome
+		var preview_biome := String(boss.route_preview.get("biome", ""))
+		if preview_biome != "":
+			return preview_biome
+	return ""
+
+
+static func _generated_offer_count(offers: Array[ContractDef]) -> int:
+	var count := 0
+	for offer in offers:
+		if offer != null and offer.has_generated_route_state():
+			count += 1
+	return count
+
+
+static func _defeated_boss_id_set(list) -> Dictionary:
+	var out := {}
+	if typeof(list) != TYPE_ARRAY:
+		return out
+	for value in list:
+		var boss_id := String(value)
+		if boss_id != "":
+			out[boss_id] = true
+	return out
 
 
 static func _first_node_of_type(node: ContractRouteNode, node_type: int, visited: Dictionary = {}) -> ContractRouteNode:

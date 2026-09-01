@@ -3,8 +3,8 @@
 [ext_resource type="Script" path="res://scripts/resources/talent.gd" id="1_talent"]
 [ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_modifier"]
 [ext_resource type="Script" path="res://scripts/resources/prerequisite_group.gd" id="3_group"]
-[ext_resource type="Resource" path="res://data/talents/thief/quick_hands.tres" id="4_quick_hands"]
-[ext_resource type="Resource" path="res://data/talents/thief/piercing_blades.tres" id="5_piercing_blades"]
+[ext_resource type="Resource" path="res://data/talents/bladedancer/quick_hands.tres" id="4_quick_hands"]
+[ext_resource type="Resource" path="res://data/talents/bladedancer/piercing_blades.tres" id="5_piercing_blades"]
 
 [sub_resource type="Resource" id="Resource_practiced_rhythm_mod_as"]
 script = ExtResource("2_modifier")

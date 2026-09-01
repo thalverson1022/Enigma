@@ -43,12 +43,22 @@ const CARD_TITLE_FONT_SIZE := 20
 const CONTRACT_CHOICE_CARD_WIDTH := 340
 const CONTRACT_CHOICE_CARD_HEIGHT := 110
 const CONTRACT_HEADER_ICON_SIZE := Vector2(36, 36)
-const CONTRACT_OPTION_ICON_SIZE := Vector2(44, 44)
+const CONTRACT_OPTION_ICON_SIZE := Vector2(64, 64)
+const CONTRACT_REWARD_ICON_SIZE := Vector2(20, 20)
+const CONTRACT_REWARD_PILL_MIN_SIZE := Vector2(70, 28)
 const CONTRACT_OPTION_BOSS_FONT_SIZE := 24
 const CONTRACT_OPTION_DETAIL_FONT_SIZE := 18
 const CONTRACT_CHOICE_PULSE_DURATION_SEC := 0.72
+const TOP_CHROME_CLICKTHROUGH_CLEARANCE := 88.0
 const CONTRACT_PORTRAIT_TEXTURE := preload("res://assets/backgrounds/Ghit_Guud.jpg")
 const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
+const GOLD_ICON := preload("res://assets/ui/icons/gold.png")
+const GEAR_DROP_ICON_PATHS := {
+	GearItem.Tier.BASIC: "res://assets/ui/icons/gear_drop_helm_basic.png",
+	GearItem.Tier.MASTER: "res://assets/ui/icons/gear_drop_helm_master.png",
+	GearItem.Tier.CURSED: "res://assets/ui/icons/gear_drop_helm_cursed.png",
+	GearItem.Tier.LEGENDARY: "res://assets/ui/icons/gear_drop_helm_legendary.png",
+}
 
 ## Ghit Gudd's introduction sequence (P2:R7 story pass) -- replaces the old
 ## single-click "Map"-styled Contract Offer overlay with a multi-step
@@ -57,7 +67,7 @@ const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
 ## typos/inconsistent spelling of the broker's name -- not this codebase's to
 ## silently correct).
 const CONTRACT_GREETING_TEXT := "Calm my friend. My name is Ghit Gudd. I am just a humble local... businessman. You are quite handy. You dispatched one of my best with such ease. I am always looking for useful individuals like yourself. How would you like to make a little coin?"
-const CONTRACT_PITCH_TEXT := "I often have need for travelers of your ilk. Some of my rival competition needs to be reminded of the rules of free market capitalism. If you ... take care of them for me, I will pay you handsomely."
+const CONTRACT_PITCH_TEXT := "There are many creatures in the surrounding area that provide valuable... materials. I would go harvest them myself, but I am better with a pen than I am with a sword. I can provide you with the location of these creatures, and if you return with their hides, I will pay you handsomely."
 const CONTRACT_OFFER_PROMPT_TEXT := ""
 ## The post-subclass-choice step -- a single option today, but user-stated to
 ## grow into a real multi-contract hub later, hence a dedicated options row
@@ -70,12 +80,14 @@ const CONTRACT_VYRA_DETAIL_TEXT := "Vyra is the leader of a rival gang. Ghet wan
 const VYRA_ROUTE_NODE_ID := "route.gilded_serpent.vyra"
 
 var _contract_step: Step = Step.GREETING
+var _contract_title_icon: TextureRect
 var _contract_title_label: Label
 var _contract_body_label: Label
 var _contract_options_box: VBoxContainer
 var _contract_footer_spacer: Control
 var _contract_action_button: Button
 var _selected_contract_id := ""
+var _gear_drop_icon_cache: Dictionary = {}
 
 
 func _ready() -> void:
@@ -83,6 +95,9 @@ func _ready() -> void:
 	visible = false
 
 	var panel := CardStyle.build_modal_panel(self, false)
+	var backdrop := get_child(0) as Control
+	if backdrop != null:
+		backdrop.offset_top = TOP_CHROME_CLICKTHROUGH_CLEARANCE
 	panel.add_theme_stylebox_override("panel", CardStyle.make_stylebox())
 
 	var content := HBoxContainer.new()
@@ -115,7 +130,9 @@ func _ready() -> void:
 	title_row.add_theme_constant_override("separation", 8)
 	contract_content.add_child(title_row)
 
-	title_row.add_child(CardStyle.make_pixel_icon(CONTRACT_ICON, CONTRACT_HEADER_ICON_SIZE))
+	_contract_title_icon = CardStyle.make_pixel_icon(CONTRACT_ICON, CONTRACT_HEADER_ICON_SIZE)
+	_contract_title_icon.name = "ContractTitleIcon"
+	title_row.add_child(_contract_title_icon)
 
 	var title := Label.new()
 	_contract_title_label = title
@@ -186,6 +203,8 @@ func refresh() -> void:
 	_contract_action_button.disabled = false
 	_contract_body_label.visible = true
 	_contract_title_label.text = "Contract"
+	if _contract_title_icon != null:
+		_contract_title_icon.visible = true
 	match _contract_step:
 		Step.GREETING:
 			_contract_body_label.text = CONTRACT_GREETING_TEXT
@@ -197,9 +216,11 @@ func refresh() -> void:
 			CardStyle.configure_icon_button(_contract_action_button, CONTRACT_ICON)
 		Step.OFFER_CHOICE:
 			_contract_title_label.text = "Choose a Contract"
+			if _contract_title_icon != null:
+				_contract_title_icon.visible = false
 			_contract_body_label.text = CONTRACT_OFFER_PROMPT_TEXT
 			_contract_body_label.visible = false
-			_contract_action_button.text = FLOW_TEXT.ACTION_PROCEED
+			_contract_action_button.text = "Preview"
 			CardStyle.configure_icon_button(_contract_action_button, CONTRACT_ICON)
 			_contract_action_button.disabled = _selected_contract_id == ""
 			_contract_options_box.visible = true
@@ -207,9 +228,11 @@ func refresh() -> void:
 				_contract_options_box.add_child(_build_pending_contract_offer_card(contract))
 		Step.CONTRACT_CHOICE:
 			_contract_title_label.text = "Choose a Contract"
+			if _contract_title_icon != null:
+				_contract_title_icon.visible = false
 			_contract_body_label.text = CONTRACT_CHOICE_PROMPT_TEXT
 			_contract_body_label.visible = false
-			_contract_action_button.text = FLOW_TEXT.ACTION_PROCEED
+			_contract_action_button.text = "Preview"
 			CardStyle.configure_icon_button(_contract_action_button, CONTRACT_ICON)
 			_contract_action_button.disabled = _selected_contract_id == ""
 			_contract_options_box.visible = true
@@ -236,7 +259,7 @@ func _build_contract_choice_card(contract_id: String, display_name: String, node
 		card,
 		_contract_boss_name_from_display(display_name),
 		_contract_biome_label_from_contract(BuildState.active_contract),
-		_contract_choice_reward_text(node)
+		node.reward if node != null else null
 	)
 	card.pressed.connect(_on_contract_choice_pressed.bind(contract_id))
 	if _selected_contract_id == contract_id:
@@ -257,7 +280,7 @@ func _build_pending_contract_offer_card(contract: ContractDef) -> Button:
 		card,
 		_contract_offer_boss_name(contract),
 		_contract_biome_label_from_contract(contract),
-		_contract_offer_gold_text(contract)
+		_contract_offer_reward(contract)
 	)
 	card.pressed.connect(_on_contract_choice_pressed.bind(contract_id))
 	if _selected_contract_id == contract_id:
@@ -280,25 +303,11 @@ func _contract_offer_card_text(contract: ContractDef) -> String:
 	var lines := PackedStringArray()
 	lines.append(_contract_offer_boss_name(contract))
 	lines.append(_contract_biome_label_from_contract(contract))
-	lines.append(_contract_offer_gold_text(contract))
+	lines.append(_contract_reward_summary_text(_contract_offer_reward(contract)))
 	return "\n".join(lines)
 
 
-func _contract_choice_reward_text(node: ContractRouteNode) -> String:
-	if node == null or node.reward == null:
-		return "unknown"
-	var parts := PackedStringArray()
-	if node.reward.gold_amount > 0:
-		parts.append("%dg" % node.reward.gold_amount)
-	if node.reward.talent_points > 0:
-		parts.append("%d talent point%s" % [
-			node.reward.talent_points,
-			"" if node.reward.talent_points == 1 else "s",
-		])
-	return " + ".join(parts) if not parts.is_empty() else "unknown"
-
-
-func _add_contract_offer_card_content(card: Button, boss_name: String, location_text: String, gold_text: String) -> void:
+func _add_contract_offer_card_content(card: Button, boss_name: String, location_text: String, reward: EncounterReward) -> void:
 	var row := HBoxContainer.new()
 	row.name = "ContractOfferContent"
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -321,7 +330,7 @@ func _add_contract_offer_card_content(card: Button, boss_name: String, location_
 
 	text_box.add_child(_make_contract_offer_label("ContractBossNameLabel", boss_name, CONTRACT_OPTION_BOSS_FONT_SIZE, CardStyle.ACCENT_COLOR))
 	text_box.add_child(_make_contract_offer_label("ContractLocationLabel", location_text, CONTRACT_OPTION_DETAIL_FONT_SIZE, UIColors.TEXT_NORMAL))
-	text_box.add_child(_make_contract_offer_label("ContractGoldLabel", gold_text, CONTRACT_OPTION_DETAIL_FONT_SIZE, UIColors.TEXT_GOLD))
+	text_box.add_child(_make_contract_reward_stack(reward))
 
 
 func _make_contract_offer_label(label_name: String, text: String, font_size: int, color: Color) -> Label:
@@ -358,16 +367,157 @@ func _contract_biome_label_from_contract(contract: ContractDef) -> String:
 	return "Location: %s" % biome
 
 
-func _contract_offer_gold_text(contract: ContractDef) -> String:
+func _contract_offer_reward(contract: ContractDef) -> EncounterReward:
 	if contract == null:
-		return "Reward: unknown"
+		return null
 	if contract.has_generated_route_state():
 		var boss := _contract_offer_boss_node(contract)
-		return _contract_choice_reward_text(boss)
+		return boss.reward if boss != null else null
 	if contract.offer_node != null:
 		var vyra_node := ContractRouteNode.find_by_id(contract.offer_node, VYRA_ROUTE_NODE_ID)
-		return _contract_choice_reward_text(vyra_node)
-	return "Reward: unknown"
+		return vyra_node.reward if vyra_node != null else null
+	return null
+
+
+func _make_contract_reward_stack(reward: EncounterReward) -> HBoxContainer:
+	var stack := HBoxContainer.new()
+	stack.name = "ContractRewardStack"
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.alignment = BoxContainer.ALIGNMENT_BEGIN
+	stack.add_theme_constant_override("separation", 5)
+	for entry in _contract_reward_icon_entries(reward):
+		stack.add_child(_make_contract_reward_row(entry))
+	if stack.get_child_count() == 0:
+		stack.add_child(_make_contract_offer_label("ContractRewardEmptyLabel", "Reward unknown", CONTRACT_OPTION_DETAIL_FONT_SIZE, UIColors.TEXT_DISABLED))
+	return stack
+
+
+func _contract_reward_icon_entries(reward: EncounterReward) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	if reward == null:
+		return entries
+	var gear_tier := _contract_reward_gear_tier(reward)
+	if gear_tier >= 0:
+		entries.append({
+			"icon": _gear_drop_icon_for_tier(gear_tier),
+			"text": "x %d" % _contract_reward_gear_count(reward),
+			"color": _tier_color_for_contract_reward(gear_tier),
+			"name": "ContractGearReward",
+		})
+	if reward.talent_points > 0:
+		entries.append({
+			"icon": CardStyle.talent_point_icon(),
+			"text": "x %d" % reward.talent_points,
+			"color": UIColors.TEXT_POISON,
+			"name": "ContractTalentReward",
+		})
+	if reward.gold_amount > 0:
+		entries.append({
+			"icon": GOLD_ICON,
+			"text": "%dg" % reward.gold_amount,
+			"color": UIColors.TEXT_GOLD,
+			"name": "ContractGoldReward",
+		})
+	return entries
+
+
+func _contract_reward_summary_text(reward: EncounterReward) -> String:
+	var parts := PackedStringArray()
+	for entry in _contract_reward_icon_entries(reward):
+		parts.append(String(entry.get("text", "")))
+	return " + ".join(parts) if not parts.is_empty() else "Reward unknown"
+
+
+func _make_contract_reward_row(entry: Dictionary) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = String(entry.get("name", "ContractReward"))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	row.add_theme_constant_override("separation", 4)
+	row.custom_minimum_size = CONTRACT_REWARD_PILL_MIN_SIZE
+
+	var backing := PanelContainer.new()
+	backing.name = "ContractRewardBacking"
+	backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backing.custom_minimum_size = CONTRACT_REWARD_PILL_MIN_SIZE
+	var backing_style := StyleBoxFlat.new()
+	backing_style.bg_color = Color(0.035, 0.026, 0.020, 0.86)
+	backing_style.border_color = Color(0.90, 0.78, 0.52, 0.48)
+	backing_style.set_border_width_all(1)
+	backing_style.set_corner_radius_all(4)
+	backing.add_theme_stylebox_override("panel", backing_style)
+	row.add_child(backing)
+
+	var backing_content := HBoxContainer.new()
+	backing_content.name = "ContractRewardBackingContent"
+	backing_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backing_content.alignment = BoxContainer.ALIGNMENT_CENTER
+	backing_content.add_theme_constant_override("separation", 4)
+	backing.add_child(backing_content)
+
+	var icon := CardStyle.make_pixel_icon(entry.get("icon", null), CONTRACT_REWARD_ICON_SIZE)
+	icon.name = "ContractRewardIcon"
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backing_content.add_child(icon)
+
+	var amount := Label.new()
+	amount.name = "ContractRewardAmount"
+	amount.text = String(entry.get("text", ""))
+	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	amount.add_theme_font_override("font", CardStyle.DATA_FONT)
+	amount.add_theme_font_size_override("font_size", CONTRACT_OPTION_DETAIL_FONT_SIZE)
+	amount.add_theme_color_override("font_color", entry.get("color", UIColors.TEXT_GOLD))
+	amount.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	amount.add_theme_constant_override("outline_size", 2)
+	backing_content.add_child(amount)
+	return row
+
+
+func _contract_reward_gear_tier(reward: EncounterReward) -> int:
+	if reward == null:
+		return -1
+	if reward.generated_gear_choice_count > 0 or not reward.generated_gear_slots.is_empty():
+		return int(reward.generated_gear_tier)
+	if not reward.gear_choice_rewards.is_empty() and reward.gear_choice_rewards[0] != null:
+		return int(reward.gear_choice_rewards[0].tier)
+	if not reward.fixed_gear_rewards.is_empty() and reward.fixed_gear_rewards[0] != null:
+		return int(reward.fixed_gear_rewards[0].tier)
+	return -1
+
+
+func _contract_reward_gear_count(reward: EncounterReward) -> int:
+	if reward == null:
+		return 0
+	if reward.generated_gear_choice_count > 0:
+		return reward.generated_gear_choice_count
+	if not reward.gear_choice_rewards.is_empty():
+		return reward.gear_choice_rewards.size()
+	if not reward.fixed_gear_rewards.is_empty():
+		return reward.fixed_gear_rewards.size()
+	return 1
+
+
+func _gear_drop_icon_for_tier(tier: int) -> Texture2D:
+	var normalized_tier := tier if GEAR_DROP_ICON_PATHS.has(tier) else GearItem.Tier.BASIC
+	if _gear_drop_icon_cache.has(normalized_tier):
+		return _gear_drop_icon_cache[normalized_tier]
+	var texture := load(GEAR_DROP_ICON_PATHS[normalized_tier]) as Texture2D
+	if texture == null:
+		return null
+	texture.resource_name = GEAR_DROP_ICON_PATHS[normalized_tier]
+	_gear_drop_icon_cache[normalized_tier] = texture
+	return texture
+
+
+func _tier_color_for_contract_reward(tier: int) -> Color:
+	match tier:
+		GearItem.Tier.MASTER:
+			return UIColors.TIER_MASTER
+		GearItem.Tier.CURSED:
+			return UIColors.TIER_CURSED
+		GearItem.Tier.LEGENDARY:
+			return UIColors.TIER_LEGENDARY
+	return UIColors.TIER_BASIC
 
 
 func _contract_offer_boss_node(contract: ContractDef) -> ContractRouteNode:

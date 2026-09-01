@@ -12,11 +12,27 @@ harder fights.
 
 ## Current State
 
-P4M0-P4M8 are complete. P4M9 is in progress: generated contract shape and map
-presentation expansion. P4M9 has completed route topology, node/edge
-readability, contract copy, Captain role vocabulary, blended scaling, and
-renderer-side biome mood themes. P4M10 follows with regression, export, and
-Phase 4 closeout.
+P4M0-P4M9 are complete. P4M9 closed generated contract shape and map
+presentation expansion: route topology, node/edge readability, contract copy,
+Captain role vocabulary, blended scaling, renderer-side biome mood themes,
+matrix/inspector/save-load/UI coverage, and the final playtest loop smoke pass.
+P4M10 is active for regression, export, final handoff documentation, commit,
+push, and promoting DawnBringer so the finished Phase 4 code becomes the
+repository main branch. P4M10-T1 locked the closeout scope and branch-promotion
+plan on 2026-09-01. P4M10-T2 completed the repo/documentation/export audit on
+2026-09-01 and handed the expanded regression list to T3. P4M10-T3 completed
+the expanded scripted regression pass and standalone Balance Lab report on
+2026-09-01 with no code fixes required. P4M10-T4 completed the focused
+player-facing smoke pass on 2026-09-01, fixing Practice Room seed/layout
+regressions and stale authored-route smoke expectations. P4M10-T5 produced the
+Windows playtest export candidate on 2026-09-01, bundled the runtime archetype
+library into project resources, and smoke-launched the exported runtime.
+P4M10-T6 completed the release blocker pass on 2026-09-01 with no remaining
+release blockers and no code fixes required. P4M10-T7 created the lean Phase 5
+handoff at `docs/P5_Minimum_Handoff_From_Phase_4.md` on 2026-09-01. P4M10-T8
+completed final closeout documentation on 2026-09-01. Phase 4 is functionally
+complete for verification/export/handoff purposes, with only T9 final
+commit/push/GitHub main-branch promotion still pending.
 
 P4M5 delivered the procedural contract route generator infrastructure:
 deterministic seeded route graphs, start/boss anchors, branching templates,
@@ -57,8 +73,8 @@ T11 closed the milestone documentation and handed reward/economy work to P4M7.
 | P4M6: Procedural Contract Integration | Complete | Generated contracts are wired into Adventure offers, route flow, combat setup, save/load, outcomes, route UI, and authored regression coverage. |
 | P4M7: Rewards, Resources, And Route Economy | Complete | Generated combat rewards, risk/reward pacing, route pressure, anti-snowball checks, and lifecycle regressions are covered. |
 | P4M8: Contract Variety And Content Expansion | Complete | Expanded archetypes, biome pools, modifiers, elite/boss variants, contract themes, repeatable generated-contract playtesting, and lifecycle coverage. |
-| P4M9: Contract Shape And Map Presentation | In Progress | Add meaningful generated route topology variety and improve contract-map readability/visual polish without adding new route systems. |
-| P4M10: Regression, Export, And Phase 4 Closeout | Not Started | Stabilize, verify, export, document, and hand off the Phase 4 result for external playtesting. |
+| P4M9: Contract Shape And Map Presentation | Complete | Add meaningful generated route topology variety and improve contract-map readability/visual polish without adding new route systems. |
+| P4M10: Regression, Export, And Phase 4 Closeout | In Progress | Stabilize, verify, export, document the Phase 5 handoff, commit, push, and promote DawnBringer as the repository main branch. |
 
 ## P4M6 Closeout
 
@@ -189,9 +205,9 @@ P4M8 handoff:
   contract outcome, generated contract save/load, Contract Test entry,
   generated route matrix, Balance Lab, authored contract offer flow, and run
   failure state.
-- Next, take P4M9 through a focused generated contract shape and map
-  presentation pass, then take P4M10 through regression, export, and Phase 4
-  closeout.
+- Next, take P4M10 through regression, export, Phase 5 minimum handoff
+  documentation, final closeout docs, commit, push, and GitHub main-branch
+  promotion.
 - Preserve P4M7 route economy boundaries: rewards remain deterministic,
   generated route previews stay sparse, and combat/debug pressure metadata
   stays out of map cards.
@@ -199,12 +215,25 @@ P4M8 handoff:
   reward families need more expression.
 - Playtesting found generated maps need more interesting and meaningful route
   choices. P4M9 owns that scoped route/map design task before export closeout.
+- P4M9-T11 completed the matrix, inspector, save/load, UI, authored-contract,
+  lifecycle, outcome, generator, and Balance Lab coverage pass for generated
+  route shapes and map presentation. Completed route edges now retain active
+  path emphasis so the chosen route remains legible while selecting later
+  nodes.
+- P4M9-T12 closed the milestone on 2026-09-01. Normal Adventure now skips the
+  authored Vyra contract for this phase and sends the player from Tavern into
+  Ghit's generated-contract materials pitch and three generated biome offers;
+  Vyra data remains for later restoration and regression. Contract Test is
+  hidden from the title menu but remains available as a diagnostic signal/test
+  path. The closeout pass also records the Monster Manual/checklist, all-bosses
+  victory screen, Hold skill, Ancient Ruins sprites, top-menu overlay access,
+  Practice Room cleanup, and Thief/Steal clarity fixes.
 - Keep non-combat route nodes, route-local resources, consumables, shop nodes,
   mystic upgrades, crafting/transmutation, boss bargains, and scout/reveal
   nodes deferred until supporting systems are ready. The repeatable-loop shop
   is a between-contract playtest transition, not a route node.
-- Keep Gilded Serpent as the authored regression baseline while adding
-  generated content breadth.
+- Keep Gilded Serpent as the authored regression baseline even while the player
+  Adventure path temporarily skips Vyra.
 - Run Balance Lab gates for route pressure, reward pacing, generated combat
   outcomes, snowball warnings, and dead-run warnings.
 
@@ -216,11 +245,43 @@ P4M9 task plan:
 - Implement deterministic template identity, safe/risky branches, elite
   detours, pressure gauntlets, wide matchup-choice routes, fork-and-rejoin
   routes, and boss approach lane variation as scoped templates.
-- Generated map spacing, curved edge readability, and generated node visual
-  states are complete; continue with biome/contract mood presentation using
-  existing materialized route state.
-- Extend matrix, inspector, save/load, route UI, map overlay, Balance Lab, and
-  Adventure loop smoke coverage before handing final closeout to P4M10.
+- Generated map spacing, curved edge readability, generated node visual states,
+  biome/contract mood presentation, and final smoke coverage are complete.
+- P4M10 now owns the final Phase 4 regression/export closeout, external
+  playtest build handoff, Phase 5 minimum context handoff, final closeout
+  commit, GitHub push, and promoting DawnBringer to the repository main branch.
+
+P4M10 task plan:
+
+- Source doc: `docs/P4M10_Regression_Export_And_Phase_4_Closeout.md`.
+- P4M10-T1 is complete: closeout scope and the branch-promotion plan are locked
+  before running export work.
+- P4M10-T2 is complete: repo/docs/export state is audited, the dirty tree is
+  understood at closeout level, and the runtime archetype library export risk
+  is recorded for T3/T5/T6.
+- P4M10-T3 is complete: the expanded scripted regression pass and standalone
+  Balance Lab report passed outside the sandbox.
+- P4M10-T4 is complete: the focused player-facing smoke pass covered:
+  Title -> class/subclass -> Tavern -> Ghit generated-contract pitch -> three
+  generated offers -> route map -> combat -> rewards -> shop -> next generated
+  contract.
+- P4M10-T5 is complete: the Windows playtest export candidate exists at
+  `project/export/windows/DawnBringer.exe`; its `.pck` bundles the runtime
+  archetype library, and the exported runtime launched headless with exit code
+  0.
+- P4M10-T6 is complete: release blocker verification found no remaining
+  crashes, stuck states, save/load corruption, broken exports, missing critical
+  assets, unreadable route maps, or player-facing debug leaks.
+- P4M10-T7 is complete: `docs/P5_Minimum_Handoff_From_Phase_4.md` records the
+  current playable flow, generated-contract ownership, provisional balance and
+  gear caveats, Phase 5 gear priorities, deferred systems, key files/tests,
+  verification, and the Windows export artifact.
+- P4M10-T8 is complete: final closeout docs are synced across the P4M10
+  closeout doc, overview, onboarding context, and Phase 5 handoff, with T9
+  still pending for final commit/push/promotion details.
+- Next, perform the final staging review, commit the Phase 4 state, push it to
+  GitHub, promote DawnBringer so the finished Phase 4 code is the repository
+  main branch, and record the final commit hash/promotion method.
 
 Recent P4M6 closeout verification passed outside the sandbox:
 
@@ -313,6 +374,8 @@ Known local runner issue:
 
 ## Reference Docs
 
+- `docs/P4M10_Regression_Export_And_Phase_4_Closeout.md`: active final Phase 4
+  closeout plan.
 - `docs/P4M8_Contract_Variety_And_Content_Expansion.md`: P4M8 closeout record.
 - `docs/P4M9_Contract_Shape_And_Map_Presentation.md`: P4M9 route shape and map
   presentation task plan.

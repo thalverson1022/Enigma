@@ -29,6 +29,8 @@ static func format(result: CombatResolver.CombatResult, monster: Monster) -> Str
 	lines.append("  Damage: %.1f in %.0fs -- %.1f DPS." % [
 		result.total_damage, result.duration_ms / 1000.0, result.dps
 	])
+	if result.gold_stolen > 0:
+		lines.append("  Gold stolen: %dg." % result.gold_stolen)
 	if result.is_win:
 		lines.append("  Result: VICTORY! %s is defeated (needed %d damage)." % [monster.display_name, monster.hp])
 	else:
@@ -65,6 +67,8 @@ static func format_practice(result: CombatResolver.CombatResult, monster: Monste
 	lines.append("  Damage: %.1f in %.0fs -- %.1f DPS." % [
 		result.total_damage, result.duration_ms / 1000.0, result.dps
 	])
+	if result.gold_stolen > 0:
+		lines.append("  Gold stolen: %dg." % result.gold_stolen)
 	return "\n".join(lines)
 
 
@@ -123,6 +127,8 @@ static func _cast_line(event: CombatResolver.CastEvent) -> String:
 		clauses.append("shreds %d armor" % event.armor_reduction_applied)
 	if event.poison_resistance_reduction_applied > 0.0:
 		clauses.append("reduces resistance by %d%%" % roundi(event.poison_resistance_reduction_applied * 100.0))
+	if event.gold_stolen > 0:
+		clauses.append("steals %dg" % event.gold_stolen)
 	if event.min_cast_time_proc_applied:
 		clauses.append("procs at minimum cast speed")
 	if event.stun_duration_ms > 0:

@@ -248,7 +248,7 @@ const BIOME_PRESENTATION := {
 	},
 	"Graveyard": {
 		"normal": ["Restless Spirit", "Giant Rat", "Wolf", "Skeleton", "Zombie"],
-		"captain": ["Golem", "Grave Robber"],
+		"captain": ["Flesh Golem", "Grave Robber"],
 		"elite": ["Wight", "Necromancer", "Mire Knight"],
 		"boss": ["Bone Colossus", "Lich", "Headless Knight", "The Bell-Tower Revenant", "King Leoric"],
 		"tags": ["graveyard"],
@@ -257,7 +257,7 @@ const BIOME_PRESENTATION := {
 		"normal": ["Spider", "Forest Goblin", "Wisp", "Treant Sapling", "Dire Wolf"],
 		"captain": ["Werewolf", "Treant"],
 		"elite": ["Green Hag", "Night Stalker", "Hollow-Eyed Witch"],
-		"boss": ["Ancient Treant", "Forest Witch", "Great Werewolf", "The Root-Crowned Widow", "Moonless Huntmaster"],
+		"boss": ["Ancient Treant", "Forest Witch", "Great Warebear", "The Root-Crowned Widow", "Moonless Huntmaster"],
 		"tags": ["haunted forest"],
 	},
 	"Ruined Keep": {

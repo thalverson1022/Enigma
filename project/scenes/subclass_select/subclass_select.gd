@@ -17,8 +17,9 @@ const TITLE_LIGHTNING_FLASH_OVERLAY_SCRIPT := preload("res://scripts/ui/title_li
 
 const FLAVOR_TEXT := {
 	"Assassin": "Poison, poison, and more poison.",
-	"Thief": "Render you enemies defenseless.",
+	"Bladedancer": "Render you enemies defenseless.",
 	"Shadow": "Poison with more steps.",
+	"Thief": "Strike fast, steal faster.",
 }
 
 var _card_box: HBoxContainer

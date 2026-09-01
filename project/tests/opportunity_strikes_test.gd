@@ -1,5 +1,5 @@
 extends SceneTree
-## Focused P2:R5:T3 check for Thief's Opportunity Strikes proc.
+## Focused P2:R5:T3 check for Bladedancer's Opportunity Strikes proc.
 
 const CombatLogInspectorDataScript := preload("res://scripts/systems/combat_log_inspector_data.gd")
 
@@ -8,15 +8,15 @@ var _failed := false
 
 func _initialize() -> void:
 	var rogue: ClassDef = load("res://data/classes/rogue.tres")
-	var thief: SubclassTree = load("res://data/subclass_trees/thief.tres")
+	var bladedancer: SubclassTree = load("res://data/subclass_trees/bladedancer.tres")
 	var quick_cut: Skill = load("res://data/skills/quick_cut.tres")
 	var stab: Skill = load("res://data/skills/stab.tres")
-	var opportunity: Talent = load("res://data/talents/thief/opportunity_strikes.tres")
+	var opportunity: Talent = load("res://data/talents/bladedancer/opportunity_strikes.tres")
 	_require("fixture loads Rogue class", rogue != null, {"path": "res://data/classes/rogue.tres"})
-	_require("fixture loads Thief tree", thief != null, {"path": "res://data/subclass_trees/thief.tres"})
+	_require("fixture loads Bladedancer tree", bladedancer != null, {"path": "res://data/subclass_trees/bladedancer.tres"})
 	_require("fixture loads Quick Cut", quick_cut != null, {"path": "res://data/skills/quick_cut.tres"})
 	_require("fixture loads Stab", stab != null, {"path": "res://data/skills/stab.tres"})
-	_require("fixture loads Opportunity Strikes", opportunity != null, {"path": "res://data/talents/thief/opportunity_strikes.tres"})
+	_require("fixture loads Opportunity Strikes", opportunity != null, {"path": "res://data/talents/bladedancer/opportunity_strikes.tres"})
 	_require_equal("opportunity_strikes trigger count", opportunity.triggered_skill_effects.size(), 1, {
 		"talent": opportunity.id,
 	})
@@ -36,10 +36,10 @@ func _initialize() -> void:
 		"source_skill_ids": trigger.source_skill_ids,
 	})
 
-	var stats := BuildResolver.resolve_stats(rogue, [thief], [opportunity])
+	var stats := BuildResolver.resolve_stats(rogue, [bladedancer], [opportunity])
 	_require_equal("resolved Opportunity Strikes trigger count", stats.triggered_skill_effects.size(), 1, {
 		"class": rogue.display_name,
-		"tree": thief.display_name,
+		"tree": bladedancer.display_name,
 		"talent": opportunity.display_name,
 	})
 	_require_equal("resolved Opportunity Strikes trigger skill", stats.triggered_skill_effects[0].skill.display_name, "Rending Slash", {

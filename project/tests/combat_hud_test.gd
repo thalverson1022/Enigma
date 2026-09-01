@@ -237,16 +237,19 @@ func _check_enemy_effect_indicator_helpers() -> void:
 
 	combat_screen._set_enemy_hud_display(monster.display_name, float(monster.hp), monster.hp, monster.armor, monster.poison_resistance)
 	combat_screen._refresh_enemy_effect_chips(monster)
-	_require(combat_screen._hud_effect_row.get_parent().name == "CombatValuesRow", "Expected secondary enemy effect chips to share the armor/resist HUD line.")
+	_require(combat_screen._hud_effect_row.get_parent() == combat_screen._enemy_hud, "Expected secondary enemy effect chips to use their own wrapping row under the health bar.")
+	_require(combat_screen._hud_effect_row is FlowContainer, "Expected secondary enemy effect chips to wrap instead of overflowing the combat HUD.")
+	_require(combat_screen._hud_effect_row.alignment == FlowContainer.ALIGNMENT_END, "Expected secondary enemy effect chips to right-align inside the wrapping row.")
+	_require(combat_screen._hud_effect_row.get_index() > combat_screen._hud_health_bar.get_index(), "Expected secondary enemy effect chips below the health bar instead of in the top values row.")
 	_require(combat_screen._hud_effect_row.get_child_count() == 8, "Expected the HUD effect row to render secondary enemy effects while interrupt lives in the status row.")
 	_require(not _has_effect_chip(combat_screen._hud_effect_row, "armor", HUD_ARMOR_ICON, "80"), "Expected armor to stay in the existing armor value slot, not duplicate as an effect chip.")
 	_require(not _has_effect_chip(combat_screen._hud_effect_row, "poison_resistance", HUD_RESISTANCE_ICON, "25%"), "Expected resist to stay in the existing resist value slot, not duplicate as an effect chip.")
-	_require(_has_effect_chip(combat_screen._hud_effect_row, "block", MECHANIC_BLOCK_ICON, "3"), "Expected block effect chip on the armor/resist line.")
-	_require(_has_effect_chip(combat_screen._hud_effect_row, "absorb", MECHANIC_ABSORB_ICON, "5"), "Expected absorb effect chip on the armor/resist line.")
-	_require(_has_effect_chip(combat_screen._hud_effect_row, "suppress", MECHANIC_SUPPRESS_ICON, "35%"), "Expected suppress effect chip on the armor/resist line.")
-	_require(_has_effect_chip(combat_screen._hud_effect_row, "cleanse_threshold", MECHANIC_CLEANSE_ICON, "4"), "Expected cleanse effect chip on the armor/resist line.")
-	_require(_has_effect_chip(combat_screen._hud_effect_row, "slow", MECHANIC_SLOW_ICON, "20%"), "Expected slow effect chip on the armor/resist line.")
-	_require(_has_effect_chip(combat_screen._hud_effect_row, "stun_duration_ms", MECHANIC_STUN_ICON, "0.3s"), "Expected stun effect chip on the armor/resist line.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "block", MECHANIC_BLOCK_ICON, "3"), "Expected block effect chip in the wrapping effect row.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "absorb", MECHANIC_ABSORB_ICON, "5"), "Expected absorb effect chip in the wrapping effect row.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "suppress", MECHANIC_SUPPRESS_ICON, "35%"), "Expected suppress effect chip in the wrapping effect row.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "cleanse_threshold", MECHANIC_CLEANSE_ICON, "4"), "Expected cleanse effect chip in the wrapping effect row.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "slow", MECHANIC_SLOW_ICON, "20%"), "Expected slow effect chip in the wrapping effect row.")
+	_require(_has_effect_chip(combat_screen._hud_effect_row, "stun_duration_ms", MECHANIC_STUN_ICON, "0.3s"), "Expected stun effect chip in the wrapping effect row.")
 	_require(not _indicator_ids(indicators).has("interrupt_skip_count"), "Expected interrupt to stay out of the static effect row.")
 	combat_screen._clear_hud_status_chips()
 	combat_screen._add_interrupt_status_chip(monster, 0)
@@ -331,7 +334,8 @@ func _check_live_pre_fight_and_win() -> void:
 		_require(_has_status_chip(combat_screen._hud_status_row, MECHANIC_INTERRUPT_ICON, "0/3"), "Expected Interrupt counter chip to stay visible at 0/3 pre-fight.")
 	else:
 		_require(not _has_status_chip_with_icon(combat_screen._hud_status_row, MECHANIC_INTERRUPT_ICON), "Expected monsters without Interrupt to omit the interrupt counter chip.")
-	_require(combat_screen._hud_status_row.alignment == BoxContainer.ALIGNMENT_END, "Expected debuff stack chips to sit right-aligned below the health bar.")
+	_require(combat_screen._hud_status_row is FlowContainer, "Expected debuff stack chips to wrap instead of overflowing the combat HUD.")
+	_require(combat_screen._hud_status_row.alignment == FlowContainer.ALIGNMENT_END, "Expected debuff stack chips to sit right-aligned below the health bar.")
 	_require(_status_chip_font_size(combat_screen._hud_status_row, HUD_POISON_ICON) == 24, "Expected combat status values to use the larger number font.")
 	_require(combat_screen._fight_timer_badge != null and combat_screen._fight_timer_badge.visible, "Expected a raised fight-window timer badge once a target is selected.")
 	_require(combat_screen._fight_timer_badge.get_parent().name == "FightTimerCell", "Expected the fight-window timer badge to sit in the HUD top row above the health bar.")
@@ -585,6 +589,279 @@ func _check_live_pre_fight_and_win() -> void:
 			combat_screen._combat_stage.expected_enemy_sprite_region(cave_name, "hurt") == Rect2(Vector2.ZERO, cave_size),
 			"Expected %s static hurt frame to use the full PNG." % cave_name
 		)
+	var graveyard_sprite_cases := [
+		{"name": "Restless Spirit", "path": "res://assets/enemies/graveyard/Restless_Spirit.png", "size": Vector2(1151, 1367)},
+		{"name": "Giant Rat", "path": "res://assets/enemies/graveyard/rat.png", "size": Vector2(1254, 1254)},
+		{"name": "Wolf", "path": "res://assets/enemies/graveyard/wolf.png", "size": Vector2(1254, 1254)},
+		{"name": "Skeleton", "path": "res://assets/enemies/graveyard/skeleton.png", "size": Vector2(1254, 1254)},
+		{"name": "Zombie", "path": "res://assets/enemies/graveyard/zombie.png", "size": Vector2(1254, 1254)},
+		{"name": "Flesh Golem", "path": "res://assets/enemies/graveyard/Flesh_Golem.png", "size": Vector2(1219, 1290)},
+		{"name": "Grave Robber", "path": "res://assets/enemies/graveyard/grave_robber.png", "size": Vector2(1224, 1285)},
+		{"name": "Wight", "path": "res://assets/enemies/graveyard/wight.png", "size": Vector2(1167, 1347)},
+		{"name": "Necromancer", "path": "res://assets/enemies/graveyard/necromancer.png", "size": Vector2(1239, 1269)},
+		{"name": "Graveyard Mire Knight", "path": "res://assets/enemies/graveyard/Mire_Knight.png", "size": Vector2(1236, 1272)},
+		{"name": "Bone Colossus", "path": "res://assets/enemies/graveyard/Bone_colossus.png", "size": Vector2(1254, 1254)},
+		{"name": "Lich", "path": "res://assets/enemies/graveyard/Lich.png", "size": Vector2(1024, 1536)},
+		{"name": "Headless Knight", "path": "res://assets/enemies/graveyard/Headless_Knight.png", "size": Vector2(1254, 1254)},
+		{"name": "The Bell-Tower Revenant", "path": "res://assets/enemies/graveyard/The_Bell-Tower_Revenant.png", "size": Vector2(1254, 1254)},
+		{"name": "King Leoric", "path": "res://assets/enemies/graveyard/King_Leoric.png", "size": Vector2(1254, 1254)},
+	]
+	for sprite_case in graveyard_sprite_cases:
+		var graveyard_name: String = sprite_case["name"]
+		var graveyard_path: String = sprite_case["path"]
+		var graveyard_size: Vector2 = sprite_case["size"]
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(graveyard_name).has(graveyard_path),
+			"Expected %s to resolve to %s." % [graveyard_name, graveyard_path]
+		)
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_region(graveyard_name, "hurt") == Rect2(Vector2.ZERO, graveyard_size),
+			"Expected %s static hurt frame to use the full PNG." % graveyard_name
+		)
+	var left_facing_graveyard_cases := [
+		"Wolf",
+		"Skeleton",
+		"Wight",
+		"Necromancer",
+		"Graveyard Mire Knight",
+		"Headless Knight",
+		"The Bell-Tower Revenant",
+		"King Leoric",
+	]
+	for graveyard_name in left_facing_graveyard_cases:
+		var visual_key: String = combat_screen._combat_stage.enemy_visual_key_for(graveyard_name)
+		_require(
+			bool(combat_screen._combat_stage.STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY.get(visual_key, false)),
+			"Expected %s to be flipped horizontally so it faces left toward the player." % graveyard_name
+		)
+	_require(
+		combat_screen._combat_stage.expected_enemy_sprite_paths("Ancient Restless Spirit").has("res://assets/enemies/graveyard/Restless_Spirit.png"),
+		"Expected promoted Graveyard Restless Spirit to reuse the base static sprite."
+	)
+	_require(
+		combat_screen._combat_stage.expected_enemy_sprite_paths("Dire Rat").has("res://assets/enemies/graveyard/rat.png"),
+		"Expected promoted Graveyard Giant Rat to reuse the base static sprite."
+	)
+	_require(
+		combat_screen._combat_stage.expected_enemy_sprite_paths("Giant Wolf").has("res://assets/enemies/graveyard/wolf.png"),
+		"Expected promoted Graveyard Wolf to reuse the base static sprite."
+	)
+	var forest_sprite_cases := [
+		{"name": "Haunted Forest Spider", "path": "res://assets/enemies/forest/spider.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Forest Goblin", "path": "res://assets/enemies/forest/goblin.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Wisp", "path": "res://assets/enemies/forest/wisp.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Treant Sapling", "path": "res://assets/enemies/forest/sapling.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Dire Wolf", "path": "res://assets/enemies/forest/wolf.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Werewolf", "path": "res://assets/enemies/forest/Warewolf.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Treant", "path": "res://assets/enemies/forest/treant.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Green Hag", "path": "res://assets/enemies/forest/Green_Hag.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Night Stalker", "path": "res://assets/enemies/forest/night_stalker.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Hollow-Eyed Witch", "path": "res://assets/enemies/forest/Hallow_Eyed__Witch.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Ancient Treant", "path": "res://assets/enemies/forest/Ancient_Treant.png", "size": Vector2(1158, 1359)},
+		{"name": "Haunted Forest Forest Witch", "path": "res://assets/enemies/forest/Hallow_Eyed__Witch.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest Great Warebear", "path": "res://assets/enemies/forest/Great_Warebear.png", "size": Vector2(1254, 1254)},
+		{"name": "Haunted Forest The Root-Crowned Widow", "path": "res://assets/enemies/forest/Root_Crowned_Widow.png", "size": Vector2(1312, 1199)},
+		{"name": "Haunted Forest Moonless Huntmaster", "path": "res://assets/enemies/forest/Moonless_Huntmaster.png", "size": Vector2(1254, 1254)},
+	]
+	for sprite_case in forest_sprite_cases:
+		var forest_name: String = sprite_case["name"]
+		var forest_path: String = sprite_case["path"]
+		var forest_size: Vector2 = sprite_case["size"]
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(forest_name).has(forest_path),
+			"Expected %s to resolve to %s." % [forest_name, forest_path]
+		)
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_region(forest_name, "hurt") == Rect2(Vector2.ZERO, forest_size),
+			"Expected %s static hurt frame to use the full PNG." % forest_name
+		)
+	_require(
+		combat_screen._combat_stage.expected_enemy_sprite_paths("Green Hag").has("res://assets/enemies/swamp/Green_Hag.png"),
+		"Expected unqualified Green Hag to keep resolving to Swamp art."
+	)
+	var promoted_forest_sprite_cases := [
+		{"name": "Haunted Forest Giant Spider", "path": "res://assets/enemies/forest/spider.png"},
+		{"name": "Haunted Forest Veteran Forest Goblin", "path": "res://assets/enemies/forest/goblin.png"},
+		{"name": "Haunted Forest Ancient Wisp", "path": "res://assets/enemies/forest/wisp.png"},
+		{"name": "Haunted Forest Ancient Treant Sapling", "path": "res://assets/enemies/forest/sapling.png"},
+		{"name": "Haunted Forest Alpha Dire Wolf", "path": "res://assets/enemies/forest/wolf.png"},
+	]
+	for promoted_case in promoted_forest_sprite_cases:
+		var promoted_forest_name := String(promoted_case["name"])
+		var promoted_forest_path := String(promoted_case["path"])
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(promoted_forest_name).has(promoted_forest_path),
+			"Expected promoted Forest name %s to reuse %s." % [promoted_forest_name, promoted_forest_path]
+		)
+	var left_facing_forest_cases := [
+		"Haunted Forest Wisp",
+		"Haunted Forest Treant Sapling",
+		"Haunted Forest Werewolf",
+		"Haunted Forest Treant",
+		"Haunted Forest Ancient Treant",
+		"Haunted Forest Green Hag",
+		"Haunted Forest Night Stalker",
+		"Haunted Forest Great Warebear",
+	]
+	for forest_name in left_facing_forest_cases:
+		var forest_visual_key: String = combat_screen._combat_stage.enemy_visual_key_for(forest_name)
+		_require(
+			bool(combat_screen._combat_stage.STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY.get(forest_visual_key, false)),
+			"Expected %s to be flipped horizontally so it faces left toward the player." % forest_name
+		)
+	var keep_sprite_cases := [
+		{"name": "Ruined Keep Rat", "path": "res://assets/enemies/keep/rat.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Undead Guard", "path": "res://assets/enemies/keep/undead_guard.png", "size": Vector2(1242, 1266)},
+		{"name": "Ruined Keep Bandit", "path": "res://assets/enemies/keep/bandit.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Cultist", "path": "res://assets/enemies/keep/cultist.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Animated Armor", "path": "res://assets/enemies/keep/animated_armor.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Gargoyle", "path": "res://assets/enemies/keep/Gargoyle.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Warlock", "path": "res://assets/enemies/keep/warlock.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Dark Knight", "path": "res://assets/enemies/keep/Dark_Knight.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Oathbreaker Captain", "path": "res://assets/enemies/keep/Oathbreaker_Captain.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Arcane Golem", "path": "res://assets/enemies/keep/Arcane_Golem.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Fallen King", "path": "res://assets/enemies/keep/Fallen_King.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Bejeweled Iron Golem", "path": "res://assets/enemies/keep/Bejeweled_Iron_Golem.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep The Half-blood Prince", "path": "res://assets/enemies/keep/Half_Blood_Prince.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep The Last Castellan", "path": "res://assets/enemies/keep/Last_Castellan.png", "size": Vector2(1254, 1254)},
+		{"name": "Ruined Keep Faithless Executioner", "path": "res://assets/enemies/keep/Faithless_Executioner.png", "size": Vector2(1254, 1254)},
+	]
+	for sprite_case in keep_sprite_cases:
+		var keep_name: String = sprite_case["name"]
+		var keep_path: String = sprite_case["path"]
+		var keep_size: Vector2 = sprite_case["size"]
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(keep_name).has(keep_path),
+			"Expected %s to resolve to %s." % [keep_name, keep_path]
+		)
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_region(keep_name, "hurt") == Rect2(Vector2.ZERO, keep_size),
+			"Expected %s static hurt frame to use the full PNG." % keep_name
+		)
+	var left_facing_keep_cases := [
+		"Ruined Keep Bandit",
+		"Ruined Keep Cultist",
+		"Ruined Keep Animated Armor",
+		"Ruined Keep Gargoyle",
+		"Ruined Keep Dark Knight",
+		"Ruined Keep Oathbreaker Captain",
+		"Ruined Keep Fallen King",
+		"Ruined Keep Bejeweled Iron Golem",
+		"Ruined Keep The Half-blood Prince",
+		"Ruined Keep The Last Castellan",
+		"Ruined Keep Faithless Executioner",
+	]
+	for keep_name in left_facing_keep_cases:
+		var keep_visual_key: String = combat_screen._combat_stage.enemy_visual_key_for(keep_name)
+		_require(
+			bool(combat_screen._combat_stage.STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY.get(keep_visual_key, false)),
+			"Expected %s to be flipped horizontally so it faces left toward the player." % keep_name
+		)
+	var authored_left_keep_cases := [
+		"Ruined Keep Arcane Golem",
+		"Ruined Keep Rat",
+		"Ruined Keep Undead Guard",
+		"Ruined Keep Warlock",
+	]
+	for keep_name in authored_left_keep_cases:
+		var keep_visual_key: String = combat_screen._combat_stage.enemy_visual_key_for(keep_name)
+		_require(
+			not bool(combat_screen._combat_stage.STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY.get(keep_visual_key, false)),
+			"Expected %s to keep its authored facing." % keep_name
+		)
+	var promoted_keep_sprite_cases := [
+		{"name": "Ruined Keep Giant Rat", "path": "res://assets/enemies/keep/rat.png"},
+		{"name": "Ruined Keep Ancient Undead Guard", "path": "res://assets/enemies/keep/undead_guard.png"},
+		{"name": "Ruined Keep Veteran Bandit", "path": "res://assets/enemies/keep/bandit.png"},
+		{"name": "Ruined Keep Veteran Cultist", "path": "res://assets/enemies/keep/cultist.png"},
+		{"name": "Ruined Keep Ancient Animated Armor", "path": "res://assets/enemies/keep/animated_armor.png"},
+	]
+	for promoted_case in promoted_keep_sprite_cases:
+		var promoted_keep_name := String(promoted_case["name"])
+		var promoted_keep_path := String(promoted_case["path"])
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(promoted_keep_name).has(promoted_keep_path),
+			"Expected promoted Keep name %s to reuse %s." % [promoted_keep_name, promoted_keep_path]
+		)
+	var ruins_sprite_cases := [
+		{"name": "Ancient Ruins Cultist", "path": "res://assets/enemies/ruins/cultist.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Ruins Animated Statue", "path": "res://assets/enemies/ruins/Animated_Statue.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Ruins Scarab", "path": "res://assets/enemies/ruins/scrarab.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Ruins Wisp", "path": "res://assets/enemies/ruins/wisp.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Ruins Minotaur", "path": "res://assets/enemies/ruins/Minotaur.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Ruins Guardian Construct", "path": "res://assets/enemies/ruins/Guardian_Construct.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Ruins Arcane Golem", "path": "res://assets/enemies/ruins/Arcane_Golem.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Ruins Runemark Sentinel", "path": "res://assets/enemies/ruins/Runemark_sentinal.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Ruins Scarab Queen", "path": "res://assets/enemies/ruins/Scarab_Queen.png", "size": Vector2(1254, 1254)},
+		{"name": "Ancient Ruins Ancient Guardian", "path": "res://assets/enemies/ruins/Ancient_Guardian.png", "size": Vector2(1312, 1199)},
+		{"name": "Ancient Ruins Sphinx", "path": "res://assets/enemies/ruins/Sphinx.png", "size": Vector2(1408, 1117)},
+		{"name": "Ancient Ruins Runic Colossus", "path": "res://assets/enemies/ruins/Runic_Collosus.png", "size": Vector2(1327, 1185)},
+		{"name": "Ancient Ruins The First Idol", "path": "res://assets/enemies/ruins/First_idol.png", "size": Vector2(1312, 1199)},
+		{"name": "Ancient Ruins Ancient Archivist", "path": "res://assets/enemies/ruins/Ancient_Archivist.png", "size": Vector2(1207, 1303)},
+	]
+	for sprite_case in ruins_sprite_cases:
+		var ruins_name: String = sprite_case["name"]
+		var ruins_path: String = sprite_case["path"]
+		var ruins_size: Vector2 = sprite_case["size"]
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(ruins_name).has(ruins_path),
+			"Expected %s to resolve to %s." % [ruins_name, ruins_path]
+		)
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_region(ruins_name, "hurt") == Rect2(Vector2.ZERO, ruins_size),
+			"Expected %s static hurt frame to use the full PNG." % ruins_name
+		)
+	var left_facing_ruins_cases := [
+		"Ancient Ruins Cultist",
+		"Ancient Ruins Animated Statue",
+		"Ancient Ruins Wisp",
+		"Ancient Ruins Minotaur",
+		"Ancient Ruins Guardian Construct",
+	]
+	for ruins_name in left_facing_ruins_cases:
+		var ruins_visual_key: String = combat_screen._combat_stage.enemy_visual_key_for(ruins_name)
+		_require(
+			bool(combat_screen._combat_stage.STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY.get(ruins_visual_key, false)),
+			"Expected %s to be flipped horizontally so it faces left toward the player." % ruins_name
+		)
+	var authored_left_ruins_cases := [
+		"Ancient Ruins Scarab",
+		"Ancient Ruins Arcane Golem",
+		"Ancient Ruins Runemark Sentinel",
+		"Ancient Ruins Scarab Queen",
+		"Ancient Ruins Ancient Guardian",
+		"Ancient Ruins Sphinx",
+		"Ancient Ruins Runic Colossus",
+		"Ancient Ruins The First Idol",
+		"Ancient Ruins Ancient Archivist",
+	]
+	for ruins_name in authored_left_ruins_cases:
+		var ruins_visual_key: String = combat_screen._combat_stage.enemy_visual_key_for(ruins_name)
+		_require(
+			not bool(combat_screen._combat_stage.STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY.get(ruins_visual_key, false)),
+			"Expected %s to keep its authored facing." % ruins_name
+		)
+	var promoted_ruins_sprite_cases := [
+		{"name": "Ancient Ruins Veteran Cultist", "path": "res://assets/enemies/ruins/cultist.png"},
+		{"name": "Ancient Ruins Ancient Animated Statue", "path": "res://assets/enemies/ruins/Animated_Statue.png"},
+		{"name": "Ancient Ruins Giant Scarab", "path": "res://assets/enemies/ruins/scrarab.png"},
+		{"name": "Ancient Ruins Ancient Wisp", "path": "res://assets/enemies/ruins/wisp.png"},
+	]
+	for promoted_case in promoted_ruins_sprite_cases:
+		var promoted_ruins_name := String(promoted_case["name"])
+		var promoted_ruins_path := String(promoted_case["path"])
+		_require(
+			combat_screen._combat_stage.expected_enemy_sprite_paths(promoted_ruins_name).has(promoted_ruins_path),
+			"Expected promoted Ruins name %s to reuse %s." % [promoted_ruins_name, promoted_ruins_path]
+		)
+	var ruins_golem_node := ContractRouteNode.new()
+	ruins_golem_node.biome = "Ancient Ruins"
+	ruins_golem_node.monster = Monster.new()
+	ruins_golem_node.monster.display_name = "Arcane Golem"
+	build_state.current_route_node = ruins_golem_node
+	_require(combat_screen._combat_stage_visual_name(ruins_golem_node.monster) == "Ancient Ruins Arcane Golem", "Expected generated Ancient Ruins Arcane Golem combat to use the biome-qualified visual lookup.")
+	_require(combat_screen._map_overlay._map_actor_visual_name(ruins_golem_node) == "Ancient Ruins Arcane Golem", "Expected generated Ancient Ruins Arcane Golem map marker to use the biome-qualified visual lookup.")
+	build_state.current_route_node = null
 	combat_screen._combat_stage.configure("Rogue", "Green Slime")
 	_require(combat_screen._combat_stage.enemy_sprite_available(), "Expected a configured Swamp enemy to show its static sprite.")
 	_require(combat_screen._combat_stage._enemy_sprite.size == Vector2(1254, 1254), "Expected static Swamp sprites to use the full PNG dimensions.")
@@ -612,6 +889,28 @@ func _check_live_pre_fight_and_win() -> void:
 	_require(combat_screen._combat_stage._enemy_sprite.flip_h, "Expected right-facing Cave Goblin King to flip toward the player.")
 	combat_screen._combat_stage.configure("Rogue", "Purple Cave Wyrm")
 	_require(combat_screen._combat_stage._enemy_sprite.flip_h, "Expected right-facing Purple Cave Wyrm to flip toward the player.")
+	var graveyard_mire_node := ContractRouteNode.new()
+	graveyard_mire_node.biome = "Graveyard"
+	graveyard_mire_node.monster = Monster.new()
+	graveyard_mire_node.monster.display_name = "Mire Knight"
+	build_state.current_route_node = graveyard_mire_node
+	_require(combat_screen._combat_stage_visual_name(graveyard_mire_node.monster) == "Graveyard Mire Knight", "Expected generated Graveyard Mire Knight combat to use the biome-qualified visual lookup.")
+	_require(combat_screen._map_overlay._map_actor_visual_name(graveyard_mire_node) == "Graveyard Mire Knight", "Expected generated Graveyard Mire Knight map marker to use the biome-qualified visual lookup.")
+	build_state.current_route_node = null
+	combat_screen._combat_stage.configure("Rogue", "Mire Knight", "Graveyard Mire Knight")
+	_require(combat_screen._combat_stage._enemy_sprite.flip_h, "Expected Graveyard Mire Knight to flip toward the player.")
+	var keep_rat_node := ContractRouteNode.new()
+	keep_rat_node.biome = "Ruined Keep"
+	keep_rat_node.monster = Monster.new()
+	keep_rat_node.monster.display_name = "Giant Rat"
+	build_state.current_route_node = keep_rat_node
+	_require(combat_screen._combat_stage_visual_name(keep_rat_node.monster) == "Ruined Keep Giant Rat", "Expected generated Ruined Keep Giant Rat combat to use the biome-qualified visual lookup.")
+	_require(combat_screen._map_overlay._map_actor_visual_name(keep_rat_node) == "Ruined Keep Giant Rat", "Expected generated Ruined Keep Giant Rat map marker to use the biome-qualified visual lookup.")
+	build_state.current_route_node = null
+	_require(
+		combat_screen._combat_stage.expected_enemy_sprite_paths("Ruined Keep Giant Rat").has("res://assets/enemies/keep/rat.png"),
+		"Expected Ruined Keep Giant Rat to use Keep rat art instead of Graveyard Giant Rat art."
+	)
 	_require(
 		combat_screen._combat_stage.player_sprite_available() == ResourceLoader.exists("res://assets/placeholder_combat_sprites/rogue_bandit/animations/idle/frames/frame_001.png"),
 		"Expected Rogue sprite availability to match whether the imported normalized idle frame exists."
@@ -636,6 +935,10 @@ func _check_live_pre_fight_and_win() -> void:
 	await process_frame
 	_require(not combat_screen._victory_overlay.visible, "Expected skipped wins to keep the result overlay hidden during the victory pose beat.")
 	_require(combat_screen._combat_stage.outcome_pose == "victory", "Expected skipped wins to enter the enemy defeat pose before the overlay.")
+	_require(
+		combat_screen._combat_stage.enemy_actor_anchor.position == combat_screen._combat_stage._enemy_base_position,
+		"Expected skipped wins to keep the defeated enemy anchored instead of dropping toward the macro bar."
+	)
 	var defeated_enemy_position: Vector2 = combat_screen._combat_stage.enemy_actor_anchor.position
 	combat_screen._combat_stage._layout_stage()
 	_require(
@@ -749,7 +1052,7 @@ func _indicator_ids(indicators: Array) -> PackedStringArray:
 	return ids
 
 
-func _has_effect_chip(row: HBoxContainer, effect_id: String, icon_texture: Texture2D, text: String) -> bool:
+func _has_effect_chip(row: Container, effect_id: String, icon_texture: Texture2D, text: String) -> bool:
 	for child in row.get_children():
 		var icon := child.get_node_or_null("Icon") as TextureRect
 		if icon != null and icon.texture == icon_texture and _status_chip_text(child) == text and child.get_meta("effect_id", "") == effect_id:
@@ -757,7 +1060,7 @@ func _has_effect_chip(row: HBoxContainer, effect_id: String, icon_texture: Textu
 	return false
 
 
-func _effect_row_text(row: HBoxContainer) -> String:
+func _effect_row_text(row: Container) -> String:
 	var parts := PackedStringArray()
 	for child in row.get_children():
 		parts.append(_status_chip_text(child))
@@ -765,7 +1068,7 @@ func _effect_row_text(row: HBoxContainer) -> String:
 	return " ".join(parts).to_lower()
 
 
-func _has_status_chip(row: HBoxContainer, icon_texture: Texture2D, text: String) -> bool:
+func _has_status_chip(row: Container, icon_texture: Texture2D, text: String) -> bool:
 	for child in row.get_children():
 		var icon := child.get_node_or_null("Icon") as TextureRect
 		if icon != null and icon.texture == icon_texture and _status_chip_text(child) == text:
@@ -773,7 +1076,7 @@ func _has_status_chip(row: HBoxContainer, icon_texture: Texture2D, text: String)
 	return false
 
 
-func _has_status_chip_with_icon(row: HBoxContainer, icon_texture: Texture2D) -> bool:
+func _has_status_chip_with_icon(row: Container, icon_texture: Texture2D) -> bool:
 	for child in row.get_children():
 		var icon := child.get_node_or_null("Icon") as TextureRect
 		if icon != null and icon.texture == icon_texture:
@@ -781,7 +1084,7 @@ func _has_status_chip_with_icon(row: HBoxContainer, icon_texture: Texture2D) -> 
 	return false
 
 
-func _status_chip_font_size(row: HBoxContainer, icon_texture: Texture2D) -> int:
+func _status_chip_font_size(row: Container, icon_texture: Texture2D) -> int:
 	for child in row.get_children():
 		var icon := child.get_node_or_null("Icon") as TextureRect
 		var label := child.get_node_or_null("Text") as Label

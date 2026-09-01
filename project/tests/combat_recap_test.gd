@@ -371,7 +371,7 @@ func _check_live_win_recap() -> void:
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
 	build_state.choose_current_tavern_encounter()
-	# Quick Cut alone (Thief's tree unlock, no talents needed) casts every
+	# Quick Cut alone (Bladedancer's tree unlock, no talents needed) casts every
 	# 850ms for 12 damage -- roughly 14 casts in the Mouthy Drunk opener's
 	# 12s window, ~168 baseline damage before any crits, comfortably above
 	# the 150 HP needed regardless of this fight's deterministic crit rolls.

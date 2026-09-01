@@ -233,6 +233,9 @@ func _skill_augment_description(augment: SkillAugment) -> String:
 		elif effect is StackScalingPhysicalDamageEffect:
 			var stack_effect: StackScalingPhysicalDamageEffect = effect
 			effect_names.append("+%.0f damage per poison stack" % stack_effect.damage_per_stack)
+		elif effect is StealGoldOnCritEffect:
+			var steal_effect: StealGoldOnCritEffect = effect
+			effect_names.append("crits steal %dg" % steal_effect.amount)
 	if target_names.is_empty() or effect_names.is_empty():
 		return "Enhances selected skills"
 	return "%s gain %s" % [", ".join(target_names), ", ".join(effect_names)]

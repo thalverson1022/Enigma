@@ -17,6 +17,15 @@ const HUD_RESISTANCE_ICON := preload("res://assets/combat_ui_icons/resistance.pn
 const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
 const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
 const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
+const MECHANIC_DODGE_ICON := preload("res://assets/ui/icons/mechanics/dodge.png")
+const MECHANIC_CRIT_NEGATION_ICON := preload("res://assets/ui/icons/mechanics/crit_negation.png")
+const MECHANIC_BLOCK_ICON := preload("res://assets/ui/icons/mechanics/block.png")
+const MECHANIC_ABSORB_ICON := preload("res://assets/ui/icons/mechanics/absorb.png")
+const MECHANIC_CLEANSE_ICON := preload("res://assets/ui/icons/mechanics/cleanse.png")
+const MECHANIC_SUPPRESS_ICON := preload("res://assets/ui/icons/mechanics/suppress.png")
+const MECHANIC_SLOW_ICON := preload("res://assets/ui/icons/mechanics/slow.png")
+const MECHANIC_STUN_ICON := preload("res://assets/ui/icons/mechanics/stun.png")
+const MECHANIC_INTERRUPT_ICON := preload("res://assets/ui/icons/mechanics/interrupt.png")
 
 var _failed := false
 var _finished_count := 0
@@ -59,6 +68,8 @@ func _initialize() -> void:
 	_check_legendary_proc_popup_highlight(view)
 	await process_frame
 	_check_crit_popup_highlight(view)
+	await process_frame
+	_check_steal_crit_popup_shows_gold(view)
 	await process_frame
 	_check_crit_negation_popup(view)
 	await process_frame
@@ -104,10 +115,56 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	_require(view._controls_row.find_child("TimeLabel", true, false) == null, "Expected Practice Room to remove the old tiny onscreen playback timer.")
 	_require(view._speed_buttons[0].disabled, "Expected Practice Room 1x playback speed to be selected by default.")
 	_require(view._status_row.alignment == BoxContainer.ALIGNMENT_END, "Expected Practice Room status chips to align to the right like Adventure.")
+	_require(view._mechanic_row.get_parent().name == "CombatHudLane", "Expected Practice Room mechanic icons to live in the combat area HUD lane.")
+	_require(view._mechanic_row.get_index() < view._status_row.get_index(), "Expected mechanic icons between the value row and stack row.")
+	_require(view._mechanic_row.offset_top >= 80.0, "Expected Practice Room mechanic icon row to sit below the top values row without overlap.")
+	_require(view._status_row.offset_top >= view._mechanic_row.offset_bottom + 12.0, "Expected Practice Room stack row to sit below the mechanic icon row without overlap.")
+	_require(view._combat_stage.safe_top_px >= view.HUD_TOP_LANE_HEIGHT - 16.0, "Expected Practice Room actor safe area to account for the taller HUD stack.")
+	_require(view._mechanic_row.get_child_count() == 8, "Expected Practice Room to always show every target mechanic icon.")
+	_require(
+		_mechanic_chip_ids(view._mechanic_row)
+		== PackedStringArray(["block", "dodge_chance", "crit_negation", "absorb", "suppress", "slow", "cleanse_threshold", "stun_duration_ms"]),
+		"Expected Practice Room mechanic row order: Block, Dodge, Crit Negation, Absorb, Suppress, Slow, Cleanse, Stun."
+	)
+	_require(_has_chip(view._mechanic_row, MECHANIC_DODGE_ICON, "0%"), "Expected Dodge icon to be visible at 0%.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_CRIT_NEGATION_ICON, "0%"), "Expected Crit Negate icon to be visible at 0%.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_BLOCK_ICON, "0"), "Expected Block icon to be visible at 0.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_ABSORB_ICON, "0"), "Expected Absorb icon to be visible at 0.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_CLEANSE_ICON, "0"), "Expected Cleanse icon to be visible at 0.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_SUPPRESS_ICON, "0%"), "Expected Suppress icon to be visible at 0%.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_SLOW_ICON, "0%"), "Expected Slow icon to be visible at 0%.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_STUN_ICON, "0s"), "Expected Stun icon to be visible at 0s.")
 	var initial_chips: PackedStringArray = []
 	for child in view._status_row.get_children():
 		initial_chips.append(_status_chip_text(child))
-	_require(initial_chips == PackedStringArray(["x0", "x0", "x0"]), "Expected initial Practice Room poison/Shred/Decay chips to be visible at x0.")
+	_require(initial_chips == PackedStringArray(["x0", "x0", "x0", "0/0"]), "Expected initial Practice Room poison/Shred/Decay/Interrupt chips to be visible at zero.")
+	_require(_has_chip(view._status_row, MECHANIC_INTERRUPT_ICON, "0/0"), "Expected Interrupt stack chip to be visible at 0/0 when disabled.")
+
+	var preview_monster := Monster.new()
+	preview_monster.display_name = "Preview Dummy"
+	preview_monster.armor = 18
+	preview_monster.poison_resistance = 0.25
+	preview_monster.dodge_chance = 0.35
+	preview_monster.crit_negation = 0.45
+	preview_monster.block = 7.0
+	preview_monster.absorb = 5.0
+	preview_monster.cleanse_threshold = 4
+	preview_monster.suppress = 0.2
+	preview_monster.slow = 0.15
+	preview_monster.stun_duration_ms = 350
+	preview_monster.interrupt_skip_count = 1
+	view.set_target_preview(preview_monster)
+	_require(view._info_label.text == "18", "Expected target preview edits to update Practice Room armor.")
+	_require(view._resist_label.text == "25%", "Expected target preview edits to update Practice Room resistance.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_DODGE_ICON, "35%"), "Expected Dodge preview value to update in the combat area.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_CRIT_NEGATION_ICON, "45%"), "Expected Crit Negate preview value to update in the combat area.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_BLOCK_ICON, "7"), "Expected Block preview value to update in the combat area.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_ABSORB_ICON, "5"), "Expected Absorb preview value to update in the combat area.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_CLEANSE_ICON, "4"), "Expected Cleanse preview value to update in the combat area.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_SUPPRESS_ICON, "20%"), "Expected Suppress preview value to update in the combat area.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_SLOW_ICON, "15%"), "Expected Slow preview value to update in the combat area.")
+	_require(_has_chip(view._mechanic_row, MECHANIC_STUN_ICON, "0.3s"), "Expected Stun preview value to update in the combat area.")
+	_require(_has_chip(view._status_row, MECHANIC_INTERRUPT_ICON, "0/3"), "Expected enabled Interrupt to use the Adventure-style repeat counter.")
 
 
 func _check_custom_named_practice_target_keeps_dummy_sprite(view: TrainingRoomCombatView) -> void:
@@ -382,6 +439,7 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 	var has_poison_icon := false
 	var has_shred_icon := false
 	var has_decay_icon := false
+	var has_interrupt_chip := false
 	for child in view._status_row.get_children():
 		var icon := child.get_node_or_null("Icon") as TextureRect
 		var text := _status_chip_text(child)
@@ -394,9 +452,12 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 		if icon != null and icon.texture == HUD_DECAY_ICON and text == "x%d" % view._decay_stacks:
 			has_decay_chip = true
 			has_decay_icon = true
+		if icon != null and icon.texture == MECHANIC_INTERRUPT_ICON and text == "0/0":
+			has_interrupt_chip = true
 	_require(has_poison_chip, "Poison chip should stay visible even at x0.")
 	_require(has_shred_chip, "Expected a Shred stack chip.")
 	_require(has_decay_chip, "Expected a Decay stack chip.")
+	_require(has_interrupt_chip, "Expected Interrupt chip to stay visible at 0/0 when the target has no Interrupt.")
 	_require(has_poison_icon, "Poison stack chip should use the selected skull icon.")
 	_require(has_shred_icon, "Shred chip should use the selected rogue icon.")
 	_require(has_decay_icon, "Decay chip should use the selected mage icon.")
@@ -445,13 +506,30 @@ func _status_chip_text(chip: Node) -> String:
 	return ""
 
 
-func _status_chip_font_size(row: HBoxContainer, icon_texture: Texture2D) -> int:
+func _status_chip_font_size(row: Container, icon_texture: Texture2D) -> int:
 	for child in row.get_children():
 		var icon := child.get_node_or_null("Icon") as TextureRect
 		var label := child.get_node_or_null("Text") as Label
 		if icon != null and icon.texture == icon_texture and label != null:
 			return label.get_theme_font_size("font_size")
 	return 0
+
+
+func _has_chip(row: Container, icon_texture: Texture2D, text: String) -> bool:
+	for child in row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		if icon == null or icon.texture != icon_texture:
+			continue
+		if _status_chip_text(child) == text:
+			return true
+	return false
+
+
+func _mechanic_chip_ids(row: Container) -> PackedStringArray:
+	var ids := PackedStringArray()
+	for child in row.get_children():
+		ids.append(String(child.get_meta("effect_id", "")))
+	return ids
 
 
 ## Independently replays the same merged cast/tick timeline
@@ -700,6 +778,41 @@ func _check_crit_popup_highlight(view: TrainingRoomCombatView) -> void:
 				found_gold_crit_popup = true
 	print("found a gold larger crit popup without literal CRIT text (expect true): %s" % found_gold_crit_popup)
 	_require(found_gold_crit_popup, "Expected at least one gold, larger crit popup using color/size/font instead of literal 'CRIT' text.")
+
+
+func _check_steal_crit_popup_shows_gold(view: TrainingRoomCombatView) -> void:
+	print("-- Steal crit popup shows damage, gold icon, and stolen gold --")
+	var steal: Skill = load("res://data/skills/steal.tres")
+	var rotation: Array[Skill] = [steal]
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 1.0
+	player.crit_multiplier = 2.0
+	player.gold_reward_multiplier = 1.2
+	var monster := Monster.new()
+	monster.display_name = "Coin Dummy"
+	monster.hp = 100000
+	var result := CombatResolver.resolve(rotation, player, monster, 1300, 1)
+	_require(result.gold_stolen == 6, "Test setup error: expected Steal to steal 6 gold.")
+
+	var callback_state := {"gold": 0}
+	view.gold_stolen_callback = func(amount: int): callback_state["gold"] = int(callback_state["gold"]) + amount
+	view.play(result, monster)
+	var found_gold_hit_popup := false
+	for child in view._popup_layer.get_children():
+		if child.name != "GoldHitPopup":
+			continue
+		var icon := child.get_node_or_null("GoldIcon")
+		var labels: Array[Label] = []
+		for grandchild in child.get_children():
+			if grandchild is Label:
+				labels.append(grandchild)
+		if icon != null and icon.custom_minimum_size == view.GOLD_POPUP_ICON_SIZE and labels.size() >= 2 and labels[0].text == "Steal 38.0!" and labels[1].text == "6":
+			found_gold_hit_popup = true
+	print("found Steal gold-hit popup (expect true): %s" % found_gold_hit_popup)
+	_require(found_gold_hit_popup, "Expected Steal crit popup to include damage text, gold icon, and stolen gold value.")
+	_require(int(callback_state["gold"]) == 6, "Expected Steal playback to report stolen gold when the popup event plays.")
+	view.gold_stolen_callback = Callable()
 
 
 func _check_crit_negation_popup(view: TrainingRoomCombatView) -> void:

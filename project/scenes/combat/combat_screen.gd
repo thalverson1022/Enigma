@@ -35,6 +35,7 @@ const REWARD_CHOICE_OVERLAY_SCENE := preload("res://scenes/combat/reward_choice_
 const SHOP_OVERLAY_SCENE := preload("res://scenes/combat/shop_overlay.tscn")
 const CONTRACT_OVERLAY_SCENE := preload("res://scenes/combat/contract_overlay.tscn")
 const MAP_OVERLAY_SCENE := preload("res://scenes/combat/map_overlay.tscn")
+const MONSTER_MANUAL_OVERLAY_SCENE := preload("res://scenes/combat/monster_manual_overlay.tscn")
 const COMBAT_STAGE_SCRIPT := preload("res://scripts/ui/combat_stage.gd")
 const COMBAT_STATUS_ICONS := preload("res://scripts/ui/combat_status_icons.gd")
 const TAVERN_FIREPLACE_GLOW_OVERLAY_SCRIPT := preload("res://scripts/ui/tavern_fireplace_glow_overlay.gd")
@@ -58,6 +59,7 @@ const MECHANIC_SLOW_ICON := preload("res://assets/ui/icons/mechanics/slow.png")
 const MECHANIC_STUN_ICON := preload("res://assets/ui/icons/mechanics/stun.png")
 const MECHANIC_INTERRUPT_ICON := preload("res://assets/ui/icons/mechanics/interrupt.png")
 const UI_MAP_ICON := preload("res://assets/ui/icons/map.png")
+const UI_MONSTER_MANUAL_ICON := preload("res://assets/ui/icons/monster_manual.png")
 const UI_GOLD_ICON := preload("res://assets/ui/icons/gold.png")
 const UI_CLOCK_ICON_PATH := "res://assets/ui/icons/clock.png"
 const UI_SAVE_QUIT_ICON_PATH := "res://assets/ui/icons/save_quit_inventory.png"
@@ -69,6 +71,9 @@ const FIGHT_TIMER_FONT_SIZE := 26
 const FIGHT_TIMER_BADGE_SIZE := Vector2(112, 46)
 const TOP_ACTION_BUTTON_SIZE := Vector2(56, 56)
 const SETTINGS_BUTTON_RESERVED_WIDTH := 50.0
+const TOP_BAR_CHROME_Z_INDEX := 900
+const MAP_OVERLAY_Z_INDEX := TOP_BAR_CHROME_Z_INDEX + 10
+const TOP_MODAL_OVERLAY_Z_INDEX := MAP_OVERLAY_Z_INDEX + 20
 
 const SIDE_COLUMN_WIDTH := 300
 const SCREEN_MARGIN := 16
@@ -184,11 +189,13 @@ var _next_action_label: Label
 var _view_log_button: Button
 var _fight_button_row: HBoxContainer
 var _map_button: Button
+var _monster_manual_button: Button
 var _retry_button: Button
 var _restart_adventure_button: Button
 var _combat_content: VBoxContainer
 var _log_overlay
 var _map_overlay
+var _monster_manual_overlay
 var _talent_overlay
 var _story_overlay
 var _contract_overlay
@@ -215,8 +222,8 @@ var _fight_timer_label: Label
 var _hud_name_label: Label
 var _hud_hp_text_label: Label
 var _hud_health_bar: ProgressBar
-var _hud_effect_row: HBoxContainer
-var _hud_status_row: HBoxContainer
+var _hud_effect_row: FlowContainer
+var _hud_status_row: FlowContainer
 var _hud_info_label: Label
 var _hud_resist_label: Label
 ## Combat resolves synchronously in one CombatResolver.resolve() call, so
@@ -245,6 +252,8 @@ var instant_playback: bool = DisplayServer.get_name() == "headless"
 ## mirrored by _playback_presenter. See combat_playback_presenter.gd's
 ## header for the full rationale.
 var _playback_active := false
+var _playback_contract_traversal_active := false
+var _contract_route_player_entered := false
 var _playback_presenter: CombatPlaybackPresenter
 var _playback_controls: PlaybackControls
 var hud_status_chip_flash_count := 0
@@ -325,6 +334,8 @@ func _ready() -> void:
 	# Every field still reads BuildState only and refreshes off BuildState's
 	# existing signals (build_changed/run_state_changed/lock_changed).
 	var top_bar := HBoxContainer.new()
+	top_bar.name = "TopActionBar"
+	top_bar.z_index = TOP_BAR_CHROME_Z_INDEX
 	top_bar.add_theme_constant_override("separation", 20)
 
 	_phase_label = Label.new()
@@ -346,6 +357,10 @@ func _ready() -> void:
 	_configure_top_icon_button(_map_button, "MapButton", UI_MAP_ICON, "Map")
 	_map_button.pressed.connect(_on_map_button_pressed)
 	top_bar.add_child(_map_button)
+	_monster_manual_button = Button.new()
+	_configure_top_icon_button(_monster_manual_button, "MonsterManualButton", UI_MONSTER_MANUAL_ICON, "Monster Manual")
+	_monster_manual_button.pressed.connect(_on_monster_manual_pressed)
+	top_bar.add_child(_monster_manual_button)
 	var save_quit_button := Button.new()
 	_configure_top_icon_button(save_quit_button, "SaveQuitButton", _icon_texture_from_path(UI_SAVE_QUIT_ICON_PATH), "Save & Quit")
 	save_quit_button.pressed.connect(_on_save_and_quit_pressed)
@@ -401,6 +416,7 @@ func _ready() -> void:
 	_playback_presenter.set_popup_layer(_popup_layer)
 	_playback_presenter.set_hud_widgets(_hud_hp_text_label, _hud_health_bar, _hud_info_label, _hud_resist_label, _clear_hud_status_chips, _add_hud_status_chip, _flash_hud_status_chips)
 	_playback_presenter.finished.connect(_on_playback_finished)
+	_playback_presenter.gold_stolen_played.connect(BuildState.record_combat_stolen_gold)
 	add_child(_playback_presenter)
 
 	# Right column: Enemy Stats over Gear.
@@ -451,9 +467,14 @@ func _ready() -> void:
 	_map_overlay.contract_back_requested.connect(_on_contract_back_requested)
 	_map_overlay.route_node_pressed.connect(_on_contract_route_node_pressed)
 	add_child(_map_overlay)
+	_map_overlay.z_index = MAP_OVERLAY_Z_INDEX
+	_monster_manual_overlay = MONSTER_MANUAL_OVERLAY_SCENE.instantiate()
+	add_child(_monster_manual_overlay)
+	_monster_manual_overlay.z_index = TOP_MODAL_OVERLAY_Z_INDEX
 	_talent_overlay = TALENT_OVERLAY_SCENE.instantiate()
 	_talent_overlay.secondary_tree_chosen.connect(_on_talent_secondary_tree_chosen)
 	add_child(_talent_overlay)
+	_talent_overlay.z_index = TOP_MODAL_OVERLAY_Z_INDEX
 	_story_overlay = STORY_OVERLAY_SCENE.instantiate()
 	_story_overlay.proceed_pressed.connect(_on_intro_story_proceed_pressed)
 	add_child(_story_overlay)
@@ -466,6 +487,7 @@ func _ready() -> void:
 	add_child(_secondary_subclass_overlay)
 	_log_overlay = LOG_OVERLAY_SCENE.instantiate()
 	add_child(_log_overlay)
+	_log_overlay.z_index = TOP_MODAL_OVERLAY_Z_INDEX
 	_log_overlay.set_run_history(BuildState.run_encounter_history)
 	BuildState.build_changed.connect(_on_build_state_changed)
 	BuildState.run_state_changed.connect(_on_run_state_changed)
@@ -844,11 +866,6 @@ func _build_enemy_hud() -> VBoxContainer:
 	_hud_resist_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	values_row.add_child(_hud_resist_label)
 
-	_hud_effect_row = HBoxContainer.new()
-	_hud_effect_row.name = "EnemyEffectRow"
-	_hud_effect_row.alignment = BoxContainer.ALIGNMENT_END
-	_hud_effect_row.add_theme_constant_override("separation", 10)
-	values_row.add_child(_hud_effect_row)
 	_enemy_hud.add_child(name_row)
 
 	_hud_health_bar = ProgressBar.new()
@@ -887,11 +904,21 @@ func _build_enemy_hud() -> VBoxContainer:
 	_hud_health_bar.add_child(bar_depth_overlay)
 	_enemy_hud.add_child(_hud_health_bar)
 
-	_hud_status_row = HBoxContainer.new()
-	_hud_status_row.alignment = BoxContainer.ALIGNMENT_END
+	_hud_effect_row = FlowContainer.new()
+	_hud_effect_row.name = "EnemyEffectRow"
+	_hud_effect_row.alignment = FlowContainer.ALIGNMENT_END
+	_hud_effect_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hud_effect_row.custom_minimum_size = Vector2(0, 24)
+	_hud_effect_row.add_theme_constant_override("h_separation", 8)
+	_hud_effect_row.add_theme_constant_override("v_separation", 2)
+	_enemy_hud.add_child(_hud_effect_row)
+
+	_hud_status_row = FlowContainer.new()
+	_hud_status_row.alignment = FlowContainer.ALIGNMENT_END
 	_hud_status_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hud_status_row.custom_minimum_size = Vector2(0, 26)
-	_hud_status_row.add_theme_constant_override("separation", 10)
+	_hud_status_row.add_theme_constant_override("h_separation", 8)
+	_hud_status_row.add_theme_constant_override("v_separation", 2)
 	_enemy_hud.add_child(_hud_status_row)
 	return _enemy_hud
 
@@ -936,6 +963,8 @@ func _refresh_enemy_hud() -> void:
 	_enemy_hud.visible = true
 	_refresh_fight_timer_badge()
 	_update_combat_stage_target(enemy)
+	if _combat_stage != null and _should_stage_generated_contract_enemy_only():
+		_combat_stage.show_enemy_waiting_for_player()
 
 
 ## The monster the HUD should show before a fight, or null when the current
@@ -1106,7 +1135,7 @@ func _flash_hud_status_chips() -> void:
 	_flash_status_chip_row(_hud_status_row)
 
 
-func _flash_status_chip_row(row: HBoxContainer) -> void:
+func _flash_status_chip_row(row: Container) -> void:
 	if row == null:
 		return
 	for child in row.get_children():
@@ -1176,6 +1205,24 @@ func _combat_stage_visual_name(monster: Monster) -> String:
 	if CombatStage.enemy_visual_key_for(biome_name) != "":
 		return biome_name
 	return monster.display_name
+
+
+func _should_use_contract_traversal_animation() -> bool:
+	return (
+		BuildState.is_contract_fight_active()
+		and BuildState.active_contract != null
+		and BuildState.active_contract.has_generated_route_state()
+	)
+
+
+func _should_stage_generated_contract_enemy_only() -> bool:
+	return (
+		_should_use_contract_traversal_animation()
+		and BuildState.run_phase == BuildState.RunPhase.PLANNING
+		and not _playback_active
+		and _hud_result == null
+		and not _contract_route_player_entered
+	)
 
 
 ## Enemy HP left after the resolved fight, clamped to [0, monster.hp] --
@@ -1541,7 +1588,7 @@ func _biggest_hit_text(summary: Dictionary) -> String:
 
 
 ## Physical (direct cast damage) vs. poison (tick damage) split, both as raw
-## amounts and as a share of total damage -- Rogue's Assassin/Thief/Shadow
+## amounts and as a share of total damage -- Rogue's Assassin/Bladedancer/Shadow/Thief
 ## identity hinges on this split per the Phase 1 reference docs.
 func _damage_split_text(summary: Dictionary) -> String:
 	return "Physical: %.0f (%.0f%%) / Poison: %.0f (%.0f%%)" % [
@@ -1778,23 +1825,32 @@ func _is_awaiting_contract_choice() -> bool:
 
 
 func _show_contract_offer_overlay() -> void:
-	if _pending_contract_offers_are_generated_only():
+	if _should_show_contract_intro_before_generated_offers():
+		_contract_overlay.show_greeting()
+	elif BuildState.pending_contract_offers.size() > 1:
 		_contract_overlay.show_offer_choice()
 	else:
 		_contract_overlay.show_greeting()
 
 
-func _pending_contract_offers_are_generated_only() -> bool:
-	if BuildState.pending_contract_offers.is_empty():
-		return false
-	for offer in BuildState.pending_contract_offers:
-		if offer == null or not offer.has_generated_route_state():
-			return false
-	return true
+func _should_show_contract_intro_before_generated_offers() -> bool:
+	return (
+		BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER
+		and BuildState.active_contract != null
+		and BuildState.active_contract.has_generated_route_state()
+		and BuildState.completed_contract_count == 0
+		and BuildState.contract_offer_index == 0
+		and BuildState.current_encounter_index == RunFlow.tavern_encounter_count() - 1
+	)
 
 
 func _on_map_button_pressed() -> void:
 	_show_map_overlay(true)
+
+
+func _on_monster_manual_pressed() -> void:
+	if _monster_manual_overlay != null:
+		_monster_manual_overlay.show_manual()
 
 
 func _show_map_overlay(manual_open: bool = false) -> void:
@@ -1845,18 +1901,28 @@ func _on_contract_route_node_pressed(node: ContractRouteNode) -> void:
 		_map_overlay.close()
 		_status_label.visible = false
 		_recap_label.visible = false
+		_contract_route_player_entered = false
 		_reset_enemy_hud()
+		if _combat_stage != null and _should_use_contract_traversal_animation():
+			_contract_route_player_entered = true
+			var run_in_sec: float = _combat_stage.play_player_run_in(not instant_playback)
+			if run_in_sec > 0.0:
+				AudioManager.play_footsteps_sfx(run_in_sec)
 		_status_label.text = FLOW_TEXT.selected_route_status(node.display_name)
 		_autosave()
 
 
 func _on_contract_back_requested() -> void:
 	if BuildState.return_to_contract_offer():
+		_contract_route_player_entered = false
 		_map_overlay.close()
 		_status_label.visible = false
 		_recap_label.visible = false
 		_reset_enemy_hud()
-		_show_contract_offer_overlay()
+		if BuildState.pending_contract_offers.size() > 1:
+			_contract_overlay.show_offer_choice()
+		else:
+			_show_contract_offer_overlay()
 		_autosave()
 
 
@@ -1866,6 +1932,7 @@ func _on_contract_back_requested() -> void:
 ## stays on PITCH, since only a success path hides it.
 func _on_contract_accept_requested(contract_id: String = "") -> void:
 	if BuildState.accept_contract_offer(contract_id):
+		_contract_route_player_entered = false
 		_contract_overlay.visible = false
 		if _is_awaiting_contract_choice():
 			_contract_overlay.show_contract_choice()
@@ -1880,6 +1947,7 @@ func _on_contract_accept_requested(contract_id: String = "") -> void:
 ## contract_overlay.gd's VYRA_DETAIL step: the contract is accepted, so hand
 ## the player to the (unchanged) interactive route schematic.
 func _on_contract_route_requested() -> void:
+	_contract_route_player_entered = false
 	_contract_overlay.visible = false
 	_status_label.visible = false
 	_recap_label.visible = false
@@ -1961,6 +2029,8 @@ func _on_build_state_changed() -> void:
 	if _shop_overlay != null and _shop_overlay.visible:
 		_shop_overlay.refresh()
 	_update_header_status()
+	if _playback_active:
+		return
 	_refresh_enemy_hud()
 	_update_combat_background()
 
@@ -1969,6 +2039,8 @@ func _on_run_state_changed() -> void:
 	if _map_overlay != null:
 		_map_overlay.refresh()
 	_update_header_status()
+	if _playback_active:
+		return
 	_refresh_enemy_hud()
 	_update_combat_background()
 
@@ -2008,7 +2080,7 @@ func _on_fight_pressed() -> void:
 	if not BuildState.start_fight():
 		return
 	if _map_overlay != null:
-		_map_overlay.visible = false
+		_map_overlay.close()
 	var stats := BuildResolver.resolve_stats(
 		BuildState.selected_class, BuildState.selected_trees, BuildState.selected_talents, BuildState.equipped_gear(), BuildState.gold
 	)
@@ -2017,10 +2089,14 @@ func _on_fight_pressed() -> void:
 	var monster: Monster = _enemy_panel.monster()
 	var duration_ms: int = _enemy_panel.duration_ms()
 	var result: CombatResolver.CombatResult = CombatResolver.resolve(rotation, stats, monster, duration_ms, BuildState.current_combat_rng_seed())
+	if instant_playback and result.gold_stolen > 0:
+		BuildState.record_combat_stolen_gold(result.gold_stolen)
 	BuildState.record_fight_result(result, monster)
 	_log_overlay.set_result(result, monster, CombatResultFormatter.format(result, monster))
 	_log_overlay.set_run_history(BuildState.run_encounter_history)
 	if not instant_playback:
+		_playback_contract_traversal_active = _should_use_contract_traversal_animation()
+		_contract_route_player_entered = false
 		# Real-time playback path (user-requested combat-playback addition):
 		# every state mutation below is IDENTICAL to instant mode and happens
 		# right now -- finish_fight() advances the run state machine exactly
@@ -2137,7 +2213,8 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 		monster,
 		_equipped_gear_has_id("gear.legendary.wyvern_kriss"),
 		_combat_stage != null and _equipped_gear_has_id(_combat_stage.BANDIT_BLADE_ID),
-		not instant_playback
+		not instant_playback and not _playback_contract_traversal_active,
+		false
 	)
 	# Session-persistent speed (adjustment round 2, 2026-07-19): initialize
 	# from the last speed the player chose instead of always defaulting back
@@ -2206,7 +2283,7 @@ func _on_playback_finished(result: CombatResolver.CombatResult, monster: Monster
 	# result -- the same rendering the instant path uses.
 	_show_enemy_hud_post_fight(result, monster)
 	if _combat_stage != null:
-		var should_animate_outcome := not instant_playback
+		var should_animate_outcome := not instant_playback and (not was_skipped or not result.is_win)
 		_combat_stage.play_outcome_pose(result.is_win, should_animate_outcome)
 	# Brief pause so the last popup's float+fade finishes before the outcome
 	# reveal pops in on top of it (adjustment round 1). Skip cuts the attack
@@ -2217,11 +2294,21 @@ func _on_playback_finished(result: CombatResolver.CombatResult, monster: Monster
 		if not result.is_win and _combat_stage != null and _combat_stage.has_method("player_defeat_animation_duration_sec"):
 			reveal_delay_sec = maxf(reveal_delay_sec, _combat_stage.player_defeat_animation_duration_sec() + PLAYER_DEFEAT_POSE_HOLD_SEC)
 		await get_tree().create_timer(reveal_delay_sec).timeout
+	if result.is_win and _playback_contract_traversal_active and _combat_stage != null:
+		var run_out_sec: float = _combat_stage.play_player_run_out(not instant_playback and not was_skipped)
+		if run_out_sec > 0.0:
+			AudioManager.play_footsteps_sfx(run_out_sec)
+			await get_tree().create_timer(run_out_sec).timeout
+	_playback_contract_traversal_active = false
+	var stole_gold_during_playback := BuildState.combat_stolen_gold > 0
+	BuildState.clear_combat_stolen_gold()
 	_reveal_fight_outcome(result, monster)
 	if _enemy_panel != null and _enemy_panel.has_method("clear_presented_target"):
 		_enemy_panel.clear_presented_target()
 	_map_button.disabled = false
 	_update_header_status()
+	if stole_gold_during_playback:
+		_autosave()
 
 
 func _on_continue_pressed() -> void:
@@ -2445,6 +2532,7 @@ func _on_retry_pressed() -> void:
 func _advance_after_reward_or_shop() -> void:
 	# The finished fight is behind us -- drop its stored HUD result so the
 	# HUD reads the next target (or hides in map/offer states).
+	_contract_route_player_entered = false
 	_reset_enemy_hud()
 	var advanced := BuildState.continue_after_win()
 	if BuildState.run_phase == BuildState.RunPhase.CONTRACT_OFFER:
@@ -2485,7 +2573,6 @@ func _update_header_status() -> void:
 			_lock_label.text = "Build: %s" % _build_lock_text()
 		if _next_action_label != null:
 			_next_action_label.text = "Next: Watch the fight play out."
-		_update_combat_background()
 		return
 	if _seed_label != null:
 		_seed_label.text = _seed_label_text()
@@ -2568,7 +2655,7 @@ func _run_phase_text() -> String:
 		BuildState.RunPhase.CONTRACT_ROUTE:
 			return FLOW_TEXT.PHASE_CONTRACT_ROUTE_CHOOSE
 		BuildState.RunPhase.RUN_ENDED:
-			if BuildState.run_outcome == BuildState.RunOutcome.CONTRACT_VICTORY or BuildState.run_outcome == BuildState.RunOutcome.FIGHT_WIN:
+			if BuildState.run_outcome == BuildState.RunOutcome.ALL_BOSSES_DEFEATED or BuildState.run_outcome == BuildState.RunOutcome.CONTRACT_VICTORY or BuildState.run_outcome == BuildState.RunOutcome.FIGHT_WIN:
 				return FLOW_TEXT.PHASE_CONTRACT_VICTORY
 			return FLOW_TEXT.PHASE_RUN_FAILED
 	return "Unknown"
@@ -2595,7 +2682,7 @@ func _next_action_text() -> String:
 			match BuildState.run_outcome:
 				BuildState.RunOutcome.CONTRACT_FAILED, BuildState.RunOutcome.ADVENTURE_RESTART_REQUIRED:
 					return FLOW_TEXT.NEXT_RESTART_ADVENTURE
-				BuildState.RunOutcome.CONTRACT_VICTORY, BuildState.RunOutcome.FIGHT_WIN:
+				BuildState.RunOutcome.ALL_BOSSES_DEFEATED, BuildState.RunOutcome.CONTRACT_VICTORY, BuildState.RunOutcome.FIGHT_WIN:
 					return FLOW_TEXT.NEXT_START_NEW_ADVENTURE
 			return FLOW_TEXT.NEXT_CHOOSE_NEXT_STEP
 		BuildState.RunPhase.RESULT:
@@ -2683,6 +2770,15 @@ func _outcome_presentation(outcome: int) -> Dictionary:
 				"CONTRACT COMPLETE",
 				CardStyle.ACCENT_COLOR,
 				"Vyra is defeated. Seed %d is preserved if you start a new Adventure." % BuildState.adventure_seed,
+				false,
+				true,
+				FLOW_TEXT.ACTION_START_NEW_ADVENTURE
+			)
+		BuildState.RunOutcome.ALL_BOSSES_DEFEATED:
+			return _make_outcome_presentation(
+				"YOU KILLED ALL BOSSES",
+				CardStyle.ACCENT_COLOR,
+				"Every boss in the Monster Manual is defeated. Seed %d is preserved if you start a new Adventure." % BuildState.adventure_seed,
 				false,
 				true,
 				FLOW_TEXT.ACTION_START_NEW_ADVENTURE

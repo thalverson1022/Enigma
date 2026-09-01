@@ -1,0 +1,1807 @@
+{
+  "project": "DawnBringer",
+  "tool": "Monster Lab",
+  "schema": "monster_lab_archetype_catalog.v1",
+  "library_name": "DawnBringer Archetypes v1",
+  "exported_at": "2026-08-10T16:36:10.108Z",
+  "archetypes": [
+    {
+      "id": "fortified",
+      "name": "Fortified",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "generic",
+        "physical"
+      ],
+      "unlock_difficulty": 1,
+      "allowed_kinds": [
+        "normal",
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 1.09,
+      "mechanicWeights": {
+        "armor": 100,
+        "crit_negation": 30,
+        "block": 40
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": true,
+          "required": true,
+          "weight": 100,
+          "min": 80,
+          "max": 120,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": true,
+          "required": false,
+          "weight": 30,
+          "min": 40,
+          "max": 60,
+          "scaling": "gentle"
+        },
+        "block": {
+          "enabled": true,
+          "required": false,
+          "weight": 40,
+          "min": 1,
+          "max": 5,
+          "scaling": "steep"
+        },
+        "poison_resistance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 16,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Fortified"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "warded",
+      "name": "Warded",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "generic",
+        "magical"
+      ],
+      "unlock_difficulty": 1,
+      "allowed_kinds": [
+        "normal",
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 1.1,
+      "mechanicWeights": {
+        "poison_resistance": 100,
+        "absorb": 20,
+        "suppress": 30
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 44,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": true,
+          "required": true,
+          "weight": 100,
+          "min": 20,
+          "max": 30,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": true,
+          "required": false,
+          "weight": 20,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": true,
+          "required": false,
+          "weight": 30,
+          "min": 20,
+          "max": 30,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Warded"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "nimble",
+      "name": "Nimble",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "annoying",
+        "physical"
+      ],
+      "unlock_difficulty": 2,
+      "allowed_kinds": [
+        "normal",
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 0.9,
+      "mechanicWeights": {
+        "dodge_chance": 100,
+        "crit_negation": 50
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 44,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": true,
+          "required": true,
+          "weight": 100,
+          "min": 10,
+          "max": 15,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": true,
+          "required": false,
+          "weight": 50,
+          "min": 50,
+          "max": 60,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 16,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Nimble"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "hexed",
+      "name": "Hexed",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "annoying",
+        "magical"
+      ],
+      "unlock_difficulty": 2,
+      "allowed_kinds": [
+        "normal",
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 0.91,
+      "mechanicWeights": {
+        "cleanse_threshold": 50,
+        "suppress": 50
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 44,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 16,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": true,
+          "required": false,
+          "weight": 50,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": true,
+          "required": false,
+          "weight": 50,
+          "min": 30,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Hexed"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "relentless",
+      "name": "Relentless",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "magical",
+        "physical"
+      ],
+      "unlock_difficulty": 3,
+      "allowed_kinds": [
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 1.23,
+      "mechanicWeights": {
+        "armor": 50,
+        "poison_resistance": 50,
+        "cleanse_threshold": 10,
+        "slow": 20
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": true,
+          "required": false,
+          "weight": 50,
+          "min": 44,
+          "max": 50,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": true,
+          "required": false,
+          "weight": 50,
+          "min": 16,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": true,
+          "required": false,
+          "weight": 20,
+          "min": 20,
+          "max": 30,
+          "scaling": "steep"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Relentless"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "unstable",
+      "name": "Unstable",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "annoying",
+        "control",
+        "magical",
+        "physical"
+      ],
+      "unlock_difficulty": 4,
+      "allowed_kinds": [
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 0.93,
+      "mechanicWeights": {
+        "armor": 10,
+        "dodge_chance": 10,
+        "crit_negation": 10,
+        "block": 10,
+        "poison_resistance": 10,
+        "absorb": 10,
+        "cleanse_threshold": 10,
+        "suppress": 10,
+        "slow": 10,
+        "stun_duration_ms": 10,
+        "interrupt_skip_count": 10
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 50,
+          "max": 60,
+          "scaling": "steep"
+        },
+        "dodge_chance": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 15,
+          "max": 30,
+          "scaling": "flat"
+        },
+        "crit_negation": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 40,
+          "max": 60,
+          "scaling": "gentle"
+        },
+        "block": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 25,
+          "max": 35,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 40,
+          "max": 60,
+          "scaling": "gentle"
+        },
+        "slow": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 20,
+          "max": 35,
+          "scaling": "gentle"
+        },
+        "stun_duration_ms": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 250,
+          "max": 450,
+          "scaling": "gentle",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": true,
+          "required": false,
+          "weight": 10,
+          "min": 1,
+          "max": 2,
+          "scaling": "gentle",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Unstable"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "devious",
+      "name": "Devious",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "control"
+      ],
+      "unlock_difficulty": 2,
+      "allowed_kinds": [
+        "normal",
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 0.9,
+      "mechanicWeights": {
+        "cleanse_threshold": 50,
+        "slow": 50,
+        "stun_duration_ms": 30,
+        "interrupt_skip_count": 20
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 44,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 16,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": true,
+          "required": false,
+          "weight": 50,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": true,
+          "required": false,
+          "weight": 50,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": true,
+          "required": false,
+          "weight": 30,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": true,
+          "required": false,
+          "weight": 20,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Devious"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "arcane",
+      "name": "Arcane",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "annoying",
+        "control"
+      ],
+      "unlock_difficulty": 3,
+      "allowed_kinds": [
+        "normal",
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 1,
+      "mechanicWeights": {
+        "stun_duration_ms": 50,
+        "interrupt_skip_count": 50
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 44,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 16,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": true,
+          "required": false,
+          "weight": 50,
+          "min": 250,
+          "max": 450,
+          "scaling": "steep",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": true,
+          "required": false,
+          "weight": 50,
+          "min": 1,
+          "max": 2,
+          "scaling": "steep",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Arcane"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "armored",
+      "name": "Armored",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "easy",
+        "physical"
+      ],
+      "unlock_difficulty": 1,
+      "allowed_kinds": [
+        "normal"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 1,
+      "mechanicWeights": {
+        "armor": 1
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": true,
+          "required": true,
+          "weight": 1,
+          "min": 60,
+          "max": 100,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 16,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Armored"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "resistant",
+      "name": "Resistant",
+      "tone": "custom enemy pressure profile",
+      "tags": [
+        "easy",
+        "magical"
+      ],
+      "unlock_difficulty": 1,
+      "allowed_kinds": [
+        "normal"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 1,
+      "mechanicWeights": {
+        "poison_resistance": 1
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 44,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": true,
+          "required": false,
+          "weight": 1,
+          "min": 30,
+          "max": 50,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Resistant"
+        ],
+        "nouns": [
+          "Monster",
+          "Threat",
+          "Enemy"
+        ]
+      }
+    },
+    {
+      "id": "aegis",
+      "name": "Aegis",
+      "tone": "shielded, braced, punishes many small weapon hits",
+      "tags": [
+        "physical",
+        "flat-reduction"
+      ],
+      "unlock_difficulty": 2,
+      "allowed_kinds": [
+        "normal",
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 1.08,
+      "mechanicWeights": {
+        "block": 100,
+        "crit_negation": 20
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 28,
+          "max": 46,
+          "scaling": "gentle"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": true,
+          "required": false,
+          "weight": 20,
+          "min": 28,
+          "max": 48,
+          "scaling": "gentle"
+        },
+        "block": {
+          "enabled": true,
+          "required": true,
+          "weight": 100,
+          "min": 4,
+          "max": 8,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 16,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Braced",
+          "Shielded",
+          "Bulwark"
+        ],
+        "nouns": [
+          "Sentinel",
+          "Guard",
+          "Gatekeeper"
+        ]
+      }
+    },
+    {
+      "id": "nullify",
+      "name": "Nullify",
+      "tone": "spell-eating, patient magical denial",
+      "tags": [
+        "magical",
+        "flat-reduction"
+      ],
+      "unlock_difficulty": 2,
+      "allowed_kinds": [
+        "normal",
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 1.05,
+      "mechanicWeights": {
+        "absorb": 100,
+        "suppress": 25
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 44,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 34,
+          "scaling": "standard"
+        },
+        "absorb": {
+          "enabled": true,
+          "required": true,
+          "weight": 100,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": true,
+          "required": false,
+          "weight": 25,
+          "min": 18,
+          "max": 34,
+          "scaling": "gentle"
+        },
+        "slow": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 18,
+          "max": 32,
+          "scaling": "standard"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Nullifying",
+          "Hollow",
+          "Dimming"
+        ],
+        "nouns": [
+          "Acolyte",
+          "Keeper",
+          "Vessel"
+        ]
+      }
+    },
+    {
+      "id": "spiteful",
+      "name": "Spiteful",
+      "tone": "debuff-hostile, toxic setup denial, controlled poison friction",
+      "tags": [
+        "debuff",
+        "magical"
+      ],
+      "unlock_difficulty": 2,
+      "allowed_kinds": [
+        "normal",
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 0.96,
+      "mechanicWeights": {
+        "cleanse_threshold": 80,
+        "suppress": 65,
+        "poison_resistance": 20,
+        "slow": 15
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 44,
+          "scaling": "standard"
+        },
+        "dodge_chance": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 10,
+          "max": 18,
+          "scaling": "standard"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": true,
+          "required": false,
+          "weight": 20,
+          "min": 14,
+          "max": 28,
+          "scaling": "gentle"
+        },
+        "absorb": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": true,
+          "required": true,
+          "weight": 80,
+          "min": 4,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": true,
+          "required": false,
+          "weight": 65,
+          "min": 22,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": true,
+          "required": false,
+          "weight": 15,
+          "min": 12,
+          "max": 24,
+          "scaling": "gentle"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Spiteful",
+          "Withering",
+          "Bitter"
+        ],
+        "nouns": [
+          "Hexbearer",
+          "Bloom",
+          "Seer"
+        ]
+      }
+    },
+    {
+      "id": "riftbound",
+      "name": "Riftbound",
+      "tone": "controlled mixed pressure, layered defenses without pure chaos",
+      "tags": [
+        "mixed",
+        "control"
+      ],
+      "unlock_difficulty": 3,
+      "allowed_kinds": [
+        "elite",
+        "boss"
+      ],
+      "route_weight": 80,
+      "base_hp_bias": 1.02,
+      "mechanicWeights": {
+        "armor": 35,
+        "absorb": 35,
+        "slow": 35,
+        "dodge_chance": 25,
+        "poison_resistance": 25
+      },
+      "mechanicConfigs": {
+        "armor": {
+          "enabled": true,
+          "required": false,
+          "weight": 35,
+          "min": 34,
+          "max": 52,
+          "scaling": "gentle"
+        },
+        "dodge_chance": {
+          "enabled": true,
+          "required": false,
+          "weight": 25,
+          "min": 8,
+          "max": 18,
+          "scaling": "gentle"
+        },
+        "crit_negation": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 42,
+          "scaling": "standard"
+        },
+        "block": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 5,
+          "max": 10,
+          "scaling": "standard"
+        },
+        "poison_resistance": {
+          "enabled": true,
+          "required": false,
+          "weight": 25,
+          "min": 14,
+          "max": 30,
+          "scaling": "gentle"
+        },
+        "absorb": {
+          "enabled": true,
+          "required": false,
+          "weight": 35,
+          "min": 3,
+          "max": 7,
+          "scaling": "standard"
+        },
+        "cleanse_threshold": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 4,
+          "max": 6,
+          "scaling": "standard"
+        },
+        "suppress": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 24,
+          "max": 40,
+          "scaling": "standard"
+        },
+        "slow": {
+          "enabled": true,
+          "required": false,
+          "weight": 35,
+          "min": 14,
+          "max": 28,
+          "scaling": "gentle"
+        },
+        "stun_duration_ms": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 250,
+          "max": 450,
+          "scaling": "standard",
+          "extras": {
+            "stun_trigger_hit_percent": 12
+          }
+        },
+        "interrupt_skip_count": {
+          "enabled": false,
+          "required": false,
+          "weight": 0,
+          "min": 1,
+          "max": 2,
+          "scaling": "standard",
+          "extras": {
+            "interrupt_repeat_threshold": 3
+          }
+        }
+      },
+      "nameParts": {
+        "prefixes": [
+          "Riftbound",
+          "Split",
+          "Fractured"
+        ],
+        "nouns": [
+          "Custodian",
+          "Binder",
+          "Oracle"
+        ]
+      }
+    }
+  ]
+}

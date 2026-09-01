@@ -1,11 +1,9 @@
 extends SceneTree
-## Focused P2:R4:T3 check (updated for the P2:R7 story pass): after the
-## Tavern sequence's final reward, Ghit Gudd's Contract Window introduces
-## The Gilded Serpent contract (no shop in between), accepting it opens the
-## Contract Window hub (Vyra), accepting Vyra reveals the contract route map,
-## and the second-tree choice remains available from Talent Trees during the
-## following build phase instead of interrupting the contract-selection flow.
-
+## Focused check for the current Adventure contract handoff: after the Tavern
+## sequence's final reward, Ghit Gudd gives the materials-work pitch and the
+## Accept Contract Work button opens three generated biome contract choices.
+## The authored Vyra contract remains in data, but this flow intentionally
+## skips it for now.
 
 
 func _initialize() -> void:
@@ -16,6 +14,7 @@ func _initialize() -> void:
 	var combat_screen = combat_scene.instantiate()
 	root.add_child(combat_screen)
 	await process_frame
+
 	var rogue: ClassDef = load("res://data/classes/rogue.tres")
 	build_state.set_class(rogue)
 	build_state.select_tree(rogue.trees[1])
@@ -37,208 +36,57 @@ func _initialize() -> void:
 	await process_frame
 
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_OFFER, "Expected contract offer phase after Hired Goon.")
-	_require(build_state.active_contract != null, "Expected active contract.")
-	_require(build_state.active_contract.display_name == "The Gilded Serpent Contract", "Expected Gilded Serpent contract.")
-	_require(build_state.current_route_node.id == "route.gilded_serpent.offer", "Expected offer route node.")
-	_require(not combat_screen._shop_overlay.visible, "Expected the shop to be skipped after Hired Goon (P2:R7 story pass).")
-	_require(combat_screen._contract_overlay.visible, "Expected Ghit Gudd's Contract Window to introduce the contract.")
+	_require(build_state.active_contract != null and build_state.active_contract.has_generated_route_state(), "Expected generated contract offers after Tavern.")
+	_require(build_state.pending_contract_offers.size() == 3, "Expected three generated biome contracts.")
+	_require(not combat_screen._shop_overlay.visible, "Expected the shop to be skipped after Hired Goon.")
+	_require(combat_screen._contract_overlay.visible, "Expected Ghit Gudd's Contract Window to introduce the generated contract work.")
 	_require(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_GREETING_TEXT, "Expected Ghit Gudd's greeting line.")
 	_require(combat_screen._contract_overlay._contract_action_button.text == "Hear Him Out", "Expected the greeting's action button.")
 
 	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
-	_require(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_PITCH_TEXT, "Expected Ghit Gudd's pitch line.")
+	_require(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_PITCH_TEXT, "Expected the materials-work pitch line.")
+	_require(combat_screen._contract_overlay._contract_body_label.text.contains("valuable... materials"), "Expected generated-contract pitch to mention valuable materials.")
 	_require(combat_screen._contract_overlay._contract_action_button.text == "Accept Contract Work", "Expected the pitch's action button.")
 
 	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
-
-	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected contract route phase after accept.")
-	_require(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree", "Expected secondary-tree route node after accept.")
-	_require(combat_screen._contract_overlay.visible, "Expected the Contract Window to stay in the contract-choice flow.")
-	_require(not combat_screen._secondary_subclass_overlay.visible, "Expected no separate secondary subclass modal.")
-
-	# -- Contract Window becomes a hub with a single contract card for now
-	# (Vyra) -- a larger toggleable rectangle naming the contract and its
-	# gold reward, not a plain button. Selecting it only enables Proceed;
-	# Proceed then previews her, and her own Accept reveals the interactive
-	# route schematic without forcing the second-tree build choice. --
-	_require(combat_screen._contract_overlay._contract_options_box.get_child_count() == 1, "Expected one contract option (Vyra).")
-	_require(combat_screen._contract_overlay._contract_options_box.alignment == BoxContainer.ALIGNMENT_BEGIN, "Expected contract options to stack from the top like a list.")
-	_require(combat_screen._contract_overlay._contract_options_box.position.y < 160.0, "Expected the contract list to start near the top of the Contract Window.")
-	_require(combat_screen._contract_overlay._contract_title_label.text == "Choose a Contract", "Expected the contract picker header to invite contract choice.")
-	_require(not combat_screen._contract_overlay._contract_body_label.visible, "Expected contract picker subtext to be hidden.")
-	var vyra_button: Button = combat_screen._contract_overlay._contract_options_box.get_child(0)
-	_require(vyra_button.text == "", "Expected Vyra's contract card to use composed labels instead of button text.")
-	_require(_card_label_text(vyra_button, "ContractBossNameLabel") == "Vyra", "Expected Vyra's boss name on her contract card.")
-	_require(_card_label_text(vyra_button, "ContractLocationLabel").begins_with("Location:"), "Expected Vyra's contract card to show a location line.")
-	_require(_card_label_text(vyra_button, "ContractGoldLabel") == "120g", "Expected Vyra's authored gold reward on her contract card.")
-	_require(_contract_card_icon(vyra_button).custom_minimum_size == Vector2(44, 44), "Expected contract card icon to be larger than the header icon.")
-	_require(_card_label_font_size(vyra_button, "ContractBossNameLabel") > _card_label_font_size(vyra_button, "ContractLocationLabel"), "Expected boss name to use a larger font than the card details.")
+	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_OFFER, "Expected accept from pitch to open generated choices before route acceptance.")
+	_require(combat_screen._contract_overlay._contract_title_label.text == "Choose a Contract", "Expected generated picker header.")
+	_require(not combat_screen._contract_overlay._contract_body_label.visible, "Expected generated picker subtext to be hidden.")
+	_require(combat_screen._contract_overlay._contract_options_box.get_child_count() == 3, "Expected exactly three generated contract cards.")
 	_require(combat_screen._contract_overlay._contract_action_button.disabled, "Expected Proceed disabled before a contract is selected.")
-	_require(vyra_button.find_child("ContractChoicePulse", true, false) != null, "Expected available contract card to pulse.")
-	vyra_button.pressed.emit()
+
+	for index in range(combat_screen._contract_overlay._contract_options_box.get_child_count()):
+		var button: Button = combat_screen._contract_overlay._contract_options_box.get_child(index)
+		_require(button != null, "Expected generated contract option to be a button.")
+		_require(button.text == "", "Expected generated contract card to use composed labels instead of button text.")
+		_require(_card_label_text(button, "ContractBossNameLabel") != "Vyra", "Expected generated contract cards to omit Vyra.")
+		_require(_card_label_text(button, "ContractBossNameLabel") != "", "Expected generated contract card to show boss name.")
+		_require(_card_label_text(button, "ContractLocationLabel").begins_with("Location: "), "Expected generated contract card to show biome location.")
+		var reward_amounts := _contract_reward_amount_texts(button)
+		_require(_reward_amounts_contain_suffix(reward_amounts, "g"), "Expected generated contract card to show gold reward.")
+		_require(reward_amounts.has("x 1"), "Expected generated contract card to show boss talent-point reward.")
+		_require(_contract_card_icon(button).custom_minimum_size == Vector2(64, 64), "Expected generated contract card icon to be larger.")
+		_require(_card_label_font_size(button, "ContractBossNameLabel") > _card_label_font_size(button, "ContractLocationLabel"), "Expected boss name to use the larger card font.")
+
+	var first_offer_button: Button = combat_screen._contract_overlay._contract_options_box.get_child(0)
+	first_offer_button.pressed.emit()
 	await process_frame
-	vyra_button = combat_screen._contract_overlay._contract_options_box.get_child(0)
-	_require(not combat_screen._contract_overlay._contract_action_button.disabled, "Expected Proceed enabled after selecting Vyra's card.")
-	_require(vyra_button.find_child("ContractChoicePulse", true, false) == null, "Expected selected contract card to stop pulsing.")
-	var vyra_selected_style: StyleBoxFlat = vyra_button.get_theme_stylebox("normal")
-	_require(vyra_selected_style.border_color == CardStyle.ACCENT_COLOR, "Expected selected contract card to use active styling.")
-	vyra_button.pressed.emit()
-	await process_frame
-	vyra_button = combat_screen._contract_overlay._contract_options_box.get_child(0)
-	_require(combat_screen._contract_overlay._contract_action_button.disabled, "Expected clicking selected Vyra again to deselect it.")
-	_require(vyra_button.find_child("ContractChoicePulse", true, false) != null, "Expected deselected contract card to pulse again.")
-	vyra_button.pressed.emit()
-	await process_frame
-	vyra_button = combat_screen._contract_overlay._contract_options_box.get_child(0)
-	_require(not combat_screen._contract_overlay._contract_action_button.disabled, "Expected Proceed enabled after reselecting Vyra.")
-	combat_screen._contract_overlay._contract_action_button.pressed.emit()
-	await process_frame
-	_require(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_VYRA_DETAIL_TEXT, "Expected Vyra's contract detail text.")
-	_require(combat_screen._contract_overlay._contract_action_button.text == "Accept", "Expected the Vyra detail's Accept button.")
+	_require(not combat_screen._contract_overlay._contract_action_button.disabled, "Expected Proceed enabled after selecting a generated contract.")
 	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
 
-	_require(not combat_screen._contract_overlay.visible, "Expected the Contract Window hidden once the route map takes over.")
-	_require(not combat_screen._talent_overlay.visible, "Expected Talent Trees not to auto-open during contract selection.")
-	_require(combat_screen._map_overlay.visible, "Expected contract route map after accepting Vyra's contract.")
-	_require(
-		combat_screen._map_overlay._map_story_label.text == "You find yourself outside the Gilded Serpent's hideout. The back door provides an easy way to slip in unnoticed, but a frontal assault is more fun... and more rewarding.",
-		"Expected authored pre-selection story text for the first Gilded Serpent branch."
-	)
-	_require(combat_screen._map_overlay._map_node_buttons.size() == 8, "Expected full Gilded Serpent schematic.")
-	_require(combat_screen._map_overlay._map_node_buttons[0].text.contains("Door Guard"), "Expected Door Guard route label.")
-	_require(combat_screen._map_overlay._map_node_buttons[0].text.contains("Reward: Master"), "Expected Door Guard item rarity reward to be labeled.")
-	_require(not combat_screen._map_overlay._map_node_buttons[0].text.contains("Master Gear"), "Expected Door Guard map reward to use only the tier word.")
-	_require(not combat_screen._map_overlay._map_node_buttons[0].clip_contents, "Expected Door Guard node reward text to be allowed to extend past the beveled node.")
-	_require(not combat_screen._map_overlay._map_node_buttons[0].text.contains("Weapon or Ring"), "Expected Door Guard map reward to omit slots.")
-	_require(not combat_screen._map_overlay._map_node_buttons[0].disabled, "Expected Door Guard to be selectable.")
-	_require(combat_screen._map_overlay._map_node_buttons[0].find_child("ContractAvailablePulse", true, false) != null, "Expected Door Guard to pulse as an available route.")
-	var door_marker: TextureRect = combat_screen._map_overlay._map_node_buttons[0].find_child("MapActorMarker", true, false)
-	var door_text_block: Label = combat_screen._map_overlay._map_node_buttons[0].find_child("MapTextBlock", true, false)
-	var door_reward_row: HBoxContainer = combat_screen._map_overlay._map_node_buttons[0].find_child("MapRewardIconRow", true, false)
-	var door_gear_icon: TextureRect = door_reward_row.find_child("MapGearRewardIcon", true, false)
-	_require(door_marker != null and door_marker.size == Vector2(76, 76) and door_marker.position.x >= 0.0 and door_marker.position.y == -4.0, "Expected Door Guard map node to show a larger raised contained enemy marker.")
-	_require(door_text_block != null and door_text_block.text.contains("Door Guard") and door_text_block.position.x > door_marker.position.x + door_marker.size.x * 0.5, "Expected Door Guard label to sit to the right of the sprite.")
-	_require(door_reward_row != null and door_reward_row.offset_bottom < 0.0, "Expected Door Guard map reward row to stay inside the node.")
-	_require(door_gear_icon != null and door_gear_icon.get_meta("gear_tier") == GearItem.Tier.MASTER, "Expected Door Guard map reward row to include a Master gear helm.")
-	_require(door_gear_icon.get_meta("gear_rarity_color") == UIColors.TIER_MASTER, "Expected Door Guard gear helm to use the Master rarity color.")
-	_require(door_gear_icon.texture.resource_name.ends_with("gear_drop_helm_master.png"), "Expected Door Guard map reward row to use the Master helm texture.")
-	_require(combat_screen._map_overlay._map_node_buttons[0].tooltip_text == "", "Expected Door Guard map-entry tooltip to be disabled for now.")
-	_require(combat_screen._map_overlay._map_node_buttons[1].text.contains("Portly Cook"), "Expected Portly Cook route label.")
-	_require(combat_screen._map_overlay._map_node_buttons[1].text.contains("Reward: Basic"), "Expected Portly Cook item rarity reward to be labeled.")
-	_require(not combat_screen._map_overlay._map_node_buttons[1].text.contains("Basic Gear"), "Expected Portly Cook map reward to use only the tier word.")
-	_require(not combat_screen._map_overlay._map_node_buttons[1].clip_contents, "Expected Portly Cook node reward text to be allowed to extend past the beveled node.")
-	_require(not combat_screen._map_overlay._map_node_buttons[1].text.contains("Weapon or Necklace"), "Expected Portly Cook map reward to omit slots.")
-	_require(not combat_screen._map_overlay._map_node_buttons[1].disabled, "Expected Portly Cook to be selectable.")
-	_require(combat_screen._map_overlay._map_node_buttons[1].find_child("ContractAvailablePulse", true, false) != null, "Expected Portly Cook to pulse as an available route.")
-	var cook_marker: TextureRect = combat_screen._map_overlay._map_node_buttons[1].find_child("MapActorMarker", true, false)
-	var cook_text_block: Label = combat_screen._map_overlay._map_node_buttons[1].find_child("MapTextBlock", true, false)
-	var cook_reward_row: HBoxContainer = combat_screen._map_overlay._map_node_buttons[1].find_child("MapRewardIconRow", true, false)
-	var cook_gear_icon: TextureRect = cook_reward_row.find_child("MapGearRewardIcon", true, false)
-	_require(cook_marker != null and cook_marker.size == Vector2(76, 76) and cook_marker.position.x >= 0.0 and cook_marker.position.y == -4.0, "Expected Portly Cook map node to show a larger raised contained enemy marker.")
-	_require(cook_text_block != null and cook_text_block.text.contains("Portly Cook") and cook_text_block.position.x > cook_marker.position.x + cook_marker.size.x * 0.5, "Expected Portly Cook label to sit to the right of the sprite.")
-	_require(cook_reward_row != null and cook_reward_row.offset_bottom < 0.0, "Expected Portly Cook map reward row to stay inside the node.")
-	_require(cook_gear_icon != null and cook_gear_icon.get_meta("gear_tier") == GearItem.Tier.BASIC, "Expected Portly Cook map reward row to include a Basic gear helm.")
-	_require(cook_gear_icon.get_meta("gear_rarity_color") == UIColors.TIER_BASIC, "Expected Portly Cook gear helm to use the Basic rarity color.")
-	_require(cook_gear_icon.texture.resource_name.ends_with("gear_drop_helm_basic.png"), "Expected Portly Cook map reward row to use the Basic helm texture.")
-	_require(combat_screen._map_overlay._map_node_buttons[1].tooltip_text == "", "Expected Portly Cook map-entry tooltip to be disabled for now.")
-	_require(combat_screen._map_overlay._map_node_buttons[2].text.contains("Sleeping"), "Expected Sleeping Henchman on schematic.")
-	var sleeping_reward_row: HBoxContainer = combat_screen._map_overlay._map_node_buttons[2].find_child("MapRewardIconRow", true, false)
-	_require(sleeping_reward_row != null and sleeping_reward_row.offset_left < 0.0, "Expected three-part Sleeping Henchman reward row to shift left for centering.")
-	var cloaked_gear_icon: TextureRect = combat_screen._map_overlay._map_node_buttons[3].find_child("MapGearRewardIcon", true, false)
-	_require(cloaked_gear_icon != null and cloaked_gear_icon.get_meta("gear_tier") == GearItem.Tier.CURSED, "Expected Cloaked Watchmen map reward row to include a Cursed gear helm.")
-	_require(cloaked_gear_icon.get_meta("gear_rarity_color") == UIColors.TIER_CURSED, "Expected Cloaked Watchmen gear helm to use the Cursed rarity color.")
-	_require(cloaked_gear_icon.texture.resource_name.ends_with("gear_drop_helm_cursed.png"), "Expected Cloaked Watchmen map reward row to use the Cursed helm texture.")
-	_require(combat_screen._map_overlay._map_node_buttons[4].text.contains("Lazy"), "Expected Lazy Henchman on schematic.")
-	_require(combat_screen._map_overlay._map_node_buttons[6].text.contains("Knives"), "Expected Knives on schematic.")
-	var knives_gear_icon: TextureRect = combat_screen._map_overlay._map_node_buttons[6].find_child("MapGearRewardIcon", true, false)
-	_require(knives_gear_icon != null and knives_gear_icon.get_meta("gear_tier") == GearItem.Tier.LEGENDARY, "Expected Knives map reward row to include a Legendary gear helm.")
-	_require(knives_gear_icon.get_meta("gear_rarity_color") == UIColors.TIER_LEGENDARY, "Expected Knives gear helm to use the Legendary rarity color.")
-	_require(knives_gear_icon.texture.resource_name.ends_with("gear_drop_helm_legendary.png"), "Expected Knives map reward row to use the Legendary helm texture.")
-	_require(combat_screen._map_overlay._map_node_buttons[7].text.contains("Vyra"), "Expected Vyra on schematic.")
-	_require(combat_screen._map_overlay._map_node_buttons[2].disabled, "Expected second-layer nodes locked before opener choice.")
-	_require(combat_screen._map_overlay._map_proceed_button.visible, "Expected route-map Proceed button.")
-	_require(combat_screen._map_overlay._map_proceed_button.text == "Proceed", "Expected route-map commit button to match the shared Proceed action.")
-	_require(combat_screen._map_overlay._map_proceed_button.disabled, "Expected Proceed disabled before a route is selected.")
-	_require(combat_screen._map_overlay._map_proceed_button.tooltip_text == "Select a route first.", "Expected route-map disabled tooltip to explain the missing selection.")
-
-	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
-	await process_frame
-	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected clicking Door Guard to select only, not commit.")
-	_require(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree", "Expected current route to remain at the route-choice hub before Proceed.")
-	_require(not combat_screen._map_overlay._map_proceed_button.disabled, "Expected Proceed enabled after selecting Door Guard.")
-	_require(_normalized_story_text(combat_screen._map_overlay._map_story_label.text) == "Selected Route: Door Guard\nThe direct approach... I like it.", "Expected selected route story text to use Door Guard's authored flavor.")
-	_require(combat_screen._map_overlay._map_proceed_button.tooltip_text == "Proceed to Door Guard as your next fight.", "Expected selected route tooltip to name the fight being committed.")
-	_require(combat_screen._map_overlay._map_node_buttons[0].find_child("ContractAvailablePulse", true, false) == null, "Expected selected Door Guard to stop pulsing.")
-	var door_selected_style: StyleBoxFlat = combat_screen._map_overlay._map_node_buttons[0].get_theme_stylebox("normal")
-	_require(door_selected_style.border_color == CardStyle.ACCENT_COLOR, "Expected selected Door Guard to use selected styling.")
-
-	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
-	await process_frame
-	_require(combat_screen._map_overlay._map_proceed_button.disabled, "Expected clicking the selected route again to deselect it.")
-	_require(combat_screen._map_overlay._map_node_buttons[0].find_child("ContractAvailablePulse", true, false) != null, "Expected deselected Door Guard to pulse again.")
-
-	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
-	await process_frame
-	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
-	await process_frame
-	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected switching to Portly Cook to select only, not commit.")
-	_require(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree", "Expected current route to remain at the hub after switching pending selection.")
-	_require(not combat_screen._map_overlay._map_proceed_button.disabled, "Expected Proceed enabled after switching to Portly Cook.")
-	_require(_normalized_story_text(combat_screen._map_overlay._map_story_label.text) == "Selected Route: Portly Cook\nA coward still gets paid.", "Expected selected route story text to use Portly Cook's authored flavor.")
-	_require(combat_screen._map_overlay._map_node_buttons[0].find_child("ContractAvailablePulse", true, false) != null, "Expected unselected Door Guard to pulse again after switching.")
-	_require(combat_screen._map_overlay._map_node_buttons[1].find_child("ContractAvailablePulse", true, false) == null, "Expected selected Portly Cook to stop pulsing.")
-
-	combat_screen._map_overlay._map_proceed_button.pressed.emit()
-	await process_frame
-
-	_require(build_state.run_phase == BuildState.RunPhase.PLANNING, "Expected selected route node to enter planning.")
-	_require(build_state.current_route_node.id == "route.gilded_serpent.portly_cook", "Expected Portly Cook as current route node.")
-	_require(not combat_screen._map_overlay.visible, "Expected route map hidden after route selection.")
-	_require(build_state.needs_secondary_subclass_choice(), "Expected second-tree choice to remain available during contract build planning.")
-	_require(combat_screen._enemy_panel._title_label.text == "Portly Cook", "Expected enemy panel title to show selected route target.")
-	_require(not combat_screen._enemy_panel._info_label.text.contains("Target:"), "Expected enemy panel body to omit redundant target label.")
-	_require(combat_screen._enemy_panel._info_label.text.contains("Fight Window: 20s"), "Expected enemy panel to show route window.")
-	_require(not combat_screen._enemy_panel._info_label.text.contains("Contract:"), "Expected enemy panel to omit contract context.")
-	_require(not combat_screen._enemy_panel._info_label.text.contains("Pressure:"), "Expected enemy panel to keep route pressure out of the authored target detail.")
-	_require(not combat_screen._enemy_panel._info_label.text.contains("Reward:"), "Expected enemy panel to keep route rewards on the route map and outcome surfaces.")
-	_require(combat_screen._enemy_panel._fight_button.disabled, "Expected route fight blocked until build lock.")
-
-	combat_screen._show_talent_overlay()
-	await process_frame
-	var secondary_choices: VBoxContainer = combat_screen._talent_overlay.find_child("SecondaryTreeChoices", true, false)
-	_require(secondary_choices != null, "Expected secondary tree choices in the Talent Trees panel during build planning.")
-	_require(secondary_choices.get_child_count() == 2, "Expected two available second trees after Thief start.")
-	var tree_card_0_vbox: VBoxContainer = secondary_choices.get_child(0).get_child(0)
-	var tree_card_1_vbox: VBoxContainer = secondary_choices.get_child(1).get_child(0)
-	_require(tree_card_1_vbox.find_child("Title", true, false).text.contains("Shadow"), "Expected Shadow second-tree choice.")
-	_require(tree_card_1_vbox.find_child("Icon", true, false) != null, "Expected Shadow second-tree choice to show an icon.")
-	_require(
-		tree_card_1_vbox.get_child(1).text.contains("Stab & Heavy Slash apply +1 poison stack"),
-		"Expected Shadow intrinsic in second-tree choice."
-	)
-	_require(tree_card_0_vbox.find_child("Title", true, false).text.contains("Assassin"), "Expected Assassin second-tree choice.")
-	_require(tree_card_0_vbox.find_child("Icon", true, false) != null, "Expected Assassin second-tree choice to show an icon.")
-	var choose_button: Button = tree_card_0_vbox.get_child(2)
-	_require(choose_button.text == "Choose", "Expected a Choose button on the second-tree card.")
-	choose_button.pressed.emit()
-	await process_frame
-	_require(build_state.selected_trees.size() == 2, "Expected two selected trees.")
-	_require(combat_screen._talent_overlay.visible, "Expected Talent Trees to stay open after choosing the second tree so points can be spent.")
-	combat_screen._talent_overlay.visible = false
-
-	build_state.set_locked(true)
-	await process_frame
-	_require(not combat_screen._enemy_panel._fight_button.disabled, "Expected selected route fight enabled after build lock.")
+	_require(build_state.active_contract != null and build_state.active_contract.has_generated_route_state(), "Expected selected generated contract to become active.")
+	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected generated route phase after accepting the selected contract.")
+	_require(build_state.pending_contract_offers.size() == 3, "Expected generated choices to remain available while previewing the route map.")
+	_require(not combat_screen._contract_overlay.visible, "Expected the Contract Window hidden once generated route map takes over.")
+	_require(combat_screen._map_overlay.visible, "Expected generated route map after choosing a generated contract.")
+	_require(combat_screen._map_overlay._map_contract_back_button.visible, "Expected generated route preview to allow returning to contract offers before route commit.")
+	_require(combat_screen._map_overlay._map_node_buttons.size() > build_state.current_route_node.next_nodes.size(), "Expected generated route preview to show the full route graph.")
 
 	print("Contract offer flow check: OK")
 	quit()
-
-
-func _normalized_story_text(text: String) -> String:
-	return text.replace("\r\n", "\n").replace("\r", "\n").strip_edges()
 
 
 func _card_label_text(card: Button, label_name: String) -> String:
@@ -261,11 +109,20 @@ func _contract_card_icon(card: Button) -> TextureRect:
 	return icon
 
 
-func _require(condition: bool, message: String) -> void:
-	if condition:
-		return
-	push_error(message)
-	quit(1)
+func _contract_reward_amount_texts(card: Button) -> Array[String]:
+	var stack: BoxContainer = card.find_child("ContractRewardStack", true, false)
+	_require(stack != null, "Expected contract card reward icon stack.")
+	var texts: Array[String] = []
+	for label in stack.find_children("ContractRewardAmount", "Label", true, false):
+		texts.append((label as Label).text)
+	return texts
+
+
+func _reward_amounts_contain_suffix(texts: Array[String], suffix: String) -> bool:
+	for text in texts:
+		if text.ends_with(suffix):
+			return true
+	return false
 
 
 func _set_basic_rotation(build_state) -> void:
@@ -273,3 +130,10 @@ func _set_basic_rotation(build_state) -> void:
 	_require(not unlocked.is_empty(), "Expected at least one unlocked skill for contract readiness setup.")
 	var rotation: Array[Skill] = [unlocked[0]]
 	build_state.set_rotation(rotation)
+
+
+func _require(condition: bool, message: String) -> void:
+	if condition:
+		return
+	push_error(message)
+	quit(1)

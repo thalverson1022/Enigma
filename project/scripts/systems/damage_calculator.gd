@@ -24,7 +24,7 @@ static func poison_mitigation_multiplier(poison_resistance: float) -> float:
 ## Returns {"amount": float, "is_crit": bool, "blocked_amount": float,
 ## "crit_negation_applied": float, "crit_negation_damage_prevented": float}.
 static func resolve_physical_hit(raw_amount: float, armor: int, crit_chance: float, crit_multiplier: float, rng: RandomNumberGenerator, physical_damage_multiplier: float = 1.0, crit_negation: float = 0.0, block: float = 0.0) -> Dictionary:
-	var is_crit: bool = rng.randf() < crit_chance
+	var is_crit: bool = rng.randf() < clampf(crit_chance, 0.0, 1.0)
 	var amount: float = raw_amount * (crit_multiplier if is_crit else 1.0)
 	var before_negation_final := 0.0
 	var crit_negation_applied := 0.0

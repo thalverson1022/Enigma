@@ -4,7 +4,7 @@ shadow_intrinsic_stab_mouthy,pass,200,Mouthy Drunk,Stab,,18.3541666666666,16.666
 shadow_wyvern_poison_mouthy,pass,200,Mouthy Drunk,Stab > Heavy Slash,Wyvern Kriss,29.6241666666667,27.8666666666667,29.3666666666667,32.8666666666667,1.0,165.09,190.400000000001,17.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,500.0,0.0,
 bandit_blade_gold_scaling,pass,200,Mouthy Drunk,Stab > Heavy Slash,Bandit Blade,27.3,20.4,27.2,34.0,1.0,327.6,0.0,0.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,1000.0,0.0,
 bejeweled_proc_rate_training_dummy,pass,200,Training Dummy,Stab > Heavy Slash,Bejeweled Push Dagger,26.3952,22.08,26.4,30.72,1.0,791.856000000001,0.0,0.0,17.905,0.0,0.0,0.0,0.0,0.0,0.0,1000.0,0.19899338419578,
-thief_contract_watchmen,pass,200,Cloaked Watchmen,Heavy Slash > Quick Cut > Rending Slash,Wyvern Kriss,19.6549857302409,17.5942171597633,19.4775969674556,22.620612647929,0.315,359.829628986264,151.200000000001,18.0,18.0,0.0,0.0,0.0,0.0,0.0,0.0,500.0,0.0,
+bladedancer_contract_watchmen,pass,200,Cloaked Watchmen,Heavy Slash > Quick Cut > Rending Slash,Wyvern Kriss,19.6549857302409,17.5942171597633,19.4775969674556,22.620612647929,0.315,359.829628986264,151.200000000001,18.0,18.0,0.0,0.0,0.0,0.0,0.0,0.0,500.0,0.0,
 defense_block_stab,pass,200,Mouthy Drunk,Stab,,8.35416666666668,6.66666666666667,8.16666666666667,11.1666666666667,0.01,100.25,0.0,0.0,8.0,0.0,0.0,64.0,0.0,0.0,0.0,1000.0,0.0,
 defense_dodge_stab,pass,200,Mouthy Drunk,Stab,,9.075,4.5,9.0,13.5,0.08,108.9,0.0,0.0,8.0,2.78,0.3475,0.0,0.0,0.0,0.0,1000.0,0.0,
 defense_crit_negation_bandit,pass,200,Mouthy Drunk,Stab > Heavy Slash,Bandit Blade,20.4000000000001,20.4,20.4,20.4,1.0,244.800000000001,0.0,0.0,6.0,0.0,0.0,0.0,69.0,0.0,0.0,1000.0,0.0,

@@ -104,8 +104,8 @@ func _initialize() -> void:
 	var subclass_lightning_overlay := subclass_select.find_child("SubclassSelectLightningFlashOverlay", true, false) as Control
 	assert(subclass_lightning_overlay != null)
 	assert(subclass_lightning_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE)
-	var thief: SubclassTree = rogue.trees[1]
-	subclass_select._on_tree_selected(thief)
+	var bladedancer: SubclassTree = rogue.trees[1]
+	subclass_select._on_tree_selected(bladedancer)
 	subclass_select.advanced.emit()
 	await process_frame
 
@@ -164,7 +164,7 @@ func _initialize() -> void:
 	assert(build_state.adventure_seed == 314159)
 	assert(build_state.selected_class == rogue)
 	assert(build_state.selected_trees.size() == 1)
-	assert(build_state.selected_trees[0].display_name == "Thief")
+	assert(build_state.selected_trees[0].display_name == "Bladedancer")
 
 	# -- Abandon Run deletes the save --
 	var abandon_button := _find_button_by_name(resumed_screen, "AbandonRunButton")
@@ -205,8 +205,8 @@ func _initialize() -> void:
 	await process_frame
 
 	var subclass_select_2 = game_root._current_screen
-	var thief_2: SubclassTree = rogue_2.trees[1]
-	subclass_select_2._on_tree_selected(thief_2)
+	var bladedancer_2: SubclassTree = rogue_2.trees[1]
+	subclass_select_2._on_tree_selected(bladedancer_2)
 	subclass_select_2.advanced.emit()
 	await process_frame
 

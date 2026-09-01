@@ -84,6 +84,18 @@ func _initialize() -> void:
 	_require(not combat_screen._retry_button.visible, "Expected retry hidden after contract victory.")
 	_require(not combat_screen._restart_adventure_button.visible, "Expected new-adventure action hidden while repeatable loop continues.")
 
+	print("all-bosses victory outcome shows a final victory screen with new Adventure available")
+	build_state.set_adventure_seed(5150)
+	combat_screen._apply_outcome_presentation(BuildState.RunOutcome.ALL_BOSSES_DEFEATED)
+	_require(combat_screen._outcome_title_label.visible, "Expected all-bosses victory title visible.")
+	_require(combat_screen._outcome_title_label.text == "YOU KILLED ALL BOSSES", "Expected all-bosses victory headline.")
+	_require(combat_screen._status_label.visible, "Expected all-bosses victory body visible.")
+	_require(combat_screen._status_label.text.contains("Every boss in the Monster Manual is defeated"), "Expected all-bosses victory body to celebrate the full checklist.")
+	_require(combat_screen._status_label.text.contains("Seed 5150"), "Expected preserved seed called out in all-bosses victory body.")
+	_require(not combat_screen._retry_button.visible, "Expected retry hidden after all-bosses victory.")
+	_require(combat_screen._restart_adventure_button.visible and not combat_screen._restart_adventure_button.disabled, "Expected Start New Adventure enabled after all-bosses victory.")
+	_require(combat_screen._restart_adventure_button.text == "Start New Adventure", "Expected Start New Adventure label after all-bosses victory.")
+
 	print("")
 	print("Run outcome presentation check: OK")
 	quit()

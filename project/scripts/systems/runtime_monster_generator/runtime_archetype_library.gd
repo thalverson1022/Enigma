@@ -25,10 +25,11 @@ func has_archetype(archetype_id: String) -> bool:
 
 func available_for(difficulty_id: int, monster_kind: String) -> Array[RuntimeArchetypeDef]:
 	var result: Array[RuntimeArchetypeDef] = []
+	var effective_kind := "normal" if monster_kind == "captain" else monster_kind
 	for archetype in archetypes:
 		if archetype.unlock_difficulty > difficulty_id:
 			continue
-		if monster_kind != "" and not archetype.allowed_kinds.has(monster_kind):
+		if effective_kind != "" and not archetype.allowed_kinds.has(effective_kind):
 			continue
 		result.append(archetype)
 	return result

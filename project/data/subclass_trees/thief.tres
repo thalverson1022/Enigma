@@ -1,20 +1,21 @@
-[gd_resource type="Resource" script_class="SubclassTree" load_steps=9 format=3]
+[gd_resource type="Resource" script_class="SubclassTree" load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/subclass_tree.gd" id="1_tree"]
-[ext_resource type="Resource" path="res://data/talents/thief/quick_hands.tres" id="2_quick_hands"]
-[ext_resource type="Resource" path="res://data/talents/thief/piercing_blades.tres" id="3_piercing_blades"]
-[ext_resource type="Resource" path="res://data/talents/thief/practiced_rhythm.tres" id="4_practiced_rhythm"]
-[ext_resource type="Resource" path="res://data/talents/thief/opportunity_strikes.tres" id="5_opportunity_strikes"]
-[ext_resource type="Resource" path="res://data/talents/thief/sunder.tres" id="6_sunder"]
-[ext_resource type="Resource" path="res://data/skills/quick_cut.tres" id="7_quick_cut"]
+[ext_resource type="Resource" path="res://data/talents/thief/keen_eye.tres" id="3_keen_eye"]
+[ext_resource type="Resource" path="res://data/talents/thief/sticky_fingers.tres" id="4_sticky_fingers"]
+[ext_resource type="Resource" path="res://data/talents/thief/silvered_blade.tres" id="5_silvered_blade"]
+[ext_resource type="Resource" path="res://data/talents/thief/big_score.tres" id="6_big_score"]
+[ext_resource type="Resource" path="res://data/talents/thief/gilded_blade.tres" id="7_gilded_blade"]
 [ext_resource type="Texture2D" path="res://assets/subclass_icons/rogue/thief.png" id="8_icon"]
+[ext_resource type="Resource" path="res://data/skills/steal.tres" id="9_steal"]
 
 [resource]
 script = ExtResource("1_tree")
 id = "tree.thief"
 display_name = "Thief"
 icon = ExtResource("8_icon")
-intrinsic_text = ""
-talents = Array[Talent]([ExtResource("2_quick_hands"), ExtResource("3_piercing_blades"), ExtResource("4_practiced_rhythm"), ExtResource("5_opportunity_strikes"), ExtResource("6_sunder")])
+intrinsic_text = "Unlock Steal"
+talents = Array[Talent]([ExtResource("3_keen_eye"), ExtResource("4_sticky_fingers"), ExtResource("5_silvered_blade"), ExtResource("6_big_score"), ExtResource("7_gilded_blade")])
 innate_modifiers = Array[StatModifier]([])
-unlocked_skills = Array[Skill]([ExtResource("7_quick_cut")])
+unlocked_skills = Array[Skill]([ExtResource("9_steal")])
+skill_augments = Array[SkillAugment]([])

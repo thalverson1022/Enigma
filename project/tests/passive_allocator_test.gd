@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless check for PassiveAllocator's OR-group dependent-lock rule, using
-## the real Thief tree (Quick Hands / Piercing Blades / Practiced Rhythm --
+## the real Bladedancer tree (Quick Hands / Piercing Blades / Practiced Rhythm --
 ## Practiced Rhythm requires "Quick Hands or Piercing Blades"). Covers the
 ## bug reported live: swapping which tier-0 talent satisfies a tier-1
 ## OR-prerequisite used to force removing the entire upper chain first.
@@ -9,9 +9,9 @@ extends SceneTree
 
 
 func _initialize() -> void:
-	var quick_hands: Talent = load("res://data/talents/thief/quick_hands.tres")
-	var piercing_blades: Talent = load("res://data/talents/thief/piercing_blades.tres")
-	var practiced_rhythm: Talent = load("res://data/talents/thief/practiced_rhythm.tres")
+	var quick_hands: Talent = load("res://data/talents/bladedancer/quick_hands.tres")
+	var piercing_blades: Talent = load("res://data/talents/bladedancer/piercing_blades.tres")
+	var practiced_rhythm: Talent = load("res://data/talents/bladedancer/practiced_rhythm.tres")
 
 	# -- Baseline: Piercing Blades alone satisfies Practiced Rhythm's OR-group --
 	var selected: Array[Talent] = [piercing_blades, practiced_rhythm]

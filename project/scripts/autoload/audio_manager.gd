@@ -13,6 +13,7 @@ const BIOME_MOOD_PATHS := {
 	"Cave": "res://assets/audio/music/biomes/cave_mood.mp3",
 	"Graveyard": "res://assets/audio/music/biomes/graveyard_mood.mp3",
 	"Haunted Forest": "res://assets/audio/music/biomes/haunted_forest_mood.mp3",
+	"Ruined Keep": MENU_RAIN_PATH,
 	"Ancient Ruins": "res://assets/audio/music/biomes/ancient_ruins_mood.mp3",
 }
 const BIOME_MUSIC_PATHS := {
@@ -25,6 +26,7 @@ const BIOME_MUSIC_PATHS := {
 }
 const BUTTON_PRESS_SFX_PATH := "res://assets/audio/fx/button_press.mp3"
 const SHOP_CHANGE_SFX_PATH := "res://assets/audio/fx/change.mp3"
+const FOOTSTEPS_SFX_PATH := "res://assets/audio/fx/footsteps.mp3"
 const ATTACK_SFX_PATHS := [
 	"res://assets/audio/fx/sword/sword_block.mp3",
 	"res://assets/audio/fx/sword/sword_clash_hit.mp3",
@@ -70,6 +72,8 @@ const BUTTON_PRESS_SFX_POOL_SIZE := 8
 const BUTTON_PRESS_SFX_VOLUME := 0.48
 const SHOP_CHANGE_SFX_VOLUME := 0.64
 const SHOP_CHANGE_SFX_PITCH_SCALE := 0.82
+const FOOTSTEPS_SFX_VOLUME := 0.54
+const FOOTSTEPS_SFX_PITCH_SCALE := 1.0
 const BUTTON_PRESS_SFX_META := "audio_manager_button_press_sfx_connected"
 const AUDIO_SCENE_NONE := "none"
 const AUDIO_SCENE_MENU := "menu"
@@ -91,9 +95,12 @@ var _biome_mood_player: AudioStreamPlayer
 var _biome_music_player: AudioStreamPlayer
 var _button_press_stream: AudioStreamMP3
 var _shop_change_stream: AudioStreamMP3
+var _footsteps_stream: AudioStreamMP3
 var _button_sfx_players: Array[AudioStreamPlayer] = []
 var _button_sfx_player_index := 0
 var _shop_change_player: AudioStreamPlayer
+var _footsteps_player: AudioStreamPlayer
+var _footsteps_generation := 0
 var _last_button_sfx_frame_by_instance: Dictionary = {}
 var _button_down_sfx_consumed_by_instance: Dictionary = {}
 var _attack_sfx_streams: Array[AudioStreamMP3] = []
@@ -124,7 +131,9 @@ var last_attack_sfx_hit_count := 0
 var last_attack_sfx_proc_hit_count := 0
 var button_press_sfx_play_count := 0
 var shop_change_sfx_play_count := 0
+var footsteps_sfx_play_count := 0
 var last_shop_change_pitch_scale := 0.0
+var last_footsteps_duration_sec := 0.0
 
 
 func _ready() -> void:
@@ -386,6 +395,32 @@ func play_shop_change_sfx() -> bool:
 	return true
 
 
+func play_footsteps_sfx(duration_sec: float) -> bool:
+	if duration_sec <= 0.0 or _footsteps_stream == null or _footsteps_player == null:
+		return false
+	_footsteps_generation += 1
+	_footsteps_player.stop()
+	_footsteps_player.stream = _footsteps_stream
+	_footsteps_player.bus = EFFECTS_BUS
+	_footsteps_player.volume_db = linear_to_db(FOOTSTEPS_SFX_VOLUME)
+	_footsteps_player.pitch_scale = FOOTSTEPS_SFX_PITCH_SCALE
+	_footsteps_player.play()
+	footsteps_sfx_play_count += 1
+	last_footsteps_duration_sec = duration_sec
+	var generation := _footsteps_generation
+	get_tree().create_timer(duration_sec).timeout.connect(func() -> void:
+		if generation == _footsteps_generation and _footsteps_player != null:
+			_footsteps_player.stop()
+	)
+	return true
+
+
+func stop_footsteps_sfx() -> void:
+	_footsteps_generation += 1
+	if _footsteps_player != null:
+		_footsteps_player.stop()
+
+
 func attack_sfx_hit_count_for_cast(cast: CombatResolver.CastEvent) -> int:
 	if cast == null or (cast.physical_damage <= 0.0 and cast.blocked_amount <= 0.0):
 		return 0
@@ -447,6 +482,9 @@ func _build_attack_sfx_pool() -> void:
 func _build_ui_sfx_players() -> void:
 	_button_press_stream = _load_mp3_stream(BUTTON_PRESS_SFX_PATH)
 	_shop_change_stream = _load_mp3_stream(SHOP_CHANGE_SFX_PATH)
+	_footsteps_stream = _load_mp3_stream(FOOTSTEPS_SFX_PATH)
+	if _footsteps_stream != null:
+		_footsteps_stream.loop = true
 	_button_sfx_players.clear()
 	for index in range(BUTTON_PRESS_SFX_POOL_SIZE):
 		var player := AudioStreamPlayer.new()
@@ -458,6 +496,10 @@ func _build_ui_sfx_players() -> void:
 	_shop_change_player.name = "ShopChangeSfxPlayer"
 	_shop_change_player.bus = EFFECTS_BUS
 	add_child(_shop_change_player)
+	_footsteps_player = AudioStreamPlayer.new()
+	_footsteps_player.name = "FootstepsSfxPlayer"
+	_footsteps_player.bus = EFFECTS_BUS
+	add_child(_footsteps_player)
 
 
 func _build_music_player(player_name: String, stream_path: String) -> AudioStreamPlayer:

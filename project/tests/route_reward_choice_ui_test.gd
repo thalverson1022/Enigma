@@ -140,18 +140,25 @@ func _initialize() -> void:
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected route choice phase after Legendary reward.")
 	_require(combat_screen._map_overlay.visible, "Expected route map after Legendary reward.")
 	_require(combat_screen._map_overlay._map_node_buttons.size() == 8, "Expected full route schematic after Legendary reward.")
-	_require(not combat_screen._map_overlay._map_node_buttons[7].disabled, "Expected Vyra selectable after Knives.")
-	_require(combat_screen._map_overlay._map_node_buttons[7].text.contains("Vyra"), "Expected Vyra node after Knives.")
+	var vyra_button := _find_map_node_button(combat_screen._map_overlay, "route.gilded_serpent.vyra", "Vyra")
+	_require(vyra_button != null, "Expected Vyra node after Knives.")
+	if vyra_button == null:
+		return
+	_require(not vyra_button.disabled, "Expected Vyra selectable after Knives.")
 	_require(combat_screen._map_overlay._map_proceed_button.text == "Proceed", "Expected late-route commit button to use the shared Proceed action.")
 	_require(combat_screen._map_overlay._map_proceed_button.disabled, "Expected Proceed disabled before selecting Vyra.")
 	_require(combat_screen._map_overlay._map_story_label.text == "The silk pajamas are a nice touch.", "Expected authored pre-selection Vyra story text.")
 	combat_screen._map_overlay._on_map_proceed_pressed()
 	await process_frame
 	_require(combat_screen._map_overlay._map_proceed_button.get_meta("feedback_blocked_pulse") == true, "Expected disabled route Proceed to pulse when activated without a route selection.")
-	combat_screen._map_overlay._map_node_buttons[7].pressed.emit()
+	vyra_button.pressed.emit()
 	await process_frame
 	_require(not combat_screen._map_overlay._map_proceed_button.disabled, "Expected Proceed enabled after selecting Vyra.")
-	_require(combat_screen._map_overlay._map_story_label.text == "Selected Route: Vyra\nTime to get paid.", "Expected selected Vyra story text to use authored flavor.")
+	var selected_vyra_story: String = combat_screen._map_overlay._map_story_label.text.replace("\r\n", "\n")
+	_require(
+		selected_vyra_story == "Selected Route: Vyra\nTime to get paid.",
+		"Expected selected Vyra story text to use authored flavor, got: %s" % selected_vyra_story
+	)
 	_require(combat_screen._map_overlay._map_proceed_button.tooltip_text == "Proceed to Vyra as your next fight.", "Expected selected Vyra tooltip to name the committed fight.")
 
 	print("Route reward choice UI check: OK")
@@ -169,6 +176,31 @@ func _find_route_node(node: ContractRouteNode, id: String, visited: Array[String
 		if found != null:
 			return found
 	return null
+
+
+func _find_map_node_button(map_overlay: Control, route_node_id: String, text: String) -> Button:
+	for button in map_overlay._map_node_buttons:
+		if not button is Button:
+			continue
+		var map_button := button as Button
+		if String(map_button.get_meta("route_node_id", "")) == route_node_id:
+			return map_button
+		if map_button.text.contains(text):
+			return map_button
+		if _control_text_contains(map_button, text):
+			return map_button
+	return null
+
+
+func _control_text_contains(control: Control, text: String) -> bool:
+	for child in control.get_children():
+		if child is Label and (child as Label).text.contains(text):
+			return true
+		if child is RichTextLabel and (child as RichTextLabel).text.contains(text):
+			return true
+		if child is Control and _control_text_contains(child, text):
+			return true
+	return false
 
 
 func _unique_stat_signature_count(items: Array[GearItem]) -> int:

@@ -69,6 +69,18 @@ func _initialize() -> void:
 	assert(armor_text.contains("armor"))
 	assert(armor_text.begins_with("-"))
 
+	var physical_modifier := StatModifier.new()
+	physical_modifier.stat = StatModifier.StatType.PHYSICAL_DAMAGE
+	physical_modifier.operation = StatModifier.OperationType.MULTIPLY
+	physical_modifier.value = 1.05
+	assert(StatModifierFormatter.format(physical_modifier) == "x5% Physical Damage")
+
+	var crit_damage_modifier := StatModifier.new()
+	crit_damage_modifier.stat = StatModifier.StatType.CRIT_MULTIPLIER
+	crit_damage_modifier.operation = StatModifier.OperationType.ADD
+	crit_damage_modifier.value = 0.2
+	assert(StatModifierFormatter.format(crit_damage_modifier) == "+20% Crit Damage")
+
 	# BuildResolver: equipped gear must change resolved stats vs. no gear.
 	# Checks all 7 PlayerStats fields BuildResolver writes to -- GearGenerator's
 	# pool now spans all 7 combat-relevant StatModifier types (P2:M5), so a

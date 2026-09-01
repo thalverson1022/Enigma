@@ -20,6 +20,9 @@ func _initialize() -> void:
 	_require(audio_manager._shop_change_stream != null, "Expected shop change SFX stream to load.")
 	_require(audio_manager._shop_change_player != null, "Expected shop change SFX player.")
 	_require(audio_manager._shop_change_player.bus == "Effects", "Expected shop change SFX player to route through Effects.")
+	_require(audio_manager._footsteps_stream != null, "Expected footsteps SFX stream to load.")
+	_require(audio_manager._footsteps_player != null, "Expected footsteps SFX player.")
+	_require(audio_manager._footsteps_player.bus == "Effects", "Expected footsteps SFX player to route through Effects.")
 
 	var before_button_count: int = audio_manager.button_press_sfx_play_count
 	var direct_button_sfx: bool = audio_manager.play_button_press_sfx()
@@ -58,6 +61,15 @@ func _initialize() -> void:
 	_require(audio_manager.shop_change_sfx_play_count == before_shop_count + 1, "Expected shop change SFX count to increment.")
 	_require(absf(audio_manager.last_shop_change_pitch_scale - audio_manager.SHOP_CHANGE_SFX_PITCH_SCALE) < 0.001, "Expected shop change pitch diagnostic to match mix setting.")
 	_require(audio_manager.last_shop_change_pitch_scale < 1.0, "Expected shop change SFX to be pitched down.")
+
+	var before_footsteps_count: int = audio_manager.footsteps_sfx_play_count
+	var footsteps_played: bool = audio_manager.play_footsteps_sfx(0.08)
+	_require(footsteps_played, "Expected footsteps SFX to play.")
+	_require(audio_manager.footsteps_sfx_play_count == before_footsteps_count + 1, "Expected footsteps SFX count to increment.")
+	_require(audio_manager._footsteps_player.playing, "Expected footsteps SFX player to be active during its duration.")
+	_require(absf(audio_manager.last_footsteps_duration_sec - 0.08) < 0.001, "Expected footsteps duration diagnostic to match the requested run duration.")
+	await create_timer(0.12).timeout
+	_require(not audio_manager._footsteps_player.playing, "Expected footsteps SFX player to stop after the requested duration.")
 
 	var before_count: int = audio_manager.attack_sfx_play_count
 	var played_slow: bool = audio_manager.play_random_attack_sfx(1.0, 1200, false)

@@ -148,6 +148,8 @@ func _ready() -> void:
 	inventory_margin.add_child(_inventory_grid)
 
 	BuildState.build_changed.connect(_refresh)
+	if BuildState.has_signal("stats_preview_changed"):
+		BuildState.stats_preview_changed.connect(_refresh)
 	_build_sell_dialog()
 	_build_inventory_action_menu()
 	_build_equipped_action_menu()

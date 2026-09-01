@@ -456,14 +456,51 @@ func _check_generated_edge_visual_states(map_overlay) -> void:
 	map_overlay._pending_contract_route_node = to_node
 	var selected_canvas := Control.new()
 	root.add_child(selected_canvas)
+	var forward_node := _generated_layout_node("route.test.forward", 2, 1, ContractRouteNode.NodeType.FIGHT)
+	var alternate_node := _generated_layout_node("route.test.alternate", 1, 2, ContractRouteNode.NodeType.FIGHT)
+	to_node.next_nodes = [forward_node]
+	start.next_nodes = [to_node, alternate_node]
 	map_overlay._add_generated_map_edge(selected_canvas, start, to_node, Vector2(0, 120), Vector2(260, 120))
+	map_overlay._add_generated_map_edge(selected_canvas, start, alternate_node, Vector2(0, 120), Vector2(260, 260))
+	map_overlay._add_generated_map_edge(selected_canvas, to_node, forward_node, Vector2(260, 120), Vector2(520, 120))
 	await process_frame
-	var selected_edge := selected_canvas.find_child("GeneratedRouteEdge", true, false) as Line2D
-	assert(selected_edge != null)
-	assert(selected_edge.get_meta("edge_visual_state") == "selected")
-	assert(selected_edge.width == map_overlay.GENERATED_EDGE_THICKNESS_ACTIVE)
-	assert(selected_canvas.find_child("GeneratedRouteEdgeHighlight", true, false) != null)
+	var selected_edges := selected_canvas.find_children("GeneratedRouteEdge", "Line2D", true, false)
+	assert(selected_edges.size() == 3)
+	var selected_step := _edge_for_nodes(selected_edges, start.id, to_node.id)
+	var alternate_step := _edge_for_nodes(selected_edges, start.id, alternate_node.id)
+	var outgoing_edge := _edge_for_nodes(selected_edges, to_node.id, forward_node.id)
+	assert(selected_step != null)
+	assert(selected_step.get_meta("edge_visual_state") == "selected")
+	assert(selected_step.width == map_overlay.GENERATED_EDGE_THICKNESS_ACTIVE)
+	assert(alternate_step != null)
+	assert(alternate_step.get_meta("edge_visual_state") == "locked")
+	assert(alternate_step.width == map_overlay.GENERATED_EDGE_THICKNESS)
+	assert(outgoing_edge != null)
+	assert(outgoing_edge.get_meta("edge_visual_state") == "selected")
+	assert(outgoing_edge.width == map_overlay.GENERATED_EDGE_THICKNESS_ACTIVE)
+	assert(selected_canvas.find_children("GeneratedRouteEdgeHighlight", "", true, false).size() >= 2)
 	selected_canvas.queue_free()
+
+	build_state.claimed_route_reward_ids = [start.id, to_node.id]
+	build_state.current_route_node = to_node
+	map_overlay._pending_contract_route_node = forward_node
+	var completed_path_canvas := Control.new()
+	root.add_child(completed_path_canvas)
+	map_overlay._add_generated_map_edge(completed_path_canvas, start, to_node, Vector2(0, 120), Vector2(260, 120))
+	map_overlay._add_generated_map_edge(completed_path_canvas, to_node, forward_node, Vector2(260, 120), Vector2(520, 120))
+	await process_frame
+	var completed_path_edges := completed_path_canvas.find_children("GeneratedRouteEdge", "Line2D", true, false)
+	var completed_step := _edge_for_nodes(completed_path_edges, start.id, to_node.id)
+	var selected_forward_step := _edge_for_nodes(completed_path_edges, to_node.id, forward_node.id)
+	assert(completed_step != null)
+	assert(completed_step.get_meta("edge_visual_state") == "completed")
+	assert(completed_step.width == map_overlay.GENERATED_EDGE_THICKNESS_ACTIVE)
+	assert(selected_forward_step != null)
+	assert(selected_forward_step.get_meta("edge_visual_state") == "selected")
+	assert(selected_forward_step.width == map_overlay.GENERATED_EDGE_THICKNESS_ACTIVE)
+	assert(completed_path_canvas.find_children("GeneratedRouteEdgeHighlight", "", true, false).size() >= 2)
+	completed_path_canvas.queue_free()
+	build_state.claimed_route_reward_ids = []
 	map_overlay._pending_contract_route_node = null
 
 
@@ -487,6 +524,17 @@ func _button_for_route_node(root_node: Node, route_node_id: String) -> Button:
 	for child in root_node.get_children():
 		if child is Button and String((child as Button).get_meta("route_node_id", "")) == route_node_id:
 			return child as Button
+	return null
+
+
+func _edge_for_nodes(edges: Array[Node], from_id: String, to_id: String) -> Line2D:
+	for edge in edges:
+		if (
+			edge is Line2D
+			and String(edge.get_meta("from_route_node_id", "")) == from_id
+			and String(edge.get_meta("to_route_node_id", "")) == to_id
+		):
+			return edge as Line2D
 	return null
 
 

@@ -131,7 +131,7 @@ func _initialize() -> void:
 	var gold_charm := _make_gold_reward_item("gear.test_gold_charm_equipped", "Receipt Charm", GearItem.SlotType.CHARM, 0.5)
 	assert(build_state.grant_gear(gold_weapon, true))
 	assert(build_state.grant_gear(gold_charm, true))
-	assert(build_state.modified_gold_reward(100) == 188)
+	assert(build_state.modified_gold_reward(100) == 187)
 	var cursed_ledger := _make_gold_reward_item("gear.test_cursed_ledger", "Cursed Ledger", GearItem.SlotType.TRINKET, -2.0)
 	assert(build_state.grant_gear(cursed_ledger, true))
 	assert(build_state.modified_gold_reward(100) == 0)

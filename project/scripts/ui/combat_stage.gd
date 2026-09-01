@@ -317,13 +317,76 @@ const CAVE_GOBLIN_KING_VISUAL_KEY := "cave_goblin_king"
 const CAVE_ANCIENT_BASILISK_VISUAL_KEY := "cave_ancient_basilisk"
 const CAVE_DEEP_MAW_VISUAL_KEY := "cave_deep_maw"
 const CAVE_GEMVEIN_TYRANT_VISUAL_KEY := "cave_gemvein_tyrant"
+const GRAVEYARD_RESTLESS_SPIRIT_VISUAL_KEY := "graveyard_restless_spirit"
+const GRAVEYARD_GIANT_RAT_VISUAL_KEY := "graveyard_giant_rat"
+const GRAVEYARD_WOLF_VISUAL_KEY := "graveyard_wolf"
+const GRAVEYARD_SKELETON_VISUAL_KEY := "graveyard_skeleton"
+const GRAVEYARD_ZOMBIE_VISUAL_KEY := "graveyard_zombie"
+const GRAVEYARD_FLESH_GOLEM_VISUAL_KEY := "graveyard_flesh_golem"
+const GRAVEYARD_GRAVE_ROBBER_VISUAL_KEY := "graveyard_grave_robber"
+const GRAVEYARD_WIGHT_VISUAL_KEY := "graveyard_wight"
+const GRAVEYARD_NECROMANCER_VISUAL_KEY := "graveyard_necromancer"
+const GRAVEYARD_MIRE_KNIGHT_VISUAL_KEY := "graveyard_mire_knight"
+const GRAVEYARD_BONE_COLOSSUS_VISUAL_KEY := "graveyard_bone_colossus"
+const GRAVEYARD_LICH_VISUAL_KEY := "graveyard_lich"
+const GRAVEYARD_HEADLESS_KNIGHT_VISUAL_KEY := "graveyard_headless_knight"
+const GRAVEYARD_BELL_TOWER_REVENANT_VISUAL_KEY := "graveyard_bell_tower_revenant"
+const GRAVEYARD_KING_LEORIC_VISUAL_KEY := "graveyard_king_leoric"
+const FOREST_SPIDER_VISUAL_KEY := "forest_spider"
+const FOREST_GOBLIN_VISUAL_KEY := "forest_goblin"
+const FOREST_WISP_VISUAL_KEY := "forest_wisp"
+const FOREST_TREANT_SAPLING_VISUAL_KEY := "forest_treant_sapling"
+const FOREST_DIRE_WOLF_VISUAL_KEY := "forest_dire_wolf"
+const FOREST_WEREWOLF_VISUAL_KEY := "forest_werewolf"
+const FOREST_TREANT_VISUAL_KEY := "forest_treant"
+const FOREST_ANCIENT_TREANT_VISUAL_KEY := "forest_ancient_treant"
+const FOREST_GREEN_HAG_VISUAL_KEY := "forest_green_hag"
+const FOREST_NIGHT_STALKER_VISUAL_KEY := "forest_night_stalker"
+const FOREST_HOLLOW_EYED_WITCH_VISUAL_KEY := "forest_hollow_eyed_witch"
+const FOREST_ROOT_CROWNED_WIDOW_VISUAL_KEY := "forest_root_crowned_widow"
+const FOREST_MOONLESS_HUNTMASTER_VISUAL_KEY := "forest_moonless_huntmaster"
+const FOREST_GREAT_WAREBEAR_VISUAL_KEY := "forest_great_warebear"
+const KEEP_RAT_VISUAL_KEY := "keep_rat"
+const KEEP_UNDEAD_GUARD_VISUAL_KEY := "keep_undead_guard"
+const KEEP_BANDIT_VISUAL_KEY := "keep_bandit"
+const KEEP_CULTIST_VISUAL_KEY := "keep_cultist"
+const KEEP_ANIMATED_ARMOR_VISUAL_KEY := "keep_animated_armor"
+const KEEP_GARGOYLE_VISUAL_KEY := "keep_gargoyle"
+const KEEP_WARLOCK_VISUAL_KEY := "keep_warlock"
+const KEEP_DARK_KNIGHT_VISUAL_KEY := "keep_dark_knight"
+const KEEP_OATHBREAKER_CAPTAIN_VISUAL_KEY := "keep_oathbreaker_captain"
+const KEEP_ARCANE_GOLEM_VISUAL_KEY := "keep_arcane_golem"
+const KEEP_FALLEN_KING_VISUAL_KEY := "keep_fallen_king"
+const KEEP_BEJEWELED_IRON_GOLEM_VISUAL_KEY := "keep_bejeweled_iron_golem"
+const KEEP_HALF_BLOOD_PRINCE_VISUAL_KEY := "keep_half_blood_prince"
+const KEEP_LAST_CASTELLAN_VISUAL_KEY := "keep_last_castellan"
+const KEEP_FAITHLESS_EXECUTIONER_VISUAL_KEY := "keep_faithless_executioner"
+const RUINS_CULTIST_VISUAL_KEY := "ruins_cultist"
+const RUINS_ANIMATED_STATUE_VISUAL_KEY := "ruins_animated_statue"
+const RUINS_SCARAB_VISUAL_KEY := "ruins_scarab"
+const RUINS_WISP_VISUAL_KEY := "ruins_wisp"
+const RUINS_MINOTAUR_VISUAL_KEY := "ruins_minotaur"
+const RUINS_GUARDIAN_CONSTRUCT_VISUAL_KEY := "ruins_guardian_construct"
+const RUINS_ARCANE_GOLEM_VISUAL_KEY := "ruins_arcane_golem"
+const RUINS_RUNEMARK_SENTINEL_VISUAL_KEY := "ruins_runemark_sentinel"
+const RUINS_SCARAB_QUEEN_VISUAL_KEY := "ruins_scarab_queen"
+const RUINS_ANCIENT_GUARDIAN_VISUAL_KEY := "ruins_ancient_guardian"
+const RUINS_SPHINX_VISUAL_KEY := "ruins_sphinx"
+const RUINS_RUNIC_COLOSSUS_VISUAL_KEY := "ruins_runic_colossus"
+const RUINS_FIRST_IDOL_VISUAL_KEY := "ruins_first_idol"
+const RUINS_ANCIENT_ARCHIVIST_VISUAL_KEY := "ruins_ancient_archivist"
 const ANIMATION_PHYSICAL := "physical"
 const ANIMATION_POISON := "poison"
+const ANIMATION_HOLD := "hold"
 const ANIMATION_TICK := "poison_tick"
 const OUTCOME_VICTORY := "victory"
 const OUTCOME_DEFEAT := "defeat"
 const LUNGE_DISTANCE_PX := 34.0
 const RECOIL_DISTANCE_PX := 18.0
+const CRIT_RECOIL_DISTANCE_PX := 6.0
+const CONTRACT_RUN_IN_DELAY_SEC := 0.18
+const CONTRACT_RUN_IN_SEC := 0.95
+const CONTRACT_RUN_OUT_SEC := 0.85
 const STAGE_GRID_MIN := -5.0
 const STAGE_GRID_MAX := 5.0
 const STAGE_GRID_MARGIN_PX := 12.0
@@ -347,8 +410,8 @@ const DODGE_SHIFT_OFFSET := Vector2(18.0, 0.0)
 const DODGE_SHIFT_SEC := 0.09
 const OUTCOME_POSE_SEC := 0.24
 const FIGHT_INTRO_SEC := 0.42
-const FIGHT_INTRO_PLAYER_OFFSET := Vector2(-18.0, 0.0)
-const FIGHT_INTRO_ENEMY_OFFSET := Vector2(18.0, 0.0)
+const FIGHT_INTRO_PLAYER_OFFSET := Vector2.ZERO
+const FIGHT_INTRO_ENEMY_OFFSET := Vector2.ZERO
 const BANDIT_BLADE_ID := "gear.legendary.bandit_blade"
 const BANDIT_COIN_TEXTURE := preload("res://assets/Items/Rogue/Lucky_Coin.png")
 const BANDIT_COIN_NORMAL_COUNT := 3
@@ -376,6 +439,7 @@ const PLAYER_ANIMATION_MANIFEST_PATHS := {
 	"idle": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/idle/animation_manifest.json",
 	"attack_physical": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/attack1/animation_manifest.json",
 	"attack_poison": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/attack2/animation_manifest.json",
+	"walk": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/walk/animation_manifest.json",
 	"hurt": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/idle/animation_manifest.json",
 	"defeat": "res://assets/placeholder_combat_sprites/rogue_bandit/animations/death/animation_manifest.json",
 }
@@ -445,6 +509,64 @@ const ENEMY_ANIMATION_PATHS := {
 	CAVE_ANCIENT_BASILISK_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Ancient_basilisk.png", "hurt": "res://assets/enemies/cave/Ancient_basilisk.png", "defeat": "res://assets/enemies/cave/Ancient_basilisk.png"},
 	CAVE_DEEP_MAW_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Deep_maw.png", "hurt": "res://assets/enemies/cave/Deep_maw.png", "defeat": "res://assets/enemies/cave/Deep_maw.png"},
 	CAVE_GEMVEIN_TYRANT_VISUAL_KEY: {"idle": "res://assets/enemies/cave/Gemvein_tyrant.png", "hurt": "res://assets/enemies/cave/Gemvein_tyrant.png", "defeat": "res://assets/enemies/cave/Gemvein_tyrant.png"},
+	GRAVEYARD_RESTLESS_SPIRIT_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/Restless_Spirit.png", "hurt": "res://assets/enemies/graveyard/Restless_Spirit.png", "defeat": "res://assets/enemies/graveyard/Restless_Spirit.png"},
+	GRAVEYARD_GIANT_RAT_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/rat.png", "hurt": "res://assets/enemies/graveyard/rat.png", "defeat": "res://assets/enemies/graveyard/rat.png"},
+	GRAVEYARD_WOLF_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/wolf.png", "hurt": "res://assets/enemies/graveyard/wolf.png", "defeat": "res://assets/enemies/graveyard/wolf.png"},
+	GRAVEYARD_SKELETON_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/skeleton.png", "hurt": "res://assets/enemies/graveyard/skeleton.png", "defeat": "res://assets/enemies/graveyard/skeleton.png"},
+	GRAVEYARD_ZOMBIE_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/zombie.png", "hurt": "res://assets/enemies/graveyard/zombie.png", "defeat": "res://assets/enemies/graveyard/zombie.png"},
+	GRAVEYARD_FLESH_GOLEM_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/Flesh_Golem.png", "hurt": "res://assets/enemies/graveyard/Flesh_Golem.png", "defeat": "res://assets/enemies/graveyard/Flesh_Golem.png"},
+	GRAVEYARD_GRAVE_ROBBER_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/grave_robber.png", "hurt": "res://assets/enemies/graveyard/grave_robber.png", "defeat": "res://assets/enemies/graveyard/grave_robber.png"},
+	GRAVEYARD_WIGHT_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/wight.png", "hurt": "res://assets/enemies/graveyard/wight.png", "defeat": "res://assets/enemies/graveyard/wight.png"},
+	GRAVEYARD_NECROMANCER_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/necromancer.png", "hurt": "res://assets/enemies/graveyard/necromancer.png", "defeat": "res://assets/enemies/graveyard/necromancer.png"},
+	GRAVEYARD_MIRE_KNIGHT_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/Mire_Knight.png", "hurt": "res://assets/enemies/graveyard/Mire_Knight.png", "defeat": "res://assets/enemies/graveyard/Mire_Knight.png"},
+	GRAVEYARD_BONE_COLOSSUS_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/Bone_colossus.png", "hurt": "res://assets/enemies/graveyard/Bone_colossus.png", "defeat": "res://assets/enemies/graveyard/Bone_colossus.png"},
+	GRAVEYARD_LICH_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/Lich.png", "hurt": "res://assets/enemies/graveyard/Lich.png", "defeat": "res://assets/enemies/graveyard/Lich.png"},
+	GRAVEYARD_HEADLESS_KNIGHT_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/Headless_Knight.png", "hurt": "res://assets/enemies/graveyard/Headless_Knight.png", "defeat": "res://assets/enemies/graveyard/Headless_Knight.png"},
+	GRAVEYARD_BELL_TOWER_REVENANT_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/The_Bell-Tower_Revenant.png", "hurt": "res://assets/enemies/graveyard/The_Bell-Tower_Revenant.png", "defeat": "res://assets/enemies/graveyard/The_Bell-Tower_Revenant.png"},
+	GRAVEYARD_KING_LEORIC_VISUAL_KEY: {"idle": "res://assets/enemies/graveyard/King_Leoric.png", "hurt": "res://assets/enemies/graveyard/King_Leoric.png", "defeat": "res://assets/enemies/graveyard/King_Leoric.png"},
+	FOREST_SPIDER_VISUAL_KEY: {"idle": "res://assets/enemies/forest/spider.png", "hurt": "res://assets/enemies/forest/spider.png", "defeat": "res://assets/enemies/forest/spider.png"},
+	FOREST_GOBLIN_VISUAL_KEY: {"idle": "res://assets/enemies/forest/goblin.png", "hurt": "res://assets/enemies/forest/goblin.png", "defeat": "res://assets/enemies/forest/goblin.png"},
+	FOREST_WISP_VISUAL_KEY: {"idle": "res://assets/enemies/forest/wisp.png", "hurt": "res://assets/enemies/forest/wisp.png", "defeat": "res://assets/enemies/forest/wisp.png"},
+	FOREST_TREANT_SAPLING_VISUAL_KEY: {"idle": "res://assets/enemies/forest/sapling.png", "hurt": "res://assets/enemies/forest/sapling.png", "defeat": "res://assets/enemies/forest/sapling.png"},
+	FOREST_DIRE_WOLF_VISUAL_KEY: {"idle": "res://assets/enemies/forest/wolf.png", "hurt": "res://assets/enemies/forest/wolf.png", "defeat": "res://assets/enemies/forest/wolf.png"},
+	FOREST_WEREWOLF_VISUAL_KEY: {"idle": "res://assets/enemies/forest/Warewolf.png", "hurt": "res://assets/enemies/forest/Warewolf.png", "defeat": "res://assets/enemies/forest/Warewolf.png"},
+	FOREST_TREANT_VISUAL_KEY: {"idle": "res://assets/enemies/forest/treant.png", "hurt": "res://assets/enemies/forest/treant.png", "defeat": "res://assets/enemies/forest/treant.png"},
+	FOREST_ANCIENT_TREANT_VISUAL_KEY: {"idle": "res://assets/enemies/forest/Ancient_Treant.png", "hurt": "res://assets/enemies/forest/Ancient_Treant.png", "defeat": "res://assets/enemies/forest/Ancient_Treant.png"},
+	FOREST_GREEN_HAG_VISUAL_KEY: {"idle": "res://assets/enemies/forest/Green_Hag.png", "hurt": "res://assets/enemies/forest/Green_Hag.png", "defeat": "res://assets/enemies/forest/Green_Hag.png"},
+	FOREST_NIGHT_STALKER_VISUAL_KEY: {"idle": "res://assets/enemies/forest/night_stalker.png", "hurt": "res://assets/enemies/forest/night_stalker.png", "defeat": "res://assets/enemies/forest/night_stalker.png"},
+	FOREST_HOLLOW_EYED_WITCH_VISUAL_KEY: {"idle": "res://assets/enemies/forest/Hallow_Eyed__Witch.png", "hurt": "res://assets/enemies/forest/Hallow_Eyed__Witch.png", "defeat": "res://assets/enemies/forest/Hallow_Eyed__Witch.png"},
+	FOREST_ROOT_CROWNED_WIDOW_VISUAL_KEY: {"idle": "res://assets/enemies/forest/Root_Crowned_Widow.png", "hurt": "res://assets/enemies/forest/Root_Crowned_Widow.png", "defeat": "res://assets/enemies/forest/Root_Crowned_Widow.png"},
+	FOREST_MOONLESS_HUNTMASTER_VISUAL_KEY: {"idle": "res://assets/enemies/forest/Moonless_Huntmaster.png", "hurt": "res://assets/enemies/forest/Moonless_Huntmaster.png", "defeat": "res://assets/enemies/forest/Moonless_Huntmaster.png"},
+	FOREST_GREAT_WAREBEAR_VISUAL_KEY: {"idle": "res://assets/enemies/forest/Great_Warebear.png", "hurt": "res://assets/enemies/forest/Great_Warebear.png", "defeat": "res://assets/enemies/forest/Great_Warebear.png"},
+	KEEP_RAT_VISUAL_KEY: {"idle": "res://assets/enemies/keep/rat.png", "hurt": "res://assets/enemies/keep/rat.png", "defeat": "res://assets/enemies/keep/rat.png"},
+	KEEP_UNDEAD_GUARD_VISUAL_KEY: {"idle": "res://assets/enemies/keep/undead_guard.png", "hurt": "res://assets/enemies/keep/undead_guard.png", "defeat": "res://assets/enemies/keep/undead_guard.png"},
+	KEEP_BANDIT_VISUAL_KEY: {"idle": "res://assets/enemies/keep/bandit.png", "hurt": "res://assets/enemies/keep/bandit.png", "defeat": "res://assets/enemies/keep/bandit.png"},
+	KEEP_CULTIST_VISUAL_KEY: {"idle": "res://assets/enemies/keep/cultist.png", "hurt": "res://assets/enemies/keep/cultist.png", "defeat": "res://assets/enemies/keep/cultist.png"},
+	KEEP_ANIMATED_ARMOR_VISUAL_KEY: {"idle": "res://assets/enemies/keep/animated_armor.png", "hurt": "res://assets/enemies/keep/animated_armor.png", "defeat": "res://assets/enemies/keep/animated_armor.png"},
+	KEEP_GARGOYLE_VISUAL_KEY: {"idle": "res://assets/enemies/keep/Gargoyle.png", "hurt": "res://assets/enemies/keep/Gargoyle.png", "defeat": "res://assets/enemies/keep/Gargoyle.png"},
+	KEEP_WARLOCK_VISUAL_KEY: {"idle": "res://assets/enemies/keep/warlock.png", "hurt": "res://assets/enemies/keep/warlock.png", "defeat": "res://assets/enemies/keep/warlock.png"},
+	KEEP_DARK_KNIGHT_VISUAL_KEY: {"idle": "res://assets/enemies/keep/Dark_Knight.png", "hurt": "res://assets/enemies/keep/Dark_Knight.png", "defeat": "res://assets/enemies/keep/Dark_Knight.png"},
+	KEEP_OATHBREAKER_CAPTAIN_VISUAL_KEY: {"idle": "res://assets/enemies/keep/Oathbreaker_Captain.png", "hurt": "res://assets/enemies/keep/Oathbreaker_Captain.png", "defeat": "res://assets/enemies/keep/Oathbreaker_Captain.png"},
+	KEEP_ARCANE_GOLEM_VISUAL_KEY: {"idle": "res://assets/enemies/keep/Arcane_Golem.png", "hurt": "res://assets/enemies/keep/Arcane_Golem.png", "defeat": "res://assets/enemies/keep/Arcane_Golem.png"},
+	KEEP_FALLEN_KING_VISUAL_KEY: {"idle": "res://assets/enemies/keep/Fallen_King.png", "hurt": "res://assets/enemies/keep/Fallen_King.png", "defeat": "res://assets/enemies/keep/Fallen_King.png"},
+	KEEP_BEJEWELED_IRON_GOLEM_VISUAL_KEY: {"idle": "res://assets/enemies/keep/Bejeweled_Iron_Golem.png", "hurt": "res://assets/enemies/keep/Bejeweled_Iron_Golem.png", "defeat": "res://assets/enemies/keep/Bejeweled_Iron_Golem.png"},
+	KEEP_HALF_BLOOD_PRINCE_VISUAL_KEY: {"idle": "res://assets/enemies/keep/Half_Blood_Prince.png", "hurt": "res://assets/enemies/keep/Half_Blood_Prince.png", "defeat": "res://assets/enemies/keep/Half_Blood_Prince.png"},
+	KEEP_LAST_CASTELLAN_VISUAL_KEY: {"idle": "res://assets/enemies/keep/Last_Castellan.png", "hurt": "res://assets/enemies/keep/Last_Castellan.png", "defeat": "res://assets/enemies/keep/Last_Castellan.png"},
+	KEEP_FAITHLESS_EXECUTIONER_VISUAL_KEY: {"idle": "res://assets/enemies/keep/Faithless_Executioner.png", "hurt": "res://assets/enemies/keep/Faithless_Executioner.png", "defeat": "res://assets/enemies/keep/Faithless_Executioner.png"},
+	RUINS_CULTIST_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/cultist.png", "hurt": "res://assets/enemies/ruins/cultist.png", "defeat": "res://assets/enemies/ruins/cultist.png"},
+	RUINS_ANIMATED_STATUE_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Animated_Statue.png", "hurt": "res://assets/enemies/ruins/Animated_Statue.png", "defeat": "res://assets/enemies/ruins/Animated_Statue.png"},
+	RUINS_SCARAB_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/scrarab.png", "hurt": "res://assets/enemies/ruins/scrarab.png", "defeat": "res://assets/enemies/ruins/scrarab.png"},
+	RUINS_WISP_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/wisp.png", "hurt": "res://assets/enemies/ruins/wisp.png", "defeat": "res://assets/enemies/ruins/wisp.png"},
+	RUINS_MINOTAUR_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Minotaur.png", "hurt": "res://assets/enemies/ruins/Minotaur.png", "defeat": "res://assets/enemies/ruins/Minotaur.png"},
+	RUINS_GUARDIAN_CONSTRUCT_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Guardian_Construct.png", "hurt": "res://assets/enemies/ruins/Guardian_Construct.png", "defeat": "res://assets/enemies/ruins/Guardian_Construct.png"},
+	RUINS_ARCANE_GOLEM_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Arcane_Golem.png", "hurt": "res://assets/enemies/ruins/Arcane_Golem.png", "defeat": "res://assets/enemies/ruins/Arcane_Golem.png"},
+	RUINS_RUNEMARK_SENTINEL_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Runemark_sentinal.png", "hurt": "res://assets/enemies/ruins/Runemark_sentinal.png", "defeat": "res://assets/enemies/ruins/Runemark_sentinal.png"},
+	RUINS_SCARAB_QUEEN_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Scarab_Queen.png", "hurt": "res://assets/enemies/ruins/Scarab_Queen.png", "defeat": "res://assets/enemies/ruins/Scarab_Queen.png"},
+	RUINS_ANCIENT_GUARDIAN_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Ancient_Guardian.png", "hurt": "res://assets/enemies/ruins/Ancient_Guardian.png", "defeat": "res://assets/enemies/ruins/Ancient_Guardian.png"},
+	RUINS_SPHINX_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Sphinx.png", "hurt": "res://assets/enemies/ruins/Sphinx.png", "defeat": "res://assets/enemies/ruins/Sphinx.png"},
+	RUINS_RUNIC_COLOSSUS_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Runic_Collosus.png", "hurt": "res://assets/enemies/ruins/Runic_Collosus.png", "defeat": "res://assets/enemies/ruins/Runic_Collosus.png"},
+	RUINS_FIRST_IDOL_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/First_idol.png", "hurt": "res://assets/enemies/ruins/First_idol.png", "defeat": "res://assets/enemies/ruins/First_idol.png"},
+	RUINS_ANCIENT_ARCHIVIST_VISUAL_KEY: {"idle": "res://assets/enemies/ruins/Ancient_Archivist.png", "hurt": "res://assets/enemies/ruins/Ancient_Archivist.png", "defeat": "res://assets/enemies/ruins/Ancient_Archivist.png"},
 }
 const STATIC_ENEMY_VISUAL_KEYS := [
 	SWAMP_GREEN_SLIME_VISUAL_KEY,
@@ -477,6 +599,64 @@ const STATIC_ENEMY_VISUAL_KEYS := [
 	CAVE_ANCIENT_BASILISK_VISUAL_KEY,
 	CAVE_DEEP_MAW_VISUAL_KEY,
 	CAVE_GEMVEIN_TYRANT_VISUAL_KEY,
+	GRAVEYARD_RESTLESS_SPIRIT_VISUAL_KEY,
+	GRAVEYARD_GIANT_RAT_VISUAL_KEY,
+	GRAVEYARD_WOLF_VISUAL_KEY,
+	GRAVEYARD_SKELETON_VISUAL_KEY,
+	GRAVEYARD_ZOMBIE_VISUAL_KEY,
+	GRAVEYARD_FLESH_GOLEM_VISUAL_KEY,
+	GRAVEYARD_GRAVE_ROBBER_VISUAL_KEY,
+	GRAVEYARD_WIGHT_VISUAL_KEY,
+	GRAVEYARD_NECROMANCER_VISUAL_KEY,
+	GRAVEYARD_MIRE_KNIGHT_VISUAL_KEY,
+	GRAVEYARD_BONE_COLOSSUS_VISUAL_KEY,
+	GRAVEYARD_LICH_VISUAL_KEY,
+	GRAVEYARD_HEADLESS_KNIGHT_VISUAL_KEY,
+	GRAVEYARD_BELL_TOWER_REVENANT_VISUAL_KEY,
+	GRAVEYARD_KING_LEORIC_VISUAL_KEY,
+	FOREST_SPIDER_VISUAL_KEY,
+	FOREST_GOBLIN_VISUAL_KEY,
+	FOREST_WISP_VISUAL_KEY,
+	FOREST_TREANT_SAPLING_VISUAL_KEY,
+	FOREST_DIRE_WOLF_VISUAL_KEY,
+	FOREST_WEREWOLF_VISUAL_KEY,
+	FOREST_TREANT_VISUAL_KEY,
+	FOREST_ANCIENT_TREANT_VISUAL_KEY,
+	FOREST_GREEN_HAG_VISUAL_KEY,
+	FOREST_NIGHT_STALKER_VISUAL_KEY,
+	FOREST_HOLLOW_EYED_WITCH_VISUAL_KEY,
+	FOREST_ROOT_CROWNED_WIDOW_VISUAL_KEY,
+	FOREST_MOONLESS_HUNTMASTER_VISUAL_KEY,
+	FOREST_GREAT_WAREBEAR_VISUAL_KEY,
+	KEEP_RAT_VISUAL_KEY,
+	KEEP_UNDEAD_GUARD_VISUAL_KEY,
+	KEEP_BANDIT_VISUAL_KEY,
+	KEEP_CULTIST_VISUAL_KEY,
+	KEEP_ANIMATED_ARMOR_VISUAL_KEY,
+	KEEP_GARGOYLE_VISUAL_KEY,
+	KEEP_WARLOCK_VISUAL_KEY,
+	KEEP_DARK_KNIGHT_VISUAL_KEY,
+	KEEP_OATHBREAKER_CAPTAIN_VISUAL_KEY,
+	KEEP_ARCANE_GOLEM_VISUAL_KEY,
+	KEEP_FALLEN_KING_VISUAL_KEY,
+	KEEP_BEJEWELED_IRON_GOLEM_VISUAL_KEY,
+	KEEP_HALF_BLOOD_PRINCE_VISUAL_KEY,
+	KEEP_LAST_CASTELLAN_VISUAL_KEY,
+	KEEP_FAITHLESS_EXECUTIONER_VISUAL_KEY,
+	RUINS_CULTIST_VISUAL_KEY,
+	RUINS_ANIMATED_STATUE_VISUAL_KEY,
+	RUINS_SCARAB_VISUAL_KEY,
+	RUINS_WISP_VISUAL_KEY,
+	RUINS_MINOTAUR_VISUAL_KEY,
+	RUINS_GUARDIAN_CONSTRUCT_VISUAL_KEY,
+	RUINS_ARCANE_GOLEM_VISUAL_KEY,
+	RUINS_RUNEMARK_SENTINEL_VISUAL_KEY,
+	RUINS_SCARAB_QUEEN_VISUAL_KEY,
+	RUINS_ANCIENT_GUARDIAN_VISUAL_KEY,
+	RUINS_SPHINX_VISUAL_KEY,
+	RUINS_RUNIC_COLOSSUS_VISUAL_KEY,
+	RUINS_FIRST_IDOL_VISUAL_KEY,
+	RUINS_ANCIENT_ARCHIVIST_VISUAL_KEY,
 ]
 const STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY := {
 	SWAMP_GREEN_SLIME_VISUAL_KEY: true,
@@ -509,6 +689,38 @@ const STATIC_ENEMY_FLIP_H_BY_VISUAL_KEY := {
 	CAVE_ANCIENT_BASILISK_VISUAL_KEY: false,
 	CAVE_DEEP_MAW_VISUAL_KEY: false,
 	CAVE_GEMVEIN_TYRANT_VISUAL_KEY: false,
+	GRAVEYARD_WOLF_VISUAL_KEY: true,
+	GRAVEYARD_SKELETON_VISUAL_KEY: true,
+	GRAVEYARD_WIGHT_VISUAL_KEY: true,
+	GRAVEYARD_NECROMANCER_VISUAL_KEY: true,
+	GRAVEYARD_MIRE_KNIGHT_VISUAL_KEY: true,
+	GRAVEYARD_HEADLESS_KNIGHT_VISUAL_KEY: true,
+	GRAVEYARD_BELL_TOWER_REVENANT_VISUAL_KEY: true,
+	GRAVEYARD_KING_LEORIC_VISUAL_KEY: true,
+	FOREST_WISP_VISUAL_KEY: true,
+	FOREST_TREANT_SAPLING_VISUAL_KEY: true,
+	FOREST_WEREWOLF_VISUAL_KEY: true,
+	FOREST_TREANT_VISUAL_KEY: true,
+	FOREST_ANCIENT_TREANT_VISUAL_KEY: true,
+	FOREST_GREEN_HAG_VISUAL_KEY: true,
+	FOREST_NIGHT_STALKER_VISUAL_KEY: true,
+	FOREST_GREAT_WAREBEAR_VISUAL_KEY: true,
+	KEEP_BANDIT_VISUAL_KEY: true,
+	KEEP_CULTIST_VISUAL_KEY: true,
+	KEEP_ANIMATED_ARMOR_VISUAL_KEY: true,
+	KEEP_GARGOYLE_VISUAL_KEY: true,
+	KEEP_DARK_KNIGHT_VISUAL_KEY: true,
+	KEEP_OATHBREAKER_CAPTAIN_VISUAL_KEY: true,
+	KEEP_FALLEN_KING_VISUAL_KEY: true,
+	KEEP_BEJEWELED_IRON_GOLEM_VISUAL_KEY: true,
+	KEEP_HALF_BLOOD_PRINCE_VISUAL_KEY: true,
+	KEEP_LAST_CASTELLAN_VISUAL_KEY: true,
+	KEEP_FAITHLESS_EXECUTIONER_VISUAL_KEY: true,
+	RUINS_CULTIST_VISUAL_KEY: true,
+	RUINS_ANIMATED_STATUE_VISUAL_KEY: true,
+	RUINS_WISP_VISUAL_KEY: true,
+	RUINS_MINOTAUR_VISUAL_KEY: true,
+	RUINS_GUARDIAN_CONSTRUCT_VISUAL_KEY: true,
 }
 const ENEMY_ANIMATION_REGIONS := {
 	PRACTICE_DUMMY_VISUAL_KEY: {
@@ -599,6 +811,124 @@ const ENEMY_VISUAL_KEYS_BY_NAME := {
 	"The Deep Maw": CAVE_DEEP_MAW_VISUAL_KEY,
 	"Deep Maw": CAVE_DEEP_MAW_VISUAL_KEY,
 	"Gemvein Tyrant": CAVE_GEMVEIN_TYRANT_VISUAL_KEY,
+	"Restless Spirit": GRAVEYARD_RESTLESS_SPIRIT_VISUAL_KEY,
+	"Giant Rat": GRAVEYARD_GIANT_RAT_VISUAL_KEY,
+	"Wolf": GRAVEYARD_WOLF_VISUAL_KEY,
+	"Skeleton": GRAVEYARD_SKELETON_VISUAL_KEY,
+	"Zombie": GRAVEYARD_ZOMBIE_VISUAL_KEY,
+	"Flesh Golem": GRAVEYARD_FLESH_GOLEM_VISUAL_KEY,
+	"Golem": GRAVEYARD_FLESH_GOLEM_VISUAL_KEY,
+	"Grave Robber": GRAVEYARD_GRAVE_ROBBER_VISUAL_KEY,
+	"Wight": GRAVEYARD_WIGHT_VISUAL_KEY,
+	"Necromancer": GRAVEYARD_NECROMANCER_VISUAL_KEY,
+	"Graveyard Mire Knight": GRAVEYARD_MIRE_KNIGHT_VISUAL_KEY,
+	"Bone Colossus": GRAVEYARD_BONE_COLOSSUS_VISUAL_KEY,
+	"Lich": GRAVEYARD_LICH_VISUAL_KEY,
+	"Headless Knight": GRAVEYARD_HEADLESS_KNIGHT_VISUAL_KEY,
+	"The Bell-Tower Revenant": GRAVEYARD_BELL_TOWER_REVENANT_VISUAL_KEY,
+	"Bell-Tower Revenant": GRAVEYARD_BELL_TOWER_REVENANT_VISUAL_KEY,
+	"King Leoric": GRAVEYARD_KING_LEORIC_VISUAL_KEY,
+	"Spider": FOREST_SPIDER_VISUAL_KEY,
+	"Haunted Forest Spider": FOREST_SPIDER_VISUAL_KEY,
+	"Haunted Forest Giant Spider": FOREST_SPIDER_VISUAL_KEY,
+	"Forest Goblin": FOREST_GOBLIN_VISUAL_KEY,
+	"Haunted Forest Forest Goblin": FOREST_GOBLIN_VISUAL_KEY,
+	"Haunted Forest Veteran Forest Goblin": FOREST_GOBLIN_VISUAL_KEY,
+	"Haunted Forest Wisp": FOREST_WISP_VISUAL_KEY,
+	"Haunted Forest Ancient Wisp": FOREST_WISP_VISUAL_KEY,
+	"Treant Sapling": FOREST_TREANT_SAPLING_VISUAL_KEY,
+	"Haunted Forest Treant Sapling": FOREST_TREANT_SAPLING_VISUAL_KEY,
+	"Haunted Forest Ancient Treant Sapling": FOREST_TREANT_SAPLING_VISUAL_KEY,
+	"Dire Wolf": FOREST_DIRE_WOLF_VISUAL_KEY,
+	"Haunted Forest Dire Wolf": FOREST_DIRE_WOLF_VISUAL_KEY,
+	"Haunted Forest Alpha Dire Wolf": FOREST_DIRE_WOLF_VISUAL_KEY,
+	"Werewolf": FOREST_WEREWOLF_VISUAL_KEY,
+	"Haunted Forest Werewolf": FOREST_WEREWOLF_VISUAL_KEY,
+	"Treant": FOREST_TREANT_VISUAL_KEY,
+	"Ancient Treant": FOREST_ANCIENT_TREANT_VISUAL_KEY,
+	"Haunted Forest Treant": FOREST_TREANT_VISUAL_KEY,
+	"Haunted Forest Ancient Treant": FOREST_ANCIENT_TREANT_VISUAL_KEY,
+	"Haunted Forest Green Hag": FOREST_GREEN_HAG_VISUAL_KEY,
+	"Night Stalker": FOREST_NIGHT_STALKER_VISUAL_KEY,
+	"Haunted Forest Night Stalker": FOREST_NIGHT_STALKER_VISUAL_KEY,
+	"Hollow-Eyed Witch": FOREST_HOLLOW_EYED_WITCH_VISUAL_KEY,
+	"Forest Witch": FOREST_HOLLOW_EYED_WITCH_VISUAL_KEY,
+	"Haunted Forest Hollow-Eyed Witch": FOREST_HOLLOW_EYED_WITCH_VISUAL_KEY,
+	"Haunted Forest Forest Witch": FOREST_HOLLOW_EYED_WITCH_VISUAL_KEY,
+	"The Root-Crowned Widow": FOREST_ROOT_CROWNED_WIDOW_VISUAL_KEY,
+	"Root-Crowned Widow": FOREST_ROOT_CROWNED_WIDOW_VISUAL_KEY,
+	"Haunted Forest The Root-Crowned Widow": FOREST_ROOT_CROWNED_WIDOW_VISUAL_KEY,
+	"Haunted Forest Root-Crowned Widow": FOREST_ROOT_CROWNED_WIDOW_VISUAL_KEY,
+	"Moonless Huntmaster": FOREST_MOONLESS_HUNTMASTER_VISUAL_KEY,
+	"Haunted Forest Moonless Huntmaster": FOREST_MOONLESS_HUNTMASTER_VISUAL_KEY,
+	"Great Warebear": FOREST_GREAT_WAREBEAR_VISUAL_KEY,
+	"Haunted Forest Great Warebear": FOREST_GREAT_WAREBEAR_VISUAL_KEY,
+	"Rat": KEEP_RAT_VISUAL_KEY,
+	"Ruined Keep Rat": KEEP_RAT_VISUAL_KEY,
+	"Ruined Keep Giant Rat": KEEP_RAT_VISUAL_KEY,
+	"Undead Guard": KEEP_UNDEAD_GUARD_VISUAL_KEY,
+	"Ruined Keep Undead Guard": KEEP_UNDEAD_GUARD_VISUAL_KEY,
+	"Ruined Keep Ancient Undead Guard": KEEP_UNDEAD_GUARD_VISUAL_KEY,
+	"Bandit": KEEP_BANDIT_VISUAL_KEY,
+	"Ruined Keep Bandit": KEEP_BANDIT_VISUAL_KEY,
+	"Ruined Keep Veteran Bandit": KEEP_BANDIT_VISUAL_KEY,
+	"Cultist": KEEP_CULTIST_VISUAL_KEY,
+	"Ruined Keep Cultist": KEEP_CULTIST_VISUAL_KEY,
+	"Ruined Keep Veteran Cultist": KEEP_CULTIST_VISUAL_KEY,
+	"Animated Armor": KEEP_ANIMATED_ARMOR_VISUAL_KEY,
+	"Ruined Keep Animated Armor": KEEP_ANIMATED_ARMOR_VISUAL_KEY,
+	"Ruined Keep Ancient Animated Armor": KEEP_ANIMATED_ARMOR_VISUAL_KEY,
+	"Gargoyle": KEEP_GARGOYLE_VISUAL_KEY,
+	"Ruined Keep Gargoyle": KEEP_GARGOYLE_VISUAL_KEY,
+	"Warlock": KEEP_WARLOCK_VISUAL_KEY,
+	"Ruined Keep Warlock": KEEP_WARLOCK_VISUAL_KEY,
+	"Dark Knight": KEEP_DARK_KNIGHT_VISUAL_KEY,
+	"Ruined Keep Dark Knight": KEEP_DARK_KNIGHT_VISUAL_KEY,
+	"Oathbreaker Captain": KEEP_OATHBREAKER_CAPTAIN_VISUAL_KEY,
+	"Ruined Keep Oathbreaker Captain": KEEP_OATHBREAKER_CAPTAIN_VISUAL_KEY,
+	"Arcane Golem": KEEP_ARCANE_GOLEM_VISUAL_KEY,
+	"Ruined Keep Arcane Golem": KEEP_ARCANE_GOLEM_VISUAL_KEY,
+	"Fallen King": KEEP_FALLEN_KING_VISUAL_KEY,
+	"Ruined Keep Fallen King": KEEP_FALLEN_KING_VISUAL_KEY,
+	"Bejeweled Iron Golem": KEEP_BEJEWELED_IRON_GOLEM_VISUAL_KEY,
+	"Ruined Keep Bejeweled Iron Golem": KEEP_BEJEWELED_IRON_GOLEM_VISUAL_KEY,
+	"The Half-blood Prince": KEEP_HALF_BLOOD_PRINCE_VISUAL_KEY,
+	"Ruined Keep The Half-blood Prince": KEEP_HALF_BLOOD_PRINCE_VISUAL_KEY,
+	"The Last Castellan": KEEP_LAST_CASTELLAN_VISUAL_KEY,
+	"Ruined Keep The Last Castellan": KEEP_LAST_CASTELLAN_VISUAL_KEY,
+	"Faithless Executioner": KEEP_FAITHLESS_EXECUTIONER_VISUAL_KEY,
+	"Ruined Keep Faithless Executioner": KEEP_FAITHLESS_EXECUTIONER_VISUAL_KEY,
+	"Ancient Ruins Cultist": RUINS_CULTIST_VISUAL_KEY,
+	"Ancient Ruins Veteran Cultist": RUINS_CULTIST_VISUAL_KEY,
+	"Animated Statue": RUINS_ANIMATED_STATUE_VISUAL_KEY,
+	"Ancient Ruins Animated Statue": RUINS_ANIMATED_STATUE_VISUAL_KEY,
+	"Ancient Ruins Ancient Animated Statue": RUINS_ANIMATED_STATUE_VISUAL_KEY,
+	"Scarab": RUINS_SCARAB_VISUAL_KEY,
+	"Ancient Ruins Scarab": RUINS_SCARAB_VISUAL_KEY,
+	"Ancient Ruins Giant Scarab": RUINS_SCARAB_VISUAL_KEY,
+	"Wisp": RUINS_WISP_VISUAL_KEY,
+	"Ancient Ruins Wisp": RUINS_WISP_VISUAL_KEY,
+	"Ancient Ruins Ancient Wisp": RUINS_WISP_VISUAL_KEY,
+	"Minotaur": RUINS_MINOTAUR_VISUAL_KEY,
+	"Ancient Ruins Minotaur": RUINS_MINOTAUR_VISUAL_KEY,
+	"Guardian Construct": RUINS_GUARDIAN_CONSTRUCT_VISUAL_KEY,
+	"Ancient Ruins Guardian Construct": RUINS_GUARDIAN_CONSTRUCT_VISUAL_KEY,
+	"Ancient Ruins Arcane Golem": RUINS_ARCANE_GOLEM_VISUAL_KEY,
+	"Runemark Sentinel": RUINS_RUNEMARK_SENTINEL_VISUAL_KEY,
+	"Ancient Ruins Runemark Sentinel": RUINS_RUNEMARK_SENTINEL_VISUAL_KEY,
+	"Scarab Queen": RUINS_SCARAB_QUEEN_VISUAL_KEY,
+	"Ancient Ruins Scarab Queen": RUINS_SCARAB_QUEEN_VISUAL_KEY,
+	"Ancient Guardian": RUINS_ANCIENT_GUARDIAN_VISUAL_KEY,
+	"Ancient Ruins Ancient Guardian": RUINS_ANCIENT_GUARDIAN_VISUAL_KEY,
+	"Sphinx": RUINS_SPHINX_VISUAL_KEY,
+	"Ancient Ruins Sphinx": RUINS_SPHINX_VISUAL_KEY,
+	"Runic Colossus": RUINS_RUNIC_COLOSSUS_VISUAL_KEY,
+	"Ancient Ruins Runic Colossus": RUINS_RUNIC_COLOSSUS_VISUAL_KEY,
+	"The First Idol": RUINS_FIRST_IDOL_VISUAL_KEY,
+	"First Idol": RUINS_FIRST_IDOL_VISUAL_KEY,
+	"Ancient Ruins The First Idol": RUINS_FIRST_IDOL_VISUAL_KEY,
+	"Ancient Archivist": RUINS_ANCIENT_ARCHIVIST_VISUAL_KEY,
+	"Ancient Ruins Ancient Archivist": RUINS_ANCIENT_ARCHIVIST_VISUAL_KEY,
 }
 const ENEMY_PRESENTATION_VISUAL_ALIASES := {
 	"Giant Green Slime": "Green Slime",
@@ -699,6 +1029,7 @@ var _enemy_tween: Tween
 var _stun_stars_effect: StunStarsEffect
 var _slow_aura_effect: SlowAuraEffect
 var _player_stun_freeze_until_msec := 0
+var _player_exited_right := false
 var _effect_rng := RandomNumberGenerator.new()
 var _effect_generation := 0
 var bandit_blade_effect_active := false
@@ -706,6 +1037,7 @@ var bandit_blade_effect_active := false
 var last_cast_animation_kind := ""
 var last_cast_min_cast_proc_was_timing_event := false
 var last_enemy_recoil_delay_sec := 0.0
+var last_enemy_recoil_distance_px := 0.0
 var contact_feedback_count := 0
 var last_contact_feedback_was_crit := false
 var last_contact_feedback_delay_sec := 0.0
@@ -733,6 +1065,7 @@ var last_mechanic_text := ""
 var dodge_effect_count := 0
 var dodge_afterimage_count := 0
 var outcome_pose := ""
+var last_enemy_animation_key := ""
 var last_player_animation_key := ""
 var last_player_animation_frame_count := 0
 var last_player_animation_frame_path := ""
@@ -741,6 +1074,10 @@ var last_bandit_coin_count := 0
 var practice_dummy_reaction_count := 0
 var last_practice_dummy_reaction_index := -1
 var last_practice_dummy_reaction_frame_count := 0
+var player_run_in_count := 0
+var player_run_out_count := 0
+var last_player_run_in_duration_sec := 0.0
+var last_player_run_out_duration_sec := 0.0
 var debug_grid_visible := false:
 	set(value):
 		debug_grid_visible = value
@@ -752,6 +1089,7 @@ var debug_grid_visible := false:
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	clip_contents = true
 	set_process(false)
 	_effect_rng.randomize()
 	_build_stage()
@@ -801,6 +1139,9 @@ func _notification(what: int) -> void:
 
 
 func configure(player_name: String, enemy_name: String, enemy_visual_name: String = "") -> void:
+	_kill_actor_tweens()
+	_clear_status_visuals()
+	_player_exited_right = false
 	if player_actor_anchor != null:
 		player_actor_anchor.visible = true
 	if enemy_actor_anchor != null:
@@ -815,12 +1156,12 @@ func configure(player_name: String, enemy_name: String, enemy_visual_name: Strin
 	_set_player_animation("idle", true)
 	_apply_enemy_visual("idle")
 	_layout_stage()
-	_clear_status_visuals()
 
 
 func clear_target() -> void:
 	_kill_actor_tweens()
 	_clear_status_visuals()
+	_player_exited_right = false
 	outcome_pose = ""
 	if player_actor_anchor != null:
 		player_actor_anchor.visible = false
@@ -841,10 +1182,12 @@ func reset_state() -> void:
 	_effect_generation += 1
 	_clear_bandit_coin_particles()
 	_clear_status_visuals()
+	_player_exited_right = false
 	modulate = Color.WHITE
 	last_cast_animation_kind = ""
 	last_cast_min_cast_proc_was_timing_event = false
 	last_enemy_recoil_delay_sec = 0.0
+	last_enemy_recoil_distance_px = 0.0
 	contact_feedback_count = 0
 	last_contact_feedback_was_crit = false
 	last_contact_feedback_delay_sec = 0.0
@@ -872,6 +1215,7 @@ func reset_state() -> void:
 	dodge_effect_count = 0
 	dodge_afterimage_count = 0
 	outcome_pose = ""
+	last_enemy_animation_key = ""
 	last_player_animation_key = ""
 	last_player_animation_frame_count = 0
 	last_player_animation_frame_path = ""
@@ -880,6 +1224,10 @@ func reset_state() -> void:
 	practice_dummy_reaction_count = 0
 	last_practice_dummy_reaction_index = -1
 	last_practice_dummy_reaction_frame_count = 0
+	player_run_in_count = 0
+	player_run_out_count = 0
+	last_player_run_in_duration_sec = 0.0
+	last_player_run_out_duration_sec = 0.0
 	_set_player_animation("idle", true)
 	_apply_enemy_visual("idle")
 	_restore_actor_layout()
@@ -911,10 +1259,85 @@ func play_fight_intro(animate: bool = true) -> float:
 	return FIGHT_INTRO_SEC
 
 
+func play_player_run_in(animate: bool = true) -> float:
+	player_run_in_count += 1
+	var total_duration := CONTRACT_RUN_IN_DELAY_SEC + CONTRACT_RUN_IN_SEC
+	last_player_run_in_duration_sec = total_duration
+	_kill_player_tween()
+	if player_actor_anchor == null:
+		return 0.0
+	_clear_stun_effect()
+	_player_exited_right = false
+	player_actor_anchor.position = _player_offscreen_left_position()
+	player_actor_anchor.modulate = Color.WHITE
+	player_actor_anchor.visible = true
+	if enemy_actor_anchor != null:
+		enemy_actor_anchor.visible = true
+	_set_player_animation("walk", animate)
+	if not animate:
+		player_actor_anchor.position = _player_base_position
+		_set_player_animation("idle", true)
+		return 0.0
+	_player_tween = create_tween()
+	_player_tween.tween_interval(CONTRACT_RUN_IN_DELAY_SEC)
+	_player_tween.tween_property(player_actor_anchor, "position", _player_base_position, CONTRACT_RUN_IN_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_player_tween.tween_callback(func(): _set_player_animation("idle", true))
+	return total_duration
+
+
+func play_player_run_out(animate: bool = true) -> float:
+	player_run_out_count += 1
+	last_player_run_out_duration_sec = CONTRACT_RUN_OUT_SEC
+	_kill_player_tween()
+	if player_actor_anchor == null:
+		return 0.0
+	_clear_stun_effect()
+	_player_exited_right = false
+	player_actor_anchor.position = _player_base_position
+	player_actor_anchor.modulate = Color.WHITE
+	player_actor_anchor.visible = true
+	_set_player_animation("walk", animate)
+	if not animate:
+		player_actor_anchor.position = _player_offscreen_right_position()
+		_hide_player_after_run_out()
+		return 0.0
+	_player_tween = create_tween()
+	_player_tween.tween_property(player_actor_anchor, "position", _player_offscreen_right_position(), CONTRACT_RUN_OUT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_player_tween.tween_callback(_hide_player_after_run_out)
+	return CONTRACT_RUN_OUT_SEC
+
+
+func show_enemy_waiting_for_player() -> void:
+	_kill_player_tween()
+	_clear_stun_effect()
+	_player_exited_right = false
+	if enemy_actor_anchor != null:
+		enemy_actor_anchor.visible = true
+		enemy_actor_anchor.position = _enemy_base_position
+		enemy_actor_anchor.modulate = _enemy_poison_modulate()
+	if player_actor_anchor != null:
+		player_actor_anchor.position = _player_offscreen_left_position()
+		player_actor_anchor.modulate = Color.WHITE
+		_set_player_animation("idle", false)
+		player_actor_anchor.visible = false
+	_set_enemy_animation("idle")
+
+
+func _hide_player_after_run_out() -> void:
+	_player_exited_right = true
+	if player_actor_anchor == null:
+		return
+	player_actor_anchor.position = _player_offscreen_right_position()
+	player_actor_anchor.modulate = Color.WHITE
+	_set_player_animation("idle", false)
+	player_actor_anchor.visible = false
+
+
 func restore_practice_idle_pose() -> void:
 	_kill_actor_tweens()
 	_clear_stun_effect()
 	_clear_slow_effect()
+	_player_exited_right = false
 	clear_transient_effects()
 	_set_player_animation("idle", true)
 	_set_enemy_animation("idle")
@@ -960,10 +1383,20 @@ func play_cast_windup(cast: CombatResolver.CastEvent, playback_speed: float = 1.
 	last_cast_animation_kind = animation_kind_for_cast(cast)
 	last_cast_min_cast_proc_was_timing_event = cast != null and cast.min_cast_time_proc_applied
 	last_cast_triggered_followup_count = cast.triggered_skill_names.size() if cast != null else 0
-	cast_animation_count += 1
 	cast_windup_count += 1
 	var animation_key := _player_animation_key_for_kind(last_cast_animation_kind)
 	var windup_sec := _cast_windup_duration_sec(cast, playback_speed)
+	if last_cast_animation_kind == ANIMATION_HOLD:
+		last_cast_windup_duration_sec = windup_sec
+		last_cast_animation_start_delay_sec = 0.0
+		last_cast_contact_delay_sec = windup_sec
+		if animate:
+			_kill_player_tween()
+			if player_actor_anchor != null:
+				player_actor_anchor.position = _player_base_position
+			_set_player_animation("idle", true)
+		return windup_sec if animate else 0.0
+	cast_animation_count += 1
 	var timing := _windup_animation_timing(cast, animation_key, windup_sec)
 	var start_delay: float = timing["start_delay"]
 	var duration: float = timing["duration"]
@@ -1073,7 +1506,7 @@ func play_poison_tick_pulse(animate: bool = true) -> void:
 	poison_tick_pulse_count += 1
 	if not animate:
 		return
-	_kill_enemy_tween()
+	_kill_enemy_tween(true)
 	_enemy_tween = create_tween()
 	_enemy_tween.tween_property(enemy_actor_anchor, "modulate", UIColors.COMBAT_POISON_TICK_FLASH, TICK_PULSE_SEC * 0.5)
 	_enemy_tween.tween_property(enemy_actor_anchor, "modulate", _enemy_poison_modulate(), TICK_PULSE_SEC * 0.5)
@@ -1181,6 +1614,8 @@ func play_outcome_pose(victory: bool, animate: bool = true) -> void:
 static func animation_kind_for_cast(cast: CombatResolver.CastEvent) -> String:
 	if cast == null:
 		return ANIMATION_PHYSICAL
+	if cast.skill != null and cast.skill.id == "skill.hold":
+		return ANIMATION_HOLD
 	if cast.poison_stacks_applied > 0 or cast.poison_resistance_reduction_applied > 0.0:
 		return ANIMATION_POISON
 	if _skill_has_poison_damage(cast.skill):
@@ -1478,6 +1913,14 @@ func _stage_point_for_grid(grid_position: Vector2) -> Vector2:
 	)
 
 
+func _player_offscreen_left_position() -> Vector2:
+	return Vector2(-ACTOR_SIZE.x - ROGUE_FRAME_SIZE.x * ROGUE_SPRITE_SCALE, _player_base_position.y)
+
+
+func _player_offscreen_right_position() -> Vector2:
+	return Vector2(_effective_stage_size().x + ACTOR_SIZE.x, _player_base_position.y)
+
+
 func _effective_stage_size() -> Vector2:
 	return Vector2(size.x, maxf(size.y - reserved_bottom_px, 1.0))
 
@@ -1643,6 +2086,8 @@ func _player_animation_key_for_kind(kind: String) -> String:
 		return "attack_physical"
 	if kind == ANIMATION_POISON:
 		return "attack_poison"
+	if kind == "walk":
+		return "walk"
 	if kind == "hurt":
 		return "hurt"
 	if kind == "defeat":
@@ -1682,6 +2127,7 @@ func _set_enemy_animation(kind: String) -> void:
 		animation_key = "hurt"
 	elif kind == "defeat":
 		animation_key = "defeat"
+	last_enemy_animation_key = animation_key
 	_apply_enemy_visual(animation_key)
 
 
@@ -1712,7 +2158,7 @@ func _enemy_sprite_scale() -> float:
 
 func _enemy_anchor_point() -> Vector2:
 	if _is_static_enemy_visual():
-		return STATIC_ENEMY_LAYOUT_FRAME_SIZE * STATIC_ENEMY_ANCHOR_RATIO
+		return _static_enemy_anchor_point(_enemy_layout_frame_size())
 	return PRACTICE_DUMMY_ANCHOR_POINT if _is_practice_dummy_target() else PEASANT_ANCHOR_POINT
 
 
@@ -1723,7 +2169,15 @@ func _enemy_flip_h() -> bool:
 
 
 func _enemy_layout_frame_size() -> Vector2:
-	return STATIC_ENEMY_LAYOUT_FRAME_SIZE if _is_static_enemy_visual() else Vector2(PEASANT_FRAME_SIZE)
+	if not _is_static_enemy_visual():
+		return Vector2(PEASANT_FRAME_SIZE)
+	if _enemy_sprite != null and _enemy_sprite.texture != null and _enemy_sprite.size.x > 0.0 and _enemy_sprite.size.y > 0.0:
+		return _enemy_sprite.size
+	var paths := _enemy_animation_paths_for(_enemy_visual_key)
+	var texture := _texture_from_path(paths.get("idle", ""))
+	if texture != null:
+		return texture.get_size()
+	return STATIC_ENEMY_LAYOUT_FRAME_SIZE
 
 
 func _static_enemy_anchor_point(frame_size: Vector2) -> Vector2:
@@ -1798,7 +2252,7 @@ func _contact_delay_for_cast(cast: CombatResolver.CastEvent, animation_key: Stri
 
 
 func _play_enemy_recoil(delay_sec: float, is_crit: bool) -> void:
-	_kill_enemy_tween()
+	_kill_enemy_tween(true)
 	last_enemy_recoil_delay_sec = delay_sec
 	last_contact_feedback_delay_sec = delay_sec
 	last_contact_feedback_was_crit = is_crit
@@ -1809,14 +2263,16 @@ func _play_enemy_recoil(delay_sec: float, is_crit: bool) -> void:
 	if _is_static_enemy_visual():
 		_play_static_enemy_hit_reaction(delay_sec, is_crit)
 		return
-	var recoil_distance := RECOIL_DISTANCE_PX * (1.45 if is_crit else 1.0)
-	var recoil_out_sec := 0.09 if is_crit else 0.07
-	var recoil_back_sec := 0.16 if is_crit else 0.13
+	var recoil_distance := CRIT_RECOIL_DISTANCE_PX if is_crit else RECOIL_DISTANCE_PX
+	last_enemy_recoil_distance_px = recoil_distance
+	var recoil_out_sec := 0.055 if is_crit else 0.07
+	var recoil_back_sec := 0.105 if is_crit else 0.13
 	var hurt_color := UIColors.COMBAT_CRIT_FLASH if is_crit else UIColors.COMBAT_HIT_FLASH
 	var recoil_target := _enemy_base_position + Vector2(recoil_distance, 0.0)
+	var hit_animation := "idle" if is_crit else "hurt"
 	_enemy_tween = create_tween()
 	_enemy_tween.tween_interval(delay_sec)
-	_enemy_tween.tween_callback(func(): _set_enemy_animation("hurt"))
+	_enemy_tween.tween_callback(func(): _set_enemy_animation(hit_animation))
 	_enemy_tween.tween_property(enemy_actor_anchor, "position", recoil_target, recoil_out_sec)
 	_enemy_tween.parallel().tween_property(enemy_actor_anchor, "modulate", hurt_color, recoil_out_sec)
 	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position, recoil_back_sec)
@@ -1826,7 +2282,8 @@ func _play_enemy_recoil(delay_sec: float, is_crit: bool) -> void:
 
 func _play_static_enemy_hit_reaction(delay_sec: float, is_crit: bool) -> void:
 	var flash_color := UIColors.COMBAT_CRIT_FLASH if is_crit else UIColors.COMBAT_HIT_FLASH
-	var shake_px := 12.0 if is_crit else 8.0
+	var shake_px := 9.0 if is_crit else 8.0
+	last_enemy_recoil_distance_px = shake_px
 	_enemy_tween = create_tween()
 	_enemy_tween.tween_interval(delay_sec)
 	_enemy_tween.tween_callback(func(): _set_enemy_animation("hurt"))
@@ -1959,7 +2416,7 @@ func _spawn_dodge_afterimages() -> void:
 func _play_dodge_shift() -> void:
 	if enemy_actor_anchor == null:
 		return
-	_kill_enemy_tween()
+	_kill_enemy_tween(true)
 	_enemy_tween = create_tween()
 	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position + DODGE_SHIFT_OFFSET, DODGE_SHIFT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_enemy_tween.tween_property(enemy_actor_anchor, "position", _enemy_base_position, DODGE_SHIFT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -2127,9 +2584,11 @@ func _kill_player_tween() -> void:
 		_player_tween.kill()
 
 
-func _kill_enemy_tween() -> void:
+func _kill_enemy_tween(restore_position: bool = false) -> void:
 	if _enemy_tween != null and _enemy_tween.is_valid():
 		_enemy_tween.kill()
+	if restore_position and enemy_actor_anchor != null:
+		enemy_actor_anchor.position = _enemy_base_position
 
 
 func _layout_stage() -> void:
@@ -2155,6 +2614,9 @@ func _layout_stage() -> void:
 	_player_base_position = player_actor_anchor.position
 	_enemy_base_position = enemy_actor_anchor.position
 	_apply_outcome_pose_position_after_layout(previous_player_base, previous_enemy_base, previous_player_position, previous_enemy_position)
+	if _player_exited_right and player_actor_anchor != null:
+		player_actor_anchor.position = _player_offscreen_right_position()
+		player_actor_anchor.visible = false
 	contact_effect_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5 + ACTOR_GROUP_STAGE_OFFSET_PX.x, actor_y + ACTOR_SIZE.y * 0.35)
 	floating_text_anchor.position = Vector2(stage_size.x * 0.5 - CONTACT_SIZE.x * 0.5 + ACTOR_GROUP_STAGE_OFFSET_PX.x, maxf(safe_top_px, actor_y - CONTACT_SIZE.y * 0.75))
 	var stun_star_anchor_point := Vector2(player_position.x + ACTOR_SIZE.x * 0.5, _stage_point_for_grid(Vector2(PLAYER_STAGE_GRID.x, STUN_STAR_STAGE_GRID_Y)).y)

@@ -112,6 +112,7 @@ static func _serialize(state) -> Dictionary:
 		"highest_run_dps": state.highest_run_dps,
 		"run_encounter_history": _run_encounter_history_to_data(state.run_encounter_history),
 		"contract_offer_index": state.contract_offer_index,
+		"defeated_generated_boss_ids": state.defeated_generated_boss_ids.duplicate(),
 		"current_encounter_index": state.current_encounter_index,
 		"encounter_failure_counts": state.encounter_failure_counts.duplicate(),
 		# A mid-fight save can only happen from a hard crash/quit -- combat
@@ -217,6 +218,7 @@ static func _deserialize(data: Dictionary, state) -> bool:
 	state.highest_run_dps = maxf(0.0, float(data.get("highest_run_dps", 0.0)))
 	state.run_encounter_history = _run_encounter_history_from_data(data.get("run_encounter_history", []))
 	state.contract_offer_index = int(data.get("contract_offer_index", 0))
+	state.defeated_generated_boss_ids = _unique_string_array(data.get("defeated_generated_boss_ids", []))
 	state.current_encounter_index = int(data.get("current_encounter_index", 0))
 	state.encounter_failure_counts = _int_dictionary(data.get("encounter_failure_counts", {}))
 	var saved_phase := int(data.get("run_phase", state.RunPhase.PLANNING))
@@ -730,6 +732,20 @@ static func _string_array(list) -> Array[String]:
 		return out
 	for value in list:
 		out.append(str(value))
+	return out
+
+
+static func _unique_string_array(list) -> Array[String]:
+	var out: Array[String] = []
+	var seen := {}
+	if typeof(list) != TYPE_ARRAY:
+		return out
+	for value in list:
+		var text := str(value)
+		if text == "" or seen.has(text):
+			continue
+		seen[text] = true
+		out.append(text)
 	return out
 
 

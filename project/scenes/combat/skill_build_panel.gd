@@ -25,6 +25,9 @@ const PULSE_SLOT_BG := UIColors.BUILD_PROC_BG
 const PROGRESS_FILL_COLOR := UIColors.BUILD_PROGRESS_FILL
 const PROC_PROGRESS_FILL_COLOR := UIColors.BUILD_PROC_PROGRESS_FILL
 const SLOW_PROGRESS_FILL_COLOR := Color(0.38, 0.72, 1.0, 0.48)
+const STUNNED_SLOT_MODULATE := Color(0.38, 0.38, 0.38, 0.76)
+const STUN_COOLDOWN_FILL := Color(0.02, 0.018, 0.016, 0.64)
+const STUN_COOLDOWN_EDGE := Color(0.0, 0.0, 0.0, 0.58)
 const LOCK_ICON := preload("res://assets/ui/icons/build_lock.png")
 const UNLOCK_ICON := preload("res://assets/ui/icons/build_unlock.png")
 const LOCK_BUTTON_SIZE := Vector2(50, 50)
@@ -46,10 +49,17 @@ var _lock_holder: CenterContainer
 var _slot_buttons: Array[Button] = []
 var _slot_fills: Array[ColorRect] = []
 var _slot_interrupt_overlays: Array[Control] = []
+var _slot_stun_overlays: Array[StunCooldownOverlay] = []
 var _interrupt_locked_skill_ids := {}
 var _active_index := -1
 var _pulse_tween: Tween
+var _stun_tween: Tween
+var _combat_interaction_locked := false
 var _slow_effect_active := false
+var _stun_effect_active := false
+var _stun_generation := 0
+var stun_effect_count := 0
+var last_stun_duration_ms := 0
 
 
 class InterruptLockOverlay:
@@ -69,6 +79,35 @@ class InterruptLockOverlay:
 		var diagonal := Vector2(radius * 0.62, radius * 0.62)
 		draw_line(center - diagonal, center + diagonal, outline_color, 10.0, true)
 		draw_line(center - diagonal, center + diagonal, icon_color, 7.0, true)
+
+
+class StunCooldownOverlay:
+	extends Control
+
+	var fill_color := Color(0.02, 0.018, 0.016, 0.64)
+	var edge_color := Color(0.0, 0.0, 0.0, 0.58)
+	var progress := 0.0:
+		set(value):
+			progress = clampf(value, 0.0, 1.0)
+			queue_redraw()
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		if progress <= 0.0:
+			return
+		var center := size * 0.5
+		var radius := minf(size.x, size.y) * 0.68
+		var points := PackedVector2Array([center])
+		var start_angle := -PI * 0.5
+		var sweep := TAU * progress
+		var steps := maxi(8, ceili(48.0 * progress))
+		for i in range(steps + 1):
+			var angle := start_angle + sweep * (float(i) / float(steps))
+			points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+		draw_colored_polygon(points, fill_color)
+		draw_arc(center, radius, start_angle, start_angle + sweep, steps, edge_color, 3.0, true)
 
 
 func _ready() -> void:
@@ -144,11 +183,19 @@ func _ready() -> void:
 
 
 func _on_lock_pressed() -> void:
+	if _combat_interaction_locked:
+		return
 	state.set_locked(not state.build_locked)
+
+
+func set_combat_interaction_locked(locked: bool) -> void:
+	_combat_interaction_locked = locked
+	_update_lock_button()
 
 
 func _update_lock_button() -> void:
 	var disabled_empty_lock: bool = state.rotation.is_empty() and not state.build_locked
+	var disabled_combat_lock := _combat_interaction_locked
 	_lock_button.text = ""
 	_lock_button.icon = null
 	_lock_button.add_theme_constant_override("icon_max_width", 0)
@@ -160,17 +207,20 @@ func _update_lock_button() -> void:
 	_lock_button.add_theme_constant_override("padding_bottom", 0)
 	_lock_button_icon.texture = LOCK_ICON if state.build_locked else UNLOCK_ICON
 	_lock_button.tooltip_text = (
+		"Skill macro is locked during combat"
+		if disabled_combat_lock
+		else
 		"Unlock your skill macro so you can edit it"
 		if state.build_locked
 		else "Slot at least one skill before locking your macro"
 		if disabled_empty_lock
 		else "Lock this skill macro so you can start the fight"
 	)
-	_lock_button_icon.modulate = UIColors.ICON_DISABLED if disabled_empty_lock else Color.WHITE
+	_lock_button_icon.modulate = UIColors.ICON_DISABLED if disabled_empty_lock or disabled_combat_lock else Color.WHITE
 	_apply_lock_button_style()
 	# Can't lock an empty macro -- fighting with no skills is a guaranteed
 	# zero-damage loss.
-	_lock_button.disabled = disabled_empty_lock
+	_lock_button.disabled = disabled_empty_lock or disabled_combat_lock
 
 
 func _refresh() -> void:
@@ -179,6 +229,7 @@ func _refresh() -> void:
 	_slot_buttons = []
 	_slot_fills = []
 	_slot_interrupt_overlays = []
+	_slot_stun_overlays = []
 	for child in _slots_box.get_children():
 		if child is Button:
 			child.disabled = state.build_locked
@@ -225,6 +276,8 @@ func _refresh() -> void:
 		var interrupt_overlay := _make_interrupt_lock_overlay()
 		interrupt_overlay.visible = _interrupt_locked_skill_ids.has(_skill_lock_key(skill))
 		slot.add_child(interrupt_overlay)
+		var stun_overlay := _make_stun_cooldown_overlay()
+		slot.add_child(stun_overlay)
 
 		# Cast-order number, top-left corner -- makes the left-to-right
 		# rotation order explicit rather than only implied by position.
@@ -259,6 +312,8 @@ func _refresh() -> void:
 		_slot_buttons.append(slot)
 		_slot_fills.append(fill)
 		_slot_interrupt_overlays.append(interrupt_overlay)
+		_slot_stun_overlays.append(stun_overlay)
+		_apply_slot_stun_modulate(slot)
 
 
 func highlight_rotation_index(index: int, pulse: bool = false) -> void:
@@ -295,6 +350,38 @@ func clear_combat_highlight() -> void:
 			_slot_fills[i].anchor_right = 0.0
 
 
+func play_stun_effect(duration_ms: int, animate: bool = true, playback_speed: float = 1.0) -> void:
+	stun_effect_count += 1
+	last_stun_duration_ms = duration_ms
+	_stun_generation += 1
+	var generation := _stun_generation
+	_stun_effect_active = animate and duration_ms > 0
+	_apply_stun_visuals()
+	if _stun_tween != null and _stun_tween.is_valid():
+		_stun_tween.kill()
+	if not _stun_effect_active:
+		_set_stun_overlay_progress(0.0)
+		return
+	_set_stun_overlay_progress(1.0)
+	_stun_tween = create_tween()
+	var visual_duration_sec := float(duration_ms) / 1000.0 / maxf(playback_speed, 0.001)
+	_stun_tween.tween_method(_set_stun_overlay_progress, 1.0, 0.0, visual_duration_sec)
+	_stun_tween.tween_callback(func():
+		if generation == _stun_generation:
+			clear_stun_effect()
+	)
+
+
+func clear_stun_effect() -> void:
+	_stun_generation += 1
+	if _stun_tween != null and _stun_tween.is_valid():
+		_stun_tween.kill()
+	_stun_tween = null
+	_stun_effect_active = false
+	_set_stun_overlay_progress(0.0)
+	_apply_stun_visuals()
+
+
 func set_interrupt_locked_skill(skill: Skill, locked: bool) -> void:
 	var key := _skill_lock_key(skill)
 	if key == "":
@@ -317,6 +404,10 @@ func set_slow_effect_active(active: bool) -> void:
 		fill.color = _progress_fill_color(false)
 
 
+func is_stun_effect_active() -> bool:
+	return _stun_effect_active
+
+
 func _glyph_for(skill: Skill) -> String:
 	if skill.icon != null:
 		return ""
@@ -334,6 +425,7 @@ func _add_skill_icon(slot: Button, skill: Skill) -> void:
 	icon.texture = skill.icon
 	icon.custom_minimum_size = SLOT_ICON_SIZE
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -361,6 +453,22 @@ func _make_interrupt_lock_overlay() -> Control:
 	return overlay
 
 
+func _make_stun_cooldown_overlay() -> StunCooldownOverlay:
+	var overlay := StunCooldownOverlay.new()
+	overlay.name = "StunCooldownOverlay"
+	overlay.fill_color = STUN_COOLDOWN_FILL
+	overlay.edge_color = STUN_COOLDOWN_EDGE
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.offset_left = 0.0
+	overlay.offset_top = 0.0
+	overlay.offset_right = 0.0
+	overlay.offset_bottom = 0.0
+	overlay.z_index = 6
+	overlay.visible = _stun_effect_active
+	overlay.progress = 1.0 if _stun_effect_active else 0.0
+	return overlay
+
+
 func _apply_interrupt_locks() -> void:
 	for i in _slot_interrupt_overlays.size():
 		var overlay := _slot_interrupt_overlays[i]
@@ -368,6 +476,28 @@ func _apply_interrupt_locks() -> void:
 			continue
 		var skill: Skill = state.rotation[i] if i < state.rotation.size() else null
 		overlay.visible = _interrupt_locked_skill_ids.has(_skill_lock_key(skill))
+
+
+func _apply_stun_visuals() -> void:
+	for slot in _slot_buttons:
+		_apply_slot_stun_modulate(slot)
+	for overlay in _slot_stun_overlays:
+		if overlay == null:
+			continue
+		overlay.visible = _stun_effect_active
+
+
+func _apply_slot_stun_modulate(slot: Button) -> void:
+	if slot == null:
+		return
+	slot.modulate = STUNNED_SLOT_MODULATE if _stun_effect_active else Color.WHITE
+
+
+func _set_stun_overlay_progress(progress: float) -> void:
+	for overlay in _slot_stun_overlays:
+		if overlay == null:
+			continue
+		overlay.progress = progress
 
 
 func _progress_fill_color(proc: bool) -> Color:

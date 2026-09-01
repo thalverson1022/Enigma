@@ -41,10 +41,12 @@ const BUTTON_CORNER_RADIUS := 6
 const SPEED_LABEL_BY_SKILL_ID := {
 	"skill.stab": "Speed: Normal",
 	"skill.heavy_slash": "Speed: Slow",
+	"skill.hold": "Speed: Brief",
 	"skill.quick_cut": "Speed: Fast",
 	"skill.rending_thrust": "Speed: Normal", # display_name "Rending Slash"
 	"skill.venom_jab": "Speed: Fast",
 	"skill.poison_strike": "Speed: Normal",
+	"skill.steal": "Speed: Normal",
 	"skill.toxic_flurry": "Speed: Normal", # display_name "Beguiling Strike"
 	"skill.killers_mark": "Speed: Normal", # display_name "Death Strike"
 }
@@ -130,6 +132,7 @@ func _build_button(skill: Skill, at_cap: bool = false) -> Button:
 		icon.texture = skill.icon
 		icon.custom_minimum_size = SKILL_ICON_SIZE
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.modulate = UIColors.ICON_DISABLED if content_disabled else Color.WHITE
@@ -184,6 +187,8 @@ func _tooltip_for(skill: Skill) -> String:
 ## playtest-feedback pass, see this file's header comment). Never hardcodes
 ## numbers -- every value is read off `effect`.
 func _skill_effect_summary(skill: Skill) -> String:
+	if skill.id == "skill.hold":
+		return "Holds for 1.0s"
 	var parts: PackedStringArray = []
 	var has_poison_effect := false
 	for effect in skill.effects:
@@ -198,6 +203,8 @@ func _skill_effect_summary(skill: Skill) -> String:
 			parts.append("-%d%% resist" % roundi(effect.reduction_fraction * 100.0))
 		elif effect is StackScalingPhysicalDamageEffect:
 			parts.append("+%.0f dmg/poison stack" % effect.damage_per_stack)
+		elif effect is StealGoldOnCritEffect:
+			parts.append("crits steal %dg" % effect.amount)
 	if skill.poison_stacks_applied > 0 and not has_poison_effect:
 		parts.append("+%d poison stack%s" % [
 			skill.poison_stacks_applied,

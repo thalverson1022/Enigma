@@ -16,9 +16,9 @@ func _initialize() -> void:
 	await process_frame
 
 	var rogue: ClassDef = load("res://data/classes/rogue.tres")
-	var thief: SubclassTree = rogue.trees[1]
+	var bladedancer: SubclassTree = rogue.trees[1]
 	build_state.set_class(rogue)
-	build_state.select_tree(thief)
+	build_state.select_tree(bladedancer)
 	await process_frame
 
 	var talent_panel = combat_screen.find_child("TalentPanel", true, false)
@@ -32,8 +32,8 @@ func _initialize() -> void:
 	# -- 1. Talent lock reason: Opportunity Strikes requires Practiced Rhythm,
 	# which is unselected at 0 earned points, so its unmet prerequisite
 	# should be named explicitly, not just "disabled". --
-	var opportunity_strikes: Talent = thief.talents[3]
-	_require(opportunity_strikes.display_name == "Opportunity Strikes", "Expected thief.talents[3] to be Opportunity Strikes.")
+	var opportunity_strikes: Talent = bladedancer.talents[3]
+	_require(opportunity_strikes.display_name == "Opportunity Strikes", "Expected bladedancer.talents[3] to be Opportunity Strikes.")
 	var reason: String = talent_panel._talent_lock_reason(opportunity_strikes)
 	print("Opportunity Strikes lock reason (expect prereq): %s" % reason)
 	_require(reason == "Requires Practiced Rhythm", "Expected an unmet-prerequisite reason, got: %s" % reason)
@@ -54,7 +54,7 @@ func _initialize() -> void:
 	# A no-prereq talent (Quick Hands) is still locked at 0 earned points, for
 	# budget reasons rather than a prerequisite -- confirms the two reason
 	# kinds are distinguishable, not just a blanket "locked" string.
-	var budget_reason: String = talent_panel._talent_lock_reason(thief.talents[0])
+	var budget_reason: String = talent_panel._talent_lock_reason(bladedancer.talents[0])
 	print("Quick Hands lock reason at 0 points (expect budget): %s" % budget_reason)
 	_require(budget_reason.contains("Needs"), "Expected a budget-based reason for a no-prereq talent with no points, got: %s" % budget_reason)
 
@@ -71,11 +71,11 @@ func _initialize() -> void:
 	_require(points_header is HBoxContainer, "Expected Active Talents points badge to live in a header row beside the title.")
 	_require(points_header.get_child_count() == 2 and points_header.get_child(1) == active_talents_panel._points_badge, "Expected Active Talents points badge to be right-aligned in the top header row.")
 	_require(active_talents_panel._points_label.get_parent().find_child("Icon", true, false) != null, "Expected Active Talents points readout to include the talent-point star icon.")
-	_require(_active_talents_text(active_talents_panel).contains("Thief"), "Expected active talent summary to show the selected tree name.")
+	_require(_active_talents_text(active_talents_panel).contains("Bladedancer"), "Expected active talent summary to show the selected tree name.")
 	_require(active_talents_panel.find_child("Icon", true, false) != null, "Expected active talent summary to show the selected tree icon.")
 	_require(_active_talents_text(active_talents_panel).contains("Intrinsic: Unlocks Quick Cut"), "Expected active talent summary to show the selected tree intrinsic.")
-	_require(_active_talents_text(active_talents_panel).contains("Thief Talents"), "Expected active talent summary to show tree-specific talent heading.")
-	_require(_active_talents_text(active_talents_panel).contains("No Thief talents selected."), "Expected active talent summary to show empty state for the selected tree.")
+	_require(_active_talents_text(active_talents_panel).contains("Bladedancer Talents"), "Expected active talent summary to show tree-specific talent heading.")
+	_require(_active_talents_text(active_talents_panel).contains("No Bladedancer talents selected."), "Expected active talent summary to show empty state for the selected tree.")
 	build_state.add_talent_points(1)
 	await process_frame
 	_require(not _talent_panel_text(talent_panel).contains(": 0/1"), "Expected Talent Trees overlay to keep omitting the duplicate points footer after earning a point.")
@@ -84,8 +84,8 @@ func _initialize() -> void:
 	_require(active_talents_panel._open_button.custom_minimum_size == active_talents_panel.OPEN_BUTTON_SIZE, "Expected Talent Trees button to keep a fixed minimum size.")
 	_require(active_talents_panel._button_blink_tween != null and active_talents_panel._button_blink_tween.is_running(), "Expected Active Talents button to blink when points are unspent.")
 	_require(not active_talents_panel._open_button.has_theme_stylebox_override("normal"), "Expected unspent-points alert to avoid stylebox overrides that can change button layout.")
-	var quick_hands: Talent = thief.talents[0]
-	_require(quick_hands.display_name == "Quick Hands", "Expected thief.talents[0] to be Quick Hands.")
+	var quick_hands: Talent = bladedancer.talents[0]
+	_require(quick_hands.display_name == "Quick Hands", "Expected bladedancer.talents[0] to be Quick Hands.")
 	_require(build_state.select_talent(quick_hands), "Expected Quick Hands to be selectable with 1 earned point.")
 	await process_frame
 	_require(active_talents_panel._points_label.text == ": 1/1", "Expected active talent summary to update spent points, got: %s" % active_talents_panel._points_label.text)
@@ -101,8 +101,8 @@ func _initialize() -> void:
 	# Now that Practiced Rhythm's OR-group (Quick Hands or Piercing Blades) is
 	# satisfied, its remaining lock reason should be about the point budget
 	# (0 of 1 earned points left), not the prerequisite.
-	var practiced_rhythm: Talent = thief.talents[2]
-	_require(practiced_rhythm.display_name == "Practiced Rhythm", "Expected thief.talents[2] to be Practiced Rhythm.")
+	var practiced_rhythm: Talent = bladedancer.talents[2]
+	_require(practiced_rhythm.display_name == "Practiced Rhythm", "Expected bladedancer.talents[2] to be Practiced Rhythm.")
 	reason = talent_panel._talent_lock_reason(practiced_rhythm)
 	print("Practiced Rhythm lock reason after Quick Hands (expect budget): %s" % reason)
 	_require(reason.contains("Needs"), "Expected a budget-based lock reason once prereqs are satisfiable, got: %s" % reason)
@@ -113,14 +113,22 @@ func _initialize() -> void:
 	# it -- the summary now lives in the tooltip only; _skill_effect_summary()
 	# itself is unchanged and still feeds both the tooltip and this direct
 	# check. --
-	var stab: Skill = rogue.base_skills[0]
-	_require(stab.display_name == "Stab", "Expected rogue.base_skills[0] to be Stab.")
+	var hold: Skill = rogue.base_skills[0]
+	_require(hold.display_name == "Hold", "Expected rogue.base_skills[0] to be Hold.")
+	var stab: Skill = rogue.base_skills[1]
+	_require(stab.display_name == "Stab", "Expected rogue.base_skills[1] to be Stab.")
+	var heavy_slash: Skill = rogue.base_skills[2]
+	_require(heavy_slash.display_name == "Heavy Slash", "Expected rogue.base_skills[2] to be Heavy Slash.")
 	var summary: String = available_skills_panel._skill_effect_summary(stab)
 	print("Stab effect summary (expect '18 physical dmg'): %s" % summary)
 	_require(summary == "18 physical dmg", "Expected Stab's summary text to match its PhysicalDamageEffect.amount, got: %s" % summary)
-	var stab_button: Button = available_skills_panel._skills_box.get_child(0)
-	_require(stab_button is Button, "Expected each available-skills child to be a bare Button (no always-visible caption wrapper).")
+	var hold_button: Button = available_skills_panel._skills_box.get_child(0)
+	_require(hold_button is Button, "Expected each available-skills child to be a bare Button (no always-visible caption wrapper).")
+	_require(hold_button.tooltip_text.contains("Holds for 1.0s"), "Expected the first available skill button to be Hold, got tooltip: %s" % hold_button.tooltip_text)
+	var stab_button: Button = available_skills_panel._skills_box.get_child(1)
 	_require(stab_button.tooltip_text.contains(summary), "Expected Stab's tooltip to contain its effect summary, got: %s" % stab_button.tooltip_text)
+	var hold_summary: String = available_skills_panel._skill_effect_summary(hold)
+	_require(hold_summary == "Holds for 1.0s", "Expected Hold's summary text to explain the no-action wait, got: %s" % hold_summary)
 
 	# -- 4. Rotation order + explicit remove control --
 	_require(skill_build_panel._slot_count_label.text == "Slots: 0/10", "Expected empty Skill Build to advertise current macro capacity, got: %s" % skill_build_panel._slot_count_label.text)
@@ -132,18 +140,32 @@ func _initialize() -> void:
 	for skill in build_state.unlocked_skills():
 		available_skills_panel._on_skill_pressed(skill)
 	await process_frame
-	_require(build_state.rotation.size() == 3, "Expected 3 unlocked skills in rotation (Stab, Heavy Slash, Quick Cut).")
-	_require(skill_build_panel._slot_count_label.text == "Slots: 3/10", "Expected Skill Build count to update after adding skills, got: %s" % skill_build_panel._slot_count_label.text)
+	_require(build_state.rotation.size() == 4, "Expected 4 unlocked skills in rotation (Hold, Stab, Heavy Slash, Quick Cut).")
+	_require(build_state.rotation.map(func(skill: Skill): return skill.display_name) == ["Hold", "Stab", "Heavy Slash", "Quick Cut"], "Expected macro order to follow the Hold-first UI order.")
+	_require(skill_build_panel._slot_count_label.text == "Slots: 4/10", "Expected Skill Build count to update after adding skills, got: %s" % skill_build_panel._slot_count_label.text)
 	_require(skill_build_panel._lock_button.text == "", "Expected lock toggle button to be icon-only, got: %s" % skill_build_panel._lock_button.text)
 	_require(skill_build_panel._lock_button.custom_minimum_size == skill_build_panel.LOCK_BUTTON_SIZE, "Expected lock toggle to keep a large fixed button size.")
 	_require(skill_build_panel._lock_button.icon == null, "Expected Lock Build button to use the custom child icon, not Button.icon.")
 	_require(skill_build_panel._lock_button_icon.texture == skill_build_panel.UNLOCK_ICON, "Expected editable Lock Build button to show the open lock icon.")
 	_require(skill_build_panel._lock_button_icon.custom_minimum_size == skill_build_panel.LOCK_BUTTON_ICON_SIZE, "Expected Lock Build icon to keep a fixed readable size.")
 	_require(skill_build_panel._lock_button_icon.size == skill_build_panel.LOCK_BUTTON_ICON_SIZE, "Expected Lock Build icon rect to obey its fixed size, got: %s" % skill_build_panel._lock_button_icon.size)
+	build_state.set_locked(true)
+	await process_frame
+	skill_build_panel.set_combat_interaction_locked(true)
+	_require(skill_build_panel._lock_button.disabled, "Expected the lock button to be disabled during active combat.")
+	_require(skill_build_panel._lock_button.tooltip_text.contains("combat"), "Expected combat-locked macro tooltip to explain why unlocking is blocked.")
+	skill_build_panel._lock_button.pressed.emit()
+	_require(build_state.build_locked, "Expected pressing the disabled combat lock button not to unlock the macro.")
+	skill_build_panel.set_combat_interaction_locked(false)
+	_require(not skill_build_panel._lock_button.disabled, "Expected the lock button to be usable again after combat ends.")
+	skill_build_panel._lock_button.pressed.emit()
+	await process_frame
+	_require(not build_state.build_locked, "Expected the lock button to unlock normally after combat ends.")
 	var first_slot: Button = skill_build_panel._slots_box.get_child(0)
 	_require(first_slot.custom_minimum_size == skill_build_panel.SLOT_SIZE, "Expected macro slots to use the larger fixed M3 slot size.")
-	print("first slot tooltip (expect position 1 of 3): %s" % first_slot.tooltip_text)
-	_require(first_slot.tooltip_text.contains("cast position 1 of 3"), "Expected the slot tooltip to state its cast order, got: %s" % first_slot.tooltip_text)
+	print("first slot tooltip (expect position 1 of 4): %s" % first_slot.tooltip_text)
+	_require(first_slot.tooltip_text.contains("Hold"), "Expected the first macro slot to be Hold after the Hold-first Rogue order, got: %s" % first_slot.tooltip_text)
+	_require(first_slot.tooltip_text.contains("cast position 1 of 4"), "Expected the slot tooltip to state its cast order, got: %s" % first_slot.tooltip_text)
 	var has_remove_badge := false
 	for child in first_slot.get_children():
 		if child is Label and child.text == "x":
@@ -162,14 +184,51 @@ func _initialize() -> void:
 	skill_build_panel.set_cast_progress(1, 1.0, true)
 	_require(skill_build_panel._slot_fills[1].color == skill_build_panel.PROC_PROGRESS_FILL_COLOR, "Expected proc/min-cast progress to use the purple fill.")
 	skill_build_panel.set_slow_effect_active(false)
+	skill_build_panel.play_stun_effect(500, false)
+	_require(skill_build_panel.stun_effect_count == 1, "Expected non-animated stun playback to still record the stun event.")
+	_require(skill_build_panel.last_stun_duration_ms == 500, "Expected the macro stun effect to remember the stun duration.")
+	_require(not skill_build_panel.is_stun_effect_active(), "Expected non-animated stun playback not to leave macro slots dimmed.")
+	_require(skill_build_panel._slot_buttons[0].modulate == Color.WHITE, "Expected non-animated stun playback to preserve the normal macro slot color.")
+	for overlay in skill_build_panel._slot_stun_overlays:
+		_require(not overlay.visible and is_equal_approx(overlay.progress, 0.0), "Expected non-animated stun playback not to leave cooldown overlays visible.")
+	skill_build_panel.play_stun_effect(80, true)
+	_require(skill_build_panel.is_stun_effect_active(), "Expected animated stun playback to gray out the macro bar.")
+	for slot in skill_build_panel._slot_buttons:
+		_require(slot.modulate == skill_build_panel.STUNNED_SLOT_MODULATE, "Expected every macro slot to use the stunned gray modulate.")
+	for overlay in skill_build_panel._slot_stun_overlays:
+		_require(overlay.visible, "Expected every macro slot to show the stunned cooldown overlay.")
+		_require(is_equal_approx(overlay.progress, 1.0), "Expected stunned cooldown overlays to begin full.")
+	await create_timer(0.04).timeout
+	var mid_stun_progress: float = skill_build_panel._slot_stun_overlays[0].progress
+	_require(mid_stun_progress > 0.0 and mid_stun_progress < 1.0, "Expected stunned cooldown overlay progress to tick down during stun.")
+	await create_timer(0.08).timeout
+	_require(not skill_build_panel.is_stun_effect_active(), "Expected macro stun gray-out to clear after the stun duration.")
+	for slot in skill_build_panel._slot_buttons:
+		_require(slot.modulate == Color.WHITE, "Expected macro slots to restore their normal color after stun.")
+	for overlay in skill_build_panel._slot_stun_overlays:
+		_require(not overlay.visible and is_equal_approx(overlay.progress, 0.0), "Expected stunned cooldown overlays to hide after stun.")
+	skill_build_panel.play_stun_effect(200, true, 4.0)
+	_require(skill_build_panel.is_stun_effect_active(), "Expected sped-up stun playback to gray out the macro bar.")
+	await create_timer(0.08).timeout
+	_require(not skill_build_panel.is_stun_effect_active(), "Expected macro stun cooldown to respect playback speed when clearing.")
+	for overlay in skill_build_panel._slot_stun_overlays:
+		_require(not overlay.visible and is_equal_approx(overlay.progress, 0.0), "Expected sped-up stun cooldown overlays to hide after their scaled duration.")
 	skill_build_panel.highlight_rotation_index(1, true)
 	highlighted_style = highlighted_slot.get_theme_stylebox("normal")
 	_require(highlighted_style.border_color == skill_build_panel.PULSE_SLOT_COLOR, "Expected proc/retrigger playback to pulse the active macro slot.")
 	skill_build_panel.set_interrupt_locked_skill(stab, true)
-	_require(skill_build_panel._slot_interrupt_overlays[0].visible, "Expected an interrupted skill to show a no-entry overlay on its macro slot.")
-	_require(not skill_build_panel._slot_interrupt_overlays[1].visible, "Expected unrelated macro slots to stay clear of the interrupt overlay.")
+	var stab_slot_index := -1
+	for rotation_index in build_state.rotation.size():
+		if build_state.rotation[rotation_index].id == stab.id:
+			stab_slot_index = rotation_index
+			break
+	_require(stab_slot_index >= 0, "Expected Stab to be present in the macro before checking its interrupt overlay.")
+	_require(skill_build_panel._slot_interrupt_overlays[stab_slot_index].visible, "Expected an interrupted skill to show a no-entry overlay on its macro slot.")
+	for overlay_index in skill_build_panel._slot_interrupt_overlays.size():
+		if overlay_index != stab_slot_index:
+			_require(not skill_build_panel._slot_interrupt_overlays[overlay_index].visible, "Expected unrelated macro slots to stay clear of the interrupt overlay.")
 	skill_build_panel.clear_interrupt_locks()
-	_require(not skill_build_panel._slot_interrupt_overlays[0].visible, "Expected clearing interrupt locks to hide the no-entry overlay.")
+	_require(not skill_build_panel._slot_interrupt_overlays[stab_slot_index].visible, "Expected clearing interrupt locks to hide the no-entry overlay.")
 	var quick_cut: Skill = load("res://data/skills/quick_cut.tres")
 	var duplicate_interrupt_rotation: Array[Skill] = [stab, quick_cut, stab]
 	build_state.set_rotation(duplicate_interrupt_rotation)
@@ -208,8 +267,8 @@ func _initialize() -> void:
 	# -- 5. Stat delta from base: Piercing Blades applies a x1.08 physical
 	# damage multiplier, so the resolved-vs-base delta should show up as an
 	# explicit note on the Physical Damage line. --
-	var piercing_blades: Talent = thief.talents[1]
-	_require(piercing_blades.display_name == "Piercing Blades", "Expected thief.talents[1] to be Piercing Blades.")
+	var piercing_blades: Talent = bladedancer.talents[1]
+	_require(piercing_blades.display_name == "Piercing Blades", "Expected bladedancer.talents[1] to be Piercing Blades.")
 	build_state.add_talent_points(1)
 	await process_frame
 	_require(build_state.select_talent(piercing_blades), "Expected Piercing Blades to be selectable.")
@@ -367,7 +426,7 @@ func _initialize() -> void:
 	# dependent chain on a blocked deselect click. --
 	build_state.reset()
 	build_state.set_class(rogue)
-	build_state.select_tree(thief)
+	build_state.select_tree(bladedancer)
 	build_state.add_talent_points(4)
 	_require(build_state.select_talent(quick_hands), "Expected Quick Hands to be selectable.")
 	_require(build_state.select_talent(practiced_rhythm), "Expected Practiced Rhythm to be selectable.")

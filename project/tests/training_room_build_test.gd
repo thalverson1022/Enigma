@@ -53,6 +53,8 @@ func _initialize() -> void:
 	assert(active_talents_panel.state != build_state)
 	assert(not active_talents_panel.enable_open_button_attention)
 	assert(active_talents_panel._button_blink_tween == null)
+	assert(training_room._state.earned_talent_points == 10)
+	assert(active_talents_panel._points_label.text == ": 0/10")
 	assert(skill_build_panel._slot_count_label.text == "Slots: 0/10")
 	assert(skill_build_panel._lock_button.disabled)
 	assert(skill_build_panel._lock_button.tooltip_text.contains("Slot at least one skill"))
@@ -78,7 +80,7 @@ func _initialize() -> void:
 	assert(training_room._state.equipped_gear().is_empty())
 
 	# -- Freeform tree dropdowns: pick 2 of the 3 real trees --
-	assert(rogue.trees.size() == 3)
+	assert(rogue.trees.size() == 4)
 	training_room._on_primary_tree_selected(rogue.trees[1])
 	training_room._on_secondary_tree_selected(rogue.trees[2])
 	await process_frame
@@ -88,12 +90,12 @@ func _initialize() -> void:
 	assert(training_room._state.selected_trees.has(rogue.trees[2]))
 
 	# -- Talent selection through the real talent_panel handler --
-	var thief_talent: Talent = _find_talent(rogue.trees[1], "talent.piercing_blades")
-	assert(thief_talent != null)
-	talent_panel._on_node_pressed(thief_talent)
+	var bladedancer_talent: Talent = _find_talent(rogue.trees[1], "talent.piercing_blades")
+	assert(bladedancer_talent != null)
+	talent_panel._on_node_pressed(bladedancer_talent)
 	await process_frame
 	print("practice talents selected (expect Piercing Blades): %s" % [training_room._state.selected_talents])
-	assert(training_room._state.selected_talents.has(thief_talent))
+	assert(training_room._state.selected_talents.has(bladedancer_talent))
 
 	# -- Rotation: add a skill via available_skills_panel, confirm
 	# skill_build_panel (a different panel instance) sees the same state --

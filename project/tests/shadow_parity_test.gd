@@ -25,7 +25,7 @@ func _initialize() -> void:
 
 	var rogue: ClassDef = load("res://data/classes/rogue.tres")
 	var assassin: SubclassTree = load("res://data/subclass_trees/assassin.tres")
-	var thief: SubclassTree = load("res://data/subclass_trees/thief.tres")
+	var bladedancer: SubclassTree = load("res://data/subclass_trees/bladedancer.tres")
 	var shadow: SubclassTree = load("res://data/subclass_trees/shadow.tres")
 	assert(rogue.trees.has(shadow))
 	assert(shadow.talents.size() == 5)
@@ -59,7 +59,9 @@ func _initialize() -> void:
 	assert(not damaging_ticks.is_empty())
 	assert(shadow_stab_result.total_damage > 18.0)
 
-	var stale_base_rotation: Array[Skill] = [rogue.base_skills[0]]
+	var stale_base_stab := _find_skill(rogue.base_skills, "skill.stab")
+	assert(stale_base_stab != null)
+	var stale_base_rotation: Array[Skill] = [stale_base_stab]
 	var resolved_shadow_rotation := BuildResolver.resolve_rotation(stale_base_rotation, build_state.unlocked_skills())
 	var mouthy: Monster = load("res://data/monsters/mouthy_drunk.tres")
 	var mouthy_result := CombatResolver.resolve(resolved_shadow_rotation, shadow_stats, mouthy, 10000, 1)
@@ -78,13 +80,13 @@ func _initialize() -> void:
 	print("Non-Shadow Stab poison effect count (expect 0): %d" % _poison_effect_count(assassin_stab))
 	assert(_poison_effect_count(assassin_stab) == 0)
 
-	build_state.select_tree(thief)
+	build_state.select_tree(bladedancer)
 	build_state.active_contract = load("res://data/contracts/the_gilded_serpent.tres")
 	build_state.current_route_node = load("res://data/contract_routes/gilded_serpent/secondary_rogue_tree.tres")
 	build_state.run_phase = BuildState.RunPhase.CONTRACT_ROUTE
 	assert(build_state.needs_secondary_subclass_choice())
 	assert(build_state.choose_secondary_tree(shadow))
-	assert(build_state.selected_trees.has(thief))
+	assert(build_state.selected_trees.has(bladedancer))
 	assert(build_state.selected_trees.has(shadow))
 
 	build_state.earned_talent_points = 7
@@ -131,7 +133,9 @@ func _initialize() -> void:
 	assert(visible_stab != null)
 	assert(_poison_effect_count(visible_stab) == 1)
 	assert(build_state.rotation.is_empty())
-	var base_stab_rotation: Array[Skill] = [rogue.base_skills[0]]
+	var base_stab := _find_skill(rogue.base_skills, "skill.stab")
+	assert(base_stab != null)
+	var base_stab_rotation: Array[Skill] = [base_stab]
 	build_state.set_rotation(base_stab_rotation)
 	assert(build_state.rotation.size() == 1)
 	assert(_poison_effect_count(build_state.rotation[0]) == 1)
@@ -145,7 +149,7 @@ func _initialize() -> void:
 
 	build_state.reset()
 	build_state.set_class(rogue)
-	build_state.select_tree(thief)
+	build_state.select_tree(bladedancer)
 	var pre_shadow_unlocked: Array[Skill] = build_state.unlocked_skills()
 	var pre_shadow_rotation: Array[Skill] = [_find_skill(pre_shadow_unlocked, "skill.stab")]
 	build_state.set_rotation(pre_shadow_rotation)

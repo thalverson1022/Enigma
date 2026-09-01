@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="Skill" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/skill.gd" id="1_skill"]
+[ext_resource type="Script" path="res://scripts/resources/physical_damage_effect.gd" id="2_physical"]
+[ext_resource type="Script" path="res://scripts/resources/steal_gold_on_crit_effect.gd" id="3_steal"]
+[ext_resource type="Texture2D" path="res://assets/skill_icons/rogue/steal.png" id="4_icon"]
+
+[sub_resource type="Resource" id="Resource_steal_phys"]
+script = ExtResource("2_physical")
+amount = 19.0
+
+[sub_resource type="Resource" id="Resource_steal_gold"]
+script = ExtResource("3_steal")
+amount = 5
+
+[resource]
+script = ExtResource("1_skill")
+id = "skill.steal"
+display_name = "Steal"
+icon = ExtResource("4_icon")
+icon_letter = "S"
+base_execution_ms = 1300
+min_execution_ms = 650
+effects = Array[SkillEffect]([SubResource("Resource_steal_phys"), SubResource("Resource_steal_gold")])

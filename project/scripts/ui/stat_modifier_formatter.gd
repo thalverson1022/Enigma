@@ -15,21 +15,34 @@ const STAT_NAMES := {
 	StatModifier.StatType.ARMOR_REDUCTION: "Armor Reduction",
 	StatModifier.StatType.GOLD_REWARDS: "Gold Rewards",
 	StatModifier.StatType.POISON_TICK_INTERVAL: "Poison Tick Interval",
+	StatModifier.StatType.CRIT_CHANCE_PER_STOLEN_GOLD: "Crit Chance per Stolen Gold",
+	StatModifier.StatType.CRIT_MULTIPLIER_PER_CURRENT_GOLD: "Crit Damage per Current Gold",
 }
 
 
 static func format(modifier: StatModifier) -> String:
 	var stat_name: String = STAT_NAMES.get(modifier.stat, "?")
 	if modifier.operation == StatModifier.OperationType.MULTIPLY:
-		return "x%.2f %s" % [modifier.value, stat_name]
+		return _format_multiplier_percent(modifier.value, stat_name)
 	match modifier.stat:
 		StatModifier.StatType.ATTACK_SPEED, StatModifier.StatType.CRIT_CHANCE:
 			return "%+d%% %s" % [roundi(modifier.value * 100.0), stat_name]
+		StatModifier.StatType.CRIT_CHANCE_PER_STOLEN_GOLD:
+			return "%+d%% Crit Chance per gold stolen this fight" % roundi(modifier.value * 100.0)
+		StatModifier.StatType.CRIT_MULTIPLIER_PER_CURRENT_GOLD:
+			return "%+d%% Crit Damage per current gold" % roundi(modifier.value * 100.0)
 		StatModifier.StatType.CRIT_MULTIPLIER:
-			return "%+.2f %s" % [modifier.value, stat_name]
+			return "%+d%% Crit Damage" % roundi(modifier.value * 100.0)
+		StatModifier.StatType.GOLD_REWARDS:
+			return "%+d%% %s" % [roundi(modifier.value * 100.0), stat_name]
 		StatModifier.StatType.ARMOR_REDUCTION:
 			return "-%d armor" % roundi(absf(modifier.value))
 		StatModifier.StatType.POISON_TICK_INTERVAL:
 			return "x%.2f %s" % [modifier.value, stat_name]
 		_:
 			return "%+d %s" % [roundi(modifier.value), stat_name]
+
+
+static func _format_multiplier_percent(value: float, stat_name: String) -> String:
+	var delta_percent := roundi((value - 1.0) * 100.0)
+	return "x%d%% %s" % [delta_percent, stat_name]

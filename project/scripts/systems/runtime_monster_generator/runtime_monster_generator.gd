@@ -15,6 +15,7 @@ const SCALING_PROFILES := {
 
 const KIND_MULTIPLIERS := {
 	"normal": {"hp": 1.0, "budget": 1.0, "duration": 1.0, "target_dps": 1.0, "extra_mechanics": 0},
+	"captain": {"hp": 1.08, "budget": 1.1, "duration": 1.02, "target_dps": 1.04, "extra_mechanics": 0},
 	"elite": {"hp": 1.18, "budget": 1.2, "duration": 1.05, "target_dps": 1.08, "extra_mechanics": 1},
 	"boss": {"hp": 1.42, "budget": 1.48, "duration": 1.16, "target_dps": 1.16, "extra_mechanics": 2},
 	"bespoke": {"hp": 1.0, "budget": 1.0, "duration": 1.0, "target_dps": 1.0, "extra_mechanics": 0},
@@ -199,7 +200,8 @@ static func _validate_archetype_availability(archetype: RuntimeArchetypeDef, inp
 			"Runtime generation archetype is locked for this difficulty.",
 			{"id": archetype.id, "unlock_difficulty": archetype.unlock_difficulty, "difficulty": input.difficulty_id}
 		)
-	if not archetype.allowed_kinds.has(input.monster_kind):
+	var effective_kind := "normal" if input.monster_kind == "captain" else input.monster_kind
+	if not archetype.allowed_kinds.has(effective_kind):
 		draft.add_notice(
 			RuntimeMonsterNotice.SEVERITY_ERROR,
 			code,

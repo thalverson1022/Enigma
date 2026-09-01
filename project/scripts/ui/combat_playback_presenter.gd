@@ -32,6 +32,7 @@ extends Node
 ## settable independently of when start() is called here.
 
 signal finished(result: CombatResolver.CombatResult, monster: Monster, was_skipped: bool)
+signal gold_stolen_played(amount: int)
 
 const PLAYBACK_HP_TWEEN_SEC := 0.15
 const PLAYBACK_TICK_HP_TWEEN_SEC := 0.3
@@ -45,6 +46,7 @@ var skipping := false
 var _playback: CombatPlayback = null
 var _intro_remaining_sec := 0.0
 var _intro_duration_sec := 0.0
+var _intro_scales_with_playback_speed := true
 var _result: CombatResolver.CombatResult = null
 var _monster: Monster = null
 
@@ -123,7 +125,7 @@ func set_speed(speed: float) -> void:
 ## timeline event can fire. Does not touch dashboard chrome, pre-fight HUD
 ## text, or _playback_active -- see this class's header for why those stay
 ## with the caller.
-func start(result: CombatResolver.CombatResult, monster: Monster, wyvern_effect_active: bool, bandit_blade_effect_active: bool, play_intro_animation: bool) -> void:
+func start(result: CombatResolver.CombatResult, monster: Monster, wyvern_effect_active: bool, bandit_blade_effect_active: bool, play_intro_animation: bool, play_contract_traversal: bool = false) -> void:
 	_result = result
 	_monster = monster
 	_hp = float(monster.hp)
@@ -148,6 +150,10 @@ func start(result: CombatResolver.CombatResult, monster: Monster, wyvern_effect_
 		_skill_build_panel.clear_interrupt_locks()
 	if _skill_build_panel != null and _skill_build_panel.has_method("set_slow_effect_active"):
 		_skill_build_panel.set_slow_effect_active(monster.slow > 0.0)
+	if _skill_build_panel != null and _skill_build_panel.has_method("clear_stun_effect"):
+		_skill_build_panel.clear_stun_effect()
+	if _skill_build_panel != null and _skill_build_panel.has_method("set_combat_interaction_locked"):
+		_skill_build_panel.set_combat_interaction_locked(true)
 	_playback = CombatPlayback.new()
 	_playback.event_callback = _on_event
 	_playback.cast_start_callback = _on_cast_start
@@ -158,7 +164,12 @@ func start(result: CombatResolver.CombatResult, monster: Monster, wyvern_effect_
 	# corpse. The HUD's HP bar clamps at 0 in _on_event() so it never dips
 	# below dead or un-dies.
 	_playback.start(result)
-	_intro_duration_sec = _combat_stage.play_fight_intro(play_intro_animation) if _combat_stage != null else 0.0
+	if _combat_stage != null and play_contract_traversal:
+		_intro_duration_sec = _combat_stage.play_player_run_in(play_intro_animation)
+		_intro_scales_with_playback_speed = false
+	else:
+		_intro_duration_sec = _combat_stage.play_fight_intro(play_intro_animation) if _combat_stage != null else 0.0
+		_intro_scales_with_playback_speed = true
 	_intro_remaining_sec = _intro_duration_sec
 
 
@@ -169,7 +180,7 @@ func advance(delta: float) -> void:
 	if _playback == null:
 		return
 	if _intro_remaining_sec > 0.0:
-		var playback_speed := maxf(_playback.speed, 0.0)
+		var playback_speed := maxf(_playback.speed, 0.0) if _intro_scales_with_playback_speed else 1.0
 		var intro_advance := delta * playback_speed
 		if intro_advance < _intro_remaining_sec:
 			_intro_remaining_sec -= intro_advance
@@ -234,6 +245,8 @@ func _on_event(event: CombatPlayback.PlaybackEvent) -> void:
 				_popup_layer.spawn("Poison -%.0f" % event.tick.damage, CombatPopupLayer.Kind.POISON_TICK)
 	else:
 		var cast := event.cast
+		if cast.gold_stolen > 0:
+			gold_stolen_played.emit(cast.gold_stolen)
 		var popup_delay := 0.0
 		if _combat_stage != null:
 			popup_delay = _combat_stage.play_cast_impact(cast, not skipping)
@@ -267,6 +280,8 @@ func _on_event(event: CombatPlayback.PlaybackEvent) -> void:
 			_pending_cleanse_status_flash = not skipping
 		if cast.stun_duration_ms > 0 and _combat_stage != null:
 			_combat_stage.play_stun_effect(cast.stun_duration_ms, not skipping)
+		if cast.stun_duration_ms > 0 and _skill_build_panel != null and _skill_build_panel.has_method("play_stun_effect"):
+			_skill_build_panel.play_stun_effect(cast.stun_duration_ms, not skipping, _playback.speed)
 		_interrupt_repeat_count = cast.interrupt_repeat_count_after
 		_update_interrupt_skill_lock(cast)
 		_apply_hp(PLAYBACK_HP_TWEEN_SEC)
@@ -343,6 +358,8 @@ func _spawn_cast_popups(cast: CombatResolver.CastEvent) -> void:
 		damage_suffix = " -%.0f" % cast.physical_damage
 	if cast.is_crit and cast.crit_negation_damage_prevented > 0.0 and _popup_layer.has_method("spawn_crit_negated"):
 		_popup_layer.spawn_crit_negated(skill_name, cast.physical_damage, cast.crit_negation_damage_prevented)
+	elif cast.gold_stolen > 0 and _popup_layer.has_method("spawn_gold_hit"):
+		_popup_layer.spawn_gold_hit(skill_name, cast.physical_damage, cast.gold_stolen, cast.is_crit)
 	elif cast.is_crit:
 		_popup_layer.spawn("%s%s!" % [skill_name, damage_suffix], CombatPopupLayer.Kind.CRIT)
 	elif cast.min_cast_time_proc_applied:
@@ -409,6 +426,10 @@ func _on_finished() -> void:
 		_skill_build_panel.clear_interrupt_locks()
 	if _skill_build_panel != null and _skill_build_panel.has_method("set_slow_effect_active"):
 		_skill_build_panel.set_slow_effect_active(false)
+	if _skill_build_panel != null and _skill_build_panel.has_method("clear_stun_effect"):
+		_skill_build_panel.clear_stun_effect()
+	if _skill_build_panel != null and _skill_build_panel.has_method("set_combat_interaction_locked"):
+		_skill_build_panel.set_combat_interaction_locked(false)
 	if _combat_stage != null and _combat_stage.has_method("set_slow_effect_active"):
 		_combat_stage.set_slow_effect_active(false)
 	if was_skipped and _combat_stage != null and _combat_stage.has_method("clear_transient_effects"):
@@ -420,3 +441,4 @@ func _on_finished() -> void:
 	_monster = null
 	_intro_remaining_sec = 0.0
 	_intro_duration_sec = 0.0
+	_intro_scales_with_playback_speed = true

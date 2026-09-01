@@ -5,9 +5,9 @@ extends RefCounted
 ## tree innate modifiers -> selected talent modifiers -> equipped gear
 ## modifiers -> filter rotation to unlocked skills.
 ##
-## GOLD_REWARDS stays an intentional no-op here: it's reward-only (not a
-## combat stat) per Current_Mechanics_Reference.md, and no seeded content
-## uses it in combat.
+## GOLD_REWARDS feeds both post-fight rewards and any combat effects that
+## generate stash gold. The resolved multiplier lives on PlayerStats so the
+## reward and combat paths share the same rounding policy.
 
 ## Rotation/macro slot cap (user-requested), enforced once here since both
 ## BuildState.set_rotation() (real Adventure) and TrainingRoomState.
@@ -18,15 +18,20 @@ const MAX_ROTATION_SIZE := 10
 
 static func resolve_stats(class_def: ClassDef, selected_trees: Array[SubclassTree], selected_talents: Array[Talent], equipped_gear: Array[GearItem] = [], current_gold: int = 0) -> PlayerStats:
 	var stats := PlayerStats.new()
-	stats.attack_speed = class_def.base_stats.attack_speed
-	stats.crit_chance = class_def.base_stats.crit_chance
-	stats.crit_multiplier = class_def.base_stats.crit_multiplier
-	stats.poison_damage_per_tick = class_def.base_stats.poison_damage_per_tick
-	stats.physical_damage_multiplier = class_def.base_stats.physical_damage_multiplier
-	stats.bonus_poison_stacks = class_def.base_stats.bonus_poison_stacks
-	stats.bonus_armor_reduction = class_def.base_stats.bonus_armor_reduction
-	stats.poison_tick_interval_multiplier = class_def.base_stats.poison_tick_interval_multiplier
+	if class_def != null:
+		stats.attack_speed = class_def.base_stats.attack_speed
+		stats.crit_chance = class_def.base_stats.crit_chance
+		stats.crit_multiplier = class_def.base_stats.crit_multiplier
+		stats.poison_damage_per_tick = class_def.base_stats.poison_damage_per_tick
+		stats.physical_damage_multiplier = class_def.base_stats.physical_damage_multiplier
+		stats.bonus_poison_stacks = class_def.base_stats.bonus_poison_stacks
+		stats.bonus_armor_reduction = class_def.base_stats.bonus_armor_reduction
+		stats.poison_tick_interval_multiplier = class_def.base_stats.poison_tick_interval_multiplier
+		stats.gold_reward_multiplier = class_def.base_stats.gold_reward_multiplier
+		stats.crit_chance_per_stolen_gold = class_def.base_stats.crit_chance_per_stolen_gold
+		stats.crit_multiplier_per_current_gold = class_def.base_stats.crit_multiplier_per_current_gold
 	stats.triggered_skill_effects = []
+	stats.current_gold = current_gold
 
 	for tree in selected_trees:
 		for modifier in tree.innate_modifiers:
@@ -132,6 +137,12 @@ static func _apply_modifier(stats: PlayerStats, modifier: StatModifier) -> void:
 			stats.bonus_armor_reduction = int(round(_apply_op(float(stats.bonus_armor_reduction), modifier)))
 		StatModifier.StatType.POISON_TICK_INTERVAL:
 			stats.poison_tick_interval_multiplier = max(0.05, _apply_op(stats.poison_tick_interval_multiplier, modifier))
+		StatModifier.StatType.GOLD_REWARDS:
+			stats.gold_reward_multiplier = maxf(0.0, stats.gold_reward_multiplier * (1.0 + modifier.value))
+		StatModifier.StatType.CRIT_CHANCE_PER_STOLEN_GOLD:
+			stats.crit_chance_per_stolen_gold = _apply_op(stats.crit_chance_per_stolen_gold, modifier)
+		StatModifier.StatType.CRIT_MULTIPLIER_PER_CURRENT_GOLD:
+			stats.crit_multiplier_per_current_gold = _apply_op(stats.crit_multiplier_per_current_gold, modifier)
 		_:
 			pass
 

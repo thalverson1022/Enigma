@@ -15,6 +15,7 @@ extends SceneTree
 var _failed := false
 const CombatPlaybackScenarios := preload("res://tests/helpers/combat_playback_scenarios.gd")
 const CombatStageScript := preload("res://scripts/ui/combat_stage.gd")
+const ContractOfferSourceScript := preload("res://scripts/systems/contract_offer_source.gd")
 
 
 func _initialize() -> void:
@@ -26,7 +27,9 @@ func _initialize() -> void:
 	_check_m1_t1_controlled_playback_scenarios()
 	await _check_m1_t4_combat_stage_animation_mapping()
 	await _check_live_playback_win()
+	await _check_live_playback_steal_gold()
 	await _check_natural_playback_win_reveal_timing()
+	await _check_generated_contract_traversal_playback()
 	await _check_live_playback_loss()
 	await _check_natural_playback_loss_reveal_timing()
 	await _check_playback_speed_persists()
@@ -205,6 +208,28 @@ func _check_controller_cast_start_callback() -> void:
 	var second_start_index := callback_order.find("start:%d" % result.cast_events[1].rotation_index)
 	_require(first_end_index >= 0 and second_start_index > first_end_index, "Expected same-timestamp cast-end/proc presentation to resolve before the next macro slot highlight wins.")
 
+	var stun_skill: Skill = load("res://data/skills/stab.tres")
+	var stun_monster := Monster.new()
+	stun_monster.display_name = "Stun Timing Dummy"
+	stun_monster.hp = 100
+	stun_monster.stun_duration_ms = 500
+	var stun_player := PlayerStats.new()
+	stun_player.attack_speed = 0.0
+	stun_player.crit_chance = 0.0
+	var stun_result := CombatResolver.resolve([stun_skill], stun_player, stun_monster, 4000, 1)
+	_require(stun_result.cast_events.size() == 2, "Expected stun timing fixture to produce two casts.")
+	_require(stun_result.cast_events[0].time_ms == 1500, "Expected Stab to finish at 1500ms.")
+	_require(stun_result.cast_events[0].stun_duration_ms == 500, "Expected first Stab to trigger a 500ms stun.")
+	_require(stun_result.cast_events[1].cast_start_ms == 2000, "Expected the next cast to start only after the stun timer finishes.")
+	var stun_starts: Array[int] = []
+	var stun_playback := CombatPlayback.new()
+	stun_playback.cast_start_callback = func(cast): stun_starts.append(cast.cast_start_ms)
+	stun_playback.start(stun_result)
+	stun_playback.advance(1.99)
+	_require(stun_starts == [0], "Expected post-stun cast start not to fire before the stun gap completes.")
+	stun_playback.advance(0.01)
+	_require(stun_starts == [0, 2000], "Expected post-stun cast start to fire exactly when the stun gap completes.")
+
 
 func _check_controller_win_truncation() -> void:
 	print("-- Controller full-window playback: a win plays out the entire window, not just to the kill --")
@@ -301,10 +326,34 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	var enemy_target_point: Vector2 = stage._stage_point_for_grid(stage.ENEMY_STAGE_GRID) + stage.ACTOR_GROUP_STAGE_OFFSET_PX
 	var enemy_sprite_anchor: Vector2 = stage._sprite_anchor_point(stage.enemy_actor_anchor, stage._enemy_sprite, stage.PEASANT_ANCHOR_POINT)
 	_require(enemy_sprite_anchor.distance_to(enemy_target_point) < 0.01, "Expected the enemy sprite anchor to land on its right-shifted grid target.")
+	var player_x_before_intro: float = stage.player_actor_anchor.position.x
+	var enemy_x_before_intro: float = stage.enemy_actor_anchor.position.x
+	var animated_intro_duration := stage.play_fight_intro(true)
+	_require(is_equal_approx(animated_intro_duration, CombatStageScript.FIGHT_INTRO_SEC), "Expected animated intro to keep the authored timing.")
+	_require(is_equal_approx(stage.player_actor_anchor.position.x, player_x_before_intro), "Expected fight intro not to introduce player x-axis bounce.")
+	_require(is_equal_approx(stage.enemy_actor_anchor.position.x, enemy_x_before_intro), "Expected fight intro not to introduce enemy x-axis bounce.")
+	stage.reset_state()
 	var intro_duration := stage.play_fight_intro(false)
 	_require(stage.fight_intro_count == 1, "Expected the stage to record a start-of-fight intro beat.")
 	_require(is_equal_approx(intro_duration, 0.0), "Expected non-animated intro calls to finish instantly for headless checks.")
 	_require(is_equal_approx(stage.last_fight_intro_duration_sec, CombatStageScript.FIGHT_INTRO_SEC), "Expected the intro beat to expose its authored duration.")
+	_require(stage.expected_player_sprite_paths().has("res://assets/placeholder_combat_sprites/rogue_bandit/animations/walk/frames/frame_001.png"), "Expected Rogue walk frames to be registered for contract traversal.")
+	var run_in_duration := stage.play_player_run_in(true)
+	_require(stage.player_run_in_count == 1, "Expected contract traversal run-in to record one stage traversal.")
+	_require(is_equal_approx(run_in_duration, CombatStageScript.CONTRACT_RUN_IN_DELAY_SEC + CombatStageScript.CONTRACT_RUN_IN_SEC), "Expected animated contract traversal run-in to expose its delay plus authored duration.")
+	_require(stage.last_player_animation_key == "walk", "Expected run-in to use Rogue walk frames.")
+	_require(stage.player_actor_anchor.position.x < 0.0, "Expected run-in to start the Rogue off the left edge of the combat stage.")
+	stage.reset_state()
+	var run_out_duration := stage.play_player_run_out(false)
+	_require(stage.player_run_out_count == 1, "Expected contract traversal run-out to record one stage traversal.")
+	_require(is_equal_approx(run_out_duration, 0.0), "Expected non-animated contract traversal run-out to snap instantly.")
+	_require(stage.player_actor_anchor.position.x > stage._effective_stage_size().x, "Expected run-out to place the Rogue past the right edge of the combat stage.")
+	_require(not stage.player_actor_anchor.visible, "Expected completed run-out to keep the Rogue hidden offscreen.")
+	stage.size = Vector2(660, 360)
+	await process_frame
+	_require(not stage.player_actor_anchor.visible, "Expected completed run-out to stay hidden across combat stage relayout.")
+	_require(stage.player_actor_anchor.position.x > stage._effective_stage_size().x, "Expected completed run-out to stay off the right edge across combat stage relayout.")
+	stage.reset_state()
 
 	var physical_cast := CombatResolver.CastEvent.new()
 	physical_cast.skill = load("res://data/skills/stab.tres")
@@ -390,6 +439,21 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	_require(triggered_contact_delay > 0.0 and triggered_contact_delay < stage.TRIGGERED_FOLLOWUP_ANIMATION_SEC, "Expected triggered-skill damage text timing to wait for the fast follow-up hit beat.")
 	stage.reset_state()
 
+	var hold_cast := CombatResolver.CastEvent.new()
+	hold_cast.skill = load("res://data/skills/hold.tres")
+	hold_cast.cast_start_ms = 0
+	hold_cast.time_ms = 1000
+	var hold_contact_delay := stage.play_cast_windup(hold_cast, 1.0, true)
+	_require(is_equal_approx(hold_contact_delay, 1.0), "Expected Hold to still occupy its 1.0s macro slot.")
+	_require(stage.last_cast_animation_kind == CombatStageScript.ANIMATION_HOLD, "Expected Hold to map to the idle/no-attack presentation kind.")
+	_require(stage.cast_windup_count == 1, "Expected Hold to record the cast windup timing.")
+	_require(stage.cast_animation_count == 0, "Expected Hold not to record an attack animation.")
+	_require(stage.last_player_animation_key == "idle", "Expected Hold to leave the Rogue in idle instead of attack frames.")
+	_require(is_equal_approx(stage.player_actor_anchor.position.x, stage._player_base_position.x), "Expected Hold not to lunge the Rogue forward.")
+	_require(stage.play_cast_impact(hold_cast, true) == 0.0, "Expected Hold impact to avoid follow-up contact timing.")
+	_require(stage.contact_feedback_count == 0, "Expected Hold impact to avoid enemy recoil/contact feedback.")
+	stage.reset_state()
+
 	stage.play_cast_windup(physical_cast, 1.0, true)
 	_require(stage.contact_feedback_count == 0, "Expected cast windup to animate the Rogue without triggering enemy contact feedback early.")
 	stage.play_cast_impact(physical_cast, true)
@@ -437,8 +501,14 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	stage.play_cast_impact(crit_cast, true)
 	_require(stage.contact_feedback_count == 4, "Expected a crit to schedule enemy contact feedback.")
 	_require(stage.last_contact_feedback_was_crit, "Expected crit enemy recoil to be marked distinctly.")
+	_require(is_equal_approx(stage.last_enemy_recoil_distance_px, stage.CRIT_RECOIL_DISTANCE_PX), "Expected crit enemy recoil to use the tiny crit bump instead of launching the target.")
+	await process_frame
+	_require(stage.last_enemy_animation_key == "idle", "Expected crit enemy feedback to keep the stable idle frame instead of snapping to the offset hurt frame.")
 	_require(stage.bandit_coin_spray_count == 3, "Expected Bandit Blade to add coin particles to each physical-damage hit while active.")
 	_require(stage.last_bandit_coin_count == stage.BANDIT_COIN_CRIT_COUNT, "Expected Bandit Blade crits to get a slightly richer coin spray.")
+	stage.enemy_actor_anchor.position = stage._enemy_base_position + Vector2(stage.RECOIL_DISTANCE_PX * 2.0, 0.0)
+	stage.play_poison_tick_pulse(true)
+	_require(stage.enemy_actor_anchor.position == stage._enemy_base_position, "Expected non-recoil enemy effects to clear any interrupted hit displacement before animating.")
 
 	var dodged_cast := CombatResolver.CastEvent.new()
 	dodged_cast.skill = load("res://data/skills/stab.tres")
@@ -634,6 +704,8 @@ func _check_live_playback_win() -> void:
 	_require(build_state.last_fight_won, "Expected the fight result to be resolved (and won) instantly.")
 	_require(build_state.run_phase != build_state.RunPhase.FIGHTING, "Expected the run state machine to have already advanced past FIGHTING.")
 	_require(SaveSystem.has_save(), "Expected the autosave to have fired before playback started.")
+	_require(combat_screen._combat_stage.player_run_in_count == 0, "Expected Tavern playback to keep the Rogue in place instead of using contract traversal run-in.")
+	_require(combat_screen._combat_stage.fight_intro_count == 1, "Expected Tavern playback to keep using the normal fight intro.")
 	_require(not combat_screen._victory_overlay.visible, "Expected the victory banner to stay hidden mid-playback.")
 	_require(not combat_screen._outcome_title_label.visible, "Expected no outcome title mid-playback.")
 	_require(not combat_screen._recap_label.visible, "Expected no recap mid-playback.")
@@ -668,6 +740,8 @@ func _check_live_playback_win() -> void:
 	_require(combat_screen._playback_presenter._playback.events_fired() > 0, "Expected events to have fired 2s in.")
 	_require(combat_screen._combat_stage.stun_effect_count > 0, "Expected Adventure/contract playback to trigger the shared player stun stars.")
 	_require(combat_screen._combat_stage.last_stun_duration_ms == monster.stun_duration_ms, "Expected Adventure/contract stun stars to use the monster stun duration.")
+	_require(combat_screen._skill_build_panel.stun_effect_count > 0, "Expected Adventure/contract playback to gray out the macro bar during stun.")
+	_require(combat_screen._skill_build_panel.last_stun_duration_ms == monster.stun_duration_ms, "Expected macro stun gray-out to use the monster stun duration.")
 	_require(combat_screen.hud_status_chip_flash_count > 0, "Expected Adventure/contract cleanse to flash the zeroed HUD status chips.")
 	var expected_hp: float = float(monster.hp) - combat_screen._playback_presenter._playback.damage_dealt()
 	_require(
@@ -685,12 +759,76 @@ func _check_live_playback_win() -> void:
 	_require(combat_screen._playback_controls.visible, "Expected the playback controls to stay visible after the reveal.")
 	_require(combat_screen._hud_hp_text_label.text == "0/%d" % monster.hp, "Expected the HUD snapped to the exact post-fight state (dead enemy).")
 	_require(combat_screen._combat_stage.outcome_pose == CombatStageScript.OUTCOME_VICTORY, "Expected skip to still snap the enemy into the victory pose.")
+	_require(
+		combat_screen._combat_stage.enemy_actor_anchor.position == combat_screen._combat_stage._enemy_base_position,
+		"Expected skipped wins to avoid animating the enemy defeat drop."
+	)
 	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
 	_require(combat_screen._victory_overlay.visible, "Expected the victory banner revealed after the skipped-win pose hold.")
 	_require(not combat_screen._view_log_button.disabled, "Expected the combat log unlocked after the reveal.")
 	_require(not combat_screen._map_button.disabled, "Expected the Map button unlocked after the reveal.")
 	_require(combat_screen._victory_recap_label.text.contains("Total Damage:"), "Expected the win recap populated at the reveal.")
 	_require(combat_screen._phase_label.text != "Phase: Fighting", "Expected the header unfrozen after the reveal.")
+
+	combat_screen.queue_free()
+	await process_frame
+
+
+func _check_live_playback_steal_gold() -> void:
+	var build_state = root.get_node("BuildState")
+	build_state.reset()
+	var rogue: ClassDef = load("res://data/classes/rogue.tres").duplicate(true)
+	rogue.base_stats = rogue.base_stats.duplicate(true)
+	rogue.base_stats.crit_chance = 1.0
+	build_state.set_class(rogue)
+	var thief := _find_tree(rogue, "tree.thief")
+	_require(thief != null, "Expected Rogue to have the Thief tree for Steal playback coverage.")
+	build_state.select_tree(thief)
+	build_state.choose_current_tavern_encounter()
+	var steal: Skill = load("res://data/skills/steal.tres")
+	var steal_rotation: Array[Skill] = [steal]
+	build_state.rotation = steal_rotation
+
+	var combat_screen := _instantiate_combat_screen()
+	await process_frame
+	combat_screen.instant_playback = false
+	build_state.set_locked(true)
+	var build_changed_during_steal := [0]
+	var stats_preview_during_steal := [0]
+	build_state.build_changed.connect(func(): build_changed_during_steal[0] += 1)
+	build_state.stats_preview_changed.connect(func(): stats_preview_during_steal[0] += 1)
+
+	print("-- Live playback Steal gold --")
+	combat_screen._enemy_panel.fight_pressed.emit()
+	_require(combat_screen._playback_active, "Expected Steal playback to be active right after Fight.")
+	_require(build_state.gold == 0, "Expected animated Steal gold not to enter the stash before the Steal event plays.")
+	_require(build_state.combat_stolen_gold == 0, "Expected Big Score visual counter to start at 0.")
+	var enemy_sprite_x_before_steal: float = _enemy_sprite_global_top_left(combat_screen._combat_stage).x
+
+	combat_screen._process(combat_screen._playback_presenter._intro_remaining_sec + 1.4)
+	_require(build_state.gold == 5, "Expected animated Adventure Steal gold to enter the player's stash when the Steal event plays.")
+	_require(build_state.combat_stolen_gold == 5, "Expected animated Steal gold to feed the in-fight Big Score display.")
+	_require(build_changed_during_steal[0] == 0, "Expected live Steal gold payout not to emit build_changed during playback.")
+	_require(stats_preview_during_steal[0] > 0, "Expected live Steal gold payout to refresh stats/gold preview without a full build refresh.")
+	_require(combat_screen._combat_stage.last_contact_feedback_was_crit, "Expected the live Steal hit to travel through the crit contact-feedback path.")
+	_require(
+		is_equal_approx(combat_screen._combat_stage.last_enemy_recoil_distance_px, combat_screen._combat_stage.CRIT_RECOIL_DISTANCE_PX),
+		"Expected live Steal crits to use the tiny crit bump instead of launching the target."
+	)
+	await process_frame
+	_require(combat_screen._combat_stage.last_enemy_animation_key == "idle", "Expected live Steal crits to keep the stable enemy idle frame instead of snapping to the offset hurt frame.")
+	var enemy_sprite_x_after_steal: float = _enemy_sprite_global_top_left(combat_screen._combat_stage).x
+	_require(
+		absf(enemy_sprite_x_after_steal - enemy_sprite_x_before_steal) <= combat_screen._combat_stage.CRIT_RECOIL_DISTANCE_PX + 0.5,
+		"Expected live Steal crits to stay within the tiny crit bump instead of jumping across the canvas."
+	)
+
+	combat_screen._skip_playback()
+	var gold_after_skip: int = build_state.gold
+	_require(gold_after_skip >= 5, "Expected Skip to pay out any remaining animated Steal events.")
+	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
+	_require(build_state.gold == gold_after_skip, "Expected clearing the Big Score display not to remove stolen stash gold.")
+	_require(build_state.combat_stolen_gold == 0, "Expected the Big Score visual counter to reset when playback ends.")
 
 	combat_screen.queue_free()
 	await process_frame
@@ -728,6 +866,70 @@ func _check_natural_playback_win_reveal_timing() -> void:
 	_require(combat_screen._victory_overlay.visible, "Expected the victory banner after the natural reveal hold.")
 	_require(not combat_screen._view_log_button.disabled, "Expected the combat log unlocked after the natural reveal.")
 	_require(not combat_screen._map_button.disabled, "Expected the Map button unlocked after the natural reveal.")
+
+	combat_screen.queue_free()
+	await process_frame
+
+
+func _check_generated_contract_traversal_playback() -> void:
+	var build_state = root.get_node("BuildState")
+	build_state.reset()
+	build_state.set_adventure_seed(424242)
+	var rogue: ClassDef = load("res://data/classes/rogue.tres")
+	build_state.set_class(rogue)
+	build_state.select_tree(rogue.trees[1])
+	var quick_cut: Skill = load("res://data/skills/quick_cut.tres")
+	var win_rotation: Array[Skill] = [quick_cut]
+	build_state.rotation = win_rotation
+	var context := ContractOfferSourceScript.offer_context(
+		424242,
+		0,
+		0,
+		-1,
+		{"route_difficulty": "medium", "allowed_biomes": ["Graveyard"]},
+		false,
+		true
+	)
+	_require(build_state.start_contract_offer(context), "Expected generated contract offer to start for traversal playback.")
+	_require(build_state.accept_contract_offer(), "Expected generated contract offer to become active for traversal playback.")
+	var node: ContractRouteNode = build_state.current_route_node.next_nodes[0]
+	_require(build_state.choose_contract_route_node(node), "Expected generated contract route node to become the active fight.")
+	node.monster.hp = 1
+	node.duration_ms = 12000
+
+	var combat_screen := _instantiate_combat_screen()
+	await process_frame
+	combat_screen.instant_playback = false
+	combat_screen._last_playback_speed = 4.0
+	build_state.set_locked(true)
+	_require(not combat_screen._combat_stage.player_actor_anchor.visible, "Expected generated contract planning to keep the Rogue hidden before Fight.")
+	_require(combat_screen._combat_stage.enemy_actor_anchor.visible, "Expected generated contract planning to show the chosen enemy before Fight.")
+	combat_screen._show_map_overlay(true)
+	await process_frame
+	_require(combat_screen._map_overlay.visible, "Expected generated contract map review to be visible before Fight.")
+	_require(not combat_screen._combat_stage.player_actor_anchor.visible, "Expected generated contract map review to keep the Rogue hidden behind the map.")
+	_require(combat_screen._combat_stage.enemy_actor_anchor.visible, "Expected generated contract map review to keep the selected enemy staged behind the map.")
+
+	print("-- Generated contract traversal playback --")
+	combat_screen._enemy_panel.fight_pressed.emit()
+	await process_frame
+	_require(not combat_screen._map_overlay.visible, "Expected Fight to close the generated contract map before traversal playback.")
+	_require(combat_screen._playback_active, "Expected generated contract fight to enter live playback.")
+	_require(combat_screen._playback_contract_traversal_active, "Expected generated contract playback to remember traversal animation is active.")
+	_require(combat_screen._combat_stage.enemy_actor_anchor.visible, "Expected Fight to keep the selected enemy visible.")
+	_require(combat_screen._combat_stage.player_actor_anchor.visible, "Expected Fight to keep the Rogue at the staged fight position.")
+	_require(combat_screen._combat_stage.player_run_in_count == 0, "Expected generated contract Fight to avoid replaying the route-entry run-in.")
+	_require(combat_screen._combat_stage.fight_intro_count == 1, "Expected generated contract Fight to use only a zero-duration combat reset.")
+	_require(is_equal_approx(combat_screen._playback_presenter._intro_duration_sec, 0.0), "Expected generated contract Fight to start the timeline immediately after the route-entry run-in.")
+	combat_screen._process(0.5)
+	_require(combat_screen._playback_presenter._playback.events_fired() > 0, "Expected generated contract Fight events to begin without a second run-in delay.")
+
+	combat_screen._skip_playback()
+	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
+	_require(combat_screen._combat_stage.player_run_out_count == 1, "Expected generated contract win to run the Rogue out after victory.")
+	_require(combat_screen._combat_stage.player_actor_anchor.position.x > combat_screen._combat_stage._effective_stage_size().x, "Expected skipped generated contract victory to snap the Rogue past the right edge.")
+	_require(not combat_screen._combat_stage.player_actor_anchor.visible, "Expected skipped generated contract victory to keep the Rogue gone after run-out.")
+	_require(combat_screen._victory_overlay.visible, "Expected generated contract victory overlay after traversal finish.")
 
 	combat_screen.queue_free()
 	await process_frame
@@ -917,6 +1119,17 @@ func _instantiate_combat_screen() -> Node:
 	var combat_screen = combat_scene.instantiate()
 	root.add_child(combat_screen)
 	return combat_screen
+
+
+func _find_tree(class_def: ClassDef, tree_id: String) -> SubclassTree:
+	for tree in class_def.trees:
+		if tree != null and tree.id == tree_id:
+			return tree
+	return null
+
+
+func _enemy_sprite_global_top_left(stage) -> Vector2:
+	return stage.enemy_actor_anchor.global_position + stage._sprite_render_top_left(stage._enemy_sprite)
 
 
 ## Same fixed idiom as combat_recap_test.gd: record failures and quit once

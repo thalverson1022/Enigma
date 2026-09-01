@@ -79,8 +79,8 @@ func _initialize() -> void:
 	_require(audio_manager._theme_player.playing, "Expected menu theme to continue through class select.")
 
 	var subclass_select = game_root._current_screen
-	var thief: SubclassTree = rogue.trees[1]
-	subclass_select._on_tree_selected(thief)
+	var bladedancer: SubclassTree = rogue.trees[1]
+	subclass_select._on_tree_selected(bladedancer)
 	subclass_select.advanced.emit()
 	await process_frame
 	_require(audio_manager._rain_player.playing, "Expected menu rain to continue until the Tavern choice is committed.")

@@ -12,3 +12,7 @@ extends Resource
 @export var triggered_skill_effects: Array[TriggeredSkillEffect] = []
 @export var bonus_physical_damage: float = 0.0
 @export var min_cast_time_proc_chance: float = 0.0
+@export var gold_reward_multiplier: float = 1.0
+@export var current_gold: int = 0
+@export var crit_chance_per_stolen_gold: float = 0.0
+@export var crit_multiplier_per_current_gold: float = 0.0

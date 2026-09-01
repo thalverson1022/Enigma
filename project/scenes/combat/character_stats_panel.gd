@@ -39,6 +39,8 @@ func _ready() -> void:
 	content.add_child(_stats_label)
 
 	state.build_changed.connect(_refresh)
+	if state.has_signal("stats_preview_changed"):
+		state.stats_preview_changed.connect(_refresh)
 	_refresh()
 
 
@@ -70,12 +72,20 @@ func _refresh() -> void:
 		"Attack Speed", "%.0f%%" % (stats.attack_speed * 100.0),
 		(stats.attack_speed - base_stats.attack_speed) * 100.0, "%"
 	))
+	var gold_crit_chance_bonus := float(_state_combat_stolen_gold()) * stats.crit_chance_per_stolen_gold * 100.0
+	var crit_chance_text := "%.0f%%" % (stats.crit_chance * 100.0)
+	if stats.crit_chance_per_stolen_gold > 0.0:
+		crit_chance_text += " %s" % _gold_bonus_text("+%.0f%%" % gold_crit_chance_bonus)
 	lines.append(_stat_line(
-		"Crit Chance", "%.0f%%" % (stats.crit_chance * 100.0),
+		"Crit Chance", crit_chance_text,
 		(stats.crit_chance - base_stats.crit_chance) * 100.0, "%"
 	))
+	var crit_multiplier_text := "%.0f%%" % (stats.crit_multiplier * 100.0)
+	if stats.crit_multiplier_per_current_gold > 0.0:
+		var gold_crit_multiplier_bonus := stats.current_gold * stats.crit_multiplier_per_current_gold * 100.0
+		crit_multiplier_text += " %s" % _gold_bonus_text("+%.0f%%" % gold_crit_multiplier_bonus)
 	lines.append(_stat_line(
-		"Crit Multiplier", "%.0f%%" % (stats.crit_multiplier * 100.0),
+		"Crit Multiplier", crit_multiplier_text,
 		(stats.crit_multiplier - base_stats.crit_multiplier) * 100.0, "%"
 	))
 	lines.append(_stat_line(
@@ -127,6 +137,16 @@ func _stat_line(label: String, value_text: String, delta: float, suffix: String,
 		return text
 	var hint := delta_text.strip_edges().trim_prefix("(").trim_suffix(")")
 	return "[hint=%s]%s[/hint]" % [hint, text]
+
+
+func _gold_bonus_text(text: String) -> String:
+	return "[color=#%s]%s[/color]" % [UIColors.TEXT_GOLD.to_html(false), text]
+
+
+func _state_combat_stolen_gold() -> int:
+	if state == null:
+		return 0
+	return int(state.get("combat_stolen_gold"))
 
 
 ## " (+N from gear/talents)" delta description for a stat, without duplicating

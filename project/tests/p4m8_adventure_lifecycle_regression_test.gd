@@ -34,45 +34,21 @@ func _initialize() -> void:
 
 
 func _check_normal_adventure_to_repeated_generated_loop(build_state, rogue: ClassDef) -> void:
-	print("normal Adventure should flow Tavern -> Vyra -> shop -> generated loop -> shop -> next generated offer")
+	print("normal Adventure should flow Tavern -> generated loop -> shop -> next generated offer")
 	_start_rogue_adventure_at_final_tavern_reward(build_state, rogue, 515151)
 	_require(build_state.claim_current_reward(), "Expected final Tavern reward claim.")
-	_require(build_state.continue_after_win(), "Expected final Tavern continue to start contract offers.")
-	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_OFFER, "Expected authored contract offer after Tavern.")
-	_require(build_state.active_contract != null and not build_state.active_contract.has_generated_route_state(), "Expected authored Gilded Serpent first.")
+	_require(build_state.continue_after_win(), "Expected final Tavern continue to start generated contract offers.")
+	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_OFFER, "Expected generated contract offer after Tavern.")
+	_require(build_state.active_contract != null and build_state.active_contract.has_generated_route_state(), "Expected generated contract first.")
+	_require(build_state.pending_contract_offers.size() == 3, "Expected three generated offers after Tavern.")
 	_round_trip(build_state)
-	_require(build_state.active_contract != null and build_state.active_contract.id == "contract.gilded_serpent", "Expected authored offer to survive save/load.")
+	_require(build_state.active_contract != null and build_state.active_contract.has_generated_route_state(), "Expected generated offer to survive save/load.")
 
-	_require(build_state.accept_contract_offer(), "Expected authored contract acceptance.")
-	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected authored route phase after acceptance.")
-	_round_trip(build_state)
-	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected accepted authored route to survive save/load.")
-
-	var vyra := _find_route_node(build_state.active_contract.offer_node, "route.gilded_serpent.vyra")
-	_require(vyra != null, "Expected Vyra route node.")
-	build_state.current_route_node = vyra
-	build_state.run_phase = BuildState.RunPhase.PLANNING
-	build_state.set_locked(true)
-	_require(build_state.can_start_current_fight(), "Expected Vyra fight to be startable.")
-	_require(build_state.start_fight(), "Expected Vyra fight to start.")
-	build_state.finish_fight(true)
-	_require(build_state.claim_current_reward(), "Expected Vyra reward claim.")
-	_require(build_state.open_shop_round(), "Expected shop after Vyra completion.")
-	_round_trip(build_state)
-	_require(build_state.shop_round_pending, "Expected between-contract shop after Vyra to survive save/load.")
-	_require(build_state.close_shop_round(), "Expected Vyra shop to close.")
-	_require(build_state.continue_after_win(), "Expected Vyra completion to offer generated contracts.")
-	_require(build_state.completed_contract_count == 1, "Expected Vyra to count as completed contract 1.")
-	_require(build_state.contract_offer_index == 1, "Expected first generated offer index after Vyra.")
-	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_OFFER, "Expected generated offer phase after Vyra.")
-	_require(build_state.active_contract != null and build_state.active_contract.has_generated_route_state(), "Expected generated contract after Vyra.")
-	_require(build_state.pending_contract_offers.size() == 3, "Expected three generated offers after Vyra.")
-	_round_trip(build_state)
 	var first_generated_offer_signature := _pending_offer_signature(build_state)
 
-	_complete_active_generated_contract(build_state, 2, 2)
-	_require(build_state.completed_contract_count == 2, "Expected second completed contract after first generated boss.")
-	_require(build_state.contract_offer_index == 2, "Expected second generated offer index after first generated boss.")
+	_complete_active_generated_contract(build_state, 1, 1)
+	_require(build_state.completed_contract_count == 1, "Expected first completed contract after first generated boss.")
+	_require(build_state.contract_offer_index == 1, "Expected first generated offer index after first generated boss.")
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_OFFER, "Expected next generated offer after first generated boss.")
 	_require(build_state.active_contract != null and build_state.active_contract.has_generated_route_state(), "Expected generated offer after first generated boss.")
 	_require(_pending_offer_signature(build_state) != first_generated_offer_signature, "Expected deterministic next offer to differ from the prior generated offer.")
@@ -86,7 +62,7 @@ func _check_contract_test_style_repeated_generated_loop(build_state, rogue: Clas
 	build_state.set_class(rogue)
 	var trees: Array[SubclassTree] = [
 		load("res://data/subclass_trees/assassin.tres") as SubclassTree,
-		load("res://data/subclass_trees/thief.tres") as SubclassTree,
+		load("res://data/subclass_trees/bladedancer.tres") as SubclassTree,
 	]
 	build_state.selected_trees = trees
 	_set_basic_rotation(build_state)

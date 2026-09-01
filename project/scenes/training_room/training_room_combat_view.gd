@@ -44,6 +44,7 @@ const POPUP_CRIT_PUNCH_SCALE := 1.25
 const POPUP_CRIT_PUNCH_SEC := 0.12
 const POPUP_NEGATED_ACTUAL_FONT_SIZE := 38
 const POPUP_NEGATED_GAP_PX := 14.0
+const GOLD_POPUP_ICON_SIZE := Vector2(42.0, 42.0)
 const POPUP_POISON_TICK_JITTER_X_PX := 28.0
 const POPUP_POISON_TICK_JITTER_Y_PX := 12.0
 const SPEED_OPTIONS := [1.0, 2.0, 4.0]
@@ -65,13 +66,22 @@ const UI_CLOCK_ICON_PATH := "res://assets/ui/icons/clock.png"
 const FIGHT_TIMER_ICON_SIZE := Vector2(28, 28)
 const FIGHT_TIMER_FONT_SIZE := 26
 const FIGHT_TIMER_BADGE_SIZE := Vector2(112, 46)
-const HUD_TOP_LANE_HEIGHT := 106.0
+const HUD_TOP_LANE_HEIGHT := 166.0
 const HUD_ARMOR_ICON := preload("res://assets/combat_ui_icons/enemy_armor.png")
 const HUD_RESISTANCE_ICON := preload("res://assets/combat_ui_icons/resistance.png")
 const HUD_DAMAGE_ICON_PATH := "res://assets/combat_ui_icons/damage_sword.png"
 const HUD_POISON_ICON := preload("res://assets/combat_ui_icons/poison_stack.png")
 const HUD_SHRED_ICON := preload("res://assets/combat_ui_icons/shred.png")
 const HUD_DECAY_ICON := preload("res://assets/combat_ui_icons/decay.png")
+const MECHANIC_DODGE_ICON := preload("res://assets/ui/icons/mechanics/dodge.png")
+const MECHANIC_CRIT_NEGATION_ICON := preload("res://assets/ui/icons/mechanics/crit_negation.png")
+const MECHANIC_BLOCK_ICON := preload("res://assets/ui/icons/mechanics/block.png")
+const MECHANIC_ABSORB_ICON := preload("res://assets/ui/icons/mechanics/absorb.png")
+const MECHANIC_CLEANSE_ICON := preload("res://assets/ui/icons/mechanics/cleanse.png")
+const MECHANIC_SUPPRESS_ICON := preload("res://assets/ui/icons/mechanics/suppress.png")
+const MECHANIC_SLOW_ICON := preload("res://assets/ui/icons/mechanics/slow.png")
+const MECHANIC_STUN_ICON := preload("res://assets/ui/icons/mechanics/stun.png")
+const MECHANIC_INTERRUPT_ICON := preload("res://assets/ui/icons/mechanics/interrupt.png")
 
 
 class CritCrossOutOverlay:
@@ -114,12 +124,14 @@ var _shred_stacks := 0
 var _decay_stacks := 0
 var _resist := 0.0
 var _stacks := 0
+var _interrupt_repeat_count := 0
 var _interrupt_skill_lock_counts := {}
 
 var _name_label: Label
 var _damage_label: Label
 var _info_label: Label
 var _resist_label: Label
+var _mechanic_row: FlowContainer
 var _status_row: HBoxContainer
 var _fight_timer_badge: PanelContainer
 var _fight_timer_label: Label
@@ -137,6 +149,7 @@ var _playback_skipping := false
 var _skip_playback_on_fight := false
 var _pending_action_row: Control = null
 var skill_build_panel = null
+var gold_stolen_callback: Callable = Callable()
 var _pending_cleanse_status_flash := false
 var status_chip_flash_count := 0
 
@@ -170,7 +183,7 @@ func _ready() -> void:
 
 	_combat_stage = COMBAT_STAGE_SCRIPT.new()
 	_combat_stage.name = "CombatStage"
-	_combat_stage.safe_top_px = 92.0
+	_combat_stage.safe_top_px = 152.0
 	_combat_stage.safe_bottom_px = 96.0
 	_combat_stage.debug_grid_visible = false
 	add_child(_combat_stage)
@@ -258,6 +271,21 @@ func _ready() -> void:
 	_resist_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	values_row.add_child(_resist_label)
 
+	_mechanic_row = FlowContainer.new()
+	_mechanic_row.name = "MechanicIconRow"
+	_mechanic_row.alignment = FlowContainer.ALIGNMENT_END
+	_mechanic_row.anchor_left = 1.0
+	_mechanic_row.anchor_right = 1.0
+	_mechanic_row.anchor_top = 0.0
+	_mechanic_row.anchor_bottom = 0.0
+	_mechanic_row.offset_left = -520.0
+	_mechanic_row.offset_right = 0.0
+	_mechanic_row.offset_top = 84.0
+	_mechanic_row.offset_bottom = 110.0
+	_mechanic_row.add_theme_constant_override("h_separation", 8)
+	_mechanic_row.add_theme_constant_override("v_separation", 2)
+	hud_lane.add_child(_mechanic_row)
+
 	_status_row = HBoxContainer.new()
 	_status_row.name = "StatusRow"
 	_status_row.alignment = BoxContainer.ALIGNMENT_END
@@ -267,8 +295,8 @@ func _ready() -> void:
 	_status_row.anchor_bottom = 0.0
 	_status_row.offset_left = -260.0
 	_status_row.offset_right = 0.0
-	_status_row.offset_top = 78.0
-	_status_row.offset_bottom = 104.0
+	_status_row.offset_top = 128.0
+	_status_row.offset_bottom = 154.0
 	_status_row.add_theme_constant_override("separation", 8)
 	hud_lane.add_child(_status_row)
 	_update_damage_label()
@@ -339,6 +367,22 @@ func set_fight_window_ms(window_ms: int) -> void:
 	_fight_window_ms = maxi(window_ms, 1000)
 	if _playback == null:
 		_refresh_fight_timer_badge()
+
+
+func set_target_preview(monster: Monster) -> void:
+	if monster == null:
+		return
+	if _playback != null:
+		return
+	_monster = monster
+	_armor = monster.armor
+	_armor_reduced = 0
+	_shred_stacks = 0
+	_decay_stacks = 0
+	_resist = monster.poison_resistance
+	_stacks = 0
+	_interrupt_repeat_count = 0
+	_update_status_readout()
 
 
 func _build_fight_timer_badge() -> PanelContainer:
@@ -426,6 +470,7 @@ func play(result: CombatResolver.CombatResult, monster: Monster, equipped_gear: 
 	_decay_stacks = 0
 	_resist = monster.poison_resistance
 	_stacks = 0
+	_interrupt_repeat_count = 0
 	_interrupt_skill_lock_counts.clear()
 	_wyvern_kriss_effect_active = _gear_has_id(equipped_gear, "gear.legendary.wyvern_kriss")
 	_update_status_readout()
@@ -439,6 +484,10 @@ func play(result: CombatResolver.CombatResult, monster: Monster, equipped_gear: 
 		skill_build_panel.clear_interrupt_locks()
 	if skill_build_panel != null and skill_build_panel.has_method("set_slow_effect_active"):
 		skill_build_panel.set_slow_effect_active(monster.slow > 0.0)
+	if skill_build_panel != null and skill_build_panel.has_method("clear_stun_effect"):
+		skill_build_panel.clear_stun_effect()
+	if skill_build_panel != null and skill_build_panel.has_method("set_combat_interaction_locked"):
+		skill_build_panel.set_combat_interaction_locked(true)
 	for child in _popup_layer.get_children():
 		child.queue_free()
 
@@ -509,6 +558,8 @@ func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
 			_spawn_popup(event)
 		return
 	var cast := event.cast
+	if cast.gold_stolen > 0 and gold_stolen_callback.is_valid():
+		gold_stolen_callback.call(cast.gold_stolen)
 	var popup_delay: float = _combat_stage.play_cast_impact(cast, not _instant_playback)
 	if (cast.physical_damage > 0.0 or cast.blocked_amount > 0.0) and not _instant_playback and not _playback_skipping:
 		var audio_manager := get_node_or_null("/root/AudioManager")
@@ -536,7 +587,10 @@ func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
 		_pending_cleanse_status_flash = true
 	if cast.stun_duration_ms > 0 and _combat_stage != null:
 		_combat_stage.play_stun_effect(cast.stun_duration_ms, not _instant_playback)
+	if cast.stun_duration_ms > 0 and skill_build_panel != null and skill_build_panel.has_method("play_stun_effect"):
+		skill_build_panel.play_stun_effect(cast.stun_duration_ms, not _instant_playback, _playback.speed if _playback != null else _last_speed)
 	_update_interrupt_skill_lock(cast)
+	_interrupt_repeat_count = cast.interrupt_repeat_count_after if _monster != null and _monster.interrupt_skip_count > 0 else 0
 	_update_status_readout()
 	_schedule_cast_popup(event, popup_delay)
 
@@ -601,6 +655,10 @@ func _on_playback_finished() -> void:
 		skill_build_panel.clear_interrupt_locks()
 	if skill_build_panel != null and skill_build_panel.has_method("set_slow_effect_active"):
 		skill_build_panel.set_slow_effect_active(false)
+	if skill_build_panel != null and skill_build_panel.has_method("clear_stun_effect"):
+		skill_build_panel.clear_stun_effect()
+	if skill_build_panel != null and skill_build_panel.has_method("set_combat_interaction_locked"):
+		skill_build_panel.set_combat_interaction_locked(false)
 	_interrupt_skill_lock_counts.clear()
 	if not _instant_playback and not was_skipping:
 		await get_tree().create_timer(OUTCOME_REVEAL_HOLD_SEC).timeout
@@ -613,15 +671,46 @@ func _on_playback_finished() -> void:
 func _update_status_readout() -> void:
 	_info_label.text = "%d" % (_armor - _armor_reduced)
 	_resist_label.text = "%.0f%%" % (_resist * 100.0)
+	_refresh_mechanic_row()
 	for child in _status_row.get_children():
 		_status_row.remove_child(child)
 		child.queue_free()
 	_add_status_chip("x%d" % _stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
 	_add_status_chip("x%d" % _shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
 	_add_status_chip("x%d" % _decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
+	_add_status_chip(_interrupt_status_text(), UIColors.TEXT_MAGIC, MECHANIC_INTERRUPT_ICON)
 	if _pending_cleanse_status_flash:
 		_pending_cleanse_status_flash = false
 		_flash_status_chips()
+
+
+func _refresh_mechanic_row() -> void:
+	if _mechanic_row == null:
+		return
+	for child in _mechanic_row.get_children():
+		_mechanic_row.remove_child(child)
+		child.queue_free()
+	var monster := _monster if _monster != null else Monster.new()
+	_add_mechanic_chip("block", MECHANIC_BLOCK_ICON, "%.0f" % monster.block, UIColors.TEXT_WARNING, "Block")
+	_add_mechanic_chip("dodge_chance", MECHANIC_DODGE_ICON, "%.0f%%" % (monster.dodge_chance * 100.0), UIColors.TEXT_WARNING, "Dodge")
+	_add_mechanic_chip("crit_negation", MECHANIC_CRIT_NEGATION_ICON, "%.0f%%" % (monster.crit_negation * 100.0), UIColors.TEXT_WARNING, "Crit Negate")
+	_add_mechanic_chip("absorb", MECHANIC_ABSORB_ICON, "%.0f" % monster.absorb, UIColors.TEXT_MAGIC, "Absorb")
+	_add_mechanic_chip("suppress", MECHANIC_SUPPRESS_ICON, "%.0f%%" % (monster.suppress * 100.0), UIColors.TEXT_MAGIC, "Suppress")
+	_add_mechanic_chip("slow", MECHANIC_SLOW_ICON, "%.0f%%" % (monster.slow * 100.0), UIColors.TEXT_MAGIC, "Slow")
+	_add_mechanic_chip("cleanse_threshold", MECHANIC_CLEANSE_ICON, "%d" % monster.cleanse_threshold, UIColors.TEXT_POISON, "Cleanse")
+	_add_mechanic_chip("stun_duration_ms", MECHANIC_STUN_ICON, _format_stun_duration(monster.stun_duration_ms), UIColors.TEXT_MAGIC, "Stun")
+
+
+func _add_mechanic_chip(effect_id: String, icon: Texture2D, text: String, color: Color, label: String) -> void:
+	var chip: HBoxContainer = COMBAT_STATUS_ICONS.add_icon_label(_mechanic_row, icon, text, color, "MechanicChip")
+	chip.set_meta("effect_id", effect_id)
+	chip.tooltip_text = "%s: %s" % [label, text]
+
+
+func _interrupt_status_text() -> String:
+	if _monster == null or _monster.interrupt_skip_count <= 0:
+		return "0/0"
+	return "%d/%d" % [_interrupt_repeat_count, CombatResolver.INTERRUPT_REPEAT_THRESHOLD]
 
 
 func _add_status_chip(text: String, color: Color, icon: Texture2D = null) -> void:
@@ -700,6 +789,13 @@ func _update_damage_label() -> void:
 	_damage_label.text = "%.1f" % _damage_dealt
 
 
+func _format_stun_duration(duration_ms: int) -> String:
+	var seconds := float(duration_ms) / 1000.0
+	if is_equal_approx(seconds, roundf(seconds)):
+		return "%ds" % int(roundf(seconds))
+	return "%.1fs" % seconds
+
+
 func _update_time_label() -> void:
 	if _playback == null:
 		return
@@ -736,10 +832,52 @@ func _spawn_popup(event: CombatPlayback.PlaybackEvent) -> void:
 		font_size = POPUP_PROC_FONT_SIZE
 	if cast.is_crit and cast.crit_negation_damage_prevented > 0.0:
 		_spawn_crit_negation_popup(cast)
+	elif cast.gold_stolen > 0:
+		_spawn_gold_hit_popup(cast, color, font_size, punch)
 	else:
 		_spawn_text_popup(_popup_text(event), color, font_size, punch)
 	for triggered_name in cast.triggered_skill_names:
 		_spawn_text_popup(String(triggered_name), UIColors.TEXT_MAGIC, POPUP_PROC_FONT_SIZE, false)
+
+
+func _spawn_gold_hit_popup(cast: CombatResolver.CastEvent, color: Color, font_size: int, punch: bool) -> void:
+	var root := HBoxContainer.new()
+	root.name = "GoldHitPopup"
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_theme_constant_override("separation", 8)
+	_popup_layer.add_child(root)
+
+	var skill_name := cast.skill.display_name if cast.skill != null else "Attack"
+	var crit_suffix := "!" if cast.is_crit else ""
+	var hit_label := _make_popup_label("%s %.1f%s" % [skill_name, cast.physical_damage, crit_suffix], color, font_size)
+	root.add_child(hit_label)
+
+	var icon := TextureRect.new()
+	icon.name = "GoldIcon"
+	icon.texture = preload("res://assets/ui/icons/gold.png")
+	icon.custom_minimum_size = GOLD_POPUP_ICON_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(icon)
+
+	var gold_label := _make_popup_label("%d" % cast.gold_stolen, UIColors.TEXT_GOLD, font_size)
+	root.add_child(gold_label)
+
+	root.reset_size()
+	var start_position := _popup_start_position(false, _popup_layer.size, root.size)
+	root.position = start_position
+	root.scale = Vector2.ONE * (POPUP_CRIT_PUNCH_SCALE if punch else 0.92)
+
+	var tween := root.create_tween()
+	tween.set_parallel(true)
+	if punch:
+		tween.tween_property(root, "scale", Vector2.ONE, POPUP_CRIT_PUNCH_SEC)
+	else:
+		tween.tween_property(root, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(root, "position:y", start_position.y - POPUP_RISE_PX, POPUP_RISE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(root, "modulate:a", 0.0, POPUP_LIFETIME_SEC - POPUP_FADE_DELAY_SEC).set_delay(POPUP_FADE_DELAY_SEC)
+	tween.finished.connect(root.queue_free)
 
 
 func _spawn_text_popup(text: String, color: Color, font_size: int = POPUP_FONT_SIZE, punch: bool = false, rise_sec: float = POPUP_RISE_SEC, is_poison_tick: bool = false) -> void:

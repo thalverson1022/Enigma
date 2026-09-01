@@ -53,9 +53,10 @@ func _initialize() -> void:
 	_require(_card_label_text(authored_button, "ContractBossNameLabel") == "Vyra", "Expected authored card to name its boss.")
 	_require(_card_label_text(generated_button, "ContractBossNameLabel") != "Graveyard Contract", "Expected generated card to show the boss name, not contract title.")
 	_require(_card_label_text(generated_button, "ContractLocationLabel") == "Location: Graveyard", "Expected generated card to show biome location.")
-	_require(_card_label_text(generated_button, "ContractGoldLabel").contains("g"), "Expected generated card to show the gold reward.")
-	_require(_card_label_text(generated_button, "ContractGoldLabel").contains("1 talent point"), "Expected generated card to show the boss talent-point reward.")
-	_require(_contract_card_icon(generated_button).custom_minimum_size == Vector2(44, 44), "Expected generated contract card icon to be larger.")
+	var generated_reward_amounts := _contract_reward_amount_texts(generated_button)
+	_require(_reward_amounts_contain_suffix(generated_reward_amounts, "g"), "Expected generated card to show the gold reward as an icon row.")
+	_require(generated_reward_amounts.has("x 1"), "Expected generated card to show the boss talent-point reward as an icon row.")
+	_require(_contract_card_icon(generated_button).custom_minimum_size == Vector2(64, 64), "Expected generated contract card icon to be larger.")
 	_require(_card_label_font_size(generated_button, "ContractBossNameLabel") > _card_label_font_size(generated_button, "ContractLocationLabel"), "Expected generated boss name to use the larger card font.")
 	_require(combat_screen._contract_overlay._contract_action_button.disabled, "Expected Proceed disabled before choosing an offer.")
 
@@ -99,3 +100,19 @@ func _contract_card_icon(card: Button) -> TextureRect:
 	var icon: TextureRect = content.find_child("Icon", true, false)
 	_require(icon != null, "Expected contract card icon.")
 	return icon
+
+
+func _contract_reward_amount_texts(card: Button) -> Array[String]:
+	var stack: BoxContainer = card.find_child("ContractRewardStack", true, false)
+	_require(stack != null, "Expected contract card reward icon stack.")
+	var texts: Array[String] = []
+	for label in stack.find_children("ContractRewardAmount", "Label", true, false):
+		texts.append((label as Label).text)
+	return texts
+
+
+func _reward_amounts_contain_suffix(texts: Array[String], suffix: String) -> bool:
+	for text in texts:
+		if text.ends_with(suffix):
+			return true
+	return false

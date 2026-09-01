@@ -18,6 +18,8 @@ const CARD_TITLE_FONT_SIZE := 20
 const SUBCLASS_LABEL_FONT_SIZE := 30
 const INTRINSIC_LABEL_FONT_SIZE := 16
 const SECONDARY_CHOICE_CARD_WIDTH := 330
+const SECONDARY_TREE_CHOICE_COUNT := 2
+const SECONDARY_TREE_RNG_CONTEXT := "secondary_tree_choices"
 const NODE_FONT_SIZE := 19
 const NODE_DETAIL_FONT_SIZE := 15
 const NODE_ROW_SEPARATION := 24
@@ -327,10 +329,40 @@ func _build_secondary_tree_choices(parent: Container) -> void:
 	choices.add_theme_constant_override("separation", 12)
 	parent.add_child(choices)
 
-	for tree in BuildState.selected_class.trees:
-		if BuildState.selected_trees.has(tree):
-			continue
+	for tree in _secondary_tree_choices():
 		choices.add_child(_make_secondary_tree_choice_card(tree))
+
+
+func _secondary_tree_choices() -> Array[SubclassTree]:
+	var options: Array[SubclassTree] = []
+	if state.selected_class == null:
+		return options
+	for tree in state.selected_class.trees:
+		if state.selected_trees.has(tree):
+			continue
+		options.append(tree)
+	if options.size() <= SECONDARY_TREE_CHOICE_COUNT:
+		return options
+	var sampled: Array[SubclassTree] = []
+	var pool: Array[SubclassTree] = options.duplicate()
+	var rng := RunRng.rng_for_context(_secondary_tree_choice_seed(), SECONDARY_TREE_RNG_CONTEXT, _secondary_tree_choice_parts())
+	while sampled.size() < SECONDARY_TREE_CHOICE_COUNT and not pool.is_empty():
+		sampled.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+	return sampled
+
+
+func _secondary_tree_choice_seed() -> int:
+	var value: Variant = state.get("adventure_seed")
+	return int(value) if value != null else 1
+
+
+func _secondary_tree_choice_parts() -> Array:
+	var parts: Array = []
+	if state.selected_class != null:
+		parts.append(state.selected_class.id)
+	for tree in state.selected_trees:
+		parts.append(tree.id)
+	return parts
 
 
 func _make_secondary_tree_choice_card(tree: SubclassTree) -> PanelContainer:
@@ -609,6 +641,9 @@ func _skill_augment_description(augment: SkillAugment) -> String:
 		elif effect is StackScalingPhysicalDamageEffect:
 			var stack_effect: StackScalingPhysicalDamageEffect = effect
 			effect_names.append("+%.0f damage per poison stack" % stack_effect.damage_per_stack)
+		elif effect is StealGoldOnCritEffect:
+			var steal_effect: StealGoldOnCritEffect = effect
+			effect_names.append("crits steal %dg" % steal_effect.amount)
 	if target_names.is_empty() or effect_names.is_empty():
 		return "Enhances selected skills"
 	return "%s gain %s" % [", ".join(target_names), ", ".join(effect_names)]

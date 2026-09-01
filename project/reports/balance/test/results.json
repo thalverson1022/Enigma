@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-08-26T08:52:53",
+	"generated_at": "2026-09-01T11:53:50",
 	"mechanics": [
 		{
 			"id": "bandit_physical_multiplier",
@@ -342,9 +342,7 @@
 						"min_gold": 10,
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
-						"node_modifiers": [
-							"volatile_pacing"
-						],
+						"node_modifiers": [],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
@@ -358,7 +356,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"volatile_pacing"
+							"pressure_emphasis"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -418,7 +416,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"volatile_pacing"
+							"elite_spotlight"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -433,7 +431,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 3,
 						"route_modifiers": [
-							"volatile_pacing"
+							"elite_spotlight"
 						],
 						"safe_boss_approach_seen": false,
 						"safe_intent_node_count": 4,
@@ -495,7 +493,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"biome_hazard"
+							"volatile_pacing"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -510,7 +508,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"biome_hazard"
+							"volatile_pacing"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -572,7 +570,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"pressure_emphasis"
+							"volatile_pacing"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -587,7 +585,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 3,
 						"route_modifiers": [
-							"pressure_emphasis"
+							"volatile_pacing"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -647,7 +645,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"biome_hazard"
+							"volatile_pacing"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -662,7 +660,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 3,
 						"route_modifiers": [
-							"biome_hazard"
+							"volatile_pacing"
 						],
 						"safe_boss_approach_seen": false,
 						"safe_intent_node_count": 4,
@@ -721,9 +719,7 @@
 						"min_gold": 10,
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
-						"node_modifiers": [
-							"biome_hazard"
-						],
+						"node_modifiers": [],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
@@ -736,7 +732,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"biome_hazard"
+							"pressure_emphasis"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -797,7 +793,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"volatile_pacing"
+							"pressure_emphasis"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -811,7 +807,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"volatile_pacing"
+							"pressure_emphasis"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -1256,7 +1252,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"biome_hazard"
+							"elite_spotlight"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -1271,7 +1267,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"biome_hazard"
+							"elite_spotlight"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -1799,7 +1795,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"volatile_pacing"
+							"biome_hazard"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -1811,7 +1807,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"volatile_pacing"
+							"biome_hazard"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -1872,9 +1868,7 @@
 						"min_gold": 14,
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": true,
-						"node_modifiers": [
-							"biome_hazard"
-						],
+						"node_modifiers": [],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
@@ -1887,7 +1881,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"biome_hazard"
+							"pressure_emphasis"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -2104,7 +2098,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": true,
 						"node_modifiers": [
-							"pressure_emphasis"
+							"volatile_pacing"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -2117,7 +2111,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"pressure_emphasis"
+							"volatile_pacing"
 						],
 						"safe_boss_approach_seen": false,
 						"safe_intent_node_count": 3,
@@ -2336,7 +2330,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": true,
 						"node_modifiers": [
-							"volatile_pacing"
+							"biome_hazard"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -2349,7 +2343,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"volatile_pacing"
+							"biome_hazard"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -2416,7 +2410,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": true,
 						"node_modifiers": [
-							"biome_hazard"
+							"elite_spotlight"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -2432,7 +2426,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"biome_hazard"
+							"elite_spotlight"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -2494,9 +2488,7 @@
 						"min_gold": 14,
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": true,
-						"node_modifiers": [
-							"biome_hazard"
-						],
+						"node_modifiers": [],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
@@ -2508,7 +2500,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"biome_hazard"
+							"pressure_emphasis"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -3696,7 +3688,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"volatile_pacing"
+							"pressure_emphasis"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -3710,7 +3702,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"volatile_pacing"
+							"pressure_emphasis"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -3846,7 +3838,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"elite_spotlight"
+							"volatile_pacing"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -3861,7 +3853,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"elite_spotlight"
+							"volatile_pacing"
 						],
 						"safe_boss_approach_seen": false,
 						"safe_intent_node_count": 3,
@@ -4002,9 +3994,7 @@
 						"min_gold": 16,
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
-						"node_modifiers": [
-							"volatile_pacing"
-						],
+						"node_modifiers": [],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
@@ -4017,7 +4007,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"volatile_pacing"
+							"pressure_emphasis"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -4157,7 +4147,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"volatile_pacing"
+							"elite_spotlight"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -4171,7 +4161,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"volatile_pacing"
+							"elite_spotlight"
 						],
 						"safe_boss_approach_seen": false,
 						"safe_intent_node_count": 3,
@@ -4233,7 +4223,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"elite_spotlight"
+							"pressure_emphasis"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -4248,7 +4238,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 3,
 						"route_modifiers": [
-							"elite_spotlight"
+							"pressure_emphasis"
 						],
 						"safe_boss_approach_seen": false,
 						"safe_intent_node_count": 4,
@@ -4309,7 +4299,7 @@
 						"missing_reward_count": 0,
 						"nightmare_overcap_seen": false,
 						"node_modifiers": [
-							"volatile_pacing"
+							"elite_spotlight"
 						],
 						"notice_count": 0,
 						"notices": [],
@@ -4323,7 +4313,7 @@
 						"preview_leaks": [],
 						"risky_intent_node_count": 4,
 						"route_modifiers": [
-							"volatile_pacing"
+							"elite_spotlight"
 						],
 						"safe_boss_approach_seen": true,
 						"safe_intent_node_count": 3,
@@ -4531,16 +4521,16 @@
 				"missing_modifiers": [],
 				"modifier_count": 4,
 				"node_modifiers": [
+					"elite_spotlight",
 					"volatile_pacing",
-					"biome_hazard",
 					"pressure_emphasis",
-					"elite_spotlight"
+					"biome_hazard"
 				],
 				"route_modifiers": [
-					"volatile_pacing",
-					"biome_hazard",
 					"pressure_emphasis",
-					"elite_spotlight"
+					"elite_spotlight",
+					"volatile_pacing",
+					"biome_hazard"
 				]
 			}
 		},
@@ -4580,7 +4570,7 @@
 	],
 	"mechanics_count": 44,
 	"metadata": {
-		"generated_at": "2026-08-26T08:52:53",
+		"generated_at": "2026-09-01T11:53:50",
 		"mechanics_count": 44,
 		"project": "DawnBringer",
 		"scenario_count": 17,
@@ -8064,8 +8054,8 @@
 			],
 			"generated_monster_metadata": {},
 			"gold": 67,
-			"id": "thief_contract_watchmen",
-			"label": "Thief Contract Build vs Cloaked Watchmen",
+			"id": "bladedancer_contract_watchmen",
+			"label": "Bladedancer Contract Build vs Cloaked Watchmen",
 			"matchup_preview": {},
 			"monster": "Cloaked Watchmen",
 			"monster_overrides": {},

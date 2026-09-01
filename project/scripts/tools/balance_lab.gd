@@ -897,17 +897,17 @@ static func _scenario_specs() -> Array:
 			"thresholds": {"min_proc_rate": 0.14, "max_proc_rate": 0.26},
 		},
 		{
-			"id": "thief_contract_watchmen",
-			"label": "Thief Contract Build vs Cloaked Watchmen",
+			"id": "bladedancer_contract_watchmen",
+			"label": "Bladedancer Contract Build vs Cloaked Watchmen",
 			"class": "res://data/classes/rogue.tres",
-			"trees": ["res://data/subclass_trees/shadow.tres", "res://data/subclass_trees/thief.tres"],
+			"trees": ["res://data/subclass_trees/shadow.tres", "res://data/subclass_trees/bladedancer.tres"],
 			"talents": [
 				"res://data/talents/shadow/lingering_venom.tres",
 				"res://data/talents/shadow/exposed_weakness.tres",
 				"res://data/talents/shadow/black_lotus.tres",
-				"res://data/talents/thief/piercing_blades.tres",
-				"res://data/talents/thief/practiced_rhythm.tres",
-				"res://data/talents/thief/opportunity_strikes.tres"
+				"res://data/talents/bladedancer/piercing_blades.tres",
+				"res://data/talents/bladedancer/practiced_rhythm.tres",
+				"res://data/talents/bladedancer/opportunity_strikes.tres"
 			],
 			"gear": ["res://data/gear/wyvern_kriss.tres"],
 			"skills": [
@@ -1098,14 +1098,14 @@ static func _generated_monster_scenario_specs() -> Array:
 			"kind": "boss",
 			"tempo": "endurance",
 			"skills": ["res://data/skills/poison_strike.tres", "res://data/skills/heavy_slash.tres", "res://data/skills/quick_cut.tres", "res://data/skills/rending_slash.tres"],
-			"trees": ["res://data/subclass_trees/shadow.tres", "res://data/subclass_trees/thief.tres"],
+			"trees": ["res://data/subclass_trees/shadow.tres", "res://data/subclass_trees/bladedancer.tres"],
 			"talents": [
 				"res://data/talents/shadow/lingering_venom.tres",
 				"res://data/talents/shadow/exposed_weakness.tres",
 				"res://data/talents/shadow/black_lotus.tres",
-				"res://data/talents/thief/piercing_blades.tres",
-				"res://data/talents/thief/practiced_rhythm.tres",
-				"res://data/talents/thief/opportunity_strikes.tres"
+				"res://data/talents/bladedancer/piercing_blades.tres",
+				"res://data/talents/bladedancer/practiced_rhythm.tres",
+				"res://data/talents/bladedancer/opportunity_strikes.tres"
 			],
 			"gear": ["res://data/gear/wyvern_kriss.tres"],
 			"gold": 100,

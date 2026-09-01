@@ -23,6 +23,7 @@ class CastEvent:
 	var poison_stacks_applied: int = 0
 	var armor_reduction_applied: int = 0
 	var poison_resistance_reduction_applied: float = 0.0
+	var gold_stolen: int = 0
 	var cleanse_counter: int = 0
 	var cleanse_triggered: bool = false
 	var triggered_skill_names: PackedStringArray = []
@@ -49,6 +50,7 @@ class CombatResult:
 	var total_damage: float = 0.0
 	var dps: float = 0.0
 	var is_win: bool = false
+	var gold_stolen: int = 0
 	var cast_events: Array[CastEvent] = []
 	var tick_events: Array[TickEvent] = []
 
@@ -81,6 +83,8 @@ static func resolve(rotation: Array[Skill], player: PlayerStats, monster: Monste
 	var repeat_skill_id := ""
 	var repeat_count := 0
 	var interrupt_skips_by_skill := {}
+	var gold_stolen_this_fight := 0
+	var simulated_current_gold := player.current_gold
 	while true:
 		var skill: Skill = rotation[rotation_index % rotation.size()]
 		var used_min_cast_time: bool = player.min_cast_time_proc_chance > 0.0 and rng.randf() <= player.min_cast_time_proc_chance
@@ -99,7 +103,8 @@ static func resolve(rotation: Array[Skill], player: PlayerStats, monster: Monste
 		event.rotation_index = rotation_index % rotation.size()
 		event.min_cast_time_proc_applied = used_min_cast_time
 		var skill_key := _interrupt_skill_key(skill)
-		var is_direct_attack := _skill_is_direct_attack(skill)
+		var counts_for_mechanics := not _skill_is_hold(skill)
+		var is_direct_attack := counts_for_mechanics and _skill_is_direct_attack(skill)
 		var should_skip_for_interrupt := is_direct_attack and int(interrupt_skips_by_skill.get(skill_key, 0)) > 0
 		var should_trigger_interrupt := false
 		if is_direct_attack and not should_skip_for_interrupt:
@@ -137,9 +142,14 @@ static func resolve(rotation: Array[Skill], player: PlayerStats, monster: Monste
 			cast_time_ms = cast_end_ms
 			rotation_index += 1
 			continue
-		var state := _apply_skill_effects(skill, event, player, monster, current_armor, current_poison_resistance, active_stacks, rng, "cast")
+		var state := _apply_skill_effects(
+			skill, event, player, monster, current_armor, current_poison_resistance,
+			active_stacks, rng, "cast", gold_stolen_this_fight, simulated_current_gold
+		)
 		current_armor = state["armor"]
 		current_poison_resistance = state["poison_resistance"]
+		gold_stolen_this_fight += int(state.get("gold_stolen", 0))
+		simulated_current_gold += int(state.get("gold_stolen", 0))
 		if not bool(state.get("dodged", false)):
 			for trigger in player.triggered_skill_effects:
 				if trigger == null or trigger.skill == null:
@@ -147,17 +157,23 @@ static func resolve(rotation: Array[Skill], player: PlayerStats, monster: Monste
 				if not _trigger_matches_source(trigger, skill):
 					continue
 				if rng.randf() <= trigger.chance:
-					state = _apply_skill_effects(trigger.skill, event, player, monster, current_armor, current_poison_resistance, active_stacks, rng, "proc")
+					state = _apply_skill_effects(
+						trigger.skill, event, player, monster, current_armor, current_poison_resistance,
+						active_stacks, rng, "proc", gold_stolen_this_fight, simulated_current_gold
+					)
 					if not bool(state.get("dodged", false)):
 						event.triggered_skill_names.append(trigger.skill.display_name)
 				current_armor = state["armor"]
 				current_poison_resistance = state["poison_resistance"]
+				gold_stolen_this_fight += int(state.get("gold_stolen", 0))
+				simulated_current_gold += int(state.get("gold_stolen", 0))
 
 		result.total_damage += event.physical_damage
+		result.gold_stolen += event.gold_stolen
 		if monster.stun_duration_ms > 0 and _stun_should_trigger(event, monster):
 			event.stun_duration_ms = monster.stun_duration_ms
 		active_stacks = mini(active_stacks + event.poison_stacks_applied, MAX_POISON_STACKS)
-		if monster.cleanse_threshold > 0:
+		if counts_for_mechanics and monster.cleanse_threshold > 0:
 			cleanse_counter += 1
 			event.cleanse_counter = cleanse_counter
 			if cleanse_counter >= monster.cleanse_threshold:
@@ -205,6 +221,10 @@ static func _skill_is_direct_attack(skill: Skill) -> bool:
 	return false
 
 
+static func _skill_is_hold(skill: Skill) -> bool:
+	return skill != null and skill.id == "skill.hold"
+
+
 static func _stun_should_trigger(event: CastEvent, monster: Monster) -> bool:
 	if event == null or monster == null or monster.hp <= 0:
 		return false
@@ -236,7 +256,7 @@ static func _resolve_poison_tick(result: CombatResult, tick_time_ms: int, active
 	return active_stacks
 
 
-static func _apply_skill_effects(skill: Skill, event: CastEvent, player: PlayerStats, monster: Monster, current_armor: int, current_poison_resistance: float, active_poison_stacks: int, rng: RandomNumberGenerator, contribution_kind: String) -> Dictionary:
+static func _apply_skill_effects(skill: Skill, event: CastEvent, player: PlayerStats, monster: Monster, current_armor: int, current_poison_resistance: float, active_poison_stacks: int, rng: RandomNumberGenerator, contribution_kind: String, gold_stolen_this_fight: int = 0, current_gold: int = 0) -> Dictionary:
 	if _skill_can_be_dodged(skill, active_poison_stacks) and rng.randf() < clampf(monster.dodge_chance, 0.0, 1.0):
 		event.was_dodged = true
 		event.dodged_attacks += 1
@@ -244,17 +264,21 @@ static func _apply_skill_effects(skill: Skill, event: CastEvent, player: PlayerS
 			"armor": current_armor,
 			"poison_resistance": current_poison_resistance,
 			"dodged": true,
+			"gold_stolen": 0,
 		}
 	var effect_poison_stacks := 0
 	var contribution_damage := 0.0
 	var contribution_crit := false
 	var contribution_armor_reduction := 0
 	var contribution_resistance_reduction := 0.0
+	var contribution_gold_stolen := 0
+	var crit_chance := player.crit_chance + (float(gold_stolen_this_fight) * player.crit_chance_per_stolen_gold)
+	var crit_multiplier := player.crit_multiplier + (float(current_gold) * player.crit_multiplier_per_current_gold)
 	for effect in skill.effects:
 		if effect is PhysicalDamageEffect:
 			var physical_effect: PhysicalDamageEffect = effect
 			var hit := DamageCalculator.resolve_physical_hit(
-				physical_effect.amount + player.bonus_physical_damage, current_armor, player.crit_chance, player.crit_multiplier, rng, player.physical_damage_multiplier, monster.crit_negation, monster.block
+				physical_effect.amount + player.bonus_physical_damage, current_armor, crit_chance, crit_multiplier, rng, player.physical_damage_multiplier, monster.crit_negation, monster.block
 			)
 			event.physical_damage += hit.amount
 			event.is_crit = event.is_crit or hit.is_crit
@@ -267,7 +291,7 @@ static func _apply_skill_effects(skill: Skill, event: CastEvent, player: PlayerS
 			var stack_effect: StackScalingPhysicalDamageEffect = effect
 			if active_poison_stacks > 0:
 				var hit := DamageCalculator.resolve_physical_hit(
-					stack_effect.damage_per_stack * float(active_poison_stacks) + player.bonus_physical_damage, current_armor, player.crit_chance, player.crit_multiplier, rng, player.physical_damage_multiplier, monster.crit_negation, monster.block
+					stack_effect.damage_per_stack * float(active_poison_stacks) + player.bonus_physical_damage, current_armor, crit_chance, crit_multiplier, rng, player.physical_damage_multiplier, monster.crit_negation, monster.block
 				)
 				event.physical_damage += hit.amount
 				event.is_crit = event.is_crit or hit.is_crit
@@ -291,6 +315,11 @@ static func _apply_skill_effects(skill: Skill, event: CastEvent, player: PlayerS
 			current_poison_resistance *= 1.0 - reduction_fraction
 			event.poison_resistance_reduction_applied += reduction_fraction
 			contribution_resistance_reduction += reduction_fraction
+		elif effect is StealGoldOnCritEffect:
+			var steal_effect: StealGoldOnCritEffect = effect
+			if contribution_crit:
+				contribution_gold_stolen += max(0, int(floor(float(steal_effect.amount) * player.gold_reward_multiplier)))
+	event.gold_stolen += contribution_gold_stolen
 	var poison_stacks := effect_poison_stacks if effect_poison_stacks > 0 else skill.poison_stacks_applied
 	if poison_stacks > 0:
 		event.poison_stacks_applied += poison_stacks + player.bonus_poison_stacks
@@ -302,12 +331,14 @@ static func _apply_skill_effects(skill: Skill, event: CastEvent, player: PlayerS
 		contribution_crit,
 		contribution_armor_reduction,
 		contribution_resistance_reduction,
-		(poison_stacks + player.bonus_poison_stacks) if poison_stacks > 0 else 0
+		(poison_stacks + player.bonus_poison_stacks) if poison_stacks > 0 else 0,
+		contribution_gold_stolen
 	)
 	return {
 		"armor": current_armor,
 		"poison_resistance": current_poison_resistance,
 		"dodged": false,
+		"gold_stolen": contribution_gold_stolen,
 	}
 
 
@@ -322,10 +353,10 @@ static func _skill_can_be_dodged(skill: Skill, active_poison_stacks: int) -> boo
 	return false
 
 
-static func _record_damage_contribution(event: CastEvent, skill: Skill, kind: String, damage: float, is_crit: bool, armor_reduction: int, poison_resistance_reduction: float, poison_stacks: int) -> void:
+static func _record_damage_contribution(event: CastEvent, skill: Skill, kind: String, damage: float, is_crit: bool, armor_reduction: int, poison_resistance_reduction: float, poison_stacks: int, gold_stolen: int = 0) -> void:
 	if skill == null:
 		return
-	if damage <= 0.0 and armor_reduction <= 0 and poison_resistance_reduction <= 0.0 and poison_stacks <= 0:
+	if damage <= 0.0 and armor_reduction <= 0 and poison_resistance_reduction <= 0.0 and poison_stacks <= 0 and gold_stolen <= 0:
 		return
 	event.damage_contributions.append({
 		"skill_id": skill.id,
@@ -337,4 +368,5 @@ static func _record_damage_contribution(event: CastEvent, skill: Skill, kind: St
 		"armor_reduction_applied": armor_reduction,
 		"poison_resistance_reduction_applied": poison_resistance_reduction,
 		"poison_stacks_applied": poison_stacks,
+		"gold_stolen": gold_stolen,
 	})

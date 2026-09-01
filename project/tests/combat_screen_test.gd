@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless check for the new UI restructure. Drives the real scene tree the
 ## same way real clicks would: title -> New Adventure -> class select
-## (Rogue) -> subclass select (Thief) -> spend real talent points in
+## (Rogue) -> subclass select (Bladedancer) -> spend real talent points in
 ## talent_panel -> add real skills to the macro in skill_macro_panel ->
 ## press FIGHT -> confirm the combat log renders and character_stats_panel
 ## reflects the selected talents. Run with:
@@ -41,7 +41,7 @@ func _initialize() -> void:
 	class_select.advanced.emit()
 	await process_frame
 
-	# -- Subclass select: Assassin, Thief, and Shadow are real Rogue trees. --
+	# -- Subclass select: Assassin, Bladedancer, Shadow, and Thief are real Rogue trees. --
 	var subclass_select = game_root._current_screen
 	disabled_count = 0
 	for child in subclass_select.find_children("*", "Button", true, false):
@@ -49,14 +49,14 @@ func _initialize() -> void:
 			disabled_count += 1
 	print("subclass select disabled buttons (expect 0): %d" % disabled_count)
 	assert(disabled_count == 0)
-	assert(subclass_select.find_children("Icon", "TextureRect", true, false).size() == 3)
+	assert(subclass_select.find_children("Icon", "TextureRect", true, false).size() == 4)
 
-	var thief: SubclassTree = rogue.trees[1]
-	assert(thief.display_name == "Thief")
-	subclass_select._on_tree_selected(thief)
+	var bladedancer: SubclassTree = rogue.trees[1]
+	assert(bladedancer.display_name == "Bladedancer")
+	subclass_select._on_tree_selected(bladedancer)
 	print("selected trees=%d (%s)" % [build_state.selected_trees.size(), build_state.selected_trees[0].display_name])
 	assert(build_state.selected_trees.size() == 1)
-	assert(build_state.selected_trees[0] == thief)
+	assert(build_state.selected_trees[0] == bladedancer)
 	subclass_select.advanced.emit()
 	await process_frame
 
@@ -244,8 +244,8 @@ func _initialize() -> void:
 	var talents_title_found := false
 	var primary_role_found := false
 	var secondary_role_found := false
-	var thief_section_found := false
-	var thief_intrinsic_found := false
+	var bladedancer_section_found := false
+	var bladedancer_intrinsic_found := false
 	for label in talent_panel.find_children("*", "Label", true, false):
 		if label.text == "Talents":
 			talents_title_found = true
@@ -253,15 +253,15 @@ func _initialize() -> void:
 			primary_role_found = true
 		elif label.text == "Secondary":
 			secondary_role_found = true
-		elif label.text == "Thief":
-			thief_section_found = true
+		elif label.text == "Bladedancer":
+			bladedancer_section_found = true
 		elif label.text.contains("Intrinsic: Unlocks Quick Cut"):
-			thief_intrinsic_found = true
+			bladedancer_intrinsic_found = true
 	assert(not talents_title_found)
 	assert(primary_role_found)
 	assert(secondary_role_found)
-	assert(thief_section_found)
-	assert(thief_intrinsic_found)
+	assert(bladedancer_section_found)
+	assert(bladedancer_intrinsic_found)
 	print("assassin intrinsic (expect None): %s" % talent_panel._intrinsic_description(rogue.trees[0]))
 	assert(talent_panel._intrinsic_description(rogue.trees[0]) == "None")
 
@@ -288,7 +288,7 @@ func _initialize() -> void:
 	assert(node_buttons["talent.opportunity_strikes"].tooltip_text.contains("Quick Cut"))
 	assert(node_buttons["talent.opportunity_strikes"].tooltip_text.contains("20% chance to trigger Rending Slash"))
 
-	var piercing_blades: Talent = thief.talents[1]
+	var piercing_blades: Talent = bladedancer.talents[1]
 	assert(piercing_blades.display_name == "Piercing Blades")
 	talent_panel._on_node_pressed(piercing_blades)
 	print("selected talents with 0 points (expect 0): %d" % build_state.selected_talents.size())
@@ -302,23 +302,25 @@ func _initialize() -> void:
 			assert(node.tooltip_text.contains("Cost: 1"))
 			assert(node.tooltip_text.contains("Physical Damage"))
 
-	# 2 base skills (Stab, Heavy Slash) + Quick Cut (granted by the Thief
+	# 3 base skills (Hold, Stab, Heavy Slash) + Quick Cut (granted by the Bladedancer
 	# tree itself). Rending Slash arrives after the first earned talent point.
 	var unlocked: Array[Skill] = build_state.unlocked_skills()
 	print("unlocked skills=%d: %s" % [unlocked.size(), unlocked.map(func(s): return s.display_name)])
-	assert(unlocked.size() == 3)
+	assert(unlocked.size() == 4)
+	assert(unlocked.map(func(skill: Skill): return skill.display_name) == ["Hold", "Stab", "Heavy Slash", "Quick Cut"])
+	assert(unlocked.any(func(skill: Skill) -> bool: return skill.id == "skill.hold"))
 	assert(unlocked.any(func(skill: Skill) -> bool: return skill.id == "skill.quick_cut"))
 
 	for skill in unlocked:
 		available_skills_panel._on_skill_pressed(skill)
 	print("rotation size=%d" % build_state.rotation.size())
-	assert(build_state.rotation.size() == 3)
+	assert(build_state.rotation.size() == 4)
 
 	# -- Available Skills buttons must report a real minimum width, or the
 	# parent HBoxContainer collapses them all to ~0 width and every skill's
 	# label renders stacked on top of the others. Yield first so the
 	# deferred queue_free()s from the rapid-fire build_changed emissions
-	# above (3 skill adds, no awaits between them) actually
+	# above (4 skill adds, no awaits between them) actually
 	# flush -- same benign artifact seen with talent_panel's checkboxes
 	# earlier, not a real duplication bug. --
 	await process_frame
@@ -343,9 +345,9 @@ func _initialize() -> void:
 			if child.get_node_or_null("SkillIcon") != null:
 				icon_slots += 1
 	print("icon-backed slot texts (expect empty strings): %s" % str(icon_slot_texts))
-	print("icon-backed slot count (expect 3): %d" % icon_slots)
-	assert(icon_slot_texts == ["", "", ""])
-	assert(icon_slots == 3)
+	print("icon-backed slot count (expect 4): %d" % icon_slots)
+	assert(icon_slot_texts == ["", "", "", ""])
+	assert(icon_slots == 4)
 	var iconless_skill := Skill.new()
 	iconless_skill.display_name = "Fallback Test"
 	iconless_skill.icon_letter = "Z"
@@ -353,11 +355,11 @@ func _initialize() -> void:
 
 	var first_before: Skill = build_state.rotation[0]
 	skill_build_panel._on_slot_pressed(0)
-	print("rotation size after slot click (expect 2): %d" % build_state.rotation.size())
-	assert(build_state.rotation.size() == 2)
+	print("rotation size after slot click (expect 3): %d" % build_state.rotation.size())
+	assert(build_state.rotation.size() == 3)
 	assert(not build_state.rotation.has(first_before))
 	available_skills_panel._on_skill_pressed(first_before)
-	assert(build_state.rotation.size() == 3)
+	assert(build_state.rotation.size() == 4)
 
 	# -- Character stats panel should reflect Piercing Blades' physical
 	# damage multiplier, displayed as bonus above a 0% baseline (x1.08 ->
@@ -372,6 +374,13 @@ func _initialize() -> void:
 	assert(stats_text.contains("Crit Multiplier: 200%"))
 	assert(stats_text.contains("Bonus Poison Stacks: +0"))
 	assert(stats_text.contains("Poison Damage: 8.0/tick"))
+	var damaging_rotation: Array[Skill] = []
+	for skill in unlocked:
+		if skill.id == "skill.heavy_slash":
+			damaging_rotation = [skill, skill, skill]
+			break
+	build_state.set_rotation(damaging_rotation)
+	await process_frame
 
 	# -- Lock/ready flow: FIGHT is gated on locking the build --
 	var enemy_panel = combat_screen.find_child("EnemyPanel", true, false)
@@ -673,11 +682,13 @@ func _initialize() -> void:
 	assert(build_state.selected_talents.size() == 1)
 	assert(active_talents_panel._points_label.text == ": 1/1")
 	unlocked = build_state.unlocked_skills()
-	assert(unlocked.size() == 4)
+	assert(unlocked.size() == 5)
+	var empty_rotation: Array[Skill] = []
+	build_state.set_rotation(empty_rotation)
 	for skill in unlocked:
 		if not build_state.rotation.any(func(existing: Skill) -> bool: return existing.id == skill.id):
 			available_skills_panel._on_skill_pressed(skill)
-	assert(build_state.rotation.size() == 4)
+	assert(build_state.rotation.size() == unlocked.size())
 	assert(build_state.rotation.any(func(skill: Skill) -> bool: return skill.display_name == "Rending Slash"))
 	talent_panel._on_node_pressed(piercing_blades)
 	await process_frame
@@ -690,7 +701,7 @@ func _initialize() -> void:
 	for skill in unlocked:
 		if not build_state.rotation.any(func(existing: Skill) -> bool: return existing.id == skill.id):
 			available_skills_panel._on_skill_pressed(skill)
-	assert(build_state.rotation.size() == 4)
+	assert(build_state.rotation.size() == unlocked.size())
 	stats_text = character_stats_panel._stats_label.text
 	# No leading "+" -- Physical Damage is multiplicative (x1.08), not
 	# additive (P2:R7 playtest-feedback fix, 2026-07-19).
@@ -952,8 +963,8 @@ func _initialize() -> void:
 	assert(enemy_panel._fight_button.disabled)
 
 	# -- Contract offer transition: after Hired Goon, the shop is skipped and
-	# Ghit Gudd's Contract Window introduces The Gilded Serpent contract
-	# instead of the old single-click "Map"-styled offer (P2:R7 story pass).
+	# Ghit Gudd's Contract Window introduces generated biome contract work
+	# instead of surfacing the authored Vyra contract for now.
 	build_state.current_encounter_index = RunFlow.tavern_encounter_count() - 1
 	build_state.run_phase = BuildState.RunPhase.RESULT
 	build_state.last_fight_won = true
@@ -964,131 +975,146 @@ func _initialize() -> void:
 	print("run phase after Hired Goon Continue (expect CONTRACT_OFFER): %d" % build_state.run_phase)
 	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_OFFER)
 	assert(build_state.active_contract != null)
-	assert(build_state.active_contract.display_name == "The Gilded Serpent Contract")
-	assert(build_state.current_route_node.id == "route.gilded_serpent.offer")
+	assert(build_state.active_contract.has_generated_route_state())
+	assert(build_state.pending_contract_offers.size() == 3)
 	assert(not combat_screen._shop_overlay.visible)
 	assert(combat_screen._contract_overlay.visible)
 	assert(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_GREETING_TEXT)
 	assert(combat_screen._contract_overlay._contract_action_button.text == "Hear Him Out")
 	assert(enemy_panel._title_label.text == "Contract Offer")
+	var top_bar := combat_screen.find_child("TopActionBar", true, false) as HBoxContainer
+	assert(top_bar != null)
+	assert(top_bar.z_index == combat_screen.TOP_BAR_CHROME_Z_INDEX)
+	assert(top_bar.z_index > combat_screen._contract_overlay.z_index)
+	assert(combat_screen._map_overlay.z_index > top_bar.z_index)
+	assert(combat_screen._monster_manual_overlay.z_index > combat_screen._map_overlay.z_index)
+	assert(combat_screen._contract_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	var contract_backdrop := combat_screen._contract_overlay.get_child(0) as Control
+	assert(contract_backdrop != null)
+	assert(contract_backdrop.mouse_filter == Control.MOUSE_FILTER_STOP)
+	assert(contract_backdrop.offset_top == combat_screen._contract_overlay.TOP_CHROME_CLICKTHROUGH_CLEARANCE)
+	var contract_menu_button = null
+	var contract_map_button = null
+	var contract_manual_button = null
+	var contract_save_quit_button = null
+	for child in combat_screen.find_children("*", "Button", true, false):
+		if child.name == "AbandonRunButton":
+			contract_menu_button = child
+		elif child.name == "MapButton":
+			contract_map_button = child
+		elif child.name == "MonsterManualButton":
+			contract_manual_button = child
+		elif child.name == "SaveQuitButton":
+			contract_save_quit_button = child
+	assert(contract_menu_button != null and not contract_menu_button.disabled)
+	assert(contract_map_button != null and not contract_map_button.disabled)
+	assert(contract_manual_button != null and not contract_manual_button.disabled)
+	assert(contract_save_quit_button != null and not contract_save_quit_button.disabled)
+	contract_manual_button.pressed.emit()
+	await process_frame
+	assert(combat_screen._monster_manual_overlay.visible)
+	assert(combat_screen._contract_overlay.visible)
+	combat_screen._monster_manual_overlay.visible = false
 
 	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
 	assert(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_PITCH_TEXT)
+	assert(combat_screen._contract_overlay._contract_body_label.text.contains("valuable... materials"))
 	assert(combat_screen._contract_overlay._contract_action_button.text == "Accept Contract Work")
 
 	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
-	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE)
-	assert(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree")
 	assert(combat_screen._contract_overlay.visible)
 	assert(not combat_screen._secondary_subclass_overlay.visible)
-	assert(combat_screen._contract_overlay._contract_options_box.get_child_count() == 1)
+	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_OFFER)
+	assert(combat_screen._contract_overlay._contract_options_box.get_child_count() == 3)
 	assert(combat_screen._contract_overlay._contract_title_label.text == "Choose a Contract")
+	assert(not combat_screen._contract_overlay._contract_title_icon.visible)
 	assert(not combat_screen._contract_overlay._contract_body_label.visible)
-	var vyra_button: Button = combat_screen._contract_overlay._contract_options_box.get_child(0)
-	assert(vyra_button.text == "")
-	assert(_card_label_text(vyra_button, "ContractBossNameLabel") == "Vyra")
-	assert(_card_label_text(vyra_button, "ContractLocationLabel").begins_with("Location:"))
-	assert(_card_label_text(vyra_button, "ContractGoldLabel") == "120g")
-	assert(_contract_card_icon(vyra_button).custom_minimum_size == Vector2(44, 44))
-	assert(_card_label_font_size(vyra_button, "ContractBossNameLabel") > _card_label_font_size(vyra_button, "ContractLocationLabel"))
+	var generated_offer_button: Button = combat_screen._contract_overlay._contract_options_box.get_child(0)
+	assert(generated_offer_button.name == "GeneratedContractOfferButton")
+	assert(generated_offer_button.text == "")
+	assert(_card_label_text(generated_offer_button, "ContractBossNameLabel") != "")
+	assert(_card_label_text(generated_offer_button, "ContractBossNameLabel") != "Vyra")
+	assert(_card_label_text(generated_offer_button, "ContractLocationLabel").begins_with("Location:"))
+	assert(_contract_card_icon(generated_offer_button).custom_minimum_size == Vector2(64, 64))
+	assert(_card_label_font_size(generated_offer_button, "ContractBossNameLabel") > _card_label_font_size(generated_offer_button, "ContractLocationLabel"))
 	assert(combat_screen._contract_overlay._contract_action_button.disabled)
-	assert(vyra_button.find_child("ContractChoicePulse", true, false) != null)
-	vyra_button.pressed.emit()
+	assert(combat_screen._contract_overlay._contract_action_button.text == "Preview")
+	assert(generated_offer_button.find_child("ContractChoicePulse", true, false) != null)
+	generated_offer_button.pressed.emit()
 	await process_frame
-	vyra_button = combat_screen._contract_overlay._contract_options_box.get_child(0)
+	generated_offer_button = combat_screen._contract_overlay._contract_options_box.get_child(0)
 	assert(not combat_screen._contract_overlay._contract_action_button.disabled)
-	assert(vyra_button.find_child("ContractChoicePulse", true, false) == null)
-	combat_screen._contract_overlay._contract_action_button.pressed.emit()
-	await process_frame
-	assert(combat_screen._contract_overlay._contract_body_label.text == combat_screen._contract_overlay.CONTRACT_VYRA_DETAIL_TEXT)
-	assert(combat_screen._contract_overlay._contract_action_button.text == "Accept")
+	assert(generated_offer_button.find_child("ContractChoicePulse", true, false) == null)
 	combat_screen._contract_overlay._contract_action_button.pressed.emit()
 	await process_frame
 	assert(not combat_screen._contract_overlay.visible)
 	assert(not combat_screen._talent_overlay.visible)
 	assert(combat_screen._map_overlay.visible)
-	assert(combat_screen._map_overlay._map_node_buttons.size() == 8)
-	assert(combat_screen._map_overlay._map_node_buttons[0].text.contains("Door Guard"))
-	assert(combat_screen._map_overlay._map_node_buttons[0].text.contains("Reward: Master"))
-	assert(not combat_screen._map_overlay._map_node_buttons[0].text.contains("Master Gear"))
-	assert(not combat_screen._map_overlay._map_node_buttons[0].clip_contents)
-	assert(not combat_screen._map_overlay._map_node_buttons[0].text.contains("Weapon or Ring"))
-	assert(not combat_screen._map_overlay._map_node_buttons[0].disabled)
-	assert(combat_screen._map_overlay._map_node_buttons[0].tooltip_text == "")
-	var door_marker: TextureRect = combat_screen._map_overlay._map_node_buttons[0].find_child("MapActorMarker", true, false)
-	var door_text_block: Label = combat_screen._map_overlay._map_node_buttons[0].find_child("MapTextBlock", true, false)
-	var door_reward_row: HBoxContainer = combat_screen._map_overlay._map_node_buttons[0].find_child("MapRewardIconRow", true, false)
-	var door_gear_icon: TextureRect = door_reward_row.find_child("MapGearRewardIcon", true, false)
-	assert(door_marker != null and door_marker.size == Vector2(76, 76) and door_marker.position.x >= 0.0 and door_marker.position.y == -4.0)
-	assert(door_text_block != null and door_text_block.text.contains("Door Guard") and door_text_block.position.x > door_marker.position.x + door_marker.size.x * 0.5)
-	assert(door_reward_row != null and door_reward_row.offset_bottom < 0.0)
-	assert(door_gear_icon != null and door_gear_icon.get_meta("gear_tier") == GearItem.Tier.MASTER)
-	assert(door_gear_icon.get_meta("gear_rarity_color") == UIColors.TIER_MASTER)
-	assert(door_gear_icon.texture.resource_name.ends_with("gear_drop_helm_master.png"))
-	assert(combat_screen._map_overlay._map_node_buttons[0].get_theme_color("font_hover_color") == UIColors.TRANSPARENT)
-	assert(combat_screen._map_overlay._map_node_buttons[0].get_theme_color("font_focus_color") == UIColors.TRANSPARENT)
-	assert(combat_screen._map_overlay._map_node_buttons[1].text.contains("Portly Cook"))
-	assert(combat_screen._map_overlay._map_node_buttons[1].text.contains("Reward: Basic"))
-	assert(not combat_screen._map_overlay._map_node_buttons[1].text.contains("Basic Gear"))
-	assert(not combat_screen._map_overlay._map_node_buttons[1].clip_contents)
-	assert(not combat_screen._map_overlay._map_node_buttons[1].text.contains("Weapon or Necklace"))
-	assert(not combat_screen._map_overlay._map_node_buttons[1].disabled)
-	assert(combat_screen._map_overlay._map_node_buttons[1].tooltip_text == "")
-	var cook_marker: TextureRect = combat_screen._map_overlay._map_node_buttons[1].find_child("MapActorMarker", true, false)
-	var cook_text_block: Label = combat_screen._map_overlay._map_node_buttons[1].find_child("MapTextBlock", true, false)
-	var cook_reward_row: HBoxContainer = combat_screen._map_overlay._map_node_buttons[1].find_child("MapRewardIconRow", true, false)
-	var cook_gear_icon: TextureRect = cook_reward_row.find_child("MapGearRewardIcon", true, false)
-	assert(cook_marker != null and cook_marker.size == Vector2(76, 76) and cook_marker.position.x >= 0.0 and cook_marker.position.y == -4.0)
-	assert(cook_text_block != null and cook_text_block.text.contains("Portly Cook") and cook_text_block.position.x > cook_marker.position.x + cook_marker.size.x * 0.5)
-	assert(cook_reward_row != null and cook_reward_row.offset_bottom < 0.0)
-	assert(cook_gear_icon != null and cook_gear_icon.get_meta("gear_tier") == GearItem.Tier.BASIC)
-	assert(cook_gear_icon.get_meta("gear_rarity_color") == UIColors.TIER_BASIC)
-	assert(cook_gear_icon.texture.resource_name.ends_with("gear_drop_helm_basic.png"))
-	assert(combat_screen._map_overlay._map_node_buttons[2].text.contains("Sleeping"))
-	assert(combat_screen._map_overlay._map_node_buttons[4].text.contains("Lazy"))
-	assert(combat_screen._map_overlay._map_node_buttons[6].text.contains("Knives"))
-	assert(combat_screen._map_overlay._map_node_buttons[7].text.contains("Vyra"))
-	assert(combat_screen._map_overlay._map_node_buttons[2].disabled)
+	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE)
+	assert(build_state.active_contract.has_generated_route_state())
+	assert(combat_screen._map_overlay._map_contract_back_button.visible)
+	combat_screen._map_overlay._map_contract_back_button.pressed.emit()
+	await process_frame
+	assert(combat_screen._contract_overlay.visible)
+	assert(combat_screen._contract_overlay._contract_title_label.text == "Choose a Contract")
+	assert(not combat_screen._contract_overlay._contract_title_icon.visible)
+	assert(not combat_screen._contract_overlay._contract_body_label.visible)
+	assert(combat_screen._contract_overlay._contract_options_box.get_child_count() == 3)
+	assert(combat_screen._contract_overlay._contract_action_button.text == "Preview")
+	assert(combat_screen._contract_overlay._contract_action_button.disabled)
+	generated_offer_button = combat_screen._contract_overlay._contract_options_box.get_child(0)
+	generated_offer_button.pressed.emit()
+	await process_frame
+	combat_screen._contract_overlay._contract_action_button.pressed.emit()
+	await process_frame
+	assert(not combat_screen._contract_overlay.visible)
+	assert(combat_screen._map_overlay.visible)
+	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE)
+	assert(combat_screen._map_overlay._map_contract_back_button.visible)
+	assert(combat_screen._map_overlay._map_node_buttons.size() > build_state.current_route_node.next_nodes.size())
 	assert(enemy_panel._title_label.text == "Choose Route")
 	assert(enemy_panel._info_label.text.contains("Choose the next contract route on the map."))
 	assert(combat_screen._map_overlay._map_proceed_button.visible)
 	assert(combat_screen._map_overlay._map_proceed_button.disabled)
-	assert(combat_screen._map_overlay._map_node_buttons[1].find_child("ContractAvailablePulse", true, false) != null)
 
-	combat_screen._map_overlay._map_node_buttons[1].pressed.emit()
+	var generated_route_node: ContractRouteNode = build_state.current_route_node.next_nodes[0]
+	var generated_route_name := generated_route_node.display_name
+	combat_screen._map_overlay._map_node_buttons[0].pressed.emit()
 	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE)
-	assert(build_state.current_route_node.id == "route.gilded_serpent.secondary_rogue_tree")
 	assert(not combat_screen._map_overlay._map_proceed_button.disabled)
-	assert(combat_screen._map_overlay._map_node_buttons[1].find_child("ContractAvailablePulse", true, false) == null)
+	combat_screen.instant_playback = false
 	combat_screen._map_overlay._map_proceed_button.pressed.emit()
 	await process_frame
 	assert(build_state.run_phase == BuildState.RunPhase.PLANNING)
-	assert(build_state.current_route_node.id == "route.gilded_serpent.portly_cook")
-	await create_timer(audio_manager.CONTRACT_ENTRY_FADE_SECONDS + 0.15).timeout
-	assert(not audio_manager._fireplace_player.playing)
-	assert(not audio_manager._chatter_player.playing)
-	assert(not audio_manager._tavern_theme_player.playing)
-	assert(not audio_manager._rain_player.playing)
-	assert(audio_manager._night_player.playing)
-	assert(audio_manager._serpent_theme_player.playing)
-	assert(audio_manager._serpent_theme_player.volume_db < audio_manager._night_player.volume_db)
-	assert(combat_screen._status_label.text.contains("Portly Cook"))
+	assert(build_state.current_route_node == generated_route_node)
+	var generated_route_duration: int = build_state.current_target_duration_ms() / 1000
+	assert(combat_screen._status_label.text.contains(generated_route_name))
 	assert(not combat_screen._status_label.visible)
-	assert(enemy_panel._title_label.text == "Portly Cook")
-	assert(enemy_panel._info_label.text.contains("Fight Window: 20s"))
+	assert(enemy_panel._title_label.text == generated_route_name)
+	assert(enemy_panel._info_label.text.contains("Fight Window: %ds" % generated_route_duration))
 	assert(not enemy_panel._info_label.text.contains("Contract:"))
 	assert(not enemy_panel._info_label.text.contains("Damage Goal:"))
-	assert(enemy_panel._info_label.text.contains("HP: 360"))
-	assert(enemy_panel._info_label.text.contains("Armor: 0"))
-	assert(enemy_panel._info_label.text.contains("Resistance: 0%"))
+	assert(enemy_panel._info_label.text.contains("HP:"))
+	assert(enemy_panel._info_label.text.contains("Armor:"))
+	assert(enemy_panel._info_label.text.contains("Resistance:"))
 	assert(not enemy_panel._info_label.text.contains("Cleanse:"))
 	assert(not enemy_panel._info_label.text.contains("Stun:"))
 	assert(not enemy_panel._info_label.text.contains("Interrupt:"))
 	assert(not enemy_panel._info_label.text.contains("Pressure:"))
 	assert(not enemy_panel._info_label.text.contains("Reward:"))
+	assert(combat_screen._combat_stage.enemy_actor_anchor.visible)
+	assert(combat_screen._combat_stage.player_actor_anchor.visible)
+	assert(combat_screen._combat_stage.player_run_in_count == 1)
+	assert(combat_screen._combat_stage.last_player_animation_key == "walk")
+	assert(combat_screen._combat_stage.player_actor_anchor.position.x < 0.0)
+	assert(audio_manager.footsteps_sfx_play_count > 0)
+	assert(is_equal_approx(audio_manager.last_footsteps_duration_sec, combat_screen._combat_stage.CONTRACT_RUN_IN_DELAY_SEC + combat_screen._combat_stage.CONTRACT_RUN_IN_SEC))
+	await create_timer(combat_screen._combat_stage.CONTRACT_RUN_IN_DELAY_SEC + combat_screen._combat_stage.CONTRACT_RUN_IN_SEC + 0.05).timeout
+	assert(is_equal_approx(combat_screen._combat_stage.player_actor_anchor.position.x, combat_screen._combat_stage._player_base_position.x))
+	combat_screen.instant_playback = true
 	assert(enemy_panel._fight_button.disabled)
 	assert(build_state.needs_secondary_subclass_choice())
 	combat_screen._show_talent_overlay()
@@ -1103,6 +1129,8 @@ func _initialize() -> void:
 	await process_frame
 	assert(not combat_screen._talent_overlay.visible)
 	assert(audio_manager.button_press_sfx_play_count == button_sfx_before + 1)
+	assert(combat_screen._combat_stage.player_actor_anchor.visible)
+	assert(is_equal_approx(combat_screen._combat_stage.player_actor_anchor.position.x, combat_screen._combat_stage._player_base_position.x))
 	combat_screen._show_talent_overlay()
 	await process_frame
 	var secondary_choices: VBoxContainer = combat_screen._talent_overlay.find_child("SecondaryTreeChoices", true, false)
@@ -1110,11 +1138,13 @@ func _initialize() -> void:
 	assert(secondary_choices.get_child_count() == 2)
 	var secondary_card_0_vbox: VBoxContainer = secondary_choices.get_child(0).get_child(0)
 	var secondary_card_1_vbox: VBoxContainer = secondary_choices.get_child(1).get_child(0)
-	assert(secondary_card_0_vbox.find_child("Title", true, false).text.contains("Assassin"))
+	var secondary_title_0: String = secondary_card_0_vbox.find_child("Title", true, false).text
+	var secondary_title_1: String = secondary_card_1_vbox.find_child("Title", true, false).text
+	assert(secondary_title_0 != secondary_title_1)
+	assert(not secondary_title_0.contains("Bladedancer"))
+	assert(not secondary_title_1.contains("Bladedancer"))
 	assert(secondary_card_0_vbox.find_child("Icon", true, false) != null)
-	assert(secondary_card_1_vbox.find_child("Title", true, false).text.contains("Shadow"))
 	assert(secondary_card_1_vbox.find_child("Icon", true, false) != null)
-	assert(secondary_card_1_vbox.get_child(1).text.contains("apply +1 poison stack"))
 	assert(secondary_card_0_vbox.get_child(2) is Button)
 	assert(secondary_card_0_vbox.get_child(2).text == "Choose")
 	secondary_card_0_vbox.get_child(2).pressed.emit()
@@ -1129,9 +1159,9 @@ func _initialize() -> void:
 	assert(not enemy_panel._fight_button.disabled)
 	enemy_panel._fight_button.pressed.emit()
 	await process_frame
-	print("route fight phase after Portly Cook: %d" % build_state.run_phase)
-	print("route fight log contains Portly Cook (expect true): %s" % combat_screen._log_overlay._log_label.text.contains("Portly Cook"))
-	assert(combat_screen._log_overlay._log_label.text.contains("Portly Cook"))
+	print("route fight phase after generated route node: %d" % build_state.run_phase)
+	print("route fight log contains generated node (expect true): %s" % combat_screen._log_overlay._log_label.text.contains(generated_route_name))
+	assert(combat_screen._log_overlay._log_label.text.contains(generated_route_name))
 	assert(combat_screen._view_log_button.disabled == false)
 	# This regression is about the post-contract-reward shop transition, not
 	# route balance for the broad dashboard build assembled above. Contract
@@ -1139,16 +1169,11 @@ func _initialize() -> void:
 	# surface before driving the reward/shop branch.
 	if build_state.run_outcome == BuildState.RunOutcome.CONTRACT_FAILED:
 		assert(build_state.run_phase == BuildState.RunPhase.RUN_ENDED)
-		assert(enemy_panel._title_label.text == "Portly Cook")
+		assert(enemy_panel._title_label.text == generated_route_name)
 		assert(enemy_panel._info_label.text.contains("HP:"))
 		assert(not enemy_panel._info_label.text.contains("This Adventure has ended."))
 		assert(combat_screen._tavern_background.visible)
-		assert(combat_screen._tavern_background.texture == combat_screen.CONTRACT_BACKGROUND_TEXTURE)
 		assert(not combat_screen._tavern_fireplace_overlay.visible)
-		assert(combat_screen._contract_moon_bat_overlay.visible)
-		assert(combat_screen._contract_moon_bat_overlay.mouse_filter == Control.MOUSE_FILTER_IGNORE)
-		assert(combat_screen._tavern_background.get_index() < combat_screen._contract_moon_bat_overlay.get_index())
-		assert(combat_screen._contract_moon_bat_overlay.get_index() < combat_screen._tavern_background_tint.get_index())
 		build_state.run_phase = BuildState.RunPhase.RESULT
 		build_state.run_outcome = BuildState.RunOutcome.FIGHT_WIN
 	build_state.last_fight_won = true
@@ -1184,13 +1209,28 @@ func _initialize() -> void:
 		if child.name == "MapButton":
 			map_button = child
 	assert(map_button != null)
+	var save_quit_button = null
+	for child in combat_screen.find_children("*", "Button", true, false):
+		if child.name == "SaveQuitButton":
+			save_quit_button = child
+	assert(save_quit_button != null)
+	top_bar = combat_screen.find_child("TopActionBar", true, false) as HBoxContainer
+	assert(top_bar != null)
+	assert(top_bar.z_index == combat_screen.TOP_BAR_CHROME_Z_INDEX)
+	assert(combat_screen._map_overlay.z_index > top_bar.z_index)
 	map_button.pressed.emit()
 	await process_frame
 	assert(combat_screen._map_overlay.visible)
 	var map_backdrop = combat_screen._map_overlay.get_child(0) as Control
+	var map_center = combat_screen._map_overlay.get_child(1) as Control
 	assert(map_backdrop != null)
+	assert(map_center != null)
 	assert(map_backdrop.mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	assert(is_equal_approx(map_backdrop.offset_top, combat_screen._map_overlay.TOP_CHROME_CLICKTHROUGH_CLEARANCE))
+	assert(is_equal_approx(map_center.offset_top, 0.0))
+	assert(not map_button.disabled)
+	assert(not save_quit_button.disabled)
+	assert(not menu_button.disabled)
 	assert(combat_screen._map_overlay._map_close_button.visible)
 	combat_screen._map_overlay.visible = false
 	menu_button.pressed.emit()
@@ -1260,3 +1300,12 @@ func _contract_card_icon(card: Button) -> TextureRect:
 	var icon: TextureRect = content.find_child("Icon", true, false)
 	assert(icon != null)
 	return icon
+
+
+func _contract_reward_amount_texts(card: Button) -> Array[String]:
+	var stack: BoxContainer = card.find_child("ContractRewardStack", true, false)
+	assert(stack != null)
+	var texts: Array[String] = []
+	for label in stack.find_children("ContractRewardAmount", "Label", true, false):
+		texts.append((label as Label).text)
+	return texts

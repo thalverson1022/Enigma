@@ -205,6 +205,7 @@ func _ready() -> void:
 	_combat_view = TrainingRoomCombatView.new()
 	_combat_view.name = "CombatView"
 	_combat_view.finished.connect(_on_combat_view_finished)
+	_combat_view.gold_stolen_callback = Callable(_state, "add_practice_combat_gold")
 	_combat_view.set_fight_window_ms(_state.duration_ms)
 	center_column.add_child(_combat_view)
 
@@ -261,17 +262,16 @@ func _ready() -> void:
 	right_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_scroll.add_child(right_column)
 
+	_build_gear_paper_doll(right_column)
+
 	_target_panel = TrainingTargetPanel.new()
 	_target_panel.name = "TargetPanel"
 	_target_panel.defense_changed.connect(_on_target_defense_changed)
 	_target_panel.preset_selected.connect(_on_target_preset_selected)
 	_target_panel.generated_roll_requested.connect(_on_generated_roll_requested)
-	_target_panel.generated_seed_requested.connect(_on_generated_seed_requested)
 	right_column.add_child(_target_panel)
 
 	_build_fight_setup_panel(right_column)
-
-	_build_gear_paper_doll(right_column)
 	_build_practice_logo(right_column)
 
 	_build_talent_overlay()
@@ -281,17 +281,21 @@ func _ready() -> void:
 	_state.build_changed.connect(_refresh_talent_panel)
 	_state.build_changed.connect(_refresh_gear_editor)
 	_state.build_changed.connect(_refresh_fight_button)
+	_state.build_changed.connect(_refresh_fight_setup_controls)
 	_state.build_changed.connect(_invalidate_result_review)
+	_state.stats_preview_changed.connect(_refresh_fight_setup_controls)
 	_state.lock_changed.connect(_refresh_fight_button)
 	_state.fight_setup_changed.connect(_refresh_target_panel)
 	_state.fight_setup_changed.connect(_refresh_fight_setup_controls)
 	_state.fight_setup_changed.connect(_refresh_combat_view_fight_window)
+	_state.fight_setup_changed.connect(_refresh_combat_view_target)
 	_state.fight_setup_changed.connect(_invalidate_result_review)
 	_state.fight_finished.connect(_on_state_fight_finished)
 	_refresh_talent_panel()
 	_refresh_gear_editor()
 	_refresh_fight_button()
 	_refresh_target_panel()
+	_refresh_combat_view_target()
 
 
 func _refresh_talent_panel() -> void:
@@ -754,23 +758,36 @@ func _build_fight_setup_panel(parent: Container) -> void:
 	_build_fight_setup_controls(controls)
 
 
-## Duration/seed/practice-gold (P2:R10:T5; target now lives in its own
+## Duration/practice-gold (P2:R10:T5; target now lives in its own
 ## TrainingTargetPanel card, see _refresh_target_panel()) -- built once,
 ## unlike the build/gear sections above, since nothing external changes
 ## these values; only this row's own controls do.
 func _build_fight_setup_controls(parent: VBoxContainer) -> void:
-	var duration_row := _build_labeled_row(parent, "Duration (s)")
+	var timing_row := HBoxContainer.new()
+	timing_row.add_theme_constant_override("separation", 6)
+	parent.add_child(timing_row)
+
+	var duration_label := Label.new()
+	duration_label.text = "Seconds"
+	duration_label.custom_minimum_size = Vector2(62, 0)
+	timing_row.add_child(duration_label)
+
 	_duration_spin = SpinBox.new()
 	_duration_spin.min_value = 1
 	_duration_spin.max_value = 120
 	_duration_spin.step = 1
 	_duration_spin.value = _state.duration_ms / 1000.0
-	_duration_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_duration_spin.custom_minimum_size = Vector2(72, 0)
 	_duration_spin.value_changed.connect(_on_duration_changed)
-	duration_row.add_child(_duration_spin)
+	timing_row.add_child(_duration_spin)
 
-	var seed_row := _build_labeled_row(parent, "Seed")
+	var seed_label := Label.new()
+	seed_label.text = "Seed"
+	seed_label.custom_minimum_size = Vector2(40, 0)
+	timing_row.add_child(seed_label)
+
 	_seed_spin = SpinBox.new()
+	_seed_spin.name = "FightSeedSpin"
 	_seed_spin.min_value = 0
 	_seed_spin.max_value = 2147483647
 	_seed_spin.step = 1
@@ -778,10 +795,11 @@ func _build_fight_setup_controls(parent: VBoxContainer) -> void:
 	_seed_spin.value = _state.fight_seed
 	_seed_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_seed_spin.value_changed.connect(_on_fight_seed_changed)
-	seed_row.add_child(_seed_spin)
+	timing_row.add_child(_seed_spin)
 
 	var gold_row := _build_labeled_row(parent, "Practice Gold")
 	_gold_spin = SpinBox.new()
+	_gold_spin.name = "PracticeGoldSpin"
 	_gold_spin.min_value = 0
 	_gold_spin.max_value = 99999
 	_gold_spin.step = 1
@@ -822,12 +840,8 @@ func _on_target_preset_selected(preset_id: String) -> void:
 	_state.apply_target_preset(preset_id)
 
 
-func _on_generated_roll_requested(difficulty_id: int) -> void:
-	_state.roll_generated_target(difficulty_id)
-
-
-func _on_generated_seed_requested(difficulty_id: int, seed: int) -> void:
-	_state.roll_generated_target(difficulty_id, seed)
+func _on_generated_roll_requested(difficulty_id: int, monster_kind: String, archetype_a_id: String, archetype_b_id: String) -> void:
+	_state.roll_generated_target(difficulty_id, -1, monster_kind, archetype_a_id, archetype_b_id)
 
 
 ## Pushes the target's current defenses into the card -- called
@@ -840,14 +854,27 @@ func _refresh_target_panel() -> void:
 
 func _refresh_fight_setup_controls() -> void:
 	if _duration_spin != null:
+		_duration_spin.set_block_signals(true)
 		_duration_spin.value = _state.duration_ms / 1000.0
+		_duration_spin.set_block_signals(false)
 	if _seed_spin != null:
+		_seed_spin.set_block_signals(true)
 		_seed_spin.value = _state.fight_seed
+		_seed_spin.set_block_signals(false)
+	if _gold_spin != null:
+		_gold_spin.set_block_signals(true)
+		_gold_spin.value = _state.gold
+		_gold_spin.set_block_signals(false)
 
 
 func _refresh_combat_view_fight_window() -> void:
 	if _combat_view != null:
 		_combat_view.set_fight_window_ms(_state.duration_ms)
+
+
+func _refresh_combat_view_target() -> void:
+	if _combat_view != null:
+		_combat_view.set_target_preview(_state.selected_target)
 
 
 func _on_duration_changed(seconds: float) -> void:

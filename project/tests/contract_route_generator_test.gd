@@ -520,6 +520,12 @@ func _check_p4m8_presentation_pool_targets() -> void:
 		assert((table.get("elite", []) as Array).size() >= 3)
 		assert((table.get("boss", []) as Array).size() >= 5)
 		assert(_presentation_candidates(biome, "captain").size() >= 6)
+	var graveyard_table: Dictionary = ROUTE_GENERATOR.BIOME_PRESENTATION["Graveyard"]
+	assert((graveyard_table["captain"] as Array).has("Flesh Golem"))
+	assert(not (graveyard_table["captain"] as Array).has("Golem"))
+	var forest_table: Dictionary = ROUTE_GENERATOR.BIOME_PRESENTATION["Haunted Forest"]
+	assert((forest_table["boss"] as Array).has("Great Warebear"))
+	assert(not (forest_table["boss"] as Array).has("Great Werewolf"))
 
 
 func _check_biome_presentation_tables_are_used() -> void:

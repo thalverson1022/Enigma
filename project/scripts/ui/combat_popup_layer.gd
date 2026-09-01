@@ -86,6 +86,8 @@ const POPUP_TICK_COLOR := UIColors.TEXT_POISON
 const POPUP_PROC_COLOR := UIColors.TEXT_MAGIC
 const POPUP_NEGATED_ACTUAL_FONT_SIZE := 54
 const POPUP_NEGATED_GAP_PX := 18.0
+const GOLD_ICON := preload("res://assets/ui/icons/gold.png")
+const GOLD_ICON_SIZE := Vector2(56.0, 56.0)
 
 ## Set true while a Skip flush is in progress -- suppresses new spawns so a
 ## skip doesn't spray the whole remaining timeline's popups at once.
@@ -185,6 +187,52 @@ func spawn(text: String, kind: int) -> void:
 	tween.finished.connect(_on_popup_finished.bind(label, kind))
 
 
+func spawn_gold_hit(skill_name: String, damage: float, gold_amount: int, is_crit: bool = true) -> void:
+	if skip_active:
+		return
+	if _active_count >= POPUP_MAX_ACTIVE:
+		return
+	var font_size := POPUP_CRIT_FONT_SIZE if is_crit else POPUP_FONT_SIZE
+	var text_color := POPUP_CRIT_COLOR if is_crit else POPUP_NORMAL_COLOR
+	var root := HBoxContainer.new()
+	root.name = "GoldHitPopup"
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_theme_constant_override("separation", 8)
+	add_child(root)
+
+	var crit_suffix := "!" if is_crit else ""
+	var hit_label := _make_popup_label("%s %.0f%s" % [skill_name, damage, crit_suffix], font_size, text_color)
+	root.add_child(hit_label)
+
+	var icon := TextureRect.new()
+	icon.name = "GoldIcon"
+	icon.texture = GOLD_ICON
+	icon.custom_minimum_size = GOLD_ICON_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(icon)
+
+	var gold_label := _make_popup_label("%d" % gold_amount, font_size, POPUP_CRIT_COLOR)
+	root.add_child(gold_label)
+
+	root.reset_size()
+	root.pivot_offset = root.size * 0.5
+	root.position = _spawn_position(Kind.CRIT if is_crit else Kind.NORMAL, root.size)
+	_active_count += 1
+	root.scale = Vector2.ONE * (POPUP_CRIT_PUNCH_SCALE if is_crit else 0.92)
+
+	var tween := root.create_tween()
+	tween.set_parallel(true)
+	if is_crit:
+		tween.tween_property(root, "scale", Vector2.ONE, POPUP_CRIT_PUNCH_SEC)
+	else:
+		tween.tween_property(root, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(root, "position:y", root.position.y - POPUP_RISE_PX, POPUP_RISE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(root, "modulate:a", 0.0, POPUP_DURATION_SEC - POPUP_FADE_DELAY_SEC).set_delay(POPUP_FADE_DELAY_SEC)
+	tween.finished.connect(_on_gold_hit_popup_finished.bind(root))
+
+
 func spawn_crit_negated(skill_name: String, reduced_damage: float, prevented_damage: float) -> void:
 	if skip_active:
 		return
@@ -271,6 +319,11 @@ func _on_popup_finished(label: Label, kind: int) -> void:
 
 
 func _on_crit_negation_popup_finished(root: Control) -> void:
+	_active_count = maxi(_active_count - 1, 0)
+	root.queue_free()
+
+
+func _on_gold_hit_popup_finished(root: Control) -> void:
 	_active_count = maxi(_active_count - 1, 0)
 	root.queue_free()
 

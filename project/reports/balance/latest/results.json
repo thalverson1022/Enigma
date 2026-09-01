@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-08-23T15:17:39",
+	"generated_at": "2026-09-01T11:54:52",
 	"mechanics": [
 		{
 			"id": "bandit_physical_multiplier",
@@ -301,307 +301,4041 @@
 			"status": "pass",
 			"values": {
 				"blocking_notices": [],
-				"sample_count": 13,
+				"sample_count": 53,
 				"summaries": [
 					{
+						"archetypes": [
+							"nimble",
+							"devious",
+							"nullify",
+							"spiteful",
+							"aegis",
+							"fortified",
+							"warded"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
 						"case_id": "route_default_medium",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 1,
-						"max_gold": 64,
-						"max_raw_difficulty": 6,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 55,
+						"max_raw_difficulty": 5,
 						"min_gold": 10,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
-							"physical_mitigation",
-							"debuff_poison_disruption",
-							"magical_poison_mitigation",
+							"reliability_evasion",
 							"timing_control",
-							"mixed"
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"physical_mitigation"
 						],
+						"pressure_gauntlet_node_count": 0,
 						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
 						"seed": 4301,
 						"talent_points": 1,
-						"total_gold": 164
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 191,
+						"wide_matchup_choice_node_count": 0
 					},
 					{
+						"archetypes": [
+							"nimble",
+							"warded",
+							"fortified",
+							"hexed",
+							"devious"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"chrono_tyrant"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
 						"case_id": "route_default_medium",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 0,
+						"elite_variants": [],
+						"fork_rejoin_node_count": 6,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 1,
-						"max_gold": 64,
-						"max_raw_difficulty": 6,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
 						"min_gold": 10,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
-							"magical_poison_mitigation",
 							"reliability_evasion",
-							"timing_control",
+							"magical_poison_mitigation",
 							"physical_mitigation",
 							"debuff_poison_disruption",
-							"mixed"
+							"timing_control"
 						],
+						"pressure_gauntlet_node_count": 3,
 						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 4,
 						"seed": 4302,
 						"talent_points": 1,
-						"total_gold": 176
+						"template_display_label": "Split Spill Rejoin",
+						"template_id": "split_spill_rejoin",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 4,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 181,
+						"wide_matchup_choice_node_count": 0
 					},
 					{
+						"archetypes": [
+							"warded",
+							"nimble",
+							"aegis",
+							"fortified",
+							"armored",
+							"devious",
+							"spiteful",
+							"hexed"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
 						"case_id": "route_default_medium",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"phase_duelist"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 1,
-						"max_gold": 64,
-						"max_raw_difficulty": 6,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
 						"min_gold": 10,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"reliability_evasion",
+							"physical_mitigation",
+							"timing_control",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4303,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 205,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"warded",
+							"armored",
+							"nimble",
+							"devious",
+							"spiteful",
+							"nullify"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 2,
+						"case_id": "route_default_medium",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"phase_duelist"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"physical_mitigation",
+							"reliability_evasion",
+							"timing_control",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4304,
+						"talent_points": 1,
+						"template_display_label": "Elite Orbit",
+						"template_id": "elite_orbit",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main",
+								"alternate"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 175,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"resistant",
+							"hexed",
+							"aegis",
+							"fortified",
+							"devious",
+							"nimble"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_default_medium",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 0,
+						"elite_variants": [],
+						"fork_rejoin_node_count": 6,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"physical_mitigation",
+							"timing_control",
+							"reliability_evasion"
+						],
+						"pressure_gauntlet_node_count": 3,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 4,
+						"seed": 4305,
+						"talent_points": 1,
+						"template_display_label": "Split Spill Rejoin",
+						"template_id": "split_spill_rejoin",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 4,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 181,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"nullify",
+							"warded",
+							"nimble",
+							"fortified",
+							"spiteful",
+							"aegis"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_default_medium",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"reliability_evasion",
+							"physical_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4306,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 205,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"resistant",
+							"devious",
+							"spiteful",
+							"aegis",
+							"fortified"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_default_medium",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 55,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"pressure_emphasis"
+						],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
 							"magical_poison_mitigation",
 							"timing_control",
-							"reliability_evasion",
-							"physical_mitigation",
 							"debuff_poison_disruption",
-							"mixed"
+							"physical_mitigation"
 						],
+						"pressure_gauntlet_node_count": 0,
 						"preview_leaks": [],
-						"seed": 4303,
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4307,
 						"talent_points": 1,
-						"total_gold": 164
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 191,
+						"wide_matchup_choice_node_count": 0
 					},
 					{
+						"archetypes": [
+							"spiteful",
+							"hexed",
+							"devious",
+							"fortified",
+							"nullify",
+							"warded",
+							"aegis"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 2,
+						"case_id": "route_default_medium",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"debuff_poison_disruption",
+							"timing_control",
+							"physical_mitigation",
+							"magical_poison_mitigation"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4308,
+						"talent_points": 1,
+						"template_display_label": "Elite Orbit",
+						"template_id": "elite_orbit",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main",
+								"alternate"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 175,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"nimble",
+							"devious",
+							"aegis",
+							"spiteful",
+							"hexed",
+							"nullify",
+							"warded"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_default_medium",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"riftbound_marauder"
+						],
+						"fork_rejoin_node_count": 2,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 2,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 56,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"reliability_evasion",
+							"timing_control",
+							"physical_mitigation",
+							"debuff_poison_disruption",
+							"magical_poison_mitigation"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4309,
+						"talent_points": 1,
+						"template_display_label": "Five-Way Market",
+						"template_id": "five_way_market",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 5,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 192,
+						"wide_matchup_choice_node_count": 5
+					},
+					{
+						"archetypes": [
+							"nimble",
+							"hexed",
+							"armored",
+							"spiteful",
+							"aegis",
+							"fortified"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_default_medium",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"reliability_evasion",
+							"debuff_poison_disruption",
+							"physical_mitigation"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4310,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 205,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"arcane",
+							"resistant",
+							"nullify",
+							"devious",
+							"aegis",
+							"fortified"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
 						"case_id": "route_hard_later_contract",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 4,
-						"max_gold": 74,
-						"max_raw_difficulty": 9,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
 						"min_gold": 14,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"biome_hazard"
+						],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
 							"timing_control",
-							"mixed",
+							"magical_poison_mitigation",
+							"physical_mitigation"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 3,
+						"seed": 4311,
+						"talent_points": 1,
+						"template_display_label": "Braided Sideboard",
+						"template_id": "braided_sideboard",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main_road"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"main_road"
+							]
+						},
+						"total_gold": 237,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"nullify",
+							"hexed",
+							"devious",
+							"spiteful",
+							"arcane",
+							"resistant",
+							"aegis",
+							"fortified"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_hard_later_contract",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"timing_control",
+							"physical_mitigation"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4312,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 245,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"nimble",
+							"hexed",
+							"armored",
+							"spiteful",
+							"devious",
+							"resistant",
+							"arcane"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"chrono_tyrant"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_hard_later_contract",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"reliability_evasion",
+							"debuff_poison_disruption",
 							"physical_mitigation",
+							"timing_control",
+							"magical_poison_mitigation"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4313,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 245,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"arcane",
+							"aegis",
+							"nullify",
+							"resistant",
+							"riftbound",
+							"unstable",
+							"spiteful",
+							"fortified"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_hard_later_contract",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"riftbound_marauder"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"timing_control",
+							"physical_mitigation",
+							"magical_poison_mitigation",
+							"mixed",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 3,
+						"seed": 4314,
+						"talent_points": 1,
+						"template_display_label": "Braided Sideboard",
+						"template_id": "braided_sideboard",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main_road"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"main_road"
+							]
+						},
+						"total_gold": 237,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"fortified",
+							"nimble",
+							"nullify",
+							"hexed",
+							"devious",
+							"aegis",
+							"resistant",
+							"spiteful"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 2,
+						"case_id": "route_hard_later_contract",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"phase_duelist"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"reliability_evasion",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"timing_control"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4315,
+						"talent_points": 1,
+						"template_display_label": "Elite Orbit",
+						"template_id": "elite_orbit",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main",
+								"alternate"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 211,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"nimble",
+							"devious",
+							"warded",
+							"arcane",
+							"armored",
+							"hexed",
+							"nullify",
+							"spiteful"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"chrono_tyrant"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_hard_later_contract",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 65,
+						"max_raw_difficulty": 8,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"pressure_emphasis"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"reliability_evasion",
+							"timing_control",
+							"magical_poison_mitigation",
+							"physical_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4316,
+						"talent_points": 1,
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 231,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"devious",
+							"armored",
+							"arcane",
+							"spiteful",
+							"nullify",
+							"warded",
+							"fortified"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_hard_later_contract",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 2,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 2,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 66,
+						"max_raw_difficulty": 8,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"timing_control",
+							"physical_mitigation",
+							"debuff_poison_disruption",
+							"magical_poison_mitigation"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4317,
+						"talent_points": 1,
+						"template_display_label": "Five-Way Market",
+						"template_id": "five_way_market",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 5,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 232,
+						"wide_matchup_choice_node_count": 5
+					},
+					{
+						"archetypes": [
+							"armored",
+							"aegis",
+							"warded",
+							"nimble",
+							"arcane",
+							"resistant",
+							"nullify",
+							"riftbound",
+							"unstable"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_hard_later_contract",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"riftbound_marauder"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"magical_poison_mitigation",
+							"reliability_evasion",
+							"timing_control",
+							"mixed"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4318,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 245,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"aegis",
+							"resistant",
+							"armored",
+							"nullify",
+							"warded",
+							"hexed",
+							"spiteful"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_hard_later_contract",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 3,
+						"seed": 4319,
+						"talent_points": 1,
+						"template_display_label": "Braided Sideboard",
+						"template_id": "braided_sideboard",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main_road"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"main_road"
+							]
+						},
+						"total_gold": 237,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"aegis",
+							"nullify",
+							"armored",
+							"fortified",
+							"warded"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_hard_later_contract",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"magical_poison_mitigation"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4320,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 245,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"resistant",
+							"hexed",
+							"spiteful",
+							"arcane",
+							"nimble",
+							"nullify"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 2,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 2,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 66,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"timing_control",
+							"reliability_evasion"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4321,
+						"talent_points": 1,
+						"template_display_label": "Five-Way Market",
+						"template_id": "five_way_market",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 5,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 232,
+						"wide_matchup_choice_node_count": 5
+					},
+					{
+						"archetypes": [
+							"aegis",
+							"armored",
+							"devious",
+							"fortified",
+							"resistant",
+							"nullify",
+							"riftbound",
+							"unstable",
+							"warded"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"riftbound_marauder"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 65,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"timing_control",
+							"magical_poison_mitigation",
+							"mixed"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4322,
+						"talent_points": 1,
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 231,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"arcane",
+							"fortified",
+							"warded",
+							"armored",
+							"aegis",
+							"nullify",
+							"hexed"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 70,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"timing_control",
+							"physical_mitigation",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 3,
+						"seed": 4323,
+						"talent_points": 1,
+						"template_display_label": "Braided Sideboard",
+						"template_id": "braided_sideboard",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main_road"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"main_road"
+							]
+						},
+						"total_gold": 237,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"resistant",
+							"devious",
+							"spiteful",
+							"hexed",
+							"warded",
+							"arcane"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"chrono_tyrant"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 70,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"timing_control",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 3,
+						"seed": 4324,
+						"talent_points": 1,
+						"template_display_label": "Braided Sideboard",
+						"template_id": "braided_sideboard",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main_road"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"main_road"
+							]
+						},
+						"total_gold": 237,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"hexed",
+							"arcane",
+							"spiteful",
+							"armored",
+							"fortified",
+							"riftbound",
+							"unstable",
+							"nimble",
+							"nullify",
+							"warded"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"riftbound_marauder"
+						],
+						"fork_rejoin_node_count": 2,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 2,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 66,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"debuff_poison_disruption",
+							"timing_control",
+							"physical_mitigation",
+							"mixed",
 							"reliability_evasion",
 							"magical_poison_mitigation"
 						],
+						"pressure_gauntlet_node_count": 0,
 						"preview_leaks": [],
-						"seed": 4311,
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4325,
 						"talent_points": 1,
-						"total_gold": 216
+						"template_display_label": "Five-Way Market",
+						"template_id": "five_way_market",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 5,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 232,
+						"wide_matchup_choice_node_count": 5
 					},
 					{
-						"case_id": "route_hard_later_contract",
+						"archetypes": [
+							"resistant",
+							"aegis",
+							"warded",
+							"fortified",
+							"hexed",
+							"nullify",
+							"riftbound",
+							"unstable"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"riftbound_marauder"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 4,
-						"max_gold": 74,
-						"max_raw_difficulty": 9,
-						"min_gold": 15,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 70,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
-							"debuff_poison_disruption",
 							"magical_poison_mitigation",
 							"physical_mitigation",
+							"debuff_poison_disruption",
+							"mixed"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 3,
+						"seed": 4326,
+						"talent_points": 1,
+						"template_display_label": "Braided Sideboard",
+						"template_id": "braided_sideboard",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main_road"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"main_road"
+							]
+						},
+						"total_gold": 237,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"nullify",
+							"spiteful",
+							"warded",
+							"armored",
+							"fortified",
+							"hexed",
+							"resistant"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 65,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"physical_mitigation"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4327,
+						"talent_points": 1,
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 231,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"aegis",
+							"nullify",
+							"devious",
+							"hexed",
+							"nimble",
+							"fortified",
+							"arcane",
+							"riftbound",
+							"unstable",
+							"spiteful"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"riftbound_marauder"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 70,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"magical_poison_mitigation",
 							"timing_control",
+							"debuff_poison_disruption",
 							"reliability_evasion",
 							"mixed"
 						],
+						"pressure_gauntlet_node_count": 2,
 						"preview_leaks": [],
-						"seed": 4312,
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4328,
 						"talent_points": 1,
-						"total_gold": 197
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 245,
+						"wide_matchup_choice_node_count": 0
 					},
 					{
-						"case_id": "route_hard_later_contract",
+						"archetypes": [
+							"spiteful",
+							"aegis",
+							"armored",
+							"fortified",
+							"devious",
+							"arcane",
+							"hexed"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 2,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 2,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 4,
-						"max_gold": 74,
-						"max_raw_difficulty": 9,
-						"min_gold": 15,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 66,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"debuff_poison_disruption",
+							"physical_mitigation",
+							"timing_control"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4329,
+						"talent_points": 1,
+						"template_display_label": "Five-Way Market",
+						"template_id": "five_way_market",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 5,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 232,
+						"wide_matchup_choice_node_count": 5
+					},
+					{
+						"archetypes": [
+							"spiteful",
+							"warded",
+							"armored",
+							"arcane",
+							"aegis",
+							"nullify",
+							"fortified"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_nightmare_overflow",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 2,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 2,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 5,
+						"max_gold": 66,
+						"max_raw_difficulty": 10,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": true,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
 							"debuff_poison_disruption",
 							"magical_poison_mitigation",
-							"reliability_evasion",
+							"physical_mitigation",
 							"timing_control"
 						],
+						"pressure_gauntlet_node_count": 0,
 						"preview_leaks": [],
-						"seed": 4313,
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4330,
 						"talent_points": 1,
-						"total_gold": 197
+						"template_display_label": "Five-Way Market",
+						"template_id": "five_way_market",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 5,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 232,
+						"wide_matchup_choice_node_count": 5
 					},
 					{
-						"case_id": "route_nightmare_overflow",
+						"archetypes": [
+							"warded",
+							"spiteful",
+							"fortified",
+							"resistant",
+							"hexed",
+							"nullify"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_swamp_biome_skew",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 6,
-						"max_gold": 74,
-						"max_raw_difficulty": 11,
-						"min_gold": 14,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"physical_mitigation"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 3,
+						"seed": 4331,
+						"talent_points": 1,
+						"template_display_label": "Braided Sideboard",
+						"template_id": "braided_sideboard",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main_road"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"main_road"
+							]
+						},
+						"total_gold": 197,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"fortified",
+							"hexed",
+							"aegis",
+							"armored",
+							"spiteful",
+							"nullify",
+							"devious"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"chrono_tyrant"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_swamp_biome_skew",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 2,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 2,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 56,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"debuff_poison_disruption",
+							"magical_poison_mitigation",
+							"timing_control"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4332,
+						"talent_points": 1,
+						"template_display_label": "Five-Way Market",
+						"template_id": "five_way_market",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 5,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 192,
+						"wide_matchup_choice_node_count": 5
+					},
+					{
+						"archetypes": [
+							"resistant",
+							"hexed",
+							"spiteful",
+							"aegis",
+							"fortified",
+							"devious"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"chrono_tyrant"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 2,
+						"case_id": "route_swamp_biome_skew",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
 							"magical_poison_mitigation",
 							"debuff_poison_disruption",
 							"physical_mitigation",
-							"reliability_evasion",
 							"timing_control"
 						],
+						"pressure_gauntlet_node_count": 0,
 						"preview_leaks": [],
-						"seed": 4321,
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4333,
 						"talent_points": 1,
-						"total_gold": 216
+						"template_display_label": "Elite Orbit",
+						"template_id": "elite_orbit",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main",
+								"alternate"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 175,
+						"wide_matchup_choice_node_count": 0
 					},
 					{
-						"case_id": "route_nightmare_overflow",
+						"archetypes": [
+							"nullify",
+							"resistant",
+							"spiteful",
+							"warded",
+							"hexed",
+							"devious"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"chrono_tyrant"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_swamp_biome_skew",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 6,
-						"max_gold": 74,
-						"max_raw_difficulty": 11,
-						"min_gold": 14,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"timing_control"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4334,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 205,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"hexed",
+							"resistant",
+							"armored",
+							"aegis",
+							"nullify",
+							"warded",
+							"nimble"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 2,
+						"case_id": "route_swamp_biome_skew",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"debuff_poison_disruption",
+							"magical_poison_mitigation",
+							"physical_mitigation",
+							"reliability_evasion"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4335,
+						"talent_points": 1,
+						"template_display_label": "Elite Orbit",
+						"template_id": "elite_orbit",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main",
+								"alternate"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 175,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"armored",
+							"devious",
+							"spiteful",
+							"fortified",
+							"nullify",
+							"warded",
+							"hexed",
+							"nimble"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"chrono_tyrant"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_swamp_biome_skew",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 55,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"timing_control",
+							"debuff_poison_disruption",
+							"magical_poison_mitigation",
+							"reliability_evasion"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4336,
+						"talent_points": 1,
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 191,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"resistant",
+							"nimble",
+							"nullify",
+							"warded",
+							"aegis",
+							"fortified"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_swamp_biome_skew",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 0,
+						"elite_variants": [],
+						"fork_rejoin_node_count": 6,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"reliability_evasion",
+							"physical_mitigation"
+						],
+						"pressure_gauntlet_node_count": 3,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 4,
+						"seed": 4337,
+						"talent_points": 1,
+						"template_display_label": "Split Spill Rejoin",
+						"template_id": "split_spill_rejoin",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 4,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 181,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"resistant",
+							"armored",
+							"aegis",
+							"warded",
+							"spiteful",
+							"fortified",
+							"nullify"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_swamp_biome_skew",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"riftbound_marauder"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 55,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"physical_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4338,
+						"talent_points": 1,
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 191,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"devious",
+							"resistant",
+							"hexed",
+							"warded",
+							"armored",
+							"aegis",
+							"fortified",
+							"spiteful"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_swamp_biome_skew",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
 							"timing_control",
 							"magical_poison_mitigation",
 							"debuff_poison_disruption",
-							"physical_mitigation",
-							"reliability_evasion",
-							"mixed"
+							"physical_mitigation"
 						],
+						"pressure_gauntlet_node_count": 2,
 						"preview_leaks": [],
-						"seed": 4322,
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4339,
 						"talent_points": 1,
-						"total_gold": 216
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 205,
+						"wide_matchup_choice_node_count": 0
 					},
 					{
-						"case_id": "route_nightmare_overflow",
+						"archetypes": [
+							"aegis",
+							"fortified",
+							"nimble",
+							"resistant",
+							"armored",
+							"spiteful",
+							"hexed"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_swamp_biome_skew",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 6,
-						"max_gold": 74,
-						"max_raw_difficulty": 11,
-						"min_gold": 14,
+						"max_contract_pressure_tier": 0,
+						"max_gold": 60,
+						"max_raw_difficulty": 5,
+						"min_gold": 10,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
 							"physical_mitigation",
-							"timing_control",
+							"reliability_evasion",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4340,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 205,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"fortified",
+							"resistant",
+							"spiteful",
+							"warded",
+							"nullify",
+							"hexed"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_completed_pressure_compare",
+						"completed_pressure_changed": true,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 0,
+						"elite_variants": [],
+						"fork_rejoin_node_count": 6,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 2,
+						"max_gold": 70,
+						"max_raw_difficulty": 7,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 3,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 4,
+						"seed": 4341,
+						"talent_points": 1,
+						"template_display_label": "Split Spill Rejoin",
+						"template_id": "split_spill_rejoin",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 4,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 219,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"fortified",
+							"resistant",
+							"spiteful",
+							"nullify",
+							"warded",
+							"armored",
+							"hexed"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": true,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_medium_stage_five_blend",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 2,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 2,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 2,
+						"max_gold": 66,
+						"max_raw_difficulty": 7,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"biome_hazard"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"biome_hazard"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4342,
+						"talent_points": 1,
+						"template_display_label": "Five-Way Market",
+						"template_id": "five_way_market",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 5,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 232,
+						"wide_matchup_choice_node_count": 5
+					},
+					{
+						"archetypes": [
+							"resistant",
+							"nimble",
+							"hexed",
+							"warded",
+							"spiteful",
+							"nullify"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": true,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_medium_stage_five_blend",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 2,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 2,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 2,
+						"max_gold": 66,
+						"max_raw_difficulty": 7,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"pressure_emphasis"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
 							"magical_poison_mitigation",
 							"reliability_evasion",
 							"debuff_poison_disruption"
 						],
+						"pressure_gauntlet_node_count": 0,
 						"preview_leaks": [],
-						"seed": 4323,
-						"talent_points": 1,
-						"total_gold": 216
-					},
-					{
-						"case_id": "route_swamp_biome_skew",
-						"completed_pressure_changed": false,
-						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 1,
-						"max_gold": 64,
-						"max_raw_difficulty": 6,
-						"min_gold": 11,
-						"missing_reward_count": 0,
-						"notice_count": 0,
-						"notices": [],
-						"pressure_axes": [
-							"physical_mitigation",
-							"reliability_evasion",
-							"timing_control",
-							"magical_poison_mitigation"
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
 						],
-						"preview_leaks": [],
-						"seed": 4331,
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4343,
 						"talent_points": 1,
-						"total_gold": 161
+						"template_display_label": "Five-Way Market",
+						"template_id": "five_way_market",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 5,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 232,
+						"wide_matchup_choice_node_count": 5
 					},
 					{
-						"case_id": "route_swamp_biome_skew",
-						"completed_pressure_changed": false,
-						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 1,
-						"max_gold": 64,
-						"max_raw_difficulty": 6,
-						"min_gold": 10,
-						"missing_reward_count": 0,
-						"notice_count": 0,
-						"notices": [],
-						"pressure_axes": [
-							"debuff_poison_disruption",
-							"reliability_evasion",
-							"timing_control",
-							"magical_poison_mitigation",
-							"physical_mitigation"
+						"archetypes": [
+							"warded",
+							"nimble",
+							"armored",
+							"nullify",
+							"fortified",
+							"aegis"
 						],
-						"preview_leaks": [],
-						"seed": 4332,
-						"talent_points": 1,
-						"total_gold": 176
-					},
-					{
-						"case_id": "route_swamp_biome_skew",
-						"completed_pressure_changed": false,
-						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 1,
-						"max_gold": 64,
-						"max_raw_difficulty": 6,
-						"min_gold": 10,
-						"missing_reward_count": 0,
-						"notice_count": 0,
-						"notices": [],
-						"pressure_axes": [
-							"debuff_poison_disruption",
-							"magical_poison_mitigation",
-							"timing_control",
-							"reliability_evasion",
-							"physical_mitigation"
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"apex_bulwark"
 						],
-						"preview_leaks": [],
-						"seed": 4333,
-						"talent_points": 1,
-						"total_gold": 176
-					},
-					{
-						"case_id": "route_completed_pressure_compare",
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": true,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 2,
+						"case_id": "route_medium_stage_five_blend",
 						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"null_priest"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
 						"highest_gear_tier": 2,
-						"max_contract_pressure_tier": 3,
-						"max_gold": 74,
-						"max_raw_difficulty": 8,
+						"max_contract_pressure_tier": 2,
+						"max_gold": 70,
+						"max_raw_difficulty": 7,
 						"min_gold": 14,
 						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"reliability_evasion",
+							"physical_mitigation"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4344,
+						"talent_points": 1,
+						"template_display_label": "Elite Orbit",
+						"template_id": "elite_orbit",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main",
+								"alternate"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 211,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"nullify",
+							"devious",
+							"armored",
+							"hexed",
+							"resistant",
+							"aegis",
+							"fortified"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 3,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": true,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_medium_stage_five_blend",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 2,
+						"max_gold": 70,
+						"max_raw_difficulty": 7,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"pressure_emphasis"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"timing_control",
+							"physical_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 2,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4345,
+						"talent_points": 1,
+						"template_display_label": "Hourglass Detour",
+						"template_id": "hourglass_detour",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"pinch_point"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"pinch_point"
+							]
+						},
+						"total_gold": 245,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"warded",
+							"hexed",
+							"nullify",
+							"aegis",
+							"fortified",
+							"arcane"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": true,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_medium_stage_five_blend",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 0,
+						"elite_variants": [],
+						"fork_rejoin_node_count": 6,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 2,
+						"max_gold": 70,
+						"max_raw_difficulty": 7,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"physical_mitigation",
+							"timing_control"
+						],
+						"pressure_gauntlet_node_count": 3,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 4,
+						"seed": 4346,
+						"talent_points": 1,
+						"template_display_label": "Split Spill Rejoin",
+						"template_id": "split_spill_rejoin",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 4,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 219,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"fortified",
+							"armored",
+							"warded",
+							"hexed",
+							"nimble",
+							"devious",
+							"nullify",
+							"resistant"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": true,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": true,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_medium_stage_five_blend",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": true,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"phase_duelist"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": false,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 2,
+						"max_gold": 70,
+						"max_raw_difficulty": 7,
+						"min_gold": 14,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption",
+							"reliability_evasion",
+							"timing_control"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 3,
+						"seed": 4347,
+						"talent_points": 1,
+						"template_display_label": "Braided Sideboard",
+						"template_id": "braided_sideboard",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main_road"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"main_road"
+							]
+						},
+						"total_gold": 237,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"nimble",
+							"devious",
+							"fortified",
+							"warded",
+							"aegis",
+							"armored",
+							"spiteful",
+							"hexed"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 2,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 2,
+						"case_id": "route_medium_to_hard_band",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": true,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 75,
+						"max_raw_difficulty": 8,
+						"min_gold": 16,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"volatile_pacing"
+						],
 						"notice_count": 0,
 						"notices": [],
 						"pressure_axes": [
 							"reliability_evasion",
 							"timing_control",
 							"physical_mitigation",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"volatile_pacing"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4348,
+						"talent_points": 1,
+						"template_display_label": "Elite Orbit",
+						"template_id": "elite_orbit",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main",
+								"alternate"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 229,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"armored",
+							"nimble",
+							"fortified",
+							"resistant",
+							"spiteful",
+							"hexed",
+							"aegis"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"apex_bulwark"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_medium_to_hard_band",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"venom_speaker"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": true,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 16,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"reliability_evasion",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4349,
+						"talent_points": 1,
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 251,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"armored",
+							"arcane",
+							"aegis",
+							"devious",
+							"nimble"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"chrono_tyrant"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_medium_to_hard_band",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"phase_duelist"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": true,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 16,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"physical_mitigation",
+							"timing_control",
+							"reliability_evasion"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4350,
+						"talent_points": 1,
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 251,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"hexed",
+							"aegis",
+							"fortified",
+							"devious",
+							"warded",
+							"resistant",
+							"arcane",
+							"spiteful"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_medium_to_hard_band",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 0,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": true,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 75,
+						"max_raw_difficulty": 8,
+						"min_gold": 16,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"debuff_poison_disruption",
+							"physical_mitigation",
+							"timing_control",
 							"magical_poison_mitigation"
 						],
+						"pressure_gauntlet_node_count": 0,
 						"preview_leaks": [],
-						"seed": 4341,
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 3,
+						"seed": 4351,
 						"talent_points": 1,
-						"total_gold": 202
+						"template_display_label": "Braided Sideboard",
+						"template_id": "braided_sideboard",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"main_road"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start",
+								"main_road"
+							]
+						},
+						"total_gold": 257,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"nimble",
+							"resistant",
+							"devious",
+							"arcane",
+							"warded",
+							"aegis",
+							"spiteful",
+							"nullify"
+						],
+						"boss_approach_lane_variation_seen": false,
+						"boss_approach_node_count": 0,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"void_regent"
+						],
+						"captain_boss_approach_seen": false,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": true,
+						"captain_node_count": 3,
+						"case_id": "route_medium_to_hard_band",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": false,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 0,
+						"elite_variants": [],
+						"fork_rejoin_node_count": 6,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": true,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 75,
+						"max_raw_difficulty": 8,
+						"min_gold": 16,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"pressure_emphasis"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"reliability_evasion",
+							"magical_poison_mitigation",
+							"timing_control",
+							"physical_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 3,
+						"preview_leaks": [],
+						"risky_intent_node_count": 3,
+						"route_modifiers": [
+							"pressure_emphasis"
+						],
+						"safe_boss_approach_seen": false,
+						"safe_intent_node_count": 4,
+						"seed": 4352,
+						"talent_points": 1,
+						"template_display_label": "Split Spill Rejoin",
+						"template_id": "split_spill_rejoin",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start"
+							],
+							"max_width": 4,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 238,
+						"wide_matchup_choice_node_count": 0
+					},
+					{
+						"archetypes": [
+							"arcane",
+							"aegis",
+							"nullify",
+							"hexed",
+							"armored",
+							"fortified",
+							"spiteful"
+						],
+						"boss_approach_lane_variation_seen": true,
+						"boss_approach_node_count": 4,
+						"boss_content_promotion_seen": false,
+						"boss_variants": [
+							"plague_court"
+						],
+						"captain_boss_approach_seen": true,
+						"captain_content_promotion_seen": false,
+						"captain_heavy_path_seen": false,
+						"captain_node_count": 3,
+						"case_id": "route_medium_to_hard_band",
+						"completed_pressure_changed": false,
+						"elite_boss_approach_seen": true,
+						"elite_content_promotion_seen": false,
+						"elite_detour_node_count": 1,
+						"elite_variants": [
+							"shieldbreaker_captain"
+						],
+						"fork_rejoin_node_count": 7,
+						"fork_rejoin_seen": true,
+						"full_hard_band_seen": true,
+						"high_reward_intent_node_count": 1,
+						"highest_gear_tier": 2,
+						"max_contract_pressure_tier": 3,
+						"max_gold": 70,
+						"max_raw_difficulty": 8,
+						"min_gold": 16,
+						"missing_reward_count": 0,
+						"nightmare_overcap_seen": false,
+						"node_modifiers": [
+							"elite_spotlight"
+						],
+						"notice_count": 0,
+						"notices": [],
+						"pressure_axes": [
+							"timing_control",
+							"physical_mitigation",
+							"magical_poison_mitigation",
+							"debuff_poison_disruption"
+						],
+						"pressure_gauntlet_node_count": 0,
+						"preview_leaks": [],
+						"risky_intent_node_count": 4,
+						"route_modifiers": [
+							"elite_spotlight"
+						],
+						"safe_boss_approach_seen": true,
+						"safe_intent_node_count": 3,
+						"seed": 4353,
+						"talent_points": 1,
+						"template_display_label": "Woven Boss Approach",
+						"template_id": "woven_boss_approach",
+						"template_width_summary": {
+							"branch_node_ids": [
+								"start",
+								"entry_a",
+								"entry_b",
+								"entry_c"
+							],
+							"max_width": 3,
+							"requires_wide_choice": true,
+							"wide_node_ids": [
+								"start"
+							]
+						},
+						"total_gold": 251,
+						"wide_matchup_choice_node_count": 0
 					}
 				]
 			}
@@ -613,7 +4347,7 @@
 			"status": "pass",
 			"values": {
 				"preview_leaks": [],
-				"sample_count": 13
+				"sample_count": 53
 			}
 		},
 		{
@@ -623,7 +4357,7 @@
 			"status": "pass",
 			"values": {
 				"missing_rewards": [],
-				"sample_count": 13
+				"sample_count": 53
 			}
 		},
 		{
@@ -633,41 +4367,211 @@
 			"status": "pass",
 			"values": {
 				"overflow_seen": true,
-				"sample_count": 13
+				"sample_count": 53
 			}
 		},
 		{
 			"id": "generated_route_completed_pressure_changes",
 			"label": "Completed-contract pressure changes generated route economy state",
-			"note": "Expected completed-contract pressure comparison to change materialized difficulty or rewards.",
-			"status": "fail",
+			"note": "",
+			"status": "pass",
 			"values": {
-				"completed_pressure_changed": false,
-				"sample_count": 13
+				"completed_pressure_changed": true,
+				"sample_count": 53
 			}
 		},
 		{
 			"id": "generated_route_axis_diversity",
-			"label": "Generated route samples cover multiple pressure axes",
+			"label": "Generated route samples cover every pressure axis",
 			"note": "",
 			"status": "pass",
 			"values": {
 				"axes": [
-					"physical_mitigation",
-					"debuff_poison_disruption",
-					"magical_poison_mitigation",
+					"reliability_evasion",
 					"timing_control",
-					"mixed",
-					"reliability_evasion"
+					"magical_poison_mitigation",
+					"debuff_poison_disruption",
+					"physical_mitigation",
+					"mixed"
 				],
-				"axis_count": 6
+				"axis_count": 6,
+				"missing_axes": []
+			}
+		},
+		{
+			"id": "generated_route_template_coverage",
+			"label": "Generated route samples cover every route template",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"template_count": 6,
+				"templates": [
+					"woven_boss_approach",
+					"split_spill_rejoin",
+					"hourglass_detour",
+					"elite_orbit",
+					"five_way_market",
+					"braided_sideboard"
+				]
+			}
+		},
+		{
+			"id": "generated_route_captain_node_coverage",
+			"label": "Generated route samples include Captain combat nodes",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"captain_node_seen": true,
+				"sample_count": 53
+			}
+		},
+		{
+			"id": "generated_route_branch_intent_coverage",
+			"label": "Generated route samples include safe, risky, and reward-weighted branch intent",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"high_reward_intent_seen": true,
+				"risky_intent_seen": true,
+				"safe_intent_seen": true,
+				"sample_count": 53
+			}
+		},
+		{
+			"id": "generated_route_t5_detour_gauntlet_coverage",
+			"label": "Generated route samples include optional elite detours and Captain-heavy pressure gauntlets",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"captain_heavy_path_seen": true,
+				"elite_detour_intent_seen": true,
+				"pressure_gauntlet_intent_seen": true,
+				"sample_count": 53
+			}
+		},
+		{
+			"id": "generated_route_t6_wide_fork_coverage",
+			"label": "Generated route samples include wide matchup choices and fork-rejoin shapes",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"fork_rejoin_seen": true,
+				"sample_count": 53,
+				"wide_matchup_choice_seen": true
+			}
+		},
+		{
+			"id": "generated_route_t7_boss_approach_coverage",
+			"label": "Generated route samples include distinct boss approach lane variation",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"boss_approach_seen": true,
+				"captain_boss_approach_seen": true,
+				"elite_boss_approach_seen": true,
+				"safe_boss_approach_seen": true,
+				"sample_count": 53
+			}
+		},
+		{
+			"id": "generated_route_blended_progression",
+			"label": "Generated route scaling blends next-band content by boss, elite, and captain roles",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"boss_content_promotion_seen": true,
+				"captain_content_promotion_seen": true,
+				"elite_content_promotion_seen": true,
+				"full_hard_band_seen": true,
+				"nightmare_overcap_seen": true,
+				"sample_count": 53
+			}
+		},
+		{
+			"id": "generated_route_archetype_coverage",
+			"label": "Generated route samples cover expanded archetype identities",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"archetype_count": 13,
+				"archetypes": [
+					"nimble",
+					"devious",
+					"nullify",
+					"spiteful",
+					"aegis",
+					"fortified",
+					"warded",
+					"hexed",
+					"armored",
+					"resistant",
+					"arcane",
+					"riftbound",
+					"unstable"
+				],
+				"missing_archetypes": []
+			}
+		},
+		{
+			"id": "generated_route_modifier_coverage",
+			"label": "Generated route samples cover every generated modifier",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"missing_modifiers": [],
+				"modifier_count": 4,
+				"node_modifiers": [
+					"elite_spotlight",
+					"volatile_pacing",
+					"pressure_emphasis",
+					"biome_hazard"
+				],
+				"route_modifiers": [
+					"pressure_emphasis",
+					"elite_spotlight",
+					"volatile_pacing",
+					"biome_hazard"
+				]
+			}
+		},
+		{
+			"id": "generated_route_elite_variant_coverage",
+			"label": "Generated route samples cover every elite variant",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"elite_variants": [
+					"shieldbreaker_captain",
+					"phase_duelist",
+					"null_priest",
+					"riftbound_marauder",
+					"venom_speaker"
+				],
+				"missing_elite_variants": [],
+				"variant_count": 5
+			}
+		},
+		{
+			"id": "generated_route_boss_variant_coverage",
+			"label": "Generated route samples cover every boss variant",
+			"note": "",
+			"status": "pass",
+			"values": {
+				"boss_variants": [
+					"void_regent",
+					"chrono_tyrant",
+					"plague_court",
+					"apex_bulwark"
+				],
+				"missing_boss_variants": [],
+				"variant_count": 4
 			}
 		}
 	],
-	"mechanics_count": 33,
+	"mechanics_count": 44,
 	"metadata": {
-		"generated_at": "2026-08-23T15:17:39",
-		"mechanics_count": 33,
+		"generated_at": "2026-09-01T11:54:52",
+		"mechanics_count": 44,
 		"project": "DawnBringer",
 		"scenario_count": 17,
 		"seed_count": 2600,
@@ -676,10 +4580,10 @@
 			"runner_script": "res://scripts/tools/run_balance_suite.gd",
 			"source_command": "godot --headless --path project -s res://scripts/tools/run_balance_suite.gd"
 		},
-		"status": "fail",
+		"status": "pass",
 		"status_counts": {
-			"fail": 1,
-			"pass": 49,
+			"fail": 0,
+			"pass": 61,
 			"warn": 0
 		},
 		"status_semantics": {
@@ -4150,8 +8054,8 @@
 			],
 			"generated_monster_metadata": {},
 			"gold": 67,
-			"id": "thief_contract_watchmen",
-			"label": "Thief Contract Build vs Cloaked Watchmen",
+			"id": "bladedancer_contract_watchmen",
+			"label": "Bladedancer Contract Build vs Cloaked Watchmen",
 			"matchup_preview": {},
 			"monster": "Cloaked Watchmen",
 			"monster_overrides": {},
@@ -13722,6 +17626,7 @@
 						{
 							"cost": 49,
 							"extras": {
+								"overlap_emphasis_bonus": 0.2,
 								"required_by": []
 							},
 							"godot_field": "cleanse_threshold",
@@ -13953,6 +17858,7 @@
 						{
 							"cost": 49,
 							"extras": {
+								"overlap_emphasis_bonus": 0.2,
 								"required_by": []
 							},
 							"godot_field": "cleanse_threshold",
@@ -14166,6 +18072,7 @@
 							{
 								"cost": 49,
 								"extras": {
+									"overlap_emphasis_bonus": 0.2,
 									"required_by": []
 								},
 								"godot_field": "cleanse_threshold",
@@ -14397,6 +18304,7 @@
 							{
 								"cost": 49,
 								"extras": {
+									"overlap_emphasis_bonus": 0.2,
 									"required_by": []
 								},
 								"godot_field": "cleanse_threshold",
@@ -14573,6 +18481,7 @@
 					{
 						"cost": 49,
 						"extras": {
+							"overlap_emphasis_bonus": 0.2,
 							"required_by": []
 						},
 						"godot_field": "cleanse_threshold",
@@ -14771,6 +18680,7 @@
 						{
 							"cost": 49,
 							"extras": {
+								"overlap_emphasis_bonus": 0.2,
 								"required_by": []
 							},
 							"godot_field": "cleanse_threshold",
@@ -14992,6 +18902,7 @@
 						{
 							"cost": 49,
 							"extras": {
+								"overlap_emphasis_bonus": 0.2,
 								"required_by": []
 							},
 							"godot_field": "cleanse_threshold",
@@ -15170,6 +19081,7 @@
 					{
 						"cost": 49,
 						"extras": {
+							"overlap_emphasis_bonus": 0.2,
 							"required_by": []
 						},
 						"godot_field": "cleanse_threshold",
@@ -18566,10 +22478,10 @@
 		"runner_script": "res://scripts/tools/run_balance_suite.gd",
 		"source_command": "godot --headless --path project -s res://scripts/tools/run_balance_suite.gd"
 	},
-	"status": "fail",
+	"status": "pass",
 	"status_counts": {
-		"fail": 1,
-		"pass": 49,
+		"fail": 0,
+		"pass": 61,
 		"warn": 0
 	},
 	"status_semantics": {

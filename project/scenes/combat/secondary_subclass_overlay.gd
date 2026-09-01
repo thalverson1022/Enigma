@@ -10,6 +10,8 @@ signal tree_chosen(tree: SubclassTree)
 
 const CARD_TITLE_FONT_SIZE := 20
 const CONTRACT_SUBCLASS_PROMPT_TEXT := "This type of work may require a little extra skill."
+const SECONDARY_TREE_CHOICE_COUNT := 2
+const SECONDARY_TREE_RNG_CONTEXT := "secondary_tree_choices"
 
 var _body_label: Label
 var _options: HBoxContainer
@@ -60,10 +62,35 @@ func _refresh_options() -> void:
 		child.queue_free()
 	if BuildState.selected_class == null:
 		return
+	for tree in _secondary_tree_choices():
+		_options.add_child(_make_tree_card(tree))
+
+
+func _secondary_tree_choices() -> Array[SubclassTree]:
+	var options: Array[SubclassTree] = []
+	if BuildState.selected_class == null:
+		return options
 	for tree in BuildState.selected_class.trees:
 		if BuildState.selected_trees.has(tree):
 			continue
-		_options.add_child(_make_tree_card(tree))
+		options.append(tree)
+	if options.size() <= SECONDARY_TREE_CHOICE_COUNT:
+		return options
+	var sampled: Array[SubclassTree] = []
+	var pool: Array[SubclassTree] = options.duplicate()
+	var rng := RunRng.rng_for_context(BuildState.adventure_seed, SECONDARY_TREE_RNG_CONTEXT, _secondary_tree_choice_parts())
+	while sampled.size() < SECONDARY_TREE_CHOICE_COUNT and not pool.is_empty():
+		sampled.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+	return sampled
+
+
+func _secondary_tree_choice_parts() -> Array:
+	var parts: Array = []
+	if BuildState.selected_class != null:
+		parts.append(BuildState.selected_class.id)
+	for tree in BuildState.selected_trees:
+		parts.append(tree.id)
+	return parts
 
 
 ## One selectable tree card, built through the same shared

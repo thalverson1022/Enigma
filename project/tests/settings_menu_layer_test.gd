@@ -98,8 +98,8 @@ func _initialize() -> void:
 	await process_frame
 
 	var subclass_select = game_root._current_screen
-	var thief: SubclassTree = rogue.trees[1]
-	subclass_select._on_tree_selected(thief)
+	var bladedancer: SubclassTree = rogue.trees[1]
+	subclass_select._on_tree_selected(bladedancer)
 	subclass_select.advanced.emit()
 	await process_frame
 

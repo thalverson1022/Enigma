@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="Talent" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/talent.gd" id="1_talent"]
+[ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_modifier"]
+[ext_resource type="Script" path="res://scripts/resources/prerequisite_group.gd" id="3_group"]
+[ext_resource type="Resource" path="res://data/talents/thief/big_score.tres" id="4_big_score"]
+
+[sub_resource type="Resource" id="Resource_gilded_blade_crit_damage"]
+script = ExtResource("2_modifier")
+stat = 10
+operation = 0
+value = 0.01
+
+[sub_resource type="Resource" id="Resource_gilded_blade_group"]
+script = ExtResource("3_group")
+options = Array[Talent]([ExtResource("4_big_score")])
+
+[resource]
+script = ExtResource("1_talent")
+id = "talent.gilded_blade"
+display_name = "Gilded Blade"
+cost = 3
+prerequisites = Array[PrerequisiteGroup]([SubResource("Resource_gilded_blade_group")])
+stat_modifiers = Array[StatModifier]([SubResource("Resource_gilded_blade_crit_damage")])
+unlocked_skills = Array[Skill]([])

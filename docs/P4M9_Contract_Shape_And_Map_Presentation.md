@@ -68,12 +68,13 @@ stakes without exposing combat/debug internals.
 
 ## Current Focus
 
-P4M9 has completed the route-shape audit, shape vocabulary/spec, deterministic
-template metadata, safe/risky reward weighting, elite-detour/pressure-gauntlet
-coverage, wide/fork-rejoin coverage, boss approach lane variation, and the
-route layout/edge readability pass, generated node visual identity polish, and
-biome/contract mood presentation. Continue with T11 matrix, inspector,
-save/load, and UI coverage.
+P4M9 is complete. It closed route-shape audit, shape vocabulary/spec,
+deterministic template metadata, safe/risky reward weighting,
+elite-detour/pressure-gauntlet coverage, wide/fork-rejoin coverage, boss
+approach lane variation, route layout/edge readability, generated node visual
+identity polish, biome/contract mood presentation, matrix/inspector/save-load/UI
+coverage, and the final playtest loop smoke/documentation pass. Continue with
+P4M10 regression, export, and Phase 4 closeout.
 
 ## Status Key
 
@@ -96,8 +97,8 @@ save/load, and UI coverage.
 | P4M9-T8: Route Layout And Edge Readability Pass | Complete | Improve generated map spacing, node placement, and path legibility across the expanded template set. | Generated map edges use deterministic curved/organic paths instead of rigid right-angle rails; generated node positions receive small deterministic visual offsets while remaining inside bounds, non-overlapping, and readable across common desktop/window sizes. |
 | P4M9-T9: Node Visual Identity And Interaction Polish | Complete | Make normal, Captain, elite, boss, available, completed, locked, high-pressure, and reward-heavy nodes easier to scan. | Existing node states receive clearer visual treatment, hover/selection feedback can highlight relevant generated edges, archetype/reward text is more readable, redundant biome text is reduced where safe, and visual cues use existing materialized route data rather than hidden mechanics. |
 | P4M9-T10: Biome And Contract Mood Presentation | Complete | Add visual variety to generated contract maps without tying fiction to mechanical truth. | Generated maps use renderer-side biome theme definitions for background tint, route/accent colors, themed route-edge colors, and subtle boss-end mood treatment across Swamp, Cave, Graveyard, Haunted Forest, Ruined Keep, and Ancient Ruins without adding gameplay effects or serialized route data. |
-| P4M9-T11: Matrix, Inspector, Save/Load, And UI Coverage | Not Started | Extend verification so new shapes and presentation remain deterministic and readable. | Generated route matrix, route inspector, generated save/load, map overlay preview, route UI preview, Balance Lab, and authored contract regression coverage account for every new template, map-preview boundary, deterministic visual layout, biome theme, and visual-state rule. |
-| P4M9-T12: Playtest Loop Smoke Pass And Documentation | Not Started | Close the milestone with the repeated generated-contract loop in a presentable state. | Contract Test and normal Adventure can repeatedly complete generated contracts through shops, route maps remain readable across sampled templates, known gaps are documented, overview/onboarding are updated, and P4M10 closeout handoff is clear. |
+| P4M9-T11: Matrix, Inspector, Save/Load, And UI Coverage | Complete | Extend verification so new shapes and presentation remain deterministic and readable. | Generated route matrix, route inspector, generated save/load, map overlay preview, route UI preview, Balance Lab, and authored contract regression coverage account for every new template, map-preview boundary, deterministic visual layout, biome theme, and visual-state rule. |
+| P4M9-T12: Playtest Loop Smoke Pass And Documentation | Complete | Close the milestone with the repeated generated-contract loop in a presentable state. | Normal Adventure and diagnostic Contract Test coverage repeatedly complete generated contracts through shops, route maps remain readable across sampled templates, known gaps are documented, overview/onboarding are updated, and P4M10 closeout handoff is clear. |
 
 ## Initial Design Direction
 
@@ -1051,6 +1052,112 @@ Focused verification passed outside the sandbox:
 - `res://tests/map_overlay_route_preview_test.gd`
 - `res://tests/generated_route_ui_preview_test.gd`
 
+## P4M9-T11 Matrix, Inspector, Save/Load, And UI Coverage
+
+Status: Complete on 2026-08-31.
+
+Implementation summary:
+
+- Generated route edge presentation now treats completed route segments as
+  active path history: completed edges use the active route-line width and
+  glint layer so the chosen route remains legible while selecting later nodes.
+- `map_overlay_route_preview_test.gd` now explicitly covers selected forward
+  path highlighting and completed-path preservation while a future node is
+  pending.
+- The focused matrix gate verifies deterministic generation, every P4M9 route
+  template, route validity, route width, sparse previews, single-biome
+  generated contracts, pressure/content promotion, modifier coverage, elite and
+  boss variant coverage, Captain coverage, and expanded archetype coverage.
+- The inspector gate verifies repeatable report signatures, route/template
+  metadata, branch intent checks, modifier/variant reporting, sparse preview
+  boundaries, and text report usefulness.
+- The generated save/load gate verifies generated offer, accepted route,
+  selected node/planning state, claimed rewards, between-contract shop state,
+  repeated generated-contract progression, supported mismatch notices, and
+  unsupported generated-state rejection.
+- The generated route UI gate verifies real combat/map UI behavior including
+  boss-objective titles, biome themes, curved route edges, fixed card sizing,
+  sprite-frame cards, silhouette highlights, reward icon boxes, compact
+  player-facing text, locked/available/selected states, and hidden debug
+  internals.
+- The authored contract regression keeps the Gilded Serpent/Vyra contract flow
+  covered after the shared map renderer changes, including hideout frame art,
+  curved paths, reward icon stacks, silhouette highlights, no old enemy
+  markers, route selection/deselection, and second-subclass choice behavior.
+- Balance Lab and lifecycle/outcome regressions still pass after the
+  presentation verification pass.
+
+Focused verification passed outside the sandbox:
+
+- `res://tests/map_overlay_route_preview_test.gd`
+- `res://tests/generated_route_matrix_test.gd`
+- `res://tests/generated_route_inspector_test.gd`
+- `res://tests/generated_contract_save_load_test.gd`
+- `res://tests/generated_route_ui_preview_test.gd`
+- `res://tests/contract_offer_flow_test.gd`
+- `res://tests/p4m8_adventure_lifecycle_regression_test.gd`
+- `res://tests/balance_lab_test.gd`
+- `res://tests/contract_route_generator_test.gd`
+- `res://tests/generated_contract_route_data_shape_test.gd`
+- `res://tests/generated_contract_outcome_test.gd`
+
+Known non-blocking output:
+
+- Sandboxed Godot still hit the known `user://logs` crash before script
+  execution.
+- Outside-sandbox runs passed and emitted the existing ObjectDB/RID/resource
+  cleanup warnings at exit.
+
+## P4M9-T12 Playtest Loop Smoke Pass And Documentation
+
+Status: Complete on 2026-09-01.
+
+Closeout summary:
+
+- Normal Adventure now skips the authored Vyra contract for this phase: after
+  Tavern, Ghit's generated-contract materials pitch sends the player to three
+  generated biome contract offers. The authored Vyra contract data and handler
+  remain in place for later restoration and regression use.
+- Contract Test remains as a diagnostic signal and test path, but the title
+  menu no longer exposes it to players.
+- The late gameplay cleanup pass added the Monster Manual, boss checklist,
+  all-bosses victory screen, Hold intrinsic skill, Ancient Ruins enemy sprites,
+  top-menu access through overlay phases, Practice Room target/HUD cleanup,
+  Practice Room 10-talent-point sandboxing, and Thief/Steal clarity fixes.
+- Generated map and contract-card presentation stayed within the P4M9 scope:
+  readable route shapes, sparse cards, larger contract offer iconography,
+  preview-before-commit route flow, and no new route-node systems.
+- P4M10 inherits regression/export closeout rather than additional generated
+  route design work.
+
+Focused verification passed outside the sandbox:
+
+- `res://tests/generated_route_matrix_test.gd`
+- `res://tests/generated_route_inspector_test.gd`
+- `res://tests/generated_route_ui_preview_test.gd`
+- `res://tests/map_overlay_route_preview_test.gd`
+- `res://tests/generated_contract_save_load_test.gd`
+- `res://tests/generated_contract_outcome_test.gd`
+- `res://tests/p4m8_adventure_lifecycle_regression_test.gd`
+- `res://tests/run_failure_state_test.gd`
+- `res://tests/contract_offer_flow_test.gd`
+- `res://tests/contract_test_entry_test.gd`
+- `res://tests/dashboard_header_test.gd`
+- `res://tests/training_room_build_test.gd`
+- `res://tests/training_room_fight_setup_test.gd`
+- `res://tests/training_room_combat_view_test.gd`
+- `res://tests/hold_skill_test.gd`
+- `res://tests/generated_boss_checklist_test.gd`
+- `res://tests/monster_manual_overlay_test.gd`
+- `res://tests/thief_subclass_test.gd`
+- `res://tests/combat_playback_test.gd`
+- `res://tests/balance_lab_test.gd`
+
+Known non-blocking output:
+
+- Outside-sandbox Godot runs still emit the existing ObjectDB/RID/resource
+  cleanup warnings at exit.
+
 ## Verification Notes
 
 Run Godot 4.7 from:
@@ -1106,6 +1213,9 @@ P4M9 is complete when:
 - Run the full Phase 4 regression/export closeout pass.
 - Stabilize any rough generated-route tuning found during P4M9.
 - Prepare the external playtest build and export smoke test.
-- Document the final Phase 4 state and Phase 5 gear-expansion handoff.
+- Document the final Phase 4 state and the minimum Phase 5 gear-redesign
+  handoff context.
+- Commit the final Phase 4 closeout state, push it to GitHub, and promote
+  DawnBringer so the finished Phase 4 code becomes the repository main branch.
 - Keep deeper route systems deferred until there is enough playtester feedback
   to justify them.

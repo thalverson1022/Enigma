@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SubclassTree" load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/subclass_tree.gd" id="1_tree"]
+[ext_resource type="Resource" path="res://data/talents/bladedancer/quick_hands.tres" id="2_quick_hands"]
+[ext_resource type="Resource" path="res://data/talents/bladedancer/piercing_blades.tres" id="3_piercing_blades"]
+[ext_resource type="Resource" path="res://data/talents/bladedancer/practiced_rhythm.tres" id="4_practiced_rhythm"]
+[ext_resource type="Resource" path="res://data/talents/bladedancer/opportunity_strikes.tres" id="5_opportunity_strikes"]
+[ext_resource type="Resource" path="res://data/talents/bladedancer/sunder.tres" id="6_sunder"]
+[ext_resource type="Resource" path="res://data/skills/quick_cut.tres" id="7_quick_cut"]
+[ext_resource type="Texture2D" path="res://assets/subclass_icons/rogue/bladedancer.png" id="8_icon"]
+
+[resource]
+script = ExtResource("1_tree")
+id = "tree.bladedancer"
+display_name = "Bladedancer"
+icon = ExtResource("8_icon")
+intrinsic_text = ""
+talents = Array[Talent]([ExtResource("2_quick_hands"), ExtResource("3_piercing_blades"), ExtResource("4_practiced_rhythm"), ExtResource("5_opportunity_strikes"), ExtResource("6_sunder")])
+innate_modifiers = Array[StatModifier]([])
+unlocked_skills = Array[Skill]([ExtResource("7_quick_cut")])

@@ -12,7 +12,7 @@ const TRAINING_ROOM_SCENE := preload("res://scenes/training_room/training_room.t
 const SETTINGS_MENU_LAYER := preload("res://scripts/ui/settings_menu_layer.gd")
 const ROGUE_CLASS_PATH := "res://data/classes/rogue.tres"
 const ASSASSIN_TREE_PATH := "res://data/subclass_trees/assassin.tres"
-const THIEF_TREE_PATH := "res://data/subclass_trees/thief.tres"
+const BLADEDANCER_TREE_PATH := "res://data/subclass_trees/bladedancer.tres"
 const BANDIT_BLADE_PATH := "res://data/gear/bandit_blade.tres"
 
 var _current_screen: Node = null
@@ -90,14 +90,14 @@ func _on_contract_test_pressed(seed: int = BuildState.DEFAULT_ADVENTURE_SEED) ->
 	BuildState.set_adventure_seed(seed)
 	var rogue: ClassDef = load(ROGUE_CLASS_PATH)
 	var assassin: SubclassTree = load(ASSASSIN_TREE_PATH)
-	var thief: SubclassTree = load(THIEF_TREE_PATH)
+	var bladedancer: SubclassTree = load(BLADEDANCER_TREE_PATH)
 	var bandit_blade: GearItem = load(BANDIT_BLADE_PATH)
-	if rogue == null or assassin == null or thief == null or bandit_blade == null:
-		push_error("Contract Test requires Rogue, Assassin, Thief, and Bandit Blade data.")
+	if rogue == null or assassin == null or bladedancer == null or bandit_blade == null:
+		push_error("Contract Test requires Rogue, Assassin, Bladedancer, and Bandit Blade data.")
 		_show_title()
 		return
 	BuildState.set_class(rogue)
-	BuildState.selected_trees = [assassin, thief]
+	BuildState.selected_trees = [assassin, bladedancer]
 	BuildState.selected_talents = []
 	BuildState.rotation = []
 	BuildState.earned_talent_points = 7
