@@ -13,7 +13,7 @@ flow, or another issue that would prevent useful playtest feedback.
 
 ## Status
 
-In Progress.
+Complete as of 2026-09-01.
 
 P4M10-T1 is complete as of 2026-09-01. The closeout boundary is locked, the
 source branch is confirmed as `phase-4-dawnbringer`, and the intended final
@@ -55,9 +55,13 @@ P4M10-T8 is complete as of 2026-09-01. Final closeout documentation is synced
 across this doc, `docs/P4_DawnBringer_Overview.md`,
 `docs/P4_DawnBringer_Onboarding_Context.md`, and
 `docs/P5_Minimum_Handoff_From_Phase_4.md`. Phase 4 is functionally complete
-for closeout purposes, but not fully closed until T9 creates the final commit,
-pushes it, promotes the GitHub main branch, and records the final commit hash
-and promotion method.
+for closeout purposes.
+
+P4M10-T9 is complete as of 2026-09-01. The final closeout content commit is
+`0bfa140bb672e593852d25a93bd65bdcc43f3735` (`Complete Phase 4 DawnBringer
+closeout`). It was pushed to `origin/phase-4-dawnbringer`, and GitHub `main`
+was promoted by direct push from `phase-4-dawnbringer` to `main` because no
+remote `main` branch was advertised during the pre-promotion branch-head check.
 
 ## Milestone Goal
 
@@ -102,8 +106,8 @@ Out of scope:
 | P4M10-T5: Export Build Candidate | Complete | Produce the external playtest build from the current player-facing Adventure path. | Export preset is confirmed or updated, a build artifact is produced, and exported build launch/smoke behavior is recorded. |
 | P4M10-T6: Release Blocker Fix Pass | Complete | Fix only issues that would make the playtest invalid or noisy. | Crashes, stuck states, broken exports, save/load corruption, unreadable route maps, missing critical assets, and player-facing debug leaks are resolved or explicitly accepted. |
 | P4M10-T7: Phase 5 Minimum Handoff Docs | Complete | Give the next phase enough context without dragging full P4 history forward. | A lean Phase 5 handoff document records current playable flow, known rough balance, gear-redesign priorities, deferred systems, verification commands, and key files. |
-| P4M10-T8: Final Closeout Docs | Complete | Mark Phase 4 functionally complete pending T9 in the living project docs. | This doc, overview, onboarding context, and handoff docs record verification results, export artifact, known caveats, T9 boundary, and Phase 5 entry point. |
-| P4M10-T9: Commit, Push, And Promote Main | Not Started | Finish DawnBringer on GitHub. | Final closeout commit is created, pushed to GitHub, and DawnBringer is promoted so the finished Phase 4 code is the repository main branch. |
+| P4M10-T8: Final Closeout Docs | Complete | Mark Phase 4 functionally complete in the living project docs before final GitHub closeout. | This doc, overview, onboarding context, and handoff docs record verification results, export artifact, known caveats, T9 boundary, and Phase 5 entry point. |
+| P4M10-T9: Commit, Push, And Promote Main | Complete | Finish DawnBringer on GitHub. | Final closeout commit is created, pushed to GitHub, and DawnBringer is promoted so the finished Phase 4 code is the repository main branch. |
 
 ## P4M10-T2 Repo And Documentation Audit
 
@@ -562,9 +566,12 @@ Remotes:
 
 Final GitHub result:
 
-- Phase 4 closeout commit is pushed.
-- DawnBringer becomes the repository's main branch of code.
-- Record the final commit hash and branch-promotion method in this doc.
+- Phase 4 closeout content commit is pushed:
+  `0bfa140bb672e593852d25a93bd65bdcc43f3735`.
+- DawnBringer `main` has been created/promoted from `phase-4-dawnbringer`.
+- Branch-promotion method: direct push
+  `git push origin phase-4-dawnbringer:main`, used after confirming the remote
+  advertised `phase-4-dawnbringer` and did not advertise `main`.
 
 Preferred promotion path:
 
@@ -617,17 +624,17 @@ Status: Complete on 2026-09-01.
 
 Final documentation sync:
 
-- `docs/P4M10_Regression_Export_And_Phase_4_Closeout.md` now records T1-T8
+- `docs/P4M10_Regression_Export_And_Phase_4_Closeout.md` recorded T1-T8
   complete, accepted caveats, the Windows export artifact, the Phase 5 handoff
-  document, and T9 as the only remaining closeout task.
-- `docs/P4_DawnBringer_Overview.md` now records Phase 4 as functionally
-  complete through verification/export/handoff, while keeping P4M10 open until
-  T9 commit/push/promotion.
-- `docs/P4_DawnBringer_Onboarding_Context.md` now records T1-T8 complete,
-  points to `docs/P5_Minimum_Handoff_From_Phase_4.md`, and identifies T9 as
-  the only remaining P4M10 task.
+  document, and the T9 closeout boundary.
+- `docs/P4_DawnBringer_Overview.md` recorded Phase 4 as functionally complete
+  through verification/export/handoff, while keeping P4M10 open until T9
+  commit/push/promotion.
+- `docs/P4_DawnBringer_Onboarding_Context.md` recorded T1-T8 complete, pointed
+  to `docs/P5_Minimum_Handoff_From_Phase_4.md`, and identified T9 as the final
+  P4M10 task.
 - `docs/P5_Minimum_Handoff_From_Phase_4.md` now serves as the Phase 5 entry
-  point for gear redesign context and notes that only T9 remains in P4M10.
+  point for gear redesign context.
 
 Closeout evidence recorded:
 
@@ -659,8 +666,44 @@ Accepted caveats carried forward:
 T8 outcome:
 
 - Phase 4 is functionally complete for closeout purposes.
-- P4M10 remains open only for T9: final staging review, commit, push, GitHub
+- T9 was responsible for final staging review, commit, push, GitHub
   main-branch promotion, and recording the final commit hash/promotion method.
+
+## P4M10-T9 Commit, Push, And Promote Main
+
+Status: Complete on 2026-09-01.
+
+Final staging review:
+
+- Staged Phase 4 docs, project source, tests, reports, runtime archetype data,
+  and required assets.
+- Excluded `docs/~$fensive mechanics.docx`, the untracked temporary Word lock
+  file.
+- Left ignored export artifacts under `project/export/` out of Git; their path,
+  size, and SHA-256 remain recorded in T5 and the Phase 5 handoff.
+
+Final commit and push:
+
+- Final closeout content commit:
+  `0bfa140bb672e593852d25a93bd65bdcc43f3735`.
+- Commit message: `Complete Phase 4 DawnBringer closeout`.
+- Pushed `phase-4-dawnbringer` to `origin`.
+
+Main promotion:
+
+- Pre-promotion remote branch check showed
+  `phase-4-dawnbringer` at
+  `0bfa140bb672e593852d25a93bd65bdcc43f3735` and did not advertise a remote
+  `main` branch.
+- Promoted by direct branch push:
+  `git push origin phase-4-dawnbringer:main`.
+- GitHub created `origin/main` from the same final closeout content commit.
+
+T9 outcome:
+
+- P4M10 is complete.
+- Phase 4 is closed for DawnBringer.
+- DawnBringer `main` now contains the finished Phase 4 code.
 
 ## Known Closeout Caveats
 
@@ -688,8 +731,8 @@ T8 outcome:
 - Export build candidate is produced and smoke tested.
 - Release blockers found during closeout are fixed or explicitly accepted.
 - Phase 5 minimum handoff document exists.
-- Overview and onboarding docs identify Phase 4 as functionally complete
-  pending T9 and point to the Phase 5 handoff.
+- Overview and onboarding docs identify Phase 4 as complete and point to the
+  Phase 5 handoff.
 - Final closeout commit is created.
 - Final closeout commit is pushed to GitHub.
 - DawnBringer is promoted so the finished Phase 4 code is the repository main

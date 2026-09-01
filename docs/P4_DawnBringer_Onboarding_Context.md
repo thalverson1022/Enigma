@@ -95,18 +95,17 @@ Use `docs/P4_DawnBringer_Overview.md` as the source of truth.
 - P4M7: Rewards, Resources, And Route Economy. Complete.
 - P4M8: Contract Variety And Content Expansion. Complete.
 - P4M9: Contract Shape And Map Presentation. Complete.
-- P4M10: Regression, Export, And Phase 4 Closeout. In Progress; T1 closeout
+- P4M10: Regression, Export, And Phase 4 Closeout. Complete; T1 closeout
   scope/branch plan, T2 repo/docs/export audit, T3 regression pass, T4
   player-facing smoke pass, T5 export candidate, and T6 release blocker pass
   complete, T7 Phase 5 minimum handoff docs complete, and T8 final closeout
-  docs complete. T9 final commit/push/GitHub main-branch promotion remains.
+  docs complete. T9 final commit/push/GitHub main-branch promotion is complete.
 
-## Active P4M10 Focus
+## Phase 4 Closeout Status
 
-- Run the final Phase 4 regression/export closeout after P4M9 stabilized
-  generated contract shape and map presentation.
+- Phase 4 is complete for DawnBringer.
 - Use `docs/P4M10_Regression_Export_And_Phase_4_Closeout.md` as the active
-  closeout task plan.
+  closeout record.
 - P4M10-T2 recorded the dirty-tree audit, export preset state, doc agreement,
   and the runtime archetype library export risk.
 - P4M10-T3 passed the expanded scripted regression suite and standalone
@@ -124,9 +123,13 @@ Use `docs/P4_DawnBringer_Overview.md` as the source of truth.
 - P4M10-T7 created the lean Phase 5 handoff at
   `docs/P5_Minimum_Handoff_From_Phase_4.md` on 2026-09-01.
 - P4M10-T8 completed final closeout documentation on 2026-09-01.
-- P4M10-T9 is the only remaining P4M10 task: final staging review, final
-  closeout commit, GitHub push, DawnBringer main-branch promotion, and recording
-  the final commit hash/promotion method.
+- P4M10-T9 completed the final staging review, final closeout content commit,
+  GitHub push, DawnBringer main-branch promotion, and final
+  hash/promotion-method record on 2026-09-01.
+- Final closeout content commit:
+  `0bfa140bb672e593852d25a93bd65bdcc43f3735`.
+- Promotion method: direct push from `phase-4-dawnbringer` to `main` after the
+  pre-promotion remote branch check did not advertise a remote `main` branch.
 - Keep `docs/~$fensive mechanics.docx` excluded from final staging; it is an
   untracked temporary Word lock file.
 - Treat P4M10 as a closeout milestone, not a design milestone. Fix crashes,
@@ -135,12 +138,10 @@ Use `docs/P4_DawnBringer_Overview.md` as the source of truth.
 - Do not tune broad balance during closeout. Gear will be heavily redesigned in
   Phase 5 before playtesting, and skill trees will receive a later major
   overhaul.
-- Create lean Phase 5 handoff docs with only the minimum context needed for the
-  gear redesign: current playable flow, what generated contracts own,
-  provisional balance caveats, deferred systems, key files, verification
-  commands, final P4 commit, and export artifact.
-- End P4M10 with a final closeout commit, push to GitHub, and promotion so
-  DawnBringer becomes the repository main branch.
+- Begin Phase 5 from the lean Phase 5 handoff docs, with only the minimum
+  context needed for the gear redesign: current playable flow, what generated
+  contracts own, provisional balance caveats, deferred systems, key files,
+  verification commands, final P4 commit, and export artifact.
 - Preserve deterministic combat, materialized generated route state, sparse
   route previews, deterministic rewards, pressure metadata boundaries, and the
   authored Gilded Serpent regression baseline.

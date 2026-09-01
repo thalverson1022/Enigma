@@ -225,10 +225,13 @@ Windows playtest candidate:
   - SHA-256:
     `3E6EED6983A851401A64CC238D78572C0F48557C1A54B12A3A1752AA3F617B70`
 
-## Final Closeout Still Pending
+## Final Closeout Record
 
-P4M10 still needs:
+P4M10 is complete as of 2026-09-01.
 
-- T9 final staging review, final commit, push, and GitHub main-branch
-  promotion.
-- Final commit hash and promotion method recorded back into the closeout docs.
+- Final closeout content commit:
+  `0bfa140bb672e593852d25a93bd65bdcc43f3735`.
+- Commit message: `Complete Phase 4 DawnBringer closeout`.
+- The commit was pushed to `origin/phase-4-dawnbringer`.
+- GitHub `main` was promoted by direct push from `phase-4-dawnbringer` after
+  the pre-promotion branch-head check did not advertise a remote `main` branch.

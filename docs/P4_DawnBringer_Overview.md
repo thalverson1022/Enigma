@@ -16,10 +16,10 @@ P4M0-P4M9 are complete. P4M9 closed generated contract shape and map
 presentation expansion: route topology, node/edge readability, contract copy,
 Captain role vocabulary, blended scaling, renderer-side biome mood themes,
 matrix/inspector/save-load/UI coverage, and the final playtest loop smoke pass.
-P4M10 is active for regression, export, final handoff documentation, commit,
-push, and promoting DawnBringer so the finished Phase 4 code becomes the
-repository main branch. P4M10-T1 locked the closeout scope and branch-promotion
-plan on 2026-09-01. P4M10-T2 completed the repo/documentation/export audit on
+P4M10 is complete: regression, export, final handoff documentation, commit,
+push, and DawnBringer `main` promotion are done. P4M10-T1 locked the closeout
+scope and branch-promotion plan on 2026-09-01. P4M10-T2 completed the
+repo/documentation/export audit on
 2026-09-01 and handed the expanded regression list to T3. P4M10-T3 completed
 the expanded scripted regression pass and standalone Balance Lab report on
 2026-09-01 with no code fixes required. P4M10-T4 completed the focused
@@ -30,9 +30,11 @@ library into project resources, and smoke-launched the exported runtime.
 P4M10-T6 completed the release blocker pass on 2026-09-01 with no remaining
 release blockers and no code fixes required. P4M10-T7 created the lean Phase 5
 handoff at `docs/P5_Minimum_Handoff_From_Phase_4.md` on 2026-09-01. P4M10-T8
-completed final closeout documentation on 2026-09-01. Phase 4 is functionally
-complete for verification/export/handoff purposes, with only T9 final
-commit/push/GitHub main-branch promotion still pending.
+completed final closeout documentation on 2026-09-01. P4M10-T9 created and
+pushed final closeout content commit
+`0bfa140bb672e593852d25a93bd65bdcc43f3735`, then promoted GitHub `main` by
+direct push from `phase-4-dawnbringer` after confirming no remote `main` branch
+was advertised. Phase 4 is complete for DawnBringer.
 
 P4M5 delivered the procedural contract route generator infrastructure:
 deterministic seeded route graphs, start/boss anchors, branching templates,
@@ -74,7 +76,7 @@ T11 closed the milestone documentation and handed reward/economy work to P4M7.
 | P4M7: Rewards, Resources, And Route Economy | Complete | Generated combat rewards, risk/reward pacing, route pressure, anti-snowball checks, and lifecycle regressions are covered. |
 | P4M8: Contract Variety And Content Expansion | Complete | Expanded archetypes, biome pools, modifiers, elite/boss variants, contract themes, repeatable generated-contract playtesting, and lifecycle coverage. |
 | P4M9: Contract Shape And Map Presentation | Complete | Add meaningful generated route topology variety and improve contract-map readability/visual polish without adding new route systems. |
-| P4M10: Regression, Export, And Phase 4 Closeout | In Progress | Stabilize, verify, export, document the Phase 5 handoff, commit, push, and promote DawnBringer as the repository main branch. |
+| P4M10: Regression, Export, And Phase 4 Closeout | Complete | Stabilize, verify, export, document the Phase 5 handoff, commit, push, and promote DawnBringer as the repository main branch. |
 
 ## P4M6 Closeout
 
@@ -277,11 +279,11 @@ P4M10 task plan:
   gear caveats, Phase 5 gear priorities, deferred systems, key files/tests,
   verification, and the Windows export artifact.
 - P4M10-T8 is complete: final closeout docs are synced across the P4M10
-  closeout doc, overview, onboarding context, and Phase 5 handoff, with T9
-  still pending for final commit/push/promotion details.
-- Next, perform the final staging review, commit the Phase 4 state, push it to
-  GitHub, promote DawnBringer so the finished Phase 4 code is the repository
-  main branch, and record the final commit hash/promotion method.
+  closeout doc, overview, onboarding context, and Phase 5 handoff.
+- P4M10-T9 is complete: final closeout content commit
+  `0bfa140bb672e593852d25a93bd65bdcc43f3735` was pushed to GitHub, and
+  DawnBringer `main` was promoted by direct push from `phase-4-dawnbringer`.
+- Next, begin Phase 5 from `docs/P5_Minimum_Handoff_From_Phase_4.md`.
 
 Recent P4M6 closeout verification passed outside the sandbox:
 
