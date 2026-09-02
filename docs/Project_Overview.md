@@ -126,7 +126,7 @@ Recommended early focus:
 ## Key References
 
 - `docs/P5_Minimum_Handoff_From_Phase_4.md`: the main starting point for Phase 5.
-- `docs/P4M10_Regression_Export_And_Phase_4_Closeout.md`: final Phase 4
-  closeout record, verification evidence, export artifact, commit hash, and
-  GitHub promotion method.
-
+- DawnBringer repository history at
+  `df940053bda8f8b1369d10754828b69120b00b0d`: final Phase 4 closeout record,
+  verification evidence, export artifact, commit hash, and GitHub promotion
+  method.

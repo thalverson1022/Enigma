@@ -12,15 +12,14 @@ Read these documents in order:
 2. `docs/P5_Minimum_Handoff_From_Phase_4.md`
 3. `docs/New_Gear_Overview.md`
 4. `docs/P5_Gear_Redesign_Overview.md`
-5. `docs/P4M10_Regression_Export_And_Phase_4_Closeout.md`
 
 Use `docs/Project_Overview.md` for the executive summary and current state. Use
 `docs/P5_Minimum_Handoff_From_Phase_4.md` as the practical Phase 5 handoff. Use
 `docs/New_Gear_Overview.md` as the current gear design spec. Use
-`docs/P5_Gear_Redesign_Overview.md` as the Phase 5 milestone tracker. Use
-`docs/P4M10_Regression_Export_And_Phase_4_Closeout.md` only when you need the
-full closeout evidence, verification record, export details, or GitHub commit
-history.
+`docs/P5_Gear_Redesign_Overview.md` as the Phase 5 milestone tracker. The full
+Phase 4 closeout archive remains available in the DawnBringer repository history
+at commit `df940053bda8f8b1369d10754828b69120b00b0d` when deeper evidence is
+needed.
 
 ## Project Goal
 
@@ -123,10 +122,12 @@ entry points are:
 
 Phase 4 closeout passed the major generated-contract regression suite, focused
 player-facing smoke pass, release blocker pass, and Windows export smoke. The
-exact commands, warnings, artifact paths, sizes, hashes, and caveats are in:
+local summary is in:
 
 - `docs/P5_Minimum_Handoff_From_Phase_4.md`
-- `docs/P4M10_Regression_Export_And_Phase_4_Closeout.md`
+
+The complete closeout evidence remains in the DawnBringer repository history at
+commit `df940053bda8f8b1369d10754828b69120b00b0d`.
 
 Known accepted non-blockers:
 
@@ -159,4 +160,3 @@ onboarding context first. Then ask the assistant to read
 `docs/Project_Overview.md`, `docs/P5_Minimum_Handoff_From_Phase_4.md`,
 `docs/New_Gear_Overview.md`, and `docs/P5_Gear_Redesign_Overview.md` before
 planning or implementing Phase 5 work.
-

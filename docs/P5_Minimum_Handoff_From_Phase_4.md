@@ -2,15 +2,13 @@
 
 ## Purpose
 
-This is the lean Phase 5 landing document for DawnBringer. It records the
+This is the lean Phase 5 landing document for Project Enigma. It records the
 current playable Phase 4 state, the generated-contract systems Phase 4 now
 owns, the rough areas Phase 5 should expect, and the minimum verification/build
 context needed before starting the gear redesign.
 
-For deeper history, use:
-
-- `docs/P4_DawnBringer_Overview.md`
-- `docs/P4M10_Regression_Export_And_Phase_4_Closeout.md`
+For deeper Phase 4 history, use the DawnBringer repository history at
+`df940053bda8f8b1369d10754828b69120b00b0d`.
 
 ## Current Playable Flow
 
