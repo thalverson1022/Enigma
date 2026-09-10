@@ -25,9 +25,11 @@ const GENERATED_CONTRACT_SAVE_SCHEMA_VERSION := 1
 const ContractRouteGeneratorScript := preload("res://scripts/systems/contract_route_generator/contract_route_generator.gd")
 const RuntimeMonsterGeneratorScript := preload("res://scripts/systems/runtime_monster_generator/runtime_monster_generator.gd")
 const RuntimeArchetypeLibraryLoaderScript := preload("res://scripts/systems/runtime_monster_generator/runtime_archetype_library_loader.gd")
+const StatCatalog := preload("res://scripts/systems/stat_catalog.gd")
 
 static var save_path := SAVE_PATH
 static var last_generated_load_notices := PackedStringArray()
+static var last_gear_load_notices := PackedStringArray()
 
 
 static func has_save() -> bool:
@@ -97,6 +99,8 @@ static func _serialize(state) -> Dictionary:
 		"shop_offers": _gear_list_to_data(state.shop_offers),
 		"pending_reward_choices": _gear_list_to_data(state.pending_reward_choices),
 		"equipped_weapon": _gear_entry_to_data(state.equipped_weapon),
+		"equipped_helm": _gear_entry_to_data(state.equipped_helm),
+		"equipped_armor": _gear_entry_to_data(state.equipped_armor),
 		"equipped_trinket": _gear_entry_to_data(state.equipped_trinket),
 		"equipped_charm": _gear_entry_to_data(state.equipped_charm),
 		"pending_contract_offers": _pending_contract_offers_to_data(state.pending_contract_offers),
@@ -115,6 +119,7 @@ static func _serialize(state) -> Dictionary:
 		"defeated_generated_boss_ids": state.defeated_generated_boss_ids.duplicate(),
 		"current_encounter_index": state.current_encounter_index,
 		"encounter_failure_counts": state.encounter_failure_counts.duplicate(),
+		"encounter_retry_counts": state.encounter_retry_counts.duplicate(),
 		# A mid-fight save can only happen from a hard crash/quit -- combat
 		# resolves synchronously with no persisted tick state, so it's never
 		# meaningful to resume mid-FIGHTING. Normalize it back to PLANNING.
@@ -133,6 +138,7 @@ static func _serialize(state) -> Dictionary:
 
 static func _deserialize(data: Dictionary, state) -> bool:
 	last_generated_load_notices = PackedStringArray()
+	last_gear_load_notices = PackedStringArray()
 	var resolved_class: ClassDef = null
 	if data.get("selected_class") != null:
 		resolved_class = _load_or_null(data.get("selected_class"))
@@ -190,7 +196,7 @@ static func _deserialize(data: Dictionary, state) -> bool:
 	state.adventure_seed = int(data.get("adventure_seed", 1))
 	state.gold = int(data.get("gold", 0))
 	state.earned_talent_points = int(data.get("earned_talent_points", 0))
-	state.inventory = _gear_list_from_data(data.get("inventory", []))
+	state.inventory = _gear_list_from_save_data(data.get("inventory", []), "inventory")
 	state.claimed_reward_encounter_indices = _int_array(data.get("claimed_reward_encounter_indices", []))
 	state.shop_unlocked = bool(data.get("shop_unlocked", false))
 	state.shop_round_pending = bool(data.get("shop_round_pending", false))
@@ -201,11 +207,14 @@ static func _deserialize(data: Dictionary, state) -> bool:
 		state.SHOP_REROLL_INITIAL_COST + (state.shop_reroll_count * state.SHOP_REROLL_COST_STEP)
 	))
 	state.shop_round_index = int(data.get("shop_round_index", 0))
-	state.shop_offers = _gear_list_from_data(data.get("shop_offers", []))
-	state.pending_reward_choices = _gear_list_from_data(data.get("pending_reward_choices", []))
-	state.equipped_weapon = _gear_from_entry(data.get("equipped_weapon"))
-	state.equipped_trinket = _gear_from_entry(data.get("equipped_trinket"))
-	state.equipped_charm = _gear_from_entry(data.get("equipped_charm"))
+	state.shop_offers = _gear_list_from_save_data(data.get("shop_offers", []), "shop_offers")
+	state.pending_reward_choices = _gear_list_from_save_data(data.get("pending_reward_choices", []), "pending_reward_choices")
+	var resolved_equipped := _equipped_gear_from_save_data(data)
+	state.equipped_weapon = resolved_equipped.get(GearItem.SlotType.WEAPON)
+	state.equipped_helm = resolved_equipped.get(GearItem.SlotType.HELM)
+	state.equipped_armor = resolved_equipped.get(GearItem.SlotType.ARMOR)
+	state.equipped_trinket = resolved_equipped.get(GearItem.SlotType.TRINKET)
+	state.equipped_charm = resolved_equipped.get(GearItem.SlotType.CHARM)
 	state.pending_contract_offers = resolved_pending_contract_offers
 	state.active_contract = resolved_active_contract
 	state.current_route_node = resolved_route_node
@@ -221,6 +230,7 @@ static func _deserialize(data: Dictionary, state) -> bool:
 	state.defeated_generated_boss_ids = _unique_string_array(data.get("defeated_generated_boss_ids", []))
 	state.current_encounter_index = int(data.get("current_encounter_index", 0))
 	state.encounter_failure_counts = _int_dictionary(data.get("encounter_failure_counts", {}))
+	state.encounter_retry_counts = _int_dictionary(data.get("encounter_retry_counts", {}))
 	var saved_phase := int(data.get("run_phase", state.RunPhase.PLANNING))
 	state.run_phase = state.RunPhase.PLANNING if saved_phase == state.RunPhase.FIGHTING else saved_phase
 	state.run_outcome = int(data.get("run_outcome", state.RunOutcome.NONE))
@@ -253,13 +263,33 @@ static func _gear_entry_to_data(item: GearItem) -> Variant:
 		return {"resource_path": item.resource_path}
 	var affixes := []
 	for modifier in item.affixes:
-		affixes.append({"stat": modifier.stat, "operation": modifier.operation, "value": modifier.value})
+		affixes.append({
+			"stat_id": StatCatalog.canonical_id_for_modifier(modifier),
+			"stat": modifier.stat,
+			"category": modifier.category,
+			"operation": modifier.operation,
+			"value": modifier.value,
+			"is_drawback": modifier.is_drawback,
+			"display_label": modifier.display_label,
+		})
 	return {
 		"id": item.id,
 		"display_name": item.display_name,
 		"slot": item.slot,
 		"tier": item.tier,
+		"item_family": item.item_family,
+		"class_family": item.class_family,
+		"source_kind": item.source_kind,
+		"source_context": item.source_context,
+		"source_seed": item.source_seed,
+		"deterministic_key": item.deterministic_key,
+		"generation_value_scale": item.generation_value_scale,
+		"generation_contract_depth": item.generation_contract_depth,
+		"reward_base_tier": item.reward_base_tier,
+		"reward_tier_steps": item.reward_tier_steps.duplicate(),
+		"reward_magic_find_upgraded": item.reward_magic_find_upgraded,
 		"affixes": affixes,
+		"is_unidentified": item.is_unidentified,
 	}
 
 
@@ -280,15 +310,146 @@ static func _gear_from_entry(entry) -> GearItem:
 	item.display_name = str(entry.get("display_name", ""))
 	item.slot = int(entry.get("slot", GearItem.SlotType.WEAPON))
 	item.tier = int(entry.get("tier", GearItem.Tier.BASIC))
+	item.item_family = str(entry.get("item_family", ""))
+	item.class_family = int(entry.get("class_family", GearItem.ClassFamily.ROGUE))
+	item.source_kind = int(entry.get("source_kind", GearItem.SourceKind.COMPATIBILITY))
+	item.source_context = str(entry.get("source_context", ""))
+	item.source_seed = int(entry.get("source_seed", 0))
+	item.deterministic_key = str(entry.get("deterministic_key", ""))
+	item.generation_value_scale = float(entry.get("generation_value_scale", 1.0))
+	item.generation_contract_depth = int(entry.get("generation_contract_depth", 0))
+	item.reward_base_tier = int(entry.get("reward_base_tier", -1))
+	item.reward_tier_steps = _int_array(entry.get("reward_tier_steps", []))
+	item.reward_magic_find_upgraded = bool(entry.get("reward_magic_find_upgraded", false))
+	item.is_unidentified = bool(entry.get("is_unidentified", false))
+	if item.item_family == "" and item.class_family == GearItem.ClassFamily.ROGUE:
+		item.item_family = GearGenerator.rogue_item_family_for_slot(item.slot)
 	var affixes: Array[StatModifier] = []
 	for affix_data in entry.get("affixes", []):
+		if typeof(affix_data) != TYPE_DICTIONARY:
+			continue
 		var modifier := StatModifier.new()
+		modifier.stat_id = StatCatalog.canonicalize_stat_id(str(affix_data.get("stat_id", "")))
 		modifier.stat = int(affix_data.get("stat", 0))
+		modifier.category = int(affix_data.get("category", StatModifier.StatCategory.COMPATIBILITY))
 		modifier.operation = int(affix_data.get("operation", 0))
 		modifier.value = float(affix_data.get("value", 0.0))
+		modifier.is_drawback = bool(affix_data.get("is_drawback", modifier.value < 0.0))
+		modifier.display_label = str(affix_data.get("display_label", ""))
 		affixes.append(modifier)
 	item.affixes = affixes
 	return item
+
+
+static func _equipped_gear_from_save_data(data: Dictionary) -> Dictionary:
+	var equipped := {}
+	for slot in GearItem.universal_slot_order():
+		equipped[slot] = null
+	var field_slots := [
+		["equipped_weapon", GearItem.SlotType.WEAPON],
+		["equipped_helm", GearItem.SlotType.HELM],
+		["equipped_armor", GearItem.SlotType.ARMOR],
+		["equipped_charm", GearItem.SlotType.CHARM],
+		["equipped_trinket", GearItem.SlotType.TRINKET],
+	]
+	for field in field_slots:
+		var key := String(field[0])
+		if not data.has(key):
+			continue
+		var expected_slot: int = field[1]
+		var item := _gear_from_save_entry(data.get(key), key)
+		if item == null:
+			continue
+		if not _is_valid_slot(item.slot):
+			_record_gear_notice("dropped_invalid_slot:%s:%s" % [key, item.id])
+			continue
+		if item.slot != expected_slot:
+			_record_gear_notice("migrated_equipped_slot:%s:%s:%s->%s" % [
+				key,
+				item.id,
+				GearGenerator.universal_slot_label(expected_slot),
+				GearGenerator.universal_slot_label(item.slot),
+			])
+		if equipped[item.slot] != null:
+			_record_gear_notice("dropped_duplicate_equipped:%s:%s" % [key, item.id])
+			continue
+		equipped[item.slot] = item
+	return equipped
+
+
+static func _gear_from_save_entry(entry, context: String = "gear") -> GearItem:
+	if typeof(entry) != TYPE_DICTIONARY:
+		return null
+	var canonical := _canonical_authored_gear_from_entry(entry)
+	if canonical != null:
+		return canonical
+	if _is_obsolete_runtime_gear_entry(entry):
+		_record_gear_notice("dropped_obsolete_runtime_gear:%s:%s" % [context, str(entry.get("id", ""))])
+		return null
+	var item := _gear_from_entry(entry)
+	if item == null:
+		return null
+	if not _is_valid_slot(item.slot):
+		_record_gear_notice("dropped_invalid_slot:%s:%s" % [context, item.id])
+		return null
+	if not _is_valid_tier(item.tier):
+		_record_gear_notice("dropped_invalid_tier:%s:%s" % [context, item.id])
+		return null
+	if not _is_valid_source_kind(item.source_kind):
+		_record_gear_notice("dropped_invalid_source_kind:%s:%s" % [context, item.id])
+		return null
+	if item.source_kind == GearItem.SourceKind.GENERATED and item.deterministic_key == "":
+		item.deterministic_key = item.id
+	return item
+
+
+static func _canonical_authored_gear_from_entry(entry: Dictionary) -> GearItem:
+	var id := String(entry.get("id", ""))
+	if entry.has("resource_path"):
+		var loaded: GearItem = _load_or_null(entry.get("resource_path"))
+		if loaded != null:
+			id = loaded.id
+	var path := _canonical_authored_gear_path_for_id(id)
+	return _load_or_null(path) if path != "" else null
+
+
+static func _canonical_authored_gear_path_for_id(id: String) -> String:
+	match id:
+		"gear.lucky_coin":
+			return "res://data/gear/lucky_coin.tres"
+		"gear.placeholder_dagger":
+			return "res://data/gear/placeholder_dagger.tres"
+	for path in LegendaryCatalog.all_paths():
+		var item: GearItem = load(path)
+		if item != null and item.id == id:
+			return path
+	return ""
+
+
+static func _is_obsolete_runtime_gear_entry(entry: Dictionary) -> bool:
+	return not entry.has("resource_path") and not entry.has("source_kind")
+
+
+static func _is_valid_slot(slot: int) -> bool:
+	return GearItem.universal_slot_order().has(slot)
+
+
+static func _is_valid_tier(tier: int) -> bool:
+	return GearItem.rarity_order().has(tier)
+
+
+static func _is_valid_source_kind(source_kind: int) -> bool:
+	return source_kind in [
+		GearItem.SourceKind.UNKNOWN,
+		GearItem.SourceKind.GENERATED,
+		GearItem.SourceKind.FIXED,
+		GearItem.SourceKind.LEGENDARY,
+		GearItem.SourceKind.COMPATIBILITY,
+	]
+
+
+static func _record_gear_notice(notice: String) -> void:
+	last_gear_load_notices.append(notice)
 
 
 ## Drops entries that fail to resolve (e.g. a deleted authored .tres) rather
@@ -299,6 +460,17 @@ static func _gear_list_from_data(list) -> Array[GearItem]:
 		return out
 	for entry in list:
 		var item := _gear_from_entry(entry)
+		if item != null:
+			out.append(item)
+	return out
+
+
+static func _gear_list_from_save_data(list, context: String = "gear_list") -> Array[GearItem]:
+	var out: Array[GearItem] = []
+	if typeof(list) != TYPE_ARRAY:
+		return out
+	for i in list.size():
+		var item := _gear_from_save_entry(list[i], "%s[%d]" % [context, i])
 		if item != null:
 			out.append(item)
 	return out

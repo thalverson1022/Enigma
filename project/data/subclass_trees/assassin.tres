@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SubclassTree" load_steps=8 format=3]
+[gd_resource type="Resource" script_class="SubclassTree" load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/subclass_tree.gd" id="1_tree"]
 [ext_resource type="Resource" path="res://data/talents/assassin/venom_edge.tres" id="2_venom_edge"]
@@ -7,12 +7,19 @@
 [ext_resource type="Resource" path="res://data/talents/assassin/toxic_technique.tres" id="5_toxic_technique"]
 [ext_resource type="Resource" path="res://data/talents/assassin/perfect_toxin.tres" id="6_perfect_toxin"]
 [ext_resource type="Texture2D" path="res://assets/subclass_icons/rogue/assassin.png" id="7_icon"]
+[ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="8_modifier"]
+
+[sub_resource type="Resource" id="Resource_assassin_intrinsic_mod"]
+script = ExtResource("8_modifier")
+stat = 3
+operation = 1
+value = 1.2
 
 [resource]
 script = ExtResource("1_tree")
 id = "tree.assassin"
 display_name = "Assassin"
 icon = ExtResource("7_icon")
-intrinsic_text = ""
+intrinsic_text = "x20% Poison Damage"
 talents = Array[Talent]([ExtResource("2_venom_edge"), ExtResource("3_precise_cuts"), ExtResource("4_lethal_intent"), ExtResource("5_toxic_technique"), ExtResource("6_perfect_toxin")])
-innate_modifiers = Array[StatModifier]([])
+innate_modifiers = Array[StatModifier]([SubResource("Resource_assassin_intrinsic_mod")])

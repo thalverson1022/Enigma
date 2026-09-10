@@ -74,6 +74,7 @@ const SETTINGS_BUTTON_RESERVED_WIDTH := 50.0
 const TOP_BAR_CHROME_Z_INDEX := 900
 const MAP_OVERLAY_Z_INDEX := TOP_BAR_CHROME_Z_INDEX + 10
 const TOP_MODAL_OVERLAY_Z_INDEX := MAP_OVERLAY_Z_INDEX + 20
+const REWARD_CHOICE_INITIAL_REVEAL_DELAY_SEC := 0.55
 
 const SIDE_COLUMN_WIDTH := 300
 const SCREEN_MARGIN := 16
@@ -253,6 +254,7 @@ var instant_playback: bool = DisplayServer.get_name() == "headless"
 ## header for the full rationale.
 var _playback_active := false
 var _playback_contract_traversal_active := false
+var _current_playback_slow := 0.0
 var _contract_route_player_entered := false
 var _playback_presenter: CombatPlaybackPresenter
 var _playback_controls: PlaybackControls
@@ -294,6 +296,9 @@ var _secondary_subclass_overlay
 var _enemy_panel
 var _confirm_dialog: ConfirmationDialog
 var _last_inventory_blocked_source: Control = null
+var _reward_choice_reveal_active := false
+var _reward_choice_reveal_generation := 0
+var _reward_choice_reveal_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -847,9 +852,11 @@ func _build_enemy_hud() -> VBoxContainer:
 	armor_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
 	armor_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	armor_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	armor_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	armor_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	armor_icon.tooltip_text = "Armor: Reduces Physical Damage"
 	values_row.add_child(armor_icon)
 	_hud_info_label = Label.new()
+	_hud_info_label.tooltip_text = armor_icon.tooltip_text
 	_hud_info_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	values_row.add_child(_hud_info_label)
 
@@ -859,10 +866,12 @@ func _build_enemy_hud() -> VBoxContainer:
 	poison_resist_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
 	poison_resist_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	poison_resist_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	poison_resist_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	poison_resist_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	poison_resist_icon.tooltip_text = "Resistance: Reduces elemental damage"
 	values_row.add_child(poison_resist_icon)
 	_hud_resist_label = Label.new()
 	_hud_resist_label.name = "ResistText"
+	_hud_resist_label.tooltip_text = poison_resist_icon.tooltip_text
 	_hud_resist_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	values_row.add_child(_hud_resist_label)
 
@@ -957,7 +966,7 @@ func _refresh_enemy_hud() -> void:
 	_refresh_enemy_effect_chips(enemy)
 	_clear_hud_status_chips()
 	_add_hud_status_chip("x0", UIColors.TEXT_POISON, HUD_POISON_ICON)
-	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON, _shred_status_tooltip())
 	_add_hud_status_chip("x0", UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_add_interrupt_status_chip(enemy, 0)
 	_enemy_hud.visible = true
@@ -996,7 +1005,7 @@ func _render_enemy_hud_post_fight() -> void:
 	_refresh_enemy_effect_chips(monster)
 	_clear_hud_status_chips()
 	_add_hud_status_chip("x%d" % peak_stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
-	_add_hud_status_chip("x%d" % shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+	_add_hud_status_chip("x%d" % shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON, _shred_status_tooltip())
 	_add_hud_status_chip("x%d" % decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_add_interrupt_status_chip(monster, interrupt_repeats)
 	_enemy_hud.visible = true
@@ -1053,18 +1062,18 @@ func _enemy_effect_indicators(monster: Monster) -> Array:
 	if monster == null:
 		return []
 	var indicators := []
-	_add_enemy_effect_indicator(indicators, "dodge_chance", monster.dodge_chance > 0.0, MECHANIC_DODGE_ICON, "%.0f%%" % (monster.dodge_chance * 100.0), UIColors.TEXT_WARNING, "Dodge")
-	_add_enemy_effect_indicator(indicators, "crit_negation", monster.crit_negation > 0.0, MECHANIC_CRIT_NEGATION_ICON, "%.0f%%" % (monster.crit_negation * 100.0), UIColors.TEXT_WARNING, "Crit Negate")
-	_add_enemy_effect_indicator(indicators, "block", monster.block > 0.0, MECHANIC_BLOCK_ICON, "%.0f" % monster.block, UIColors.TEXT_WARNING, "Block")
-	_add_enemy_effect_indicator(indicators, "absorb", monster.absorb > 0.0, MECHANIC_ABSORB_ICON, "%.0f" % monster.absorb, UIColors.TEXT_MAGIC, "Absorb")
-	_add_enemy_effect_indicator(indicators, "cleanse_threshold", monster.cleanse_threshold > 0, MECHANIC_CLEANSE_ICON, "%d" % monster.cleanse_threshold, UIColors.TEXT_POISON, "Cleanse")
-	_add_enemy_effect_indicator(indicators, "suppress", monster.suppress > 0.0, MECHANIC_SUPPRESS_ICON, "%.0f%%" % (monster.suppress * 100.0), UIColors.TEXT_MAGIC, "Suppress")
-	_add_enemy_effect_indicator(indicators, "slow", monster.slow > 0.0, MECHANIC_SLOW_ICON, "%.0f%%" % (monster.slow * 100.0), UIColors.TEXT_MAGIC, "Slow")
-	_add_enemy_effect_indicator(indicators, "stun_duration_ms", monster.stun_duration_ms > 0, MECHANIC_STUN_ICON, _format_stun_duration(monster.stun_duration_ms), UIColors.TEXT_MAGIC, "Stun")
+	_add_enemy_effect_indicator(indicators, "dodge_chance", monster.dodge_chance > 0.0, MECHANIC_DODGE_ICON, "%.0f%%" % (monster.dodge_chance * 100.0), UIColors.TEXT_WARNING, _enemy_mechanic_tooltip("dodge_chance", monster))
+	_add_enemy_effect_indicator(indicators, "crit_negation", monster.crit_negation > 0.0, MECHANIC_CRIT_NEGATION_ICON, "%.0f%%" % (monster.crit_negation * 100.0), UIColors.TEXT_WARNING, _enemy_mechanic_tooltip("crit_negation", monster))
+	_add_enemy_effect_indicator(indicators, "block", monster.block > 0.0, MECHANIC_BLOCK_ICON, "%.0f" % monster.block, UIColors.TEXT_WARNING, _enemy_mechanic_tooltip("block", monster))
+	_add_enemy_effect_indicator(indicators, "absorb", monster.absorb > 0.0, MECHANIC_ABSORB_ICON, "%.0f" % monster.absorb, UIColors.TEXT_MAGIC, _enemy_mechanic_tooltip("absorb", monster))
+	_add_enemy_effect_indicator(indicators, "cleanse_threshold", monster.cleanse_threshold > 0, MECHANIC_CLEANSE_ICON, "%d" % monster.cleanse_threshold, UIColors.TEXT_POISON, _enemy_mechanic_tooltip("cleanse_threshold", monster))
+	_add_enemy_effect_indicator(indicators, "suppress", monster.suppress > 0.0, MECHANIC_SUPPRESS_ICON, "%.0f%%" % (monster.suppress * 100.0), UIColors.TEXT_MAGIC, _enemy_mechanic_tooltip("suppress", monster))
+	_add_enemy_effect_indicator(indicators, "slow", monster.slow > 0.0, MECHANIC_SLOW_ICON, "%.0f%%" % (monster.slow * 100.0), UIColors.TEXT_MAGIC, _enemy_mechanic_tooltip("slow", monster))
+	_add_enemy_effect_indicator(indicators, "stun_duration_ms", monster.stun_duration_ms > 0, MECHANIC_STUN_ICON, _format_stun_duration(monster.stun_duration_ms), UIColors.TEXT_MAGIC, _enemy_mechanic_tooltip("stun_duration_ms", monster))
 	return indicators
 
 
-func _add_enemy_effect_indicator(indicators: Array, id: String, enabled: bool, icon: Texture2D, text: String, color: Color, label: String) -> void:
+func _add_enemy_effect_indicator(indicators: Array, id: String, enabled: bool, icon: Texture2D, text: String, color: Color, tooltip: String) -> void:
 	if not enabled:
 		return
 	indicators.append({
@@ -1072,7 +1081,7 @@ func _add_enemy_effect_indicator(indicators: Array, id: String, enabled: bool, i
 		"icon": icon,
 		"text": text,
 		"color": color,
-		"tooltip": "%s: %s" % [label, text],
+		"tooltip": tooltip,
 	})
 
 
@@ -1090,7 +1099,6 @@ func _refresh_fight_timer_badge() -> void:
 		return
 	_fight_timer_label.text = _format_fight_timer_ms(_enemy_panel.duration_ms(), false)
 	_set_fight_timer_visible(_enemy_hud != null and _enemy_hud.visible)
-
 
 func _update_fight_timer_countdown(elapsed_ms: float, window_ms: int) -> void:
 	if _fight_timer_badge == null or _fight_timer_label == null:
@@ -1118,9 +1126,13 @@ func _clear_hud_status_chips() -> void:
 		child.queue_free()
 
 
-func _add_hud_status_chip(text: String, color: Color, icon: Texture2D = null) -> void:
+func _add_hud_status_chip(text: String, color: Color, icon: Texture2D = null, tooltip: String = "") -> void:
+	if tooltip == "":
+		tooltip = _status_chip_tooltip(icon)
 	if icon != null:
-		COMBAT_STATUS_ICONS.add_icon_label(_hud_status_row, icon, text, color, "StatusChip")
+		var icon_chip: HBoxContainer = COMBAT_STATUS_ICONS.add_icon_label(_hud_status_row, icon, text, color, "StatusChip")
+		if tooltip != "":
+			icon_chip.tooltip_text = tooltip
 		return
 	var chip := Label.new()
 	chip.name = "StatusChip"
@@ -1128,6 +1140,75 @@ func _add_hud_status_chip(text: String, color: Color, icon: Texture2D = null) ->
 	chip.add_theme_color_override("font_color", color)
 	chip.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	_hud_status_row.add_child(chip)
+
+
+func _shred_status_tooltip() -> String:
+	return "Shred: Each stack reduces armor by %d" % _current_shred_value()
+
+
+func _status_chip_tooltip(icon: Texture2D) -> String:
+	if icon == HUD_POISON_ICON:
+		return "Poison: Deals %s damage every 1.0s" % _current_base_poison_damage_text()
+	if icon == HUD_SHRED_ICON:
+		return _shred_status_tooltip()
+	if icon == HUD_DECAY_ICON:
+		return "Decay: Each stack reduces resistance by %.0f%%" % (_current_player_stats().decay_value * 100.0)
+	if icon == MECHANIC_INTERRUPT_ICON:
+		var monster := _hud_result_monster
+		if monster == null:
+			monster = _hud_pre_fight_monster()
+		return _interrupt_status_tooltip(monster)
+	return ""
+
+
+func _current_base_poison_damage_text() -> String:
+	var stats := _current_player_stats()
+	var base_damage := stats.base_poison_damage + stats.bonus_base_elemental_damage
+	if stats.base_poison_damage > 0.0 or stats.bonus_base_elemental_damage != 0.0:
+		base_damage = maxf(PlayerStats.MIN_DAMAGE_BASE, base_damage)
+	return "%.1f" % base_damage
+
+
+func _current_shred_value() -> int:
+	return _current_player_stats().shred_value
+
+
+func _current_player_stats() -> PlayerStats:
+	if BuildState.selected_class == null:
+		return PlayerStats.new()
+	return BuildResolver.resolve_stats(
+		BuildState.selected_class,
+		BuildState.selected_trees,
+		BuildState.selected_talents,
+		BuildState.equipped_gear(),
+		BuildState.gold
+	)
+
+
+func _interrupt_status_tooltip(monster: Monster) -> String:
+	var prevented := monster.interrupt_skip_count if monster != null else 0
+	return "Interrupt: Casting %d times prevents next %d casts" % [CombatResolver.INTERRUPT_REPEAT_THRESHOLD, prevented]
+
+
+func _enemy_mechanic_tooltip(effect_id: String, monster: Monster) -> String:
+	match effect_id:
+		"block":
+			return "Block: Prevents %.0f physical damage" % monster.block
+		"dodge_chance":
+			return "Dodge: %.0f%% chance for cast to miss" % (monster.dodge_chance * 100.0)
+		"crit_negation":
+			return "Crit Negation: Reduces crits by %.0f%%" % (monster.crit_negation * 100.0)
+		"absorb":
+			return "Absorb: Prevents %.0f elemental damage" % monster.absorb
+		"suppress":
+			return "Suppress: Damage over time ticks %.0f%% slower" % (monster.suppress * 100.0)
+		"slow":
+			return "Slow: Reduces attack speed by %.0f%%" % (monster.slow * 100.0)
+		"cleanse_threshold":
+			return "Cleanse: Removes all debuffs after %d casts" % monster.cleanse_threshold
+		"stun_duration_ms":
+			return "Stun: Hitting for %.0f%% of total health in a single hit stuns for %s" % [CombatResolver.STUN_TRIGGER_HIT_PERCENT * 100.0, _format_stun_duration(monster.stun_duration_ms)]
+	return ""
 
 
 func _flash_hud_status_chips() -> void:
@@ -1190,7 +1271,7 @@ func _update_combat_stage_target(monster: Monster) -> void:
 	if monster == null:
 		_combat_stage.clear_target()
 		return
-	_combat_stage.configure("Rogue", monster.display_name, _combat_stage_visual_name(monster))
+	_combat_stage.configure("Rogue", monster.display_name, _combat_stage_visual_name(monster), _combat_stage_visual_role(monster))
 
 
 func _combat_stage_visual_name(monster: Monster) -> String:
@@ -1205,6 +1286,20 @@ func _combat_stage_visual_name(monster: Monster) -> String:
 	if CombatStage.enemy_visual_key_for(biome_name) != "":
 		return biome_name
 	return monster.display_name
+
+
+func _combat_stage_visual_role(monster: Monster) -> String:
+	if BuildState.current_route_node != null:
+		match BuildState.current_route_node.node_type:
+			ContractRouteNode.NodeType.CAPTAIN:
+				return CombatStage.ENEMY_COMBAT_ROLE_CAPTAIN
+			ContractRouteNode.NodeType.ELITE:
+				return CombatStage.ENEMY_COMBAT_ROLE_ELITE
+			ContractRouteNode.NodeType.BOSS:
+				return CombatStage.ENEMY_COMBAT_ROLE_BOSS
+	if monster != null:
+		return monster.combat_role
+	return CombatStage.ENEMY_COMBAT_ROLE_NORMAL
 
 
 func _should_use_contract_traversal_animation() -> bool:
@@ -1248,8 +1343,7 @@ func _hud_total_armor_reduction(cast_events: Array) -> int:
 func _hud_armor_reduction_cast_count(cast_events: Array) -> int:
 	var total := 0
 	for event in cast_events:
-		if event.armor_reduction_applied > 0:
-			total += 1
+		total += event.shred_stacks_applied
 		if event.cleanse_triggered:
 			total = 0
 	return total
@@ -1259,7 +1353,7 @@ func _hud_poison_resistance_reduction_cast_count(cast_events: Array) -> int:
 	var total := 0
 	for event in cast_events:
 		if event.poison_resistance_reduction_applied > 0.0:
-			total += 1
+			total += event.decay_stacks_applied
 		if event.cleanse_triggered:
 			total = 0
 	return total
@@ -1634,8 +1728,13 @@ func _reward_text() -> String:
 	if reward == null:
 		return "Rewards: none."
 	var parts: PackedStringArray = []
-	if reward.gold_amount > 0:
-		parts.append("%dg" % reward.gold_amount)
+	var total_gold := BuildState.current_modified_reward_gold()
+	var overkill_gold := BuildState.current_overkill_gold()
+	if total_gold > 0:
+		var gold_text := "%dg" % total_gold
+		if overkill_gold > 0:
+			gold_text += " (%dg overkill)" % overkill_gold
+		parts.append(gold_text)
 	if reward.talent_points > 0:
 		parts.append("%d talent point%s" % [
 			reward.talent_points,
@@ -1698,7 +1797,7 @@ func _populate_reward_row() -> void:
 	if not text_parts.is_empty():
 		_add_reward_piece_separator(added_reward_piece)
 		var text_label := ", ".join(text_parts)
-		if reward.talent_points > 0 or reward.gold_amount > 0:
+		if reward.talent_points > 0 or BuildState.current_base_reward_gold() > 0:
 			text_label += ","
 			text_absorbs_next_separator = true
 		_victory_reward_row.add_child(_make_reward_label(text_label, UIColors.TEXT_GOLD))
@@ -1712,14 +1811,19 @@ func _populate_reward_row() -> void:
 		_victory_reward_row.add_child(_reward_talent_icon)
 		_victory_reward_row.add_child(_make_reward_label("x %d" % reward.talent_points, UIColors.TEXT_GOLD))
 		added_reward_piece = true
-	if reward.gold_amount > 0:
+	var total_gold := BuildState.current_modified_reward_gold()
+	var overkill_gold := BuildState.current_overkill_gold()
+	if total_gold > 0:
 		if text_absorbs_next_separator:
 			text_absorbs_next_separator = false
 		else:
 			_add_reward_piece_separator(added_reward_piece)
 		_reward_gold_icon = CardStyle.make_pixel_icon(UI_GOLD_ICON, VICTORY_REWARD_ICON_SIZE)
 		_victory_reward_row.add_child(_reward_gold_icon)
-		_victory_reward_row.add_child(_make_reward_label(": %dg" % reward.gold_amount, UIColors.TEXT_GOLD))
+		var gold_label := ": %dg" % total_gold
+		if overkill_gold > 0:
+			gold_label += " (%dg overkill)" % overkill_gold
+		_victory_reward_row.add_child(_make_reward_label(gold_label, UIColors.TEXT_GOLD))
 		added_reward_piece = true
 	if not added_reward_piece:
 		_victory_reward_row.add_child(_make_reward_label("No rewards.", UIColors.TEXT_DISABLED))
@@ -1729,7 +1833,7 @@ func _generated_reward_choice_text(reward: EncounterReward) -> String:
 	if reward == null:
 		return ""
 	if reward.generated_gear_choice_count > 0:
-		return "Choice of %s Gear" % GearGenerator.TIER_NAMES.get(reward.generated_gear_tier, "Gear")
+		return "Choice of %s Gear" % GearGenerator.tier_name(reward.generated_gear_tier)
 	if reward.legendary_choice_count > 0:
 		return "Choice of Legendary Gear"
 	return ""
@@ -1985,22 +2089,171 @@ func _show_reward_choice_overlay() -> void:
 	for child in options_container.get_children():
 		child.queue_free()
 	_reward_choice_overlay.set_status_text("")
+	_reward_choice_reveal_generation += 1
+	_reward_choice_reveal_active = false
+	_reward_choice_reveal_buttons.clear()
 	for gear in BuildState.pending_reward_choices:
-		options_container.add_child(_make_reward_choice_button(gear))
+		var placeholder := _make_reward_choice_placeholder()
+		options_container.add_child(placeholder)
+		_reward_choice_reveal_buttons.append(placeholder)
 	_reward_choice_overlay.visible = true
+	if DisplayServer.get_name() == "headless":
+		_finish_reward_choice_reveal()
+	else:
+		_play_reward_choice_reveal(_reward_choice_reveal_generation)
 	# Same overlay-owns-the-window rule as _show_shop_overlay().
 	_refresh_enemy_hud()
+
+
+func _make_reward_choice_placeholder() -> Button:
+	var item_box := GearCompareButton.new()
+	item_box.custom_minimum_size = Vector2(112, 112)
+	item_box.disabled = true
+	item_box.focus_mode = Control.FOCUS_NONE
+	item_box.modulate.a = 0.62
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		item_box.add_theme_stylebox_override(state, CardStyle.make_gear_item_stylebox(null, false, state))
+	return item_box
 
 
 func _make_reward_choice_button(gear: GearItem) -> Button:
 	var item_box := GearCompareButton.new()
 	item_box.custom_minimum_size = Vector2(112, 112)
+	_populate_reward_choice_button(item_box, gear)
+	return item_box
+
+
+func _populate_reward_choice_button(item_box: Button, gear: GearItem) -> void:
+	for child in item_box.get_children():
+		child.queue_free()
 	item_box.tooltip_text = _reward_choice_text(gear)
-	item_box.tooltip_builder = func(): return CardStyle.build_gear_compare_tooltip(self, _reward_choice_text(gear), BuildState.equipped_item_for_slot(gear.slot))
-	item_box.pressed.connect(_on_reward_choice_pressed.bind(gear, item_box))
+	item_box.tooltip_builder = func(): return CardStyle.build_gear_compare_tooltip(self, _reward_choice_text(gear), BuildState.equipped_item_for_slot(gear.slot), gear)
+	if not bool(item_box.get_meta("reward_choice_configured", false)):
+		item_box.pressed.connect(_on_reward_choice_pressed.bind(gear, item_box))
+		item_box.set_meta("reward_choice_configured", true)
 	CardStyle.style_shop_item_box(item_box, gear)
 	CardStyle.build_gear_box_content(item_box, gear)
-	return item_box
+
+
+func _play_reward_choice_reveal(generation: int) -> void:
+	_reward_choice_reveal_active = true
+	_reward_choice_overlay.set_status_text("Revealing rewards...")
+	await get_tree().create_timer(REWARD_CHOICE_INITIAL_REVEAL_DELAY_SEC).timeout
+	if generation != _reward_choice_reveal_generation or not _reward_choice_reveal_active:
+		return
+	for i in BuildState.pending_reward_choices.size():
+		if generation != _reward_choice_reveal_generation or not _reward_choice_reveal_active:
+			return
+		if i >= _reward_choice_reveal_buttons.size():
+			break
+		var button := _reward_choice_reveal_buttons[i]
+		var gear := BuildState.pending_reward_choices[i]
+		_reveal_reward_choice_button(button, gear)
+		await get_tree().create_timer(0.18).timeout
+		var steps := _reward_reveal_tier_steps(gear)
+		for step_index in range(1, steps.size()):
+			if generation != _reward_choice_reveal_generation or not _reward_choice_reveal_active:
+				return
+			_apply_reward_choice_visual_tier(button, gear, int(steps[step_index]))
+			_show_reward_choice_upgrade_text(button, gear.reward_magic_find_upgraded)
+			_pulse_reward_choice_button(button)
+			await get_tree().create_timer(0.28).timeout
+		await get_tree().create_timer(0.12).timeout
+	if generation == _reward_choice_reveal_generation:
+		_complete_reward_choice_reveal()
+
+
+func _finish_reward_choice_reveal() -> void:
+	_reward_choice_reveal_generation += 1
+	for i in BuildState.pending_reward_choices.size():
+		if i >= _reward_choice_reveal_buttons.size():
+			break
+		_reveal_reward_choice_button(_reward_choice_reveal_buttons[i], BuildState.pending_reward_choices[i], true)
+	_complete_reward_choice_reveal()
+
+
+func _complete_reward_choice_reveal() -> void:
+	_reward_choice_reveal_active = false
+	_reward_choice_overlay.set_status_text("")
+	for button in _reward_choice_reveal_buttons:
+		if button != null:
+			button.disabled = false
+			button.focus_mode = Control.FOCUS_ALL
+			button.modulate.a = 1.0
+
+
+func _reveal_reward_choice_button(button: Button, gear: GearItem, final_visual: bool = false) -> void:
+	if button == null or gear == null:
+		return
+	_populate_reward_choice_button(button, gear)
+	button.disabled = true
+	button.focus_mode = Control.FOCUS_NONE
+	button.modulate.a = 1.0
+	var steps := _reward_reveal_tier_steps(gear)
+	var display_tier := gear.tier if final_visual else int(steps[0])
+	_apply_reward_choice_visual_tier(button, gear, display_tier)
+	if not final_visual:
+		button.scale = Vector2(0.88, 0.88)
+		var tween := create_tween()
+		tween.tween_property(button, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _reward_reveal_tier_steps(gear: GearItem) -> Array[int]:
+	var steps: Array[int] = []
+	if gear != null:
+		for tier in gear.reward_tier_steps:
+			steps.append(int(tier))
+	if steps.is_empty() and gear != null:
+		steps.append(gear.tier)
+	return steps
+
+
+func _apply_reward_choice_visual_tier(button: Button, gear: GearItem, tier: int) -> void:
+	var display_gear := GearItem.new()
+	display_gear.id = gear.id
+	display_gear.slot = gear.slot
+	display_gear.tier = tier
+	display_gear.item_family = gear.item_family
+	display_gear.class_family = gear.class_family
+	display_gear.source_kind = gear.source_kind
+	display_gear.is_unidentified = gear.is_unidentified and tier == GearItem.Tier.CHAOS
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state, CardStyle.make_gear_item_stylebox(display_gear, false, state))
+	var icon := button.get_node_or_null("Icon") as TextureRect
+	if icon != null:
+		icon.texture = GearIcons.icon_for(display_gear)
+
+
+func _show_reward_choice_upgrade_text(button: Button, magic_find: bool) -> void:
+	var label := Label.new()
+	label.name = "MagicFindUpgradeText"
+	label.text = "Magic Find!" if magic_find else "Upgrade!"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_color_override("font_color", UIColors.TEXT_GOLD if magic_find else UIColors.TEXT_MAGIC)
+	label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	label.add_theme_constant_override("outline_size", 3)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.anchor_left = 0.0
+	label.anchor_right = 1.0
+	label.anchor_top = 0.0
+	label.anchor_bottom = 0.0
+	label.offset_left = -14.0
+	label.offset_right = 14.0
+	label.offset_top = -24.0
+	label.offset_bottom = 0.0
+	button.add_child(label)
+	var tween := create_tween()
+	tween.tween_property(label, "position:y", label.position.y - 18.0, 0.36).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(label, "modulate:a", 0.0, 0.36)
+	tween.tween_callback(label.queue_free)
+
+
+func _pulse_reward_choice_button(button: Button) -> void:
+	button.scale = Vector2(1.0, 1.0)
+	var tween := create_tween()
+	tween.tween_property(button, "scale", Vector2(1.12, 1.12), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(button, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## The reward-choice gear box's regular tooltip text: slot/name, tier,
@@ -2089,6 +2342,7 @@ func _on_fight_pressed() -> void:
 	var monster: Monster = _enemy_panel.monster()
 	var duration_ms: int = _enemy_panel.duration_ms()
 	var result: CombatResolver.CombatResult = CombatResolver.resolve(rotation, stats, monster, duration_ms, BuildState.current_combat_rng_seed())
+	_current_playback_slow = CombatResolver.effective_enemy_slow(stats, monster)
 	if instant_playback and result.gold_stolen > 0:
 		BuildState.record_combat_stolen_gold(result.gold_stolen)
 	BuildState.record_fight_result(result, monster)
@@ -2199,7 +2453,7 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 	_refresh_enemy_effect_chips(monster)
 	_clear_hud_status_chips()
 	_add_hud_status_chip("x0", UIColors.TEXT_POISON, HUD_POISON_ICON)
-	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+	_add_hud_status_chip("x0", UIColors.TEXT_WARNING, HUD_SHRED_ICON, _shred_status_tooltip())
 	_add_hud_status_chip("x0", UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_add_interrupt_status_chip(monster, 0)
 	_enemy_hud.visible = true
@@ -2214,7 +2468,8 @@ func _begin_playback(result: CombatResolver.CombatResult, monster: Monster) -> v
 		_equipped_gear_has_id("gear.legendary.wyvern_kriss"),
 		_combat_stage != null and _equipped_gear_has_id(_combat_stage.BANDIT_BLADE_ID),
 		not instant_playback and not _playback_contract_traversal_active,
-		false
+		false,
+		_current_playback_slow
 	)
 	# Session-persistent speed (adjustment round 2, 2026-07-19): initialize
 	# from the last speed the player chose instead of always defaulting back
@@ -2319,7 +2574,7 @@ func _on_continue_pressed() -> void:
 	var reward_talent_source_rect := Rect2()
 	var reward := BuildState.current_reward()
 	if reward != null:
-		reward_gold = BuildState.modified_gold_reward(reward.gold_amount)
+		reward_gold = BuildState.current_modified_reward_gold()
 		reward_talent_points = reward.talent_points
 		reward_gold_source_rect = _global_rect_for(_reward_gold_icon)
 		reward_talent_source_rect = _global_rect_for(_reward_talent_icon)
@@ -2466,6 +2721,9 @@ func _on_reward_choice_pressed(gear: GearItem, source: Control = null) -> void:
 
 
 func _on_reward_choice_skip_pressed() -> void:
+	if _reward_choice_reveal_active:
+		_finish_reward_choice_reveal()
+		return
 	var should_return_to_tavern_audio := _is_terminal_contract_reward_pending()
 	if not BuildState.skip_pending_reward_gear():
 		return

@@ -42,6 +42,7 @@ func _initialize() -> void:
 	var generated_choice_button: Button = combat_screen._reward_choice_overlay.options_container().get_child(0)
 	_require(generated_choice_button.tooltip_text.contains("Basic"), "Expected Basic generated reward tooltip.")
 	var generated_choice: GearItem = build_state.pending_reward_choices[0]
+	var equipped_before_blocked_choice: GearItem = build_state.equipped_weapon
 	var fill_rng := RandomNumberGenerator.new()
 	fill_rng.seed = 570
 	while build_state.inventory.size() < build_state.INVENTORY_CAPACITY:
@@ -49,7 +50,7 @@ func _initialize() -> void:
 	generated_choice_button.pressed.emit()
 	await process_frame
 	_require(combat_screen._reward_choice_overlay.visible, "Expected generated reward overlay to stay visible when inventory is full.")
-	_require(build_state.equipped_weapon == null, "Expected generated reward not to auto-equip when inventory is full.")
+	_require(build_state.equipped_weapon == equipped_before_blocked_choice, "Expected generated reward not to change equipped weapon when inventory is full.")
 	_require(build_state.has_pending_reward_choice(), "Expected generated reward choices to remain pending after a full-inventory block.")
 	_require(build_state.run_phase == BuildState.RunPhase.RESULT, "Expected route reward result phase to remain pending after a full-inventory block.")
 	_require(not combat_screen._map_overlay.visible, "Expected route map to stay hidden after a blocked reward choice.")
@@ -63,7 +64,7 @@ func _initialize() -> void:
 	_require(not combat_screen._reward_choice_overlay.visible, "Expected generated reward overlay hidden after skipping gear reward.")
 	_require(not build_state.has_pending_reward_choice(), "Expected pending reward choices cleared after skipping.")
 	_require(not build_state.has_inventory_item(generated_choice), "Expected skipped generated reward not to enter inventory.")
-	_require(build_state.equipped_weapon == null, "Expected skipped generated reward not to equip.")
+	_require(build_state.equipped_weapon == equipped_before_blocked_choice, "Expected skipped generated reward not to change equipped weapon.")
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected route choice phase after skipping generated reward.")
 	_require(combat_screen._map_overlay.visible, "Expected route map after skipping generated reward.")
 

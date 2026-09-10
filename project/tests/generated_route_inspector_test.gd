@@ -108,6 +108,12 @@ func _check_report_contains_route_graph_previews_and_encounters() -> void:
 	assert(float(encounter["required_dps"]) > 0.0)
 	assert(int(encounter["effective_hp"]) > 0)
 
+	var generated_reward := _first_generated_gear_reward(report)
+	assert(not generated_reward.is_empty())
+	assert(String(generated_reward["generated_gear_tier_label"]) != "")
+	assert(not (generated_reward["generated_gear_slot_labels"] as Array).is_empty())
+	assert(not (generated_reward["generated_gear_item_families"] as Array).is_empty())
+
 
 func _check_report_contains_t5_intent_coverage() -> void:
 	var elite_detour_seen := false
@@ -221,6 +227,15 @@ func _first_combat_node(report: Dictionary) -> Dictionary:
 		var summary: Dictionary = node
 		if summary["node_type"] != "start":
 			return summary
+	return {}
+
+
+func _first_generated_gear_reward(report: Dictionary) -> Dictionary:
+	for node in report["nodes"]:
+		var summary: Dictionary = node
+		var reward: Dictionary = summary["reward"]
+		if int(reward.get("generated_gear_choice_count", 0)) > 0:
+			return reward
 	return {}
 
 

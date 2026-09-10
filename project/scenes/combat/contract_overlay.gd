@@ -54,9 +54,13 @@ const CONTRACT_PORTRAIT_TEXTURE := preload("res://assets/backgrounds/Ghit_Guud.j
 const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
 const GOLD_ICON := preload("res://assets/ui/icons/gold.png")
 const GEAR_DROP_ICON_PATHS := {
+	GearItem.Tier.CRUDE: "res://assets/ui/icons/gear_drop_helm_basic.png",
 	GearItem.Tier.BASIC: "res://assets/ui/icons/gear_drop_helm_basic.png",
 	GearItem.Tier.MASTER: "res://assets/ui/icons/gear_drop_helm_master.png",
+	GearItem.Tier.EPIC: "res://assets/ui/icons/gear_drop_helm_master.png",
 	GearItem.Tier.CURSED: "res://assets/ui/icons/gear_drop_helm_cursed.png",
+	GearItem.Tier.CHAOS: "res://assets/ui/icons/gear_drop_helm_cursed.png",
+	GearItem.Tier.UNIQUE: "res://assets/ui/icons/gear_drop_helm_legendary.png",
 	GearItem.Tier.LEGENDARY: "res://assets/ui/icons/gear_drop_helm_legendary.png",
 }
 
@@ -510,14 +514,7 @@ func _gear_drop_icon_for_tier(tier: int) -> Texture2D:
 
 
 func _tier_color_for_contract_reward(tier: int) -> Color:
-	match tier:
-		GearItem.Tier.MASTER:
-			return UIColors.TIER_MASTER
-		GearItem.Tier.CURSED:
-			return UIColors.TIER_CURSED
-		GearItem.Tier.LEGENDARY:
-			return UIColors.TIER_LEGENDARY
-	return UIColors.TIER_BASIC
+	return GearGenerator.tier_color(tier)
 
 
 func _contract_offer_boss_node(contract: ContractDef) -> ContractRouteNode:

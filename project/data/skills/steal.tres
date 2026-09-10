@@ -11,7 +11,7 @@ amount = 19.0
 
 [sub_resource type="Resource" id="Resource_steal_gold"]
 script = ExtResource("3_steal")
-amount = 5
+amount = 3
 
 [resource]
 script = ExtResource("1_skill")

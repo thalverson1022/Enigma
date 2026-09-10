@@ -18,6 +18,9 @@ func _initialize() -> void:
 	_check_p4m8_archetypes_generate_expected_defense_identities()
 	_check_elite_kind_adds_extra_mechanics()
 	_check_cleanse_inverted_scaling()
+	_check_contract_armor_scaling_override()
+	_check_contract_block_scaling_override()
+	_check_contract_absorb_scaling_override()
 	_check_hp_budget_and_pressure_metadata()
 	_check_harder_band_increases_pressure()
 	_check_same_seed_repeatability_across_supported_bands()
@@ -345,6 +348,102 @@ func _check_cleanse_inverted_scaling() -> void:
 		assert(boss_cleanse["range"][1] <= easy_cleanse["range"][1])
 
 
+func _check_contract_armor_scaling_override() -> void:
+	var library := RuntimeArchetypeLibraryLoader.load_default()
+	var unscaled := RuntimeMonsterGenerator.generate(RuntimeGenerationInput.from_dictionary({
+		"seed": 9292,
+		"archetypeA": "fortified",
+		"difficulty": 3,
+		"kind": "boss",
+		"tempoProfile": "extended",
+	}), library)
+	var scaled := RuntimeMonsterGenerator.generate(RuntimeGenerationInput.from_dictionary({
+		"seed": 9292,
+		"archetypeA": "fortified",
+		"difficulty": 3,
+		"kind": "boss",
+		"tempoProfile": "extended",
+		"overrides": {
+			"contract_armor_scaling": {
+				"id": "test_contract_armor",
+				"multiplier": 3.0,
+			},
+		},
+	}), library)
+
+	assert(not unscaled.has_errors())
+	assert(not scaled.has_errors())
+	assert(scaled.defense_overrides["armor"] == int(unscaled.defense_overrides["armor"]) * 3)
+	var armor := _mechanic_entry(scaled, "armor")
+	assert(not armor.is_empty())
+	assert((armor["extras"] as Dictionary)["contract_armor_scaling_id"] == "test_contract_armor")
+	assert(is_equal_approx(float((armor["extras"] as Dictionary)["contract_armor_multiplier"]), 3.0))
+
+
+func _check_contract_block_scaling_override() -> void:
+	var library := RuntimeArchetypeLibraryLoader.load_default()
+	var unscaled := RuntimeMonsterGenerator.generate(RuntimeGenerationInput.from_dictionary({
+		"seed": 4545,
+		"archetypeA": "aegis",
+		"difficulty": 3,
+		"kind": "boss",
+		"tempoProfile": "extended",
+	}), library)
+	var scaled := RuntimeMonsterGenerator.generate(RuntimeGenerationInput.from_dictionary({
+		"seed": 4545,
+		"archetypeA": "aegis",
+		"difficulty": 3,
+		"kind": "boss",
+		"tempoProfile": "extended",
+		"overrides": {
+			"contract_block_scaling": {
+				"id": "test_contract_block",
+				"multiplier": 3.0,
+			},
+		},
+	}), library)
+
+	assert(not unscaled.has_errors())
+	assert(not scaled.has_errors())
+	assert(scaled.defense_overrides["block"] == int(unscaled.defense_overrides["block"]) * 3)
+	var block := _mechanic_entry(scaled, "block")
+	assert(not block.is_empty())
+	assert((block["extras"] as Dictionary)["contract_block_scaling_id"] == "test_contract_block")
+	assert(is_equal_approx(float((block["extras"] as Dictionary)["contract_block_multiplier"]), 3.0))
+
+
+func _check_contract_absorb_scaling_override() -> void:
+	var library := RuntimeArchetypeLibraryLoader.load_default()
+	var unscaled := RuntimeMonsterGenerator.generate(RuntimeGenerationInput.from_dictionary({
+		"seed": 4646,
+		"archetypeA": "nullify",
+		"difficulty": 3,
+		"kind": "boss",
+		"tempoProfile": "extended",
+	}), library)
+	var scaled := RuntimeMonsterGenerator.generate(RuntimeGenerationInput.from_dictionary({
+		"seed": 4646,
+		"archetypeA": "nullify",
+		"difficulty": 3,
+		"kind": "boss",
+		"tempoProfile": "extended",
+		"overrides": {
+			"contract_absorb_scaling": {
+				"id": "test_contract_absorb",
+				"multiplier": 3.0,
+			},
+		},
+	}), library)
+
+	assert(not unscaled.has_errors())
+	assert(not scaled.has_errors())
+	assert(scaled.defense_overrides["absorb"] == int(unscaled.defense_overrides["absorb"]) * 3)
+	var absorb := _mechanic_entry(scaled, "absorb")
+	assert(not absorb.is_empty())
+	assert((absorb["extras"] as Dictionary)["contract_absorb_scaling_id"] == "test_contract_absorb")
+	assert(is_equal_approx(float((absorb["extras"] as Dictionary)["contract_absorb_multiplier"]), 3.0))
+
+
 func _check_hp_budget_and_pressure_metadata() -> void:
 	var library := RuntimeArchetypeLibraryLoader.load_default()
 	var draft := RuntimeMonsterGenerator.generate(RuntimeGenerationInput.from_dictionary({
@@ -556,6 +655,7 @@ func _check_generated_monster_combat_compatibility() -> void:
 	)
 
 	assert(not draft.has_errors())
+	assert((payload["monster"] as Monster).combat_role == draft.monster_kind)
 	assert(result.duration_ms == draft.duration_ms)
 	assert(result.total_damage >= 0.0)
 
@@ -588,6 +688,7 @@ func _check_generated_monsters_resolve_combat_across_supported_bands() -> void:
 		assert(not draft.has_errors())
 		_assert_generated_output_shape(draft)
 		assert(monster.id == draft.id)
+		assert(monster.combat_role == draft.monster_kind)
 		assert(result.duration_ms == draft.duration_ms)
 		assert(result.total_damage >= 0.0)
 		assert(result.cast_events.size() + result.tick_events.size() > 0)

@@ -1,7 +1,15 @@
-[gd_resource type="Resource" script_class="Talent" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="Talent" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/talent.gd" id="1_talent"]
 [ext_resource type="Resource" path="res://data/skills/beguiling_strike.tres" id="2_skill"]
+[ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="3_modifier"]
+
+[sub_resource type="Resource" id="Resource_exposed_decay_mod"]
+script = ExtResource("3_modifier")
+stat_id = "decay_value"
+category = 0
+operation = 0
+value = 0.2
 
 [resource]
 script = ExtResource("1_talent")
@@ -9,5 +17,5 @@ id = "talent.exposed_weakness"
 display_name = "Exposed Weakness"
 cost = 1
 prerequisites = Array[PrerequisiteGroup]([])
-stat_modifiers = Array[StatModifier]([])
+stat_modifiers = Array[StatModifier]([SubResource("Resource_exposed_decay_mod")])
 unlocked_skills = Array[Skill]([ExtResource("2_skill")])

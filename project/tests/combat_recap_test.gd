@@ -374,7 +374,8 @@ func _check_live_win_recap() -> void:
 	# Quick Cut alone (Bladedancer's tree unlock, no talents needed) casts every
 	# 850ms for 12 damage -- roughly 14 casts in the Mouthy Drunk opener's
 	# 12s window, ~168 baseline damage before any crits, comfortably above
-	# the 150 HP needed regardless of this fight's deterministic crit rolls.
+	# the current Mouthy Drunk HP check regardless of this fight's deterministic
+	# crit rolls.
 	# Set directly here since this test only needs the resulting fight, not
 	# a click-through of the build panels (combat_screen_test.gd already
 	# covers that UI path).

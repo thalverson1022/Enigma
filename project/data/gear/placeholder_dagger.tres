@@ -14,4 +14,7 @@ script = ExtResource("1_gear")
 id = "gear.placeholder_dagger"
 display_name = "Placeholder Dagger"
 slot = 0
+item_family = "Dagger"
+class_family = 1
+source_kind = 4
 affixes = Array[StatModifier]([SubResource("Resource_g1a2b")])

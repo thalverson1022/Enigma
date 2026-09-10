@@ -98,6 +98,7 @@ func _check_claimed_generated_reward_round_trips(build_state) -> void:
 	_require(build_state.earned_talent_points == expected_talent_points, "Expected generated reward talent points before save.")
 	_require(build_state.claimed_route_reward_ids.has(selected.id), "Expected generated claimed reward ID before save.")
 	_require(build_state.pending_reward_choices.size() == selected.reward.generated_gear_choice_count, "Expected generated reward choices before save.")
+	_assert_generated_reward_choice_metadata(build_state.pending_reward_choices)
 	var before := _generated_state_signature(build_state)
 	var pending_before := _gear_list_signature(build_state.pending_reward_choices)
 	var reward_before := _reward_signature(selected)
@@ -111,6 +112,7 @@ func _check_claimed_generated_reward_round_trips(build_state) -> void:
 	_require(build_state.gold == expected_gold, "Expected generated reward gold after load.")
 	_require(build_state.earned_talent_points == expected_talent_points, "Expected generated reward talent points after load.")
 	_require(_gear_list_signature(build_state.pending_reward_choices) == pending_before, "Expected generated pending reward choices to round-trip.")
+	_assert_generated_reward_choice_metadata(build_state.pending_reward_choices)
 	_require(_reward_signature(build_state.current_route_node) == reward_before, "Expected generated materialized reward to round-trip after claim.")
 	_require(before == _generated_state_signature(build_state), "Expected claimed generated reward state to round-trip without regenerating.")
 	_require(build_state.skip_pending_reward_gear(), "Expected loaded generated pending reward choices to be skippable.")
@@ -130,6 +132,7 @@ func _check_completed_generated_contract_loop_round_trips(build_state) -> void:
 	if build_state.has_pending_reward_choice():
 		_require(build_state.skip_pending_reward_gear(), "Expected generated boss reward choice skip before loop save.")
 	_require(build_state.open_shop_round(), "Expected generated boss completion to open between-contract shop before save.")
+	_assert_generated_shop_offer_metadata(build_state.shop_offers)
 	var shop_signature := _gear_list_signature(build_state.shop_offers)
 	_round_trip(build_state)
 	_require(build_state.shop_round_pending, "Expected loaded between-contract shop to remain pending.")
@@ -138,6 +141,7 @@ func _check_completed_generated_contract_loop_round_trips(build_state) -> void:
 	_require(build_state.completed_contract_count == 0, "Expected completed count to wait until continuing after the shop.")
 	_require(build_state.contract_offer_index == 0, "Expected offer index to wait until continuing after the shop.")
 	_require(_gear_list_signature(build_state.shop_offers) == shop_signature, "Expected between-contract shop offers to round-trip.")
+	_assert_generated_shop_offer_metadata(build_state.shop_offers)
 	_require(build_state.close_shop_round(), "Expected loaded between-contract shop to close.")
 	_require(build_state.continue_after_win(), "Expected loaded completed boss to advance to the next generated offer.")
 	_require(build_state.completed_contract_count == 1, "Expected completed count after loaded loop continue.")
@@ -388,13 +392,33 @@ func _gear_signature(item: GearItem) -> String:
 	for affix in item.affixes:
 		affix_parts.append("%03d:%03d:%0.4f" % [affix.stat, affix.operation, affix.value])
 	affix_parts.sort()
-	return "%s|%s|%d|%d|%s" % [
+	return "%s|%s|%d|%d|%d|%d|%s|%s|%s" % [
 		item.id,
 		item.display_name,
 		item.slot,
 		item.tier,
+		item.source_kind,
+		item.source_seed,
+		item.source_context,
+		item.deterministic_key,
 		",".join(affix_parts),
 	]
+
+
+func _assert_generated_reward_choice_metadata(items: Array[GearItem]) -> void:
+	for item in items:
+		_require(item.source_kind == GearItem.SourceKind.GENERATED, "Expected generated reward choice source kind.")
+		_require(item.source_context.begins_with("reward_choice:route:"), "Expected generated reward choice source context.")
+		_require(item.source_seed == 424242, "Expected generated reward choice source seed.")
+		_require(item.deterministic_key.begins_with("gear.generated.reward_"), "Expected generated reward choice deterministic key.")
+
+
+func _assert_generated_shop_offer_metadata(items: Array[GearItem]) -> void:
+	for item in items:
+		_require(item.source_kind == GearItem.SourceKind.GENERATED, "Expected generated shop offer source kind.")
+		_require(item.source_context.begins_with("shop_offer:route:"), "Expected generated shop offer source context.")
+		_require(item.source_seed == 424242, "Expected generated shop offer source seed.")
+		_require(item.deterministic_key.begins_with("gear.generated.shop_"), "Expected generated shop offer deterministic key.")
 
 
 func _debug_preview_signature(preview: Dictionary) -> String:

@@ -1,7 +1,7 @@
 class_name RuntimeMonsterGenerator
 extends RefCounted
 
-const GENERATOR_VERSION := "p4m3.t9.v1"
+const GENERATOR_VERSION := "p4m3.t10.v1"
 const RNG_CONTEXT := "runtime_monster_generator"
 const DEFAULT_SECONDARY_SCALE := 1.0
 const OVERLAP_EMPHASIS_BONUS := 0.2
@@ -14,10 +14,10 @@ const SCALING_PROFILES := {
 }
 
 const KIND_MULTIPLIERS := {
-	"normal": {"hp": 1.0, "budget": 1.0, "duration": 1.0, "target_dps": 1.0, "extra_mechanics": 0},
-	"captain": {"hp": 1.08, "budget": 1.1, "duration": 1.02, "target_dps": 1.04, "extra_mechanics": 0},
-	"elite": {"hp": 1.18, "budget": 1.2, "duration": 1.05, "target_dps": 1.08, "extra_mechanics": 1},
-	"boss": {"hp": 1.42, "budget": 1.48, "duration": 1.16, "target_dps": 1.16, "extra_mechanics": 2},
+	"normal": {"hp": 1.12, "budget": 1.0, "duration": 1.0, "target_dps": 1.0, "extra_mechanics": 0},
+	"captain": {"hp": 1.18, "budget": 1.1, "duration": 1.02, "target_dps": 1.04, "extra_mechanics": 0},
+	"elite": {"hp": 1.28, "budget": 1.2, "duration": 1.05, "target_dps": 1.08, "extra_mechanics": 1},
+	"boss": {"hp": 1.32, "budget": 1.48, "duration": 1.16, "target_dps": 1.16, "extra_mechanics": 2},
 	"bespoke": {"hp": 1.0, "budget": 1.0, "duration": 1.0, "target_dps": 1.0, "extra_mechanics": 0},
 }
 
@@ -86,6 +86,10 @@ static func generate(
 	var band := active_difficulties.get_band(source_input.difficulty_id)
 	var selected := _select_mechanics(rng, archetypes, band, source_input.monster_kind, source_input, active_mechanics, draft)
 	draft.selected_mechanics = _create_mechanic_values(rng, selected, band, active_difficulties, active_mechanics, draft)
+	_apply_contract_block_scaling(draft.selected_mechanics, source_input, active_mechanics)
+	_apply_contract_absorb_scaling(draft.selected_mechanics, source_input, active_mechanics)
+	_apply_mechanic_guardrails(draft.selected_mechanics, source_input, active_mechanics)
+	_apply_contract_armor_scaling(draft.selected_mechanics, source_input, active_mechanics)
 	draft.defense_overrides = _monster_overrides(draft.selected_mechanics)
 	_apply_pressure_model(rng, draft, archetypes, band, source_input, active_mechanics)
 	validate_draft_output(draft, band, active_mechanics)
@@ -319,6 +323,196 @@ static func _monster_overrides(selected_mechanics: Array) -> Dictionary:
 	return overrides
 
 
+static func _apply_mechanic_guardrails(selected_mechanics: Array, input: RuntimeGenerationInput, mechanic_library: RuntimeMechanicLibrary) -> void:
+	var guardrails: Dictionary = input.overrides.get("mechanic_guardrails", {}) as Dictionary
+	if guardrails.is_empty():
+		return
+	var rules: Dictionary = guardrails.get("combo_rules", {}) as Dictionary
+	if bool(rules.get("avoid_poison_triple", false)):
+		_remove_if_all_present(selected_mechanics, ["cleanse_threshold", "suppress", "poison_resistance"], "poison_resistance")
+	if bool(rules.get("avoid_physical_triple", false)):
+		_remove_if_all_present(selected_mechanics, ["armor", "block", "crit_negation"], "crit_negation")
+	if bool(rules.get("avoid_timing_triple", false)):
+		_remove_if_all_present(selected_mechanics, ["slow", "stun_duration_ms", "interrupt_skip_count"], "stun_duration_ms")
+	_limit_hard_counter_count(selected_mechanics, int(guardrails.get("max_hard_counters", 0)))
+	_apply_mechanic_caps(selected_mechanics, guardrails, mechanic_library)
+
+
+static func _remove_if_all_present(selected_mechanics: Array, required_ids: Array, remove_id: String) -> void:
+	var ids := _selected_mechanic_id_set(selected_mechanics)
+	for id in required_ids:
+		if not ids.has(String(id)):
+			return
+	for index in range(selected_mechanics.size() - 1, -1, -1):
+		if String((selected_mechanics[index] as Dictionary).get("id", "")) == remove_id:
+			selected_mechanics.remove_at(index)
+			return
+
+
+static func _limit_hard_counter_count(selected_mechanics: Array, max_count: int) -> void:
+	if max_count <= 0:
+		return
+	var hard_ids := {
+		"cleanse_threshold": true,
+		"suppress": true,
+		"poison_resistance": true,
+		"block": true,
+		"absorb": true,
+		"crit_negation": true,
+		"dodge_chance": true,
+		"slow": true,
+		"stun_duration_ms": true,
+		"interrupt_skip_count": true,
+	}
+	var removal_priority := [
+		"poison_resistance",
+		"crit_negation",
+		"stun_duration_ms",
+		"slow",
+		"suppress",
+		"absorb",
+		"block",
+		"dodge_chance",
+		"interrupt_skip_count",
+		"cleanse_threshold",
+	]
+	while _hard_counter_count(selected_mechanics, hard_ids) > max_count:
+		var removed := false
+		for remove_id in removal_priority:
+			for index in range(selected_mechanics.size() - 1, -1, -1):
+				var entry: Dictionary = selected_mechanics[index]
+				if String(entry.get("id", "")) == remove_id and not bool(entry.get("required", false)):
+					selected_mechanics.remove_at(index)
+					removed = true
+					break
+			if removed:
+				break
+		if not removed:
+			return
+
+
+static func _hard_counter_count(selected_mechanics: Array, hard_ids: Dictionary) -> int:
+	var count := 0
+	for entry in selected_mechanics:
+		if hard_ids.has(String((entry as Dictionary).get("id", ""))):
+			count += 1
+	return count
+
+
+static func _apply_mechanic_caps(selected_mechanics: Array, guardrails: Dictionary, mechanic_library: RuntimeMechanicLibrary) -> void:
+	var caps: Dictionary = guardrails.get("caps", {}) as Dictionary
+	var guardrail_id := String(guardrails.get("id", "early_contract"))
+	for entry in selected_mechanics:
+		var data: Dictionary = entry
+		var id := String(data.get("id", ""))
+		if not caps.has(id):
+			continue
+		var cap: Dictionary = caps[id]
+		var raw_value := int(data.get("value", 0))
+		var capped_value := raw_value
+		if cap.has("min"):
+			capped_value = maxi(capped_value, int(cap["min"]))
+		if cap.has("max"):
+			capped_value = mini(capped_value, int(cap["max"]))
+		if capped_value == raw_value:
+			continue
+		var mechanic := mechanic_library.get_mechanic(id)
+		if mechanic == null:
+			continue
+		var extras: Dictionary = data.get("extras", {}) as Dictionary
+		extras["guardrail_original_value"] = raw_value
+		extras["guardrail_id"] = guardrail_id
+		data["extras"] = extras
+		data["value"] = capped_value
+		data["godot_value"] = mechanic.export_value(float(capped_value))
+		data["cost"] = _score_mechanic_cost(mechanic, capped_value)
+
+
+static func _apply_contract_armor_scaling(selected_mechanics: Array, input: RuntimeGenerationInput, mechanic_library: RuntimeMechanicLibrary) -> void:
+	var scaling: Dictionary = input.overrides.get("contract_armor_scaling", {}) as Dictionary
+	if scaling.is_empty():
+		return
+	var multiplier := maxf(0.1, float(scaling.get("multiplier", 1.0)))
+	if is_equal_approx(multiplier, 1.0):
+		return
+	var mechanic := mechanic_library.get_mechanic("armor")
+	if mechanic == null:
+		return
+	for entry in selected_mechanics:
+		var data: Dictionary = entry
+		if String(data.get("id", "")) != "armor":
+			continue
+		var raw_value := int(data.get("value", 0))
+		var scaled_value := maxi(0, roundi(float(raw_value) * multiplier))
+		var extras: Dictionary = data.get("extras", {}) as Dictionary
+		extras["contract_armor_original_value"] = raw_value
+		extras["contract_armor_multiplier"] = multiplier
+		extras["contract_armor_scaling_id"] = String(scaling.get("id", "contract_armor_curve"))
+		data["extras"] = extras
+		data["value"] = scaled_value
+		data["godot_value"] = mechanic.export_value(float(scaled_value))
+		data["cost"] = _score_mechanic_cost(mechanic, scaled_value)
+
+
+static func _apply_contract_block_scaling(selected_mechanics: Array, input: RuntimeGenerationInput, mechanic_library: RuntimeMechanicLibrary) -> void:
+	var scaling: Dictionary = input.overrides.get("contract_block_scaling", {}) as Dictionary
+	if scaling.is_empty():
+		return
+	var multiplier := maxf(0.1, float(scaling.get("multiplier", 1.0)))
+	if is_equal_approx(multiplier, 1.0):
+		return
+	var mechanic := mechanic_library.get_mechanic("block")
+	if mechanic == null:
+		return
+	for entry in selected_mechanics:
+		var data: Dictionary = entry
+		if String(data.get("id", "")) != "block":
+			continue
+		var raw_value := int(data.get("value", 0))
+		var scaled_value := maxi(0, roundi(float(raw_value) * multiplier))
+		var extras: Dictionary = data.get("extras", {}) as Dictionary
+		extras["contract_block_original_value"] = raw_value
+		extras["contract_block_multiplier"] = multiplier
+		extras["contract_block_scaling_id"] = String(scaling.get("id", "contract_block_curve"))
+		data["extras"] = extras
+		data["value"] = scaled_value
+		data["godot_value"] = mechanic.export_value(float(scaled_value))
+		data["cost"] = _score_mechanic_cost(mechanic, scaled_value)
+
+
+static func _apply_contract_absorb_scaling(selected_mechanics: Array, input: RuntimeGenerationInput, mechanic_library: RuntimeMechanicLibrary) -> void:
+	var scaling: Dictionary = input.overrides.get("contract_absorb_scaling", {}) as Dictionary
+	if scaling.is_empty():
+		return
+	var multiplier := maxf(0.1, float(scaling.get("multiplier", 1.0)))
+	if is_equal_approx(multiplier, 1.0):
+		return
+	var mechanic := mechanic_library.get_mechanic("absorb")
+	if mechanic == null:
+		return
+	for entry in selected_mechanics:
+		var data: Dictionary = entry
+		if String(data.get("id", "")) != "absorb":
+			continue
+		var raw_value := int(data.get("value", 0))
+		var scaled_value := maxi(0, roundi(float(raw_value) * multiplier))
+		var extras: Dictionary = data.get("extras", {}) as Dictionary
+		extras["contract_absorb_original_value"] = raw_value
+		extras["contract_absorb_multiplier"] = multiplier
+		extras["contract_absorb_scaling_id"] = String(scaling.get("id", "contract_absorb_curve"))
+		data["extras"] = extras
+		data["value"] = scaled_value
+		data["godot_value"] = mechanic.export_value(float(scaled_value))
+		data["cost"] = _score_mechanic_cost(mechanic, scaled_value)
+
+
+static func _selected_mechanic_id_set(selected_mechanics: Array) -> Dictionary:
+	var ids := {}
+	for entry in selected_mechanics:
+		ids[String((entry as Dictionary).get("id", ""))] = true
+	return ids
+
+
 static func _score_mechanic_cost(mechanic: RuntimeMechanicDef, value: int) -> int:
 	if mechanic.invert_cost:
 		return roundi(mechanic.base_cost + (mechanic.max_value - float(value) + 1.0) * mechanic.cost_per_value)
@@ -431,13 +625,19 @@ static func _apply_pressure_model(
 	mechanic_library: RuntimeMechanicLibrary
 ) -> void:
 	var kind_multiplier: Dictionary = KIND_MULTIPLIERS.get(input.monster_kind, KIND_MULTIPLIERS["normal"])
-	var target_dps_range := _adjusted_target_dps_range(band, kind_multiplier)
+	var contract_dps_scaling := _contract_dps_scaling(input)
+	var contract_dps_multiplier := float(contract_dps_scaling.get("multiplier", 1.0))
+	var target_dps_range := _adjusted_target_dps_range(band, kind_multiplier, contract_dps_multiplier)
 	var duration_sec := _tempo_duration_seconds(rng, input.tempo_profile, kind_multiplier)
+	var hp_budget_duration_sec := maxf(duration_sec, float(contract_dps_scaling.get("min_hp_budget_duration_sec", duration_sec)))
 	var target_dps := _random_float(rng, target_dps_range[0], target_dps_range[1])
 	var mitigation_multiplier := _mitigation_multiplier(draft.selected_mechanics, mechanic_library)
 	var hp_bias := _combined_hp_bias(archetypes, input)
 	var kind_hp := float(kind_multiplier.get("hp", 1.0))
-	var hp := maxi(1, roundi((target_dps * duration_sec * hp_bias * kind_hp) / maxf(0.1, mitigation_multiplier)))
+	var contract_hp_scaling := _contract_hp_scaling(input)
+	var contract_hp_multiplier := float(contract_hp_scaling.get("multiplier", 1.0))
+	var base_hp := maxi(1, roundi((target_dps * hp_budget_duration_sec * hp_bias * kind_hp) / maxf(0.1, mitigation_multiplier)))
+	var hp := maxi(1, roundi(float(base_hp) * contract_hp_multiplier))
 	var effective_hp := roundi(float(hp) * mitigation_multiplier)
 	var required_dps := float(effective_hp) / maxf(0.1, float(duration_sec))
 	var status := _pressure_status(required_dps, target_dps, band.dps_tolerance)
@@ -479,6 +679,13 @@ static func _apply_pressure_model(
 		"dps_tolerance": band.dps_tolerance,
 		"required_dps": required_dps,
 		"effective_hp": effective_hp,
+		"base_hp_before_contract_scaling": base_hp,
+		"contract_hp_multiplier": contract_hp_multiplier,
+		"contract_hp_scaling": contract_hp_scaling,
+		"contract_dps_multiplier": contract_dps_multiplier,
+		"contract_dps_scaling": contract_dps_scaling,
+		"hp_budget_duration_sec": hp_budget_duration_sec,
+		"min_hp_budget_duration_sec": float(contract_dps_scaling.get("min_hp_budget_duration_sec", 0.0)),
 		"mitigation_multiplier": mitigation_multiplier,
 		"hp_bias": hp_bias,
 		"kind_hp_multiplier": kind_hp,
@@ -488,8 +695,34 @@ static func _apply_pressure_model(
 	}
 
 
-static func _adjusted_target_dps_range(band: RuntimeDifficultyBand, kind_multiplier: Dictionary) -> PackedFloat32Array:
-	var multiplier := float(kind_multiplier.get("target_dps", 1.0))
+static func _contract_hp_scaling(input: RuntimeGenerationInput) -> Dictionary:
+	var scaling: Dictionary = input.overrides.get("contract_hp_scaling", {}) as Dictionary
+	if scaling.is_empty():
+		return {
+			"id": "none",
+			"multiplier": 1.0,
+		}
+	var result := scaling.duplicate(true)
+	result["multiplier"] = maxf(0.1, float(result.get("multiplier", 1.0)))
+	return result
+
+
+static func _contract_dps_scaling(input: RuntimeGenerationInput) -> Dictionary:
+	var scaling: Dictionary = input.overrides.get("contract_dps_scaling", {}) as Dictionary
+	if scaling.is_empty():
+		return {
+			"id": "none",
+			"multiplier": 1.0,
+			"min_hp_budget_duration_sec": 0.0,
+		}
+	var result := scaling.duplicate(true)
+	result["multiplier"] = maxf(0.1, float(result.get("multiplier", 1.0)))
+	result["min_hp_budget_duration_sec"] = maxf(0.0, float(result.get("min_hp_budget_duration_sec", 0.0)))
+	return result
+
+
+static func _adjusted_target_dps_range(band: RuntimeDifficultyBand, kind_multiplier: Dictionary, contract_dps_multiplier: float = 1.0) -> PackedFloat32Array:
+	var multiplier := float(kind_multiplier.get("target_dps", 1.0)) * maxf(0.1, contract_dps_multiplier)
 	return PackedFloat32Array([
 		float(band.target_dps_range[0]) * multiplier,
 		float(band.target_dps_range[1]) * multiplier,

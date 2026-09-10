@@ -8,9 +8,9 @@
 
 [sub_resource type="Resource" id="Resource_toxic_technique_mod"]
 script = ExtResource("2_modifier")
-stat = 5
+stat = 3
 operation = 0
-value = 2.0
+value = 8.0
 
 [sub_resource type="Resource" id="Resource_toxic_technique_group"]
 script = ExtResource("3_group")
@@ -19,7 +19,7 @@ options = Array[Talent]([ExtResource("4_lethal_intent")])
 [resource]
 script = ExtResource("1_talent")
 id = "talent.toxic_technique"
-display_name = "Toxic Technique"
+display_name = "Toxic Techniques"
 cost = 2
 prerequisites = Array[PrerequisiteGroup]([SubResource("Resource_toxic_technique_group")])
 stat_modifiers = Array[StatModifier]([SubResource("Resource_toxic_technique_mod")])

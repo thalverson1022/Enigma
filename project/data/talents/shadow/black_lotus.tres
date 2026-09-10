@@ -1,22 +1,17 @@
-[gd_resource type="Resource" script_class="Talent" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="Talent" load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/talent.gd" id="1_talent"]
 [ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_modifier"]
 [ext_resource type="Script" path="res://scripts/resources/prerequisite_group.gd" id="3_group"]
 [ext_resource type="Resource" path="res://data/talents/shadow/lingering_venom.tres" id="4_lingering"]
 [ext_resource type="Resource" path="res://data/talents/shadow/exposed_weakness.tres" id="5_exposed"]
+[ext_resource type="Resource" path="res://data/skills/death_strike.tres" id="6_skill"]
 
 [sub_resource type="Resource" id="Resource_black_lotus_crit"]
 script = ExtResource("2_modifier")
 stat = 1
 operation = 0
-value = 0.05
-
-[sub_resource type="Resource" id="Resource_black_lotus_phys"]
-script = ExtResource("2_modifier")
-stat = 4
-operation = 1
-value = 1.1
+value = 0.1
 
 [sub_resource type="Resource" id="Resource_black_lotus_group"]
 script = ExtResource("3_group")
@@ -28,5 +23,5 @@ id = "talent.black_lotus"
 display_name = "Black Lotus"
 cost = 1
 prerequisites = Array[PrerequisiteGroup]([SubResource("Resource_black_lotus_group")])
-stat_modifiers = Array[StatModifier]([SubResource("Resource_black_lotus_crit"), SubResource("Resource_black_lotus_phys")])
-unlocked_skills = Array[Skill]([])
+stat_modifiers = Array[StatModifier]([SubResource("Resource_black_lotus_crit")])
+unlocked_skills = Array[Skill]([ExtResource("6_skill")])

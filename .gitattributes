@@ -4,3 +4,5 @@
 *.import text eol=lf
 *.tres text eol=lf
 *.tscn text eol=lf
+release/itchio/*.zip filter=lfs diff=lfs merge=lfs -text
+project/reports/balance/**/generated_balance_investigation.json filter=lfs diff=lfs merge=lfs -text

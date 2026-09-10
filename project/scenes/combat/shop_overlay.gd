@@ -196,8 +196,8 @@ func _make_shop_offer_row(offer: GearItem) -> Control:
 	var item_box := GearCompareButton.new()
 	item_box.custom_minimum_size = Vector2(88, 88)
 	item_box.tooltip_text = _shop_offer_text(offer)
-	item_box.tooltip_builder = func(): return CardStyle.build_gear_compare_tooltip(self, _shop_offer_text(offer), BuildState.equipped_item_for_slot(offer.slot))
-	item_box.disabled = GearGenerator.price_for_tier(offer.tier) > BuildState.gold
+	item_box.tooltip_builder = func(): return CardStyle.build_gear_compare_tooltip(self, _shop_offer_text(offer), BuildState.equipped_item_for_slot(offer.slot), offer)
+	item_box.disabled = BuildState.shop_purchase_price_for(offer) > BuildState.gold
 	item_box.pressed.connect(func(): buy_pressed.emit(offer, item_box))
 	CardStyle.style_shop_item_box(item_box, offer)
 	CardStyle.build_gear_box_content(item_box, offer)
@@ -206,7 +206,7 @@ func _make_shop_offer_row(offer: GearItem) -> Control:
 
 
 func _add_price_badge(item_box: Button, offer: GearItem) -> void:
-	var price := GearGenerator.price_for_tier(offer.tier)
+	var price := BuildState.shop_purchase_price_for(offer)
 	var badge := PanelContainer.new()
 	badge.name = "PriceBadge"
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -256,10 +256,11 @@ func _shop_offer_text(offer: GearItem) -> String:
 ## _shop_offer_text()'s item lines.
 func _shop_offer_footer_lines(offer: GearItem) -> PackedStringArray:
 	var lines: PackedStringArray = []
-	lines.append("Price: %dg" % GearGenerator.price_for_tier(offer.tier))
+	var price := BuildState.shop_purchase_price_for(offer)
+	lines.append("Price: %dg" % price)
 	if not BuildState.can_store_shop_offer(offer):
 		lines.append("Inventory full -- make space first.")
-	elif GearGenerator.price_for_tier(offer.tier) > BuildState.gold:
+	elif price > BuildState.gold:
 		lines.append("Not enough gold.")
 	else:
 		lines.append("Click to buy.")

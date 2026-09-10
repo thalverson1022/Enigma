@@ -38,7 +38,11 @@ func _initialize() -> void:
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99
+	var generated_helm: GearItem = GearGenerator.generate(GearItem.Tier.BASIC, GearItem.SlotType.HELM, rng, "gear.test.helm")
+	var generated_armor: GearItem = GearGenerator.generate(GearItem.Tier.CURSED, GearItem.SlotType.ARMOR, rng, "gear.test.armor")
 	var generated_charm: GearItem = GearGenerator.generate(GearItem.Tier.MASTER, GearItem.SlotType.CHARM, rng, "gear.test.charm")
+	build_state.equip(generated_helm)
+	build_state.equip(generated_armor)
 	build_state.equip(generated_charm)
 
 	build_state.choose_current_tavern_encounter()
@@ -70,6 +74,15 @@ func _initialize() -> void:
 	_require(build_state.shop_offers.size() == 6, "Expected generated shop offers before saving.")
 	_require(build_state.reroll_shop_offers(), "Expected a paid shop reroll before saving.")
 	_require(build_state.shop_reroll_cost == 10, "Expected next reroll to cost 10g before saving.")
+	var chaos_offer := GearGenerator.generate(GearItem.Tier.CHAOS, GearItem.SlotType.WEAPON, rng, "gear.test.chaos_shop_offer")
+	chaos_offer.is_unidentified = true
+	build_state.shop_offers.append(chaos_offer)
+	var pending_reward := GearGenerator.generate(GearItem.Tier.EPIC, GearItem.SlotType.TRINKET, rng, "gear.test.pending_reward")
+	pending_reward.reward_base_tier = GearItem.Tier.BASIC
+	pending_reward.reward_tier_steps = _tier_steps([GearItem.Tier.BASIC, GearItem.Tier.MASTER, GearItem.Tier.EPIC])
+	pending_reward.reward_magic_find_upgraded = true
+	var pending_choices: Array[GearItem] = [pending_reward]
+	build_state.pending_reward_choices = pending_choices
 
 	var pre_save_signature := _state_signature(build_state)
 
@@ -145,6 +158,8 @@ func _state_signature(state) -> String:
 	for item in state.inventory:
 		parts.append("inventory:%s" % _gear_signature(item))
 	parts.append("weapon:%s" % _gear_signature(state.equipped_weapon))
+	parts.append("helm:%s" % _gear_signature(state.equipped_helm))
+	parts.append("armor:%s" % _gear_signature(state.equipped_armor))
 	parts.append("trinket:%s" % _gear_signature(state.equipped_trinket))
 	parts.append("charm:%s" % _gear_signature(state.equipped_charm))
 	parts.append("shop_unlocked:%s" % state.shop_unlocked)
@@ -155,6 +170,8 @@ func _state_signature(state) -> String:
 	parts.append("shop_round_index:%d" % state.shop_round_index)
 	for offer in state.shop_offers:
 		parts.append("shop_offer:%s" % _gear_signature(offer))
+	for choice in state.pending_reward_choices:
+		parts.append("pending_reward:%s" % _gear_signature(choice))
 	parts.append("completed_contract_count:%d" % state.completed_contract_count)
 	parts.append("highest_run_dps:%.2f" % state.highest_run_dps)
 	for entry in state.run_encounter_history:
@@ -176,6 +193,7 @@ func _state_signature(state) -> String:
 	parts.append("contract_offer_index:%d" % state.contract_offer_index)
 	parts.append("encounter_index:%d" % state.current_encounter_index)
 	parts.append("failure_counts:%s" % JSON.stringify(state.encounter_failure_counts))
+	parts.append("retry_counts:%s" % JSON.stringify(state.encounter_retry_counts))
 	parts.append("run_phase:%d" % state.run_phase)
 	parts.append("run_outcome:%d" % state.run_outcome)
 	parts.append("last_fight_won:%s" % state.last_fight_won)
@@ -188,7 +206,24 @@ func _gear_signature(item: GearItem) -> String:
 	var affix_parts: PackedStringArray = []
 	for affix in item.affixes:
 		affix_parts.append("%d:%d:%.4f" % [affix.stat, affix.operation, affix.value])
-	return "%s|%d|%d|%s|%s" % [item.id, item.tier, item.slot, item.display_name, ",".join(affix_parts)]
+	return "%s|%d|%d|%s|unidentified:%s|reward:%d:%s:%s|%s" % [
+		item.id,
+		item.tier,
+		item.slot,
+		item.display_name,
+		item.is_unidentified,
+		item.reward_base_tier,
+		",".join(PackedStringArray(item.reward_tier_steps.map(func(tier): return str(tier)))),
+		item.reward_magic_find_upgraded,
+		",".join(affix_parts),
+	]
+
+
+func _tier_steps(values: Array) -> Array[int]:
+	var result: Array[int] = []
+	for value in values:
+		result.append(int(value))
+	return result
 
 
 func _require(condition: bool, message: String) -> void:

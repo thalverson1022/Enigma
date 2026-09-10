@@ -10,7 +10,7 @@
 script = ExtResource("2_modifier")
 stat = 2
 operation = 0
-value = 0.25
+value = 0.5
 
 [sub_resource type="Resource" id="Resource_lethal_intent_group"]
 script = ExtResource("3_group")

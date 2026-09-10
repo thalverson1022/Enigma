@@ -258,9 +258,13 @@ const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
 const GOLD_ICON := preload("res://assets/ui/icons/gold.png")
 const MAP_FRAME_OUTLINE_SHADER := preload("res://assets/ui/map/map_frame_outline.gdshader")
 const GEAR_DROP_ICON_PATHS := {
+	GearItem.Tier.CRUDE: "res://assets/ui/icons/gear_drop_helm_basic.png",
 	GearItem.Tier.BASIC: "res://assets/ui/icons/gear_drop_helm_basic.png",
 	GearItem.Tier.MASTER: "res://assets/ui/icons/gear_drop_helm_master.png",
+	GearItem.Tier.EPIC: "res://assets/ui/icons/gear_drop_helm_master.png",
 	GearItem.Tier.CURSED: "res://assets/ui/icons/gear_drop_helm_cursed.png",
+	GearItem.Tier.CHAOS: "res://assets/ui/icons/gear_drop_helm_cursed.png",
+	GearItem.Tier.UNIQUE: "res://assets/ui/icons/gear_drop_helm_legendary.png",
 	GearItem.Tier.LEGENDARY: "res://assets/ui/icons/gear_drop_helm_legendary.png",
 }
 const GENERATED_BIOME_FRAME_TEXTURE_PATHS := {
@@ -1513,7 +1517,7 @@ func _contract_reward_display(node: ContractRouteNode) -> String:
 	if node.reward.gear_choice_rewards.size() > 0:
 		return _tier_name_for_reward_gear(node.reward.gear_choice_rewards[0])
 	if node.reward.generated_gear_choice_count > 0:
-		return GearGenerator.TIER_NAMES[node.reward.generated_gear_tier]
+		return GearGenerator.tier_name(node.reward.generated_gear_tier)
 	if node.reward_quality_label == "Contract Victory":
 		return node.reward_quality_label
 	return ""
@@ -1522,7 +1526,7 @@ func _contract_reward_display(node: ContractRouteNode) -> String:
 func _tier_name_for_reward_gear(gear: GearItem) -> String:
 	if gear == null:
 		return "Gear"
-	return GearGenerator.TIER_NAMES[gear.tier]
+	return GearGenerator.tier_name(gear.tier)
 
 
 func _route_node_is_selectable(node: ContractRouteNode) -> bool:
@@ -2108,14 +2112,7 @@ func _gear_drop_icon_for_tier(tier: int) -> Texture2D:
 
 
 func _tier_color_for_map_reward(tier: int) -> Color:
-	match tier:
-		GearItem.Tier.MASTER:
-			return UIColors.TIER_MASTER
-		GearItem.Tier.CURSED:
-			return UIColors.TIER_CURSED
-		GearItem.Tier.LEGENDARY:
-			return UIColors.TIER_LEGENDARY
-	return UIColors.TIER_BASIC
+	return GearGenerator.tier_color(tier)
 
 
 func _add_map_actor_marker(button: Button, monster: Monster, enabled: bool, visual_name: String = "") -> void:
@@ -2421,8 +2418,8 @@ func _route_tradeoff_text(node_a: ContractRouteNode, node_b: ContractRouteNode) 
 		pressure_line = "%s is the harder branch" % node_b.display_name
 	var tier_a := _route_reward_tier_rank(node_a)
 	var tier_b := _route_reward_tier_rank(node_b)
-	var tier_a_name: String = GearGenerator.TIER_NAMES[tier_a] if tier_a >= 0 else "no gear"
-	var tier_b_name: String = GearGenerator.TIER_NAMES[tier_b] if tier_b >= 0 else "no gear"
+	var tier_a_name: String = GearGenerator.tier_name(tier_a) if tier_a >= 0 else "no gear"
+	var tier_b_name: String = GearGenerator.tier_name(tier_b) if tier_b >= 0 else "no gear"
 	return "%s. %s reward: %s -- %s reward: %s." % [pressure_line, node_a.display_name, tier_a_name, node_b.display_name, tier_b_name]
 
 

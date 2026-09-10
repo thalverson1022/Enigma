@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="GearItem" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="GearItem" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/gear_item.gd" id="1_gear"]
 [ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_affix"]
@@ -6,15 +6,30 @@
 
 [sub_resource type="Resource" id="Resource_umbral_crit_chance"]
 script = ExtResource("2_affix")
+stat_id = "crit_chance"
 stat = 1
+category = 0
 operation = 0
 value = 0.1
+display_label = "Crit Chance"
 
 [sub_resource type="Resource" id="Resource_umbral_crit_multiplier"]
 script = ExtResource("2_affix")
+stat_id = "crit_damage"
 stat = 2
+category = 0
 operation = 0
 value = 1.0
+display_label = "Crit Damage"
+
+[sub_resource type="Resource" id="Resource_umbral_crit_poison"]
+script = ExtResource("2_affix")
+stat_id = "crit_applies_element"
+stat = 0
+category = 1
+operation = 0
+value = 1.0
+display_label = "Chance for Crits to Apply Poison"
 
 [resource]
 script = ExtResource("1_gear")
@@ -22,5 +37,8 @@ id = "gear.legendary.umbral_stiletto"
 display_name = "Umbral Stiletto"
 slot = 0
 tier = 3
-affixes = Array[StatModifier]([SubResource("Resource_umbral_crit_chance"), SubResource("Resource_umbral_crit_multiplier")])
+item_family = "Dagger"
+class_family = 1
+source_kind = 3
+affixes = Array[StatModifier]([SubResource("Resource_umbral_crit_chance"), SubResource("Resource_umbral_crit_multiplier"), SubResource("Resource_umbral_crit_poison")])
 unlocked_skills = Array[Skill]([ExtResource("3_death_strike")])

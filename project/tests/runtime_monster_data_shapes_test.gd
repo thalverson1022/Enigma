@@ -10,6 +10,7 @@ func _initialize() -> void:
 	_check_archetype_definition_normalizes_nested_configs()
 	_check_difficulty_and_generation_input_shapes()
 	_check_generated_draft_exports_monster_compatible_fields()
+	_check_built_in_cleanse_curve_is_softened()
 	_check_built_in_mechanic_icons_load()
 	print("Runtime monster data shapes check: OK")
 	quit()
@@ -175,6 +176,20 @@ func _check_generated_draft_exports_monster_compatible_fields() -> void:
 	assert(monster.interrupt_skip_count == 1)
 
 
+func _check_built_in_cleanse_curve_is_softened() -> void:
+	var library := RuntimeMechanicLibrary.built_in()
+	var cleanse := library.get_mechanic("cleanse_threshold")
+	assert(cleanse != null)
+	assert(cleanse.max_value == 10)
+	assert(cleanse.invert_cost)
+	assert(Array(cleanse.curves["1"]) == [8, 10])
+	assert(Array(cleanse.curves["2"]) == [7, 9])
+	assert(Array(cleanse.curves["3"]) == [6, 8])
+	assert(Array(cleanse.curves["4"]) == [5, 7])
+	assert(Array(cleanse.curves["5"]) == [4, 6])
+	assert(Array(cleanse.curves["6"]) == [3, 5])
+
+
 func _check_built_in_mechanic_icons_load() -> void:
 	var expected_icons := {
 		"dodge_chance": "res://assets/ui/icons/mechanics/dodge.png",
@@ -188,6 +203,15 @@ func _check_built_in_mechanic_icons_load() -> void:
 		"interrupt_skip_count": "res://assets/ui/icons/mechanics/interrupt.png",
 	}
 	var library := RuntimeMechanicLibrary.built_in()
+	var armor := library.get_mechanic("armor")
+	assert(armor != null)
+	assert(armor.max_value == 9999)
+	var block := library.get_mechanic("block")
+	assert(block != null)
+	assert(block.max_value == 300)
+	var absorb := library.get_mechanic("absorb")
+	assert(absorb != null)
+	assert(absorb.max_value == 250)
 	for mechanic_id in expected_icons:
 		var mechanic := library.get_mechanic(mechanic_id)
 		assert(mechanic != null)

@@ -1,10 +1,10 @@
 class_name ContractRouteGenerator
 extends RefCounted
 
-const GENERATOR_VERSION := "p4m9.t3.v1"
+const GENERATOR_VERSION := "p4m9.t4.v1"
 const RNG_CONTEXT := "contract_route_generator"
 const PRESENTATION_TABLE_VERSION := "p4m10.presentation.v1"
-const REWARD_TABLE_VERSION := "p4m9.rewards.v1"
+const REWARD_TABLE_VERSION := "p4m9.rewards.v2"
 const MODIFIER_MODEL_VERSION := "p4m8.modifiers.v1"
 const ELITE_VARIANT_MODEL_VERSION := "p4m8.elite_variants.v1"
 const BOSS_VARIANT_MODEL_VERSION := "p4m8.boss_variants.v1"
@@ -198,33 +198,33 @@ const DEFAULT_SETTINGS := {
 
 const REWARD_TABLE := {
 	"normal": {
-		"gold_base": 10,
-		"gold_depth_step": 3,
-		"gold_pressure_step": 2,
-		"gear_choice_count": 1,
+		"gold_base": 5,
+		"gold_depth_step": 2,
+		"gold_pressure_step": 3,
+		"gear_choice_count": 2,
 		"gear_depth_threshold": 3,
 		"quality": "Steady",
 	},
 	"captain": {
-		"gold_base": 15,
-		"gold_depth_step": 4,
-		"gold_pressure_step": 2,
-		"gear_choice_count": 1,
+		"gold_base": 8,
+		"gold_depth_step": 2,
+		"gold_pressure_step": 3,
+		"gear_choice_count": 2,
 		"gear_depth_threshold": 3,
 		"quality": "Captain",
 	},
 	"elite": {
-		"gold_base": 22,
-		"gold_depth_step": 4,
-		"gold_pressure_step": 3,
+		"gold_base": 11,
+		"gold_depth_step": 2,
+		"gold_pressure_step": 5,
 		"gear_choice_count": 2,
 		"talent_depth_threshold": 4,
 		"quality": "Elite",
 	},
 	"boss": {
-		"gold_base": 44,
-		"gold_depth_step": 5,
-		"gold_pressure_step": 5,
+		"gold_base": 22,
+		"gold_depth_step": 3,
+		"gold_pressure_step": 8,
 		"gear_choice_count": 2,
 		"talent_points": 1,
 		"quality": "Contract Victory",
@@ -542,7 +542,7 @@ static func generate(seed: int, settings: Dictionary = {}) -> ContractDef:
 			"reward_table:%s" % REWARD_TABLE_VERSION,
 			"modifier_model:%s" % MODIFIER_MODEL_VERSION,
 			"modifiers:%s" % ",".join(_modifier_ids(generated_modifiers)),
-			"pressure_scale:completed_contracts:%d:tier:%d" % [
+			"reward_pressure:completed_contracts:%d:tier:%d" % [
 				int(route_settings.get("completed_contract_count", 0)),
 				_completed_contract_pressure_bonus_from_count(int(route_settings.get("completed_contract_count", 0))),
 			],
@@ -902,6 +902,14 @@ static func _assign_generated_encounter(seed: int, contract: ContractDef, node: 
 		"difficulty": stat_difficulty_id,
 		"kind": monster_kind,
 		"tempoProfile": _encounter_tempo_profile(seed, node, monster_kind),
+		"overrides": {
+			"contract_hp_scaling": _contract_hp_scaling_for_encounter(contract, node),
+			"contract_dps_scaling": _contract_dps_scaling_for_encounter(contract, node),
+			"contract_armor_scaling": _contract_armor_scaling_for_encounter(contract, node),
+			"contract_block_scaling": _contract_block_scaling_for_encounter(contract, node),
+			"contract_absorb_scaling": _contract_absorb_scaling_for_encounter(contract, node),
+			"mechanic_guardrails": _mechanic_guardrails_for_encounter(contract, node, pressure_scale),
+		},
 		"generatorVersion": RuntimeMonsterGenerator.GENERATOR_VERSION,
 		"librarySchema": RuntimeArchetypeLibraryLoader.EXPECTED_SCHEMA,
 	})
@@ -1114,16 +1122,11 @@ static func _encounter_pressure_scale(contract: ContractDef, node: ContractRoute
 	var route_label := String(contract.route_settings.get("route_difficulty", contract.route_difficulty)).to_lower()
 	var base := int(ROUTE_DIFFICULTY_IDS.get(route_label, ROUTE_DIFFICULTY_IDS[DEFAULT_ROUTE_DIFFICULTY]))
 	var progression := _contract_progression(contract)
-	var depth_bonus := _depth_pressure_bonus(node)
-	var completed_bonus := int(progression["stat_pressure_bonus"])
-	var kind_bonus := 0
-	if node.node_type == ContractRouteNode.NodeType.CAPTAIN:
-		kind_bonus = 1
-	elif node.node_type == ContractRouteNode.NodeType.ELITE:
-		kind_bonus = 1
-	elif node.node_type == ContractRouteNode.NodeType.BOSS:
-		kind_bonus = 2
-	var raw_difficulty := base + depth_bonus + kind_bonus + completed_bonus
+	var depth_bonus := _stat_depth_pressure_bonus(node)
+	var completed_bonus := 0
+	var kind_bonus := _stat_kind_pressure_bonus(node, int(progression["stage"]))
+	var effective_contract_id := int(progression["effective_contract_difficulty_id"])
+	var raw_difficulty := effective_contract_id + depth_bonus + kind_bonus
 	var content_difficulty_id := _content_difficulty_id_for_node(node, progression)
 	return {
 		"raw_difficulty_id": raw_difficulty,
@@ -1138,6 +1141,7 @@ static func _encounter_pressure_scale(contract: ContractDef, node: ContractRoute
 		"contract_progression_stage": int(progression["stage"]),
 		"contract_progression_stage_count": CONTRACT_PROGRESSION_STAGE_COUNT,
 		"content_promotion_reason": _content_promotion_reason(node, progression, content_difficulty_id),
+		"legacy_route_difficulty_base": base,
 		"depth_bonus": depth_bonus,
 		"node_level_bonus": kind_bonus,
 		"completed_contract_pressure_bonus": completed_bonus,
@@ -1222,6 +1226,373 @@ static func _difficulty_label_for_id(difficulty_id: int) -> String:
 
 static func _depth_pressure_bonus(node: ContractRouteNode) -> int:
 	return maxi(0, int(floor(float(node.depth - 1) / 2.0)))
+
+
+static func _stat_depth_pressure_bonus(node: ContractRouteNode) -> int:
+	if node == null:
+		return 0
+	if node.node_type == ContractRouteNode.NodeType.BOSS:
+		return 0
+	return mini(1, _depth_pressure_bonus(node))
+
+
+static func _stat_kind_pressure_bonus(node: ContractRouteNode, stage: int) -> int:
+	if node == null:
+		return 0
+	match node.node_type:
+		ContractRouteNode.NodeType.CAPTAIN:
+			return 1 if stage >= 5 else 0
+		ContractRouteNode.NodeType.ELITE:
+			return 1
+		ContractRouteNode.NodeType.BOSS:
+			return 2 if stage >= 4 else 1
+	return 0
+
+
+static func _mechanic_guardrails_for_encounter(contract: ContractDef, node: ContractRouteNode, pressure_scale: Dictionary) -> Dictionary:
+	var completed_count := maxi(0, int(contract.route_settings.get("completed_contract_count", 0)))
+	if completed_count > 2:
+		return {}
+	var max_hard_counters := 2
+	if node.node_type == ContractRouteNode.NodeType.BOSS:
+		max_hard_counters = 3
+	return {
+		"id": "early_contract_c1_c3",
+		"completed_contract_count": completed_count,
+		"contract_number": completed_count + 1,
+		"max_hard_counters": max_hard_counters,
+		"caps": {
+			"cleanse_threshold": {"min": 4},
+			"suppress": {"max": 45},
+			"poison_resistance": {"max": 35},
+			"slow": {"max": 25},
+			"block": {"max": _early_contract_block_cap(completed_count + 1, node)},
+			"absorb": {"max": _early_contract_absorb_cap(completed_count + 1, node)},
+		},
+		"combo_rules": {
+			"avoid_poison_triple": true,
+			"avoid_physical_triple": true,
+			"avoid_timing_triple": true,
+		},
+		"stat_difficulty_id": int(pressure_scale.get("monster_difficulty_id", 0)),
+		"content_difficulty_id": int(pressure_scale.get("content_difficulty_id", 0)),
+	}
+
+
+static func _early_contract_block_cap(contract_number: int, node: ContractRouteNode) -> int:
+	var role := _node_kind(node)
+	if contract_number <= 1:
+		match role:
+			"captain":
+				return 7
+			"elite":
+				return 9
+			"boss":
+				return 10
+		return 5
+	if contract_number == 2:
+		match role:
+			"captain":
+				return 9
+			"elite":
+				return 10
+			"boss":
+				return 12
+		return 7
+	match role:
+		"captain":
+			return 10
+		"elite":
+			return 12
+		"boss":
+			return 14
+	return 8
+
+
+static func _early_contract_absorb_cap(contract_number: int, node: ContractRouteNode) -> int:
+	var role := _node_kind(node)
+	if contract_number <= 1:
+		match role:
+			"captain":
+				return 4
+			"elite":
+				return 5
+			"boss":
+				return 7
+		return 3
+	if contract_number == 2:
+		match role:
+			"captain":
+				return 5
+			"elite":
+				return 7
+			"boss":
+				return 8
+		return 4
+	match role:
+		"captain":
+			return 7
+		"elite":
+			return 8
+		"boss":
+			return 10
+	return 5
+
+
+static func _contract_hp_scaling_for_encounter(contract: ContractDef, node: ContractRouteNode) -> Dictionary:
+	var completed_count := maxi(0, int(contract.route_settings.get("completed_contract_count", 0)))
+	var contract_number := completed_count + 1
+	var contract_multiplier := _contract_hp_multiplier_for_number(contract_number)
+	var role_scale := _contract_hp_role_scale(node)
+	var final_multiplier := 1.0 + (contract_multiplier - 1.0) * role_scale
+	return {
+		"id": "contract_hp_curve_v2",
+		"contract_number": contract_number,
+		"completed_contract_count": completed_count,
+		"contract_multiplier": contract_multiplier,
+		"role_scale": role_scale,
+		"multiplier": final_multiplier,
+	}
+
+
+static func _contract_hp_multiplier_for_number(contract_number: int) -> float:
+	var anchors := [
+		{"contract": 1, "multiplier": 1.0},
+		{"contract": 5, "multiplier": 1.4},
+		{"contract": 10, "multiplier": 2.3},
+		{"contract": 15, "multiplier": 3.8},
+		{"contract": 20, "multiplier": 6.0},
+		{"contract": 25, "multiplier": 9.0},
+		{"contract": 30, "multiplier": 13.0},
+	]
+	var clamped_contract := maxi(1, contract_number)
+	for index in range(anchors.size() - 1):
+		var start: Dictionary = anchors[index]
+		var finish: Dictionary = anchors[index + 1]
+		var start_contract := int(start["contract"])
+		var finish_contract := int(finish["contract"])
+		if clamped_contract > finish_contract:
+			continue
+		var span := float(finish_contract - start_contract)
+		var progress := clampf(float(clamped_contract - start_contract) / maxf(1.0, span), 0.0, 1.0)
+		return lerpf(float(start["multiplier"]), float(finish["multiplier"]), progress)
+	return float(anchors[anchors.size() - 1]["multiplier"])
+
+
+static func _contract_hp_role_scale(node: ContractRouteNode) -> float:
+	if node == null:
+		return 1.0
+	match node.node_type:
+		ContractRouteNode.NodeType.FIGHT:
+			return 1.0
+		ContractRouteNode.NodeType.CAPTAIN:
+			return 1.1
+		ContractRouteNode.NodeType.ELITE:
+			return 1.25
+		ContractRouteNode.NodeType.BOSS:
+			return 1.25
+	return 1.0
+
+
+static func _contract_dps_scaling_for_encounter(contract: ContractDef, node: ContractRouteNode) -> Dictionary:
+	var completed_count := maxi(0, int(contract.route_settings.get("completed_contract_count", 0)))
+	var contract_number := completed_count + 1
+	var contract_multiplier := _contract_dps_multiplier_for_number(contract_number)
+	var role_scale := _contract_dps_role_scale(node)
+	var final_multiplier := 1.0 + (contract_multiplier - 1.0) * role_scale
+	return {
+		"id": "contract_dps_curve_v1",
+		"contract_number": contract_number,
+		"completed_contract_count": completed_count,
+		"contract_multiplier": contract_multiplier,
+		"role_scale": role_scale,
+		"multiplier": final_multiplier,
+		"min_hp_budget_duration_sec": _minimum_hp_budget_duration_for_number(contract_number),
+	}
+
+
+static func _contract_dps_multiplier_for_number(contract_number: int) -> float:
+	var anchors := [
+		{"contract": 1, "multiplier": 1.0},
+		{"contract": 5, "multiplier": 1.8},
+		{"contract": 10, "multiplier": 3.5},
+		{"contract": 15, "multiplier": 6.0},
+		{"contract": 20, "multiplier": 10.0},
+		{"contract": 25, "multiplier": 16.0},
+		{"contract": 30, "multiplier": 25.0},
+	]
+	return _interpolated_contract_multiplier(maxi(1, contract_number), anchors)
+
+
+static func _minimum_hp_budget_duration_for_number(contract_number: int) -> float:
+	if contract_number <= 3:
+		return 18.0
+	if contract_number <= 10:
+		return 22.0
+	if contract_number <= 20:
+		return 26.0
+	return 30.0
+
+
+static func _contract_dps_role_scale(node: ContractRouteNode) -> float:
+	if node == null:
+		return 1.0
+	match node.node_type:
+		ContractRouteNode.NodeType.FIGHT:
+			return 0.85
+		ContractRouteNode.NodeType.CAPTAIN:
+			return 1.0
+		ContractRouteNode.NodeType.ELITE:
+			return 1.2
+		ContractRouteNode.NodeType.BOSS:
+			return 1.5
+	return 1.0
+
+
+static func _contract_armor_scaling_for_encounter(contract: ContractDef, node: ContractRouteNode) -> Dictionary:
+	var completed_count := maxi(0, int(contract.route_settings.get("completed_contract_count", 0)))
+	var contract_number := completed_count + 1
+	var contract_multiplier := _contract_armor_multiplier_for_number(contract_number)
+	var role_scale := _contract_armor_role_scale(node)
+	var final_multiplier := 1.0 + (contract_multiplier - 1.0) * role_scale
+	return {
+		"id": "contract_armor_curve_v1",
+		"contract_number": contract_number,
+		"completed_contract_count": completed_count,
+		"contract_multiplier": contract_multiplier,
+		"role_scale": role_scale,
+		"multiplier": final_multiplier,
+	}
+
+
+static func _contract_armor_multiplier_for_number(contract_number: int) -> float:
+	var anchors := [
+		{"contract": 1, "multiplier": 1.0},
+		{"contract": 5, "multiplier": 1.6},
+		{"contract": 10, "multiplier": 2.8},
+		{"contract": 15, "multiplier": 4.8},
+		{"contract": 20, "multiplier": 7.5},
+		{"contract": 25, "multiplier": 11.0},
+		{"contract": 30, "multiplier": 16.0},
+	]
+	return _interpolated_contract_multiplier(maxi(1, contract_number), anchors)
+
+
+static func _contract_armor_role_scale(node: ContractRouteNode) -> float:
+	if node == null:
+		return 1.0
+	match node.node_type:
+		ContractRouteNode.NodeType.FIGHT:
+			return 0.75
+		ContractRouteNode.NodeType.CAPTAIN:
+			return 1.0
+		ContractRouteNode.NodeType.ELITE:
+			return 1.2
+		ContractRouteNode.NodeType.BOSS:
+			return 1.35
+	return 1.0
+
+
+static func _contract_block_scaling_for_encounter(contract: ContractDef, node: ContractRouteNode) -> Dictionary:
+	var completed_count := maxi(0, int(contract.route_settings.get("completed_contract_count", 0)))
+	var contract_number := completed_count + 1
+	var contract_multiplier := _contract_block_multiplier_for_number(contract_number)
+	var role_scale := _contract_block_role_scale(node)
+	var final_multiplier := 1.0 + (contract_multiplier - 1.0) * role_scale
+	return {
+		"id": "contract_block_curve_v1",
+		"contract_number": contract_number,
+		"completed_contract_count": completed_count,
+		"contract_multiplier": contract_multiplier,
+		"role_scale": role_scale,
+		"multiplier": final_multiplier,
+	}
+
+
+static func _contract_block_multiplier_for_number(contract_number: int) -> float:
+	var anchors := [
+		{"contract": 1, "multiplier": 1.0},
+		{"contract": 5, "multiplier": 1.4},
+		{"contract": 10, "multiplier": 2.4},
+		{"contract": 15, "multiplier": 4.0},
+		{"contract": 20, "multiplier": 6.2},
+		{"contract": 25, "multiplier": 9.0},
+		{"contract": 30, "multiplier": 13.0},
+	]
+	return _interpolated_contract_multiplier(maxi(1, contract_number), anchors)
+
+
+static func _contract_block_role_scale(node: ContractRouteNode) -> float:
+	if node == null:
+		return 1.0
+	match node.node_type:
+		ContractRouteNode.NodeType.FIGHT:
+			return 0.55
+		ContractRouteNode.NodeType.CAPTAIN:
+			return 0.75
+		ContractRouteNode.NodeType.ELITE:
+			return 1.0
+		ContractRouteNode.NodeType.BOSS:
+			return 1.2
+	return 1.0
+
+
+static func _contract_absorb_scaling_for_encounter(contract: ContractDef, node: ContractRouteNode) -> Dictionary:
+	var completed_count := maxi(0, int(contract.route_settings.get("completed_contract_count", 0)))
+	var contract_number := completed_count + 1
+	var contract_multiplier := _contract_absorb_multiplier_for_number(contract_number)
+	var role_scale := _contract_absorb_role_scale(node)
+	var final_multiplier := 1.0 + (contract_multiplier - 1.0) * role_scale
+	return {
+		"id": "contract_absorb_curve_v1",
+		"contract_number": contract_number,
+		"completed_contract_count": completed_count,
+		"contract_multiplier": contract_multiplier,
+		"role_scale": role_scale,
+		"multiplier": final_multiplier,
+	}
+
+
+static func _contract_absorb_multiplier_for_number(contract_number: int) -> float:
+	var anchors := [
+		{"contract": 1, "multiplier": 1.0},
+		{"contract": 5, "multiplier": 1.4},
+		{"contract": 10, "multiplier": 2.4},
+		{"contract": 15, "multiplier": 4.0},
+		{"contract": 20, "multiplier": 6.2},
+		{"contract": 25, "multiplier": 9.0},
+		{"contract": 30, "multiplier": 13.0},
+	]
+	return _interpolated_contract_multiplier(maxi(1, contract_number), anchors)
+
+
+static func _contract_absorb_role_scale(node: ContractRouteNode) -> float:
+	if node == null:
+		return 1.0
+	match node.node_type:
+		ContractRouteNode.NodeType.FIGHT:
+			return 0.55
+		ContractRouteNode.NodeType.CAPTAIN:
+			return 0.75
+		ContractRouteNode.NodeType.ELITE:
+			return 1.0
+		ContractRouteNode.NodeType.BOSS:
+			return 1.2
+	return 1.0
+
+
+static func _interpolated_contract_multiplier(contract_number: int, anchors: Array) -> float:
+	for index in range(anchors.size() - 1):
+		var start: Dictionary = anchors[index]
+		var finish: Dictionary = anchors[index + 1]
+		var start_contract := int(start["contract"])
+		var finish_contract := int(finish["contract"])
+		if contract_number > finish_contract:
+			continue
+		var span := float(finish_contract - start_contract)
+		var progress := clampf(float(contract_number - start_contract) / maxf(1.0, span), 0.0, 1.0)
+		return lerpf(float(start["multiplier"]), float(finish["multiplier"]), progress)
+	return float(anchors[anchors.size() - 1]["multiplier"])
 
 
 static func _completed_contract_pressure_bonus(contract: ContractDef) -> int:
@@ -1388,16 +1759,16 @@ static func _reward_gold_amount(table: Dictionary, node: ContractRouteNode, pres
 		int(table.get("gold_base", 0))
 		+ maxi(0, node.depth - 1) * int(table.get("gold_depth_step", 0))
 		+ pressure * int(table.get("gold_pressure_step", 0))
-		+ maxi(0, node.lane)
+		+ int(floor(float(maxi(0, node.lane)) / 2.0))
 		+ _reward_intent_gold_bonus(node)
 	)
 
 
 static func _reward_intent_gold_bonus(node: ContractRouteNode) -> int:
 	if node.branch_intent_tags.has("high_reward"):
-		return 6
-	if node.branch_intent_tags.has("risky"):
 		return 3
+	if node.branch_intent_tags.has("risky"):
+		return 2
 	return 0
 
 
@@ -1430,9 +1801,11 @@ static func _reward_gear_tier_for_difficulty(difficulty_id: int, role: String) -
 
 static func _reward_gear_slots(seed: int, node: ContractRouteNode, role: String) -> Array[int]:
 	var slots: Array[int] = []
+	var pool: Array[int] = []
+	for slot in GearGenerator.ALL_SLOTS:
+		pool.append(slot)
 	if role == "boss":
-		return [GearItem.SlotType.WEAPON, GearItem.SlotType.TRINKET, GearItem.SlotType.CHARM]
-	var pool := [GearItem.SlotType.WEAPON, GearItem.SlotType.TRINKET, GearItem.SlotType.CHARM]
+		return pool
 	var count := 2 if role == "elite" else 1
 	var rng := RunRng.rng_for_context(seed, RNG_CONTEXT, [GENERATOR_VERSION, "node_reward_slots", REWARD_TABLE_VERSION, node.generated_node_id])
 	while slots.size() < count and not pool.is_empty():
@@ -1448,7 +1821,7 @@ static func _reward_summary(reward: EncounterReward) -> String:
 		return ""
 	var parts := PackedStringArray()
 	if reward.generated_gear_choice_count > 0:
-		parts.append("%s gear choice" % GearGenerator.TIER_NAMES[reward.generated_gear_tier])
+		parts.append("%s gear choice" % GearGenerator.tier_name(reward.generated_gear_tier))
 	if reward.talent_points > 0:
 		parts.append("%d talent point%s" % [reward.talent_points, "" if reward.talent_points == 1 else "s"])
 	if reward.gold_amount > 0:

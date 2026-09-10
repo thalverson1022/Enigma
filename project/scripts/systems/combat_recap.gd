@@ -51,8 +51,8 @@ static func summarize(result: CombatResolver.CombatResult, monster: Monster = nu
 			active_armor_reduction_casts += 1
 		if event.poison_resistance_reduction_applied > 0.0:
 			final_poison_resistance *= 1.0 - clampf(event.poison_resistance_reduction_applied, 0.0, 1.0)
-			poison_resistance_reduction_casts += 1
-			active_poison_resistance_reduction_casts += 1
+			poison_resistance_reduction_casts += event.decay_stacks_applied
+			active_poison_resistance_reduction_casts += event.decay_stacks_applied
 		if event.cleanse_triggered:
 			active_armor_reduction_total = 0
 			active_armor_reduction_casts = 0
@@ -79,6 +79,7 @@ static func summarize(result: CombatResolver.CombatResult, monster: Monster = nu
 
 	var damage_required := monster.hp if monster != null else 0
 	var damage_delta := result.total_damage - float(damage_required)
+	var overkill := result.overkill_damage if result.is_win else 0.0
 	var required_dps := 0.0
 	if monster != null and result.duration_ms > 0:
 		required_dps = float(monster.hp) / (float(result.duration_ms) / 1000.0)
@@ -89,7 +90,7 @@ static func summarize(result: CombatResolver.CombatResult, monster: Monster = nu
 		"dps": result.dps,
 		"damage_required": damage_required,
 		"damage_shortfall": maxf(0.0, -damage_delta),
-		"overkill": maxf(0.0, damage_delta),
+		"overkill": overkill,
 		"damage_delta": damage_delta,
 		"required_dps": required_dps,
 		"biggest_hit": biggest_hit,

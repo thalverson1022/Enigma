@@ -10,6 +10,9 @@ signal fight_pressed
 const CARD_TITLE_FONT_SIZE := 20
 const PANEL_MIN_HEIGHT := 230
 const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
+const FIGHT_ATTEMPTS_ICON_SIZE := Vector2(20, 20)
+const FIGHT_ATTEMPTS_FONT_SIZE := 26
+const FIGHT_ATTEMPTS_BADGE_SIZE := Vector2(74, 26)
 
 ## Data-derived thresholds for the "why this target pressures certain
 ## builds" line (P2:R7:T5). Not authored per-monster flavor text -- these
@@ -26,6 +29,8 @@ const POISON_RESIST_HIGH_THRESHOLD := 0.25
 var _info_label: RichTextLabel
 var _fight_button: Button
 var _title_label: Label
+var _attempts_badge: PanelContainer
+var _attempts_label: Label
 var _presented_monster_override: Monster = null
 var _presented_duration_override_ms := 0
 
@@ -38,12 +43,21 @@ func _ready() -> void:
 	content.add_theme_constant_override("separation", 8)
 	add_child(content)
 
+	var title_row := HBoxContainer.new()
+	title_row.name = "EnemyTitleRow"
+	title_row.add_theme_constant_override("separation", 8)
+	content.add_child(title_row)
+
 	_title_label = Label.new()
 	_title_label.text = "No Target"
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_title_label.theme_type_variation = &"PanelHeader"
 	_title_label.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	content.add_child(_title_label)
+	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title_label.clip_text = true
+	title_row.add_child(_title_label)
+
+	title_row.add_child(_build_attempts_badge())
 
 	# RichTextLabel (not Label) so the Resist line can carry semantic color
 	# without a second label node.
@@ -91,6 +105,62 @@ func _update_fight_button() -> void:
 func _on_run_state_changed() -> void:
 	_update_fight_button()
 	_refresh()
+
+
+func _build_attempts_badge() -> PanelContainer:
+	var badge := PanelContainer.new()
+	badge.name = "EnemyAttemptsBadge"
+	badge.visible = false
+	badge.mouse_filter = Control.MOUSE_FILTER_STOP
+	badge.custom_minimum_size = FIGHT_ATTEMPTS_BADGE_SIZE
+	var badge_style := CardStyle.make_stylebox(8)
+	badge_style.bg_color = UIColors.BADGE_BACKDROP
+	badge_style.border_color = UIColors.PANEL_BORDER
+	badge_style.content_margin_left = 6
+	badge_style.content_margin_right = 7
+	badge_style.content_margin_top = 0
+	badge_style.content_margin_bottom = 1
+	badge.add_theme_stylebox_override("panel", badge_style)
+	_attempts_badge = badge
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 4)
+	badge.add_child(row)
+
+	var icon := CardStyle.make_pixel_icon(FIGHT_ICON, FIGHT_ATTEMPTS_ICON_SIZE)
+	icon.name = "EnemyAttemptsIcon"
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+
+	_attempts_label = Label.new()
+	_attempts_label.name = "EnemyAttemptsLabel"
+	_attempts_label.text = "2/2"
+	_attempts_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_attempts_label.add_theme_font_size_override("font_size", FIGHT_ATTEMPTS_FONT_SIZE)
+	_attempts_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	_attempts_label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	_attempts_label.add_theme_constant_override("outline_size", 3)
+	row.add_child(_attempts_label)
+	return badge
+
+
+func _refresh_attempts_badge(show_badge: bool) -> void:
+	if _attempts_badge == null or _attempts_label == null:
+		return
+	_attempts_badge.visible = show_badge
+	if not show_badge:
+		return
+	if BuildState.is_unlimited_retry_encounter():
+		_attempts_label.text = "∞"
+		_attempts_badge.tooltip_text = "∞ Attempts Left"
+	else:
+		var attempts_remaining := BuildState.attempts_remaining_for_current_encounter()
+		_attempts_label.text = "%d/%d" % [attempts_remaining, BuildState.STANDARD_MAX_ATTEMPTS]
+		_attempts_badge.tooltip_text = "%d/%d Attempts Left" % [
+			attempts_remaining,
+			BuildState.STANDARD_MAX_ATTEMPTS,
+		]
 
 
 func monster() -> Monster:
@@ -171,6 +241,7 @@ func _terminal_target_duration_ms() -> int:
 func _set_enemy_state(enemy: Monster, duration: int) -> void:
 	_title_label.text = enemy.display_name
 	_info_label.text = _enemy_combat_info_text(enemy, duration)
+	_refresh_attempts_badge(true)
 
 
 func _enemy_combat_info_text(enemy: Monster, duration: int) -> String:
@@ -249,6 +320,7 @@ func _seconds_number(duration_ms: int) -> String:
 func _set_empty_state(title: String, body: String) -> void:
 	_title_label.text = title
 	_info_label.text = body
+	_refresh_attempts_badge(false)
 
 
 ## Short, data-derived "why this target pressures certain builds" line

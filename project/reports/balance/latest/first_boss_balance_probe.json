@@ -1,0 +1,2449 @@
+{
+	"boss_groups": [
+		{
+			"a": "fortified",
+			"b": "",
+			"id": "fortified",
+			"label": "Fortified"
+		},
+		{
+			"a": "warded",
+			"b": "",
+			"id": "warded",
+			"label": "Warded"
+		},
+		{
+			"a": "fortified",
+			"b": "warded",
+			"id": "fortified_warded",
+			"label": "Fortified + Warded"
+		},
+		{
+			"a": "warded",
+			"b": "fortified",
+			"id": "warded_fortified",
+			"label": "Warded + Fortified"
+		}
+	],
+	"duration_ms": 30000,
+	"results": [
+		{
+			"average_boss_hp": 123.3,
+			"average_damage": 729.9,
+			"average_dps": 24.33,
+			"boss_group": "Fortified",
+			"build": "Blade Dancer",
+			"damage_population_variance": 4259.89,
+			"damage_sample_variance": 4733.21111111111,
+			"dps_population_variance": 4.73321111111111,
+			"rotation": [
+				"Rending Slash",
+				"Quick Cut",
+				"Quick Cut"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 839.0,
+					"dps": 27.9666666666667,
+					"hp": 124,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Threat",
+					"seed": 61001,
+					"win": true
+				},
+				{
+					"damage": 708.0,
+					"dps": 23.6,
+					"hp": 123,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 61002,
+					"win": true
+				},
+				{
+					"damage": 785.0,
+					"dps": 26.1666666666667,
+					"hp": 109,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61003,
+					"win": true
+				},
+				{
+					"damage": 748.0,
+					"dps": 24.9333333333333,
+					"hp": 110,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61004,
+					"win": true
+				},
+				{
+					"damage": 758.0,
+					"dps": 25.2666666666667,
+					"hp": 108,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Threat",
+					"seed": 61005,
+					"win": true
+				},
+				{
+					"damage": 708.0,
+					"dps": 23.6,
+					"hp": 129,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61006,
+					"win": true
+				},
+				{
+					"damage": 646.0,
+					"dps": 21.5333333333333,
+					"hp": 147,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 61007,
+					"win": true
+				},
+				{
+					"damage": 804.0,
+					"dps": 26.8,
+					"hp": 102,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61008,
+					"win": true
+				},
+				{
+					"damage": 632.0,
+					"dps": 21.0666666666667,
+					"hp": 155,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61009,
+					"win": true
+				},
+				{
+					"damage": 671.0,
+					"dps": 22.3666666666667,
+					"hp": 126,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 61010,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 214.2,
+			"average_damage": 1097.7,
+			"average_dps": 36.59,
+			"boss_group": "Warded",
+			"build": "Blade Dancer",
+			"damage_population_variance": 3843.61,
+			"damage_sample_variance": 4270.67777777778,
+			"dps_population_variance": 4.27067777777778,
+			"rotation": [
+				"Rending Slash",
+				"Quick Cut",
+				"Quick Cut"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 1112.0,
+					"dps": 37.0666666666667,
+					"hp": 189,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 61101,
+					"win": true
+				},
+				{
+					"damage": 1106.0,
+					"dps": 36.8666666666667,
+					"hp": 218,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Monster",
+					"seed": 61102,
+					"win": true
+				},
+				{
+					"damage": 1158.0,
+					"dps": 38.6,
+					"hp": 177,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 61103,
+					"win": true
+				},
+				{
+					"damage": 1206.0,
+					"dps": 40.2,
+					"hp": 172,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 61104,
+					"win": true
+				},
+				{
+					"damage": 1001.0,
+					"dps": 33.3666666666667,
+					"hp": 246,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 61105,
+					"win": true
+				},
+				{
+					"damage": 990.0,
+					"dps": 33.0,
+					"hp": 251,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 61106,
+					"win": true
+				},
+				{
+					"damage": 1118.0,
+					"dps": 37.2666666666667,
+					"hp": 197,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Enemy",
+					"seed": 61107,
+					"win": true
+				},
+				{
+					"damage": 1126.0,
+					"dps": 37.5333333333333,
+					"hp": 243,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Monster",
+					"seed": 61108,
+					"win": true
+				},
+				{
+					"damage": 1082.0,
+					"dps": 36.0666666666667,
+					"hp": 200,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Enemy",
+					"seed": 61109,
+					"win": true
+				},
+				{
+					"damage": 1078.0,
+					"dps": 35.9333333333333,
+					"hp": 249,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 61110,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 115.4,
+			"average_damage": 861.0,
+			"average_dps": 28.7,
+			"boss_group": "Fortified + Warded",
+			"build": "Blade Dancer",
+			"damage_population_variance": 6368.2,
+			"damage_sample_variance": 7075.77777777778,
+			"dps_population_variance": 7.07577777777778,
+			"rotation": [
+				"Rending Slash",
+				"Quick Cut",
+				"Quick Cut"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 790.0,
+					"dps": 26.3333333333333,
+					"hp": 90,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61201,
+					"win": true
+				},
+				{
+					"damage": 796.0,
+					"dps": 26.5333333333333,
+					"hp": 102,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation",
+						"suppress"
+					],
+					"monster": "Warded Monster",
+					"seed": 61202,
+					"win": true
+				},
+				{
+					"damage": 842.0,
+					"dps": 28.0666666666667,
+					"hp": 95,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"absorb",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61203,
+					"win": true
+				},
+				{
+					"damage": 1010.0,
+					"dps": 33.6666666666667,
+					"hp": 131,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"absorb",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61204,
+					"win": true
+				},
+				{
+					"damage": 794.0,
+					"dps": 26.4666666666667,
+					"hp": 125,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block"
+					],
+					"monster": "Warded Monster",
+					"seed": 61205,
+					"win": true
+				},
+				{
+					"damage": 825.0,
+					"dps": 27.5,
+					"hp": 109,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress",
+						"crit_negation"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 61206,
+					"win": true
+				},
+				{
+					"damage": 900.0,
+					"dps": 30.0,
+					"hp": 104,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 61207,
+					"win": true
+				},
+				{
+					"damage": 993.0,
+					"dps": 33.1,
+					"hp": 119,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block"
+					],
+					"monster": "Warded Threat",
+					"seed": 61208,
+					"win": true
+				},
+				{
+					"damage": 881.0,
+					"dps": 29.3666666666667,
+					"hp": 98,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation"
+					],
+					"monster": "Warded Threat",
+					"seed": 61209,
+					"win": true
+				},
+				{
+					"damage": 779.0,
+					"dps": 25.9666666666667,
+					"hp": 181,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 61210,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 144.4,
+			"average_damage": 870.5,
+			"average_dps": 29.0166666666667,
+			"boss_group": "Warded + Fortified",
+			"build": "Blade Dancer",
+			"damage_population_variance": 23515.05,
+			"damage_sample_variance": 26127.8333333333,
+			"dps_population_variance": 26.1278333333333,
+			"rotation": [
+				"Rending Slash",
+				"Quick Cut",
+				"Quick Cut"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 739.0,
+					"dps": 24.6333333333333,
+					"hp": 149,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block",
+						"absorb"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61301,
+					"win": true
+				},
+				{
+					"damage": 1168.0,
+					"dps": 38.9333333333333,
+					"hp": 135,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"crit_negation",
+						"suppress"
+					],
+					"monster": "Fortified Threat",
+					"seed": 61302,
+					"win": true
+				},
+				{
+					"damage": 662.0,
+					"dps": 22.0666666666667,
+					"hp": 188,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"absorb",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61303,
+					"win": true
+				},
+				{
+					"damage": 871.0,
+					"dps": 29.0333333333333,
+					"hp": 159,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"crit_negation",
+						"suppress"
+					],
+					"monster": "Warded Monster",
+					"seed": 61304,
+					"win": true
+				},
+				{
+					"damage": 1111.0,
+					"dps": 37.0333333333333,
+					"hp": 117,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 61305,
+					"win": true
+				},
+				{
+					"damage": 818.0,
+					"dps": 27.2666666666667,
+					"hp": 136,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress"
+					],
+					"monster": "Warded Monster",
+					"seed": 61306,
+					"win": true
+				},
+				{
+					"damage": 773.0,
+					"dps": 25.7666666666667,
+					"hp": 144,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Warded Threat",
+					"seed": 61307,
+					"win": true
+				},
+				{
+					"damage": 824.0,
+					"dps": 27.4666666666667,
+					"hp": 131,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61308,
+					"win": true
+				},
+				{
+					"damage": 952.0,
+					"dps": 31.7333333333333,
+					"hp": 154,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 61309,
+					"win": true
+				},
+				{
+					"damage": 787.0,
+					"dps": 26.2333333333333,
+					"hp": 131,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Warded Enemy",
+					"seed": 61310,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 132.4,
+			"average_damage": 1307.7,
+			"average_dps": 43.59,
+			"boss_group": "Fortified",
+			"build": "Assassin",
+			"damage_population_variance": 786.81,
+			"damage_sample_variance": 874.233333333333,
+			"dps_population_variance": 0.874233333333334,
+			"rotation": [
+				"Venom Jab",
+				"Heavy Slash",
+				"Heavy Slash",
+				"Heavy Slash"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 1361.0,
+					"dps": 45.3666666666667,
+					"hp": 155,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62001,
+					"win": true
+				},
+				{
+					"damage": 1302.0,
+					"dps": 43.4,
+					"hp": 155,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 62002,
+					"win": true
+				},
+				{
+					"damage": 1282.0,
+					"dps": 42.7333333333333,
+					"hp": 130,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62003,
+					"win": true
+				},
+				{
+					"damage": 1342.0,
+					"dps": 44.7333333333333,
+					"hp": 149,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62004,
+					"win": true
+				},
+				{
+					"damage": 1297.0,
+					"dps": 43.2333333333333,
+					"hp": 120,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62005,
+					"win": true
+				},
+				{
+					"damage": 1271.0,
+					"dps": 42.3666666666667,
+					"hp": 99,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62006,
+					"win": true
+				},
+				{
+					"damage": 1318.0,
+					"dps": 43.9333333333333,
+					"hp": 168,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 62007,
+					"win": true
+				},
+				{
+					"damage": 1327.0,
+					"dps": 44.2333333333333,
+					"hp": 115,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62008,
+					"win": true
+				},
+				{
+					"damage": 1304.0,
+					"dps": 43.4666666666667,
+					"hp": 129,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 62009,
+					"win": true
+				},
+				{
+					"damage": 1273.0,
+					"dps": 42.4333333333333,
+					"hp": 104,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62010,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 226.6,
+			"average_damage": 1043.5,
+			"average_dps": 34.7833333333333,
+			"boss_group": "Warded",
+			"build": "Assassin",
+			"damage_population_variance": 7081.85,
+			"damage_sample_variance": 7868.72222222222,
+			"dps_population_variance": 7.86872222222222,
+			"rotation": [
+				"Venom Jab",
+				"Heavy Slash",
+				"Heavy Slash",
+				"Heavy Slash"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 1132.0,
+					"dps": 37.7333333333333,
+					"hp": 203,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 62101,
+					"win": true
+				},
+				{
+					"damage": 998.0,
+					"dps": 33.2666666666667,
+					"hp": 276,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Monster",
+					"seed": 62102,
+					"win": true
+				},
+				{
+					"damage": 1063.0,
+					"dps": 35.4333333333333,
+					"hp": 173,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Enemy",
+					"seed": 62103,
+					"win": true
+				},
+				{
+					"damage": 1091.0,
+					"dps": 36.3666666666667,
+					"hp": 198,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 62104,
+					"win": true
+				},
+				{
+					"damage": 903.0,
+					"dps": 30.1,
+					"hp": 233,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Monster",
+					"seed": 62105,
+					"win": true
+				},
+				{
+					"damage": 1032.0,
+					"dps": 34.4,
+					"hp": 188,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Enemy",
+					"seed": 62106,
+					"win": true
+				},
+				{
+					"damage": 1034.0,
+					"dps": 34.4666666666667,
+					"hp": 284,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Monster",
+					"seed": 62107,
+					"win": true
+				},
+				{
+					"damage": 1148.0,
+					"dps": 38.2666666666667,
+					"hp": 272,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 62108,
+					"win": true
+				},
+				{
+					"damage": 903.0,
+					"dps": 30.1,
+					"hp": 209,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 62109,
+					"win": true
+				},
+				{
+					"damage": 1131.0,
+					"dps": 37.7,
+					"hp": 230,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Monster",
+					"seed": 62110,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 124.4,
+			"average_damage": 977.3,
+			"average_dps": 32.5766666666667,
+			"boss_group": "Fortified + Warded",
+			"build": "Assassin",
+			"damage_population_variance": 3168.61,
+			"damage_sample_variance": 3520.67777777778,
+			"dps_population_variance": 3.52067777777778,
+			"rotation": [
+				"Venom Jab",
+				"Heavy Slash",
+				"Heavy Slash",
+				"Heavy Slash"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 962.0,
+					"dps": 32.0666666666667,
+					"hp": 110,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 62201,
+					"win": true
+				},
+				{
+					"damage": 1083.0,
+					"dps": 36.1,
+					"hp": 168,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62202,
+					"win": true
+				},
+				{
+					"damage": 1028.0,
+					"dps": 34.2666666666667,
+					"hp": 101,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 62203,
+					"win": true
+				},
+				{
+					"damage": 874.0,
+					"dps": 29.1333333333333,
+					"hp": 124,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 62204,
+					"win": true
+				},
+				{
+					"damage": 986.0,
+					"dps": 32.8666666666667,
+					"hp": 110,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Warded Enemy",
+					"seed": 62205,
+					"win": true
+				},
+				{
+					"damage": 1026.0,
+					"dps": 34.2,
+					"hp": 159,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress"
+					],
+					"monster": "Fortified Threat",
+					"seed": 62206,
+					"win": true
+				},
+				{
+					"damage": 944.0,
+					"dps": 31.4666666666667,
+					"hp": 110,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation",
+						"suppress"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62207,
+					"win": true
+				},
+				{
+					"damage": 995.0,
+					"dps": 33.1666666666667,
+					"hp": 104,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62208,
+					"win": true
+				},
+				{
+					"damage": 937.0,
+					"dps": 31.2333333333333,
+					"hp": 109,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress",
+						"block"
+					],
+					"monster": "Warded Enemy",
+					"seed": 62209,
+					"win": true
+				},
+				{
+					"damage": 938.0,
+					"dps": 31.2666666666667,
+					"hp": 149,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block",
+						"suppress"
+					],
+					"monster": "Warded Monster",
+					"seed": 62210,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 134.2,
+			"average_damage": 998.3,
+			"average_dps": 33.2766666666667,
+			"boss_group": "Warded + Fortified",
+			"build": "Assassin",
+			"damage_population_variance": 7995.61,
+			"damage_sample_variance": 8884.01111111111,
+			"dps_population_variance": 8.88401111111111,
+			"rotation": [
+				"Venom Jab",
+				"Heavy Slash",
+				"Heavy Slash",
+				"Heavy Slash"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 941.0,
+					"dps": 31.3666666666667,
+					"hp": 150,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62301,
+					"win": true
+				},
+				{
+					"damage": 1177.0,
+					"dps": 39.2333333333333,
+					"hp": 148,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block"
+					],
+					"monster": "Warded Monster",
+					"seed": 62302,
+					"win": true
+				},
+				{
+					"damage": 982.0,
+					"dps": 32.7333333333333,
+					"hp": 139,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"crit_negation",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 62303,
+					"win": true
+				},
+				{
+					"damage": 1020.0,
+					"dps": 34.0,
+					"hp": 152,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 62304,
+					"win": true
+				},
+				{
+					"damage": 973.0,
+					"dps": 32.4333333333333,
+					"hp": 98,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block",
+						"suppress"
+					],
+					"monster": "Fortified Threat",
+					"seed": 62305,
+					"win": true
+				},
+				{
+					"damage": 1031.0,
+					"dps": 34.3666666666667,
+					"hp": 124,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62306,
+					"win": true
+				},
+				{
+					"damage": 882.0,
+					"dps": 29.4,
+					"hp": 156,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress"
+					],
+					"monster": "Warded Monster",
+					"seed": 62307,
+					"win": true
+				},
+				{
+					"damage": 956.0,
+					"dps": 31.8666666666667,
+					"hp": 137,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"absorb"
+					],
+					"monster": "Fortified Monster",
+					"seed": 62308,
+					"win": true
+				},
+				{
+					"damage": 1126.0,
+					"dps": 37.5333333333333,
+					"hp": 127,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 62309,
+					"win": true
+				},
+				{
+					"damage": 895.0,
+					"dps": 29.8333333333333,
+					"hp": 111,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress",
+						"block"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 62310,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 133.4,
+			"average_damage": 768.8,
+			"average_dps": 25.6266666666667,
+			"boss_group": "Fortified",
+			"build": "Shadow",
+			"damage_population_variance": 1815.76,
+			"damage_sample_variance": 2017.51111111111,
+			"dps_population_variance": 2.01751111111111,
+			"rotation": [
+				"Stab",
+				"Death Strike"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 789.0,
+					"dps": 26.3,
+					"hp": 114,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63001,
+					"win": true
+				},
+				{
+					"damage": 700.0,
+					"dps": 23.3333333333333,
+					"hp": 104,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 63002,
+					"win": true
+				},
+				{
+					"damage": 724.0,
+					"dps": 24.1333333333333,
+					"hp": 180,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63003,
+					"win": true
+				},
+				{
+					"damage": 724.0,
+					"dps": 24.1333333333333,
+					"hp": 177,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63004,
+					"win": true
+				},
+				{
+					"damage": 761.0,
+					"dps": 25.3666666666667,
+					"hp": 131,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63005,
+					"win": true
+				},
+				{
+					"damage": 799.0,
+					"dps": 26.6333333333333,
+					"hp": 119,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 63006,
+					"win": true
+				},
+				{
+					"damage": 838.0,
+					"dps": 27.9333333333333,
+					"hp": 125,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 63007,
+					"win": true
+				},
+				{
+					"damage": 816.0,
+					"dps": 27.2,
+					"hp": 172,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63008,
+					"win": true
+				},
+				{
+					"damage": 791.0,
+					"dps": 26.3666666666667,
+					"hp": 117,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 63009,
+					"win": true
+				},
+				{
+					"damage": 746.0,
+					"dps": 24.8666666666667,
+					"hp": 95,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 63010,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 215.0,
+			"average_damage": 1028.4,
+			"average_dps": 34.28,
+			"boss_group": "Warded",
+			"build": "Shadow",
+			"damage_population_variance": 7403.44,
+			"damage_sample_variance": 8226.04444444444,
+			"dps_population_variance": 8.22604444444445,
+			"rotation": [
+				"Stab",
+				"Death Strike"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 1083.0,
+					"dps": 36.1,
+					"hp": 259,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 63101,
+					"win": true
+				},
+				{
+					"damage": 1019.0,
+					"dps": 33.9666666666667,
+					"hp": 319,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Monster",
+					"seed": 63102,
+					"win": true
+				},
+				{
+					"damage": 996.0,
+					"dps": 33.2,
+					"hp": 195,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 63103,
+					"win": true
+				},
+				{
+					"damage": 953.0,
+					"dps": 31.7666666666667,
+					"hp": 157,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Monster",
+					"seed": 63104,
+					"win": true
+				},
+				{
+					"damage": 1078.0,
+					"dps": 35.9333333333333,
+					"hp": 210,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 63105,
+					"win": true
+				},
+				{
+					"damage": 986.0,
+					"dps": 32.8666666666667,
+					"hp": 237,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Enemy",
+					"seed": 63106,
+					"win": true
+				},
+				{
+					"damage": 1180.0,
+					"dps": 39.3333333333333,
+					"hp": 206,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 63107,
+					"win": true
+				},
+				{
+					"damage": 1073.0,
+					"dps": 35.7666666666667,
+					"hp": 194,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 63108,
+					"win": true
+				},
+				{
+					"damage": 1070.0,
+					"dps": 35.6666666666667,
+					"hp": 168,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Monster",
+					"seed": 63109,
+					"win": true
+				},
+				{
+					"damage": 846.0,
+					"dps": 28.2,
+					"hp": 205,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 63110,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 130.3,
+			"average_damage": 693.4,
+			"average_dps": 23.1133333333333,
+			"boss_group": "Fortified + Warded",
+			"build": "Shadow",
+			"damage_population_variance": 5530.84,
+			"damage_sample_variance": 6145.37777777778,
+			"dps_population_variance": 6.14537777777778,
+			"rotation": [
+				"Stab",
+				"Death Strike"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 757.0,
+					"dps": 25.2333333333333,
+					"hp": 162,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 63201,
+					"win": true
+				},
+				{
+					"damage": 665.0,
+					"dps": 22.1666666666667,
+					"hp": 102,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"absorb"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63202,
+					"win": true
+				},
+				{
+					"damage": 583.0,
+					"dps": 19.4333333333333,
+					"hp": 133,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Warded Monster",
+					"seed": 63203,
+					"win": true
+				},
+				{
+					"damage": 772.0,
+					"dps": 25.7333333333333,
+					"hp": 124,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation"
+					],
+					"monster": "Warded Monster",
+					"seed": 63204,
+					"win": true
+				},
+				{
+					"damage": 583.0,
+					"dps": 19.4333333333333,
+					"hp": 127,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Warded Monster",
+					"seed": 63205,
+					"win": true
+				},
+				{
+					"damage": 634.0,
+					"dps": 21.1333333333333,
+					"hp": 113,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Threat",
+					"seed": 63206,
+					"win": true
+				},
+				{
+					"damage": 714.0,
+					"dps": 23.8,
+					"hp": 155,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63207,
+					"win": true
+				},
+				{
+					"damage": 770.0,
+					"dps": 25.6666666666667,
+					"hp": 106,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block"
+					],
+					"monster": "Warded Monster",
+					"seed": 63208,
+					"win": true
+				},
+				{
+					"damage": 790.0,
+					"dps": 26.3333333333333,
+					"hp": 133,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 63209,
+					"win": true
+				},
+				{
+					"damage": 666.0,
+					"dps": 22.2,
+					"hp": 148,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"absorb"
+					],
+					"monster": "Fortified Threat",
+					"seed": 63210,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 134.7,
+			"average_damage": 708.3,
+			"average_dps": 23.61,
+			"boss_group": "Warded + Fortified",
+			"build": "Shadow",
+			"damage_population_variance": 10145.21,
+			"damage_sample_variance": 11272.4555555556,
+			"dps_population_variance": 11.2724555555556,
+			"rotation": [
+				"Stab",
+				"Death Strike"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 584.0,
+					"dps": 19.4666666666667,
+					"hp": 149,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"crit_negation",
+						"absorb"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63301,
+					"win": true
+				},
+				{
+					"damage": 705.0,
+					"dps": 23.5,
+					"hp": 124,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Warded Threat",
+					"seed": 63302,
+					"win": true
+				},
+				{
+					"damage": 891.0,
+					"dps": 29.7,
+					"hp": 108,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress",
+						"block"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63303,
+					"win": true
+				},
+				{
+					"damage": 755.0,
+					"dps": 25.1666666666667,
+					"hp": 111,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"crit_negation"
+					],
+					"monster": "Fortified Threat",
+					"seed": 63304,
+					"win": true
+				},
+				{
+					"damage": 824.0,
+					"dps": 27.4666666666667,
+					"hp": 160,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress"
+					],
+					"monster": "Fortified Monster",
+					"seed": 63305,
+					"win": true
+				},
+				{
+					"damage": 726.0,
+					"dps": 24.2,
+					"hp": 106,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"crit_negation"
+					],
+					"monster": "Fortified Threat",
+					"seed": 63306,
+					"win": true
+				},
+				{
+					"damage": 707.0,
+					"dps": 23.5666666666667,
+					"hp": 166,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress",
+						"block"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 63307,
+					"win": true
+				},
+				{
+					"damage": 600.0,
+					"dps": 20.0,
+					"hp": 120,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block",
+						"absorb"
+					],
+					"monster": "Fortified Monster",
+					"seed": 63308,
+					"win": true
+				},
+				{
+					"damage": 553.0,
+					"dps": 18.4333333333333,
+					"hp": 124,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"absorb",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 63309,
+					"win": true
+				},
+				{
+					"damage": 738.0,
+					"dps": 24.6,
+					"hp": 179,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 63310,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 131.7,
+			"average_damage": 556.6,
+			"average_dps": 18.5533333333333,
+			"boss_group": "Fortified",
+			"build": "Thief",
+			"damage_population_variance": 1146.04,
+			"damage_sample_variance": 1273.37777777778,
+			"dps_population_variance": 1.27337777777778,
+			"rotation": [
+				"Steal"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 549.0,
+					"dps": 18.3,
+					"hp": 114,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 64001,
+					"win": true
+				},
+				{
+					"damage": 561.0,
+					"dps": 18.7,
+					"hp": 100,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64002,
+					"win": true
+				},
+				{
+					"damage": 562.0,
+					"dps": 18.7333333333333,
+					"hp": 131,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 64003,
+					"win": true
+				},
+				{
+					"damage": 556.0,
+					"dps": 18.5333333333333,
+					"hp": 134,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64004,
+					"win": true
+				},
+				{
+					"damage": 579.0,
+					"dps": 19.3,
+					"hp": 102,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 64005,
+					"win": true
+				},
+				{
+					"damage": 632.0,
+					"dps": 21.0666666666667,
+					"hp": 193,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 64006,
+					"win": true
+				},
+				{
+					"damage": 510.0,
+					"dps": 17.0,
+					"hp": 164,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64007,
+					"win": true
+				},
+				{
+					"damage": 518.0,
+					"dps": 17.2666666666667,
+					"hp": 110,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64008,
+					"win": true
+				},
+				{
+					"damage": 576.0,
+					"dps": 19.2,
+					"hp": 160,
+					"mechanics": [
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64009,
+					"win": true
+				},
+				{
+					"damage": 523.0,
+					"dps": 17.4333333333333,
+					"hp": 109,
+					"mechanics": [
+						"armor",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 64010,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 239.8,
+			"average_damage": 1159.5,
+			"average_dps": 38.65,
+			"boss_group": "Warded",
+			"build": "Thief",
+			"damage_population_variance": 3022.25,
+			"damage_sample_variance": 3358.05555555556,
+			"dps_population_variance": 3.35805555555556,
+			"rotation": [
+				"Steal"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 1225.0,
+					"dps": 40.8333333333333,
+					"hp": 213,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 64101,
+					"win": true
+				},
+				{
+					"damage": 1212.0,
+					"dps": 40.4,
+					"hp": 241,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 64102,
+					"win": true
+				},
+				{
+					"damage": 1121.0,
+					"dps": 37.3666666666667,
+					"hp": 246,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Monster",
+					"seed": 64103,
+					"win": true
+				},
+				{
+					"damage": 1066.0,
+					"dps": 35.5333333333333,
+					"hp": 236,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 64104,
+					"win": true
+				},
+				{
+					"damage": 1168.0,
+					"dps": 38.9333333333333,
+					"hp": 265,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 64105,
+					"win": true
+				},
+				{
+					"damage": 1146.0,
+					"dps": 38.2,
+					"hp": 255,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 64106,
+					"win": true
+				},
+				{
+					"damage": 1175.0,
+					"dps": 39.1666666666667,
+					"hp": 207,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Monster",
+					"seed": 64107,
+					"win": true
+				},
+				{
+					"damage": 1183.0,
+					"dps": 39.4333333333333,
+					"hp": 245,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 64108,
+					"win": true
+				},
+				{
+					"damage": 1073.0,
+					"dps": 35.7666666666667,
+					"hp": 274,
+					"mechanics": [
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 64109,
+					"win": true
+				},
+				{
+					"damage": 1226.0,
+					"dps": 40.8666666666667,
+					"hp": 216,
+					"mechanics": [
+						"poison_resistance",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Warded Threat",
+					"seed": 64110,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 138.0,
+			"average_damage": 676.5,
+			"average_dps": 22.55,
+			"boss_group": "Fortified + Warded",
+			"build": "Thief",
+			"damage_population_variance": 5452.45,
+			"damage_sample_variance": 6058.27777777778,
+			"dps_population_variance": 6.05827777777778,
+			"rotation": [
+				"Steal"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 635.0,
+					"dps": 21.1666666666667,
+					"hp": 110,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress",
+						"crit_negation"
+					],
+					"monster": "Warded Monster",
+					"seed": 64201,
+					"win": true
+				},
+				{
+					"damage": 725.0,
+					"dps": 24.1666666666667,
+					"hp": 104,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 64202,
+					"win": true
+				},
+				{
+					"damage": 774.0,
+					"dps": 25.8,
+					"hp": 148,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"absorb"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64203,
+					"win": true
+				},
+				{
+					"damage": 677.0,
+					"dps": 22.5666666666667,
+					"hp": 140,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block"
+					],
+					"monster": "Warded Enemy",
+					"seed": 64204,
+					"win": true
+				},
+				{
+					"damage": 621.0,
+					"dps": 20.7,
+					"hp": 146,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Warded Enemy",
+					"seed": 64205,
+					"win": true
+				},
+				{
+					"damage": 748.0,
+					"dps": 24.9333333333333,
+					"hp": 168,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block"
+					],
+					"monster": "Fortified Monster",
+					"seed": 64206,
+					"win": true
+				},
+				{
+					"damage": 761.0,
+					"dps": 25.3666666666667,
+					"hp": 166,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"block",
+						"absorb"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64207,
+					"win": true
+				},
+				{
+					"damage": 642.0,
+					"dps": 21.4,
+					"hp": 93,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 64208,
+					"win": true
+				},
+				{
+					"damage": 661.0,
+					"dps": 22.0333333333333,
+					"hp": 169,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation",
+						"absorb"
+					],
+					"monster": "Warded Enemy",
+					"seed": 64209,
+					"win": true
+				},
+				{
+					"damage": 521.0,
+					"dps": 17.3666666666667,
+					"hp": 136,
+					"mechanics": [
+						"armor",
+						"poison_resistance",
+						"crit_negation",
+						"block"
+					],
+					"monster": "Warded Enemy",
+					"seed": 64210,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		},
+		{
+			"average_boss_hp": 146.1,
+			"average_damage": 729.4,
+			"average_dps": 24.3133333333333,
+			"boss_group": "Warded + Fortified",
+			"build": "Thief",
+			"damage_population_variance": 3320.64,
+			"damage_sample_variance": 3689.6,
+			"dps_population_variance": 3.6896,
+			"rotation": [
+				"Steal"
+			],
+			"sample_count": 10,
+			"samples": [
+				{
+					"damage": 738.0,
+					"dps": 24.6,
+					"hp": 117,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"absorb"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 64301,
+					"win": true
+				},
+				{
+					"damage": 628.0,
+					"dps": 20.9333333333333,
+					"hp": 131,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block",
+						"crit_negation"
+					],
+					"monster": "Warded Enemy",
+					"seed": 64302,
+					"win": true
+				},
+				{
+					"damage": 815.0,
+					"dps": 27.1666666666667,
+					"hp": 168,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress",
+						"absorb"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64303,
+					"win": true
+				},
+				{
+					"damage": 711.0,
+					"dps": 23.7,
+					"hp": 154,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64304,
+					"win": true
+				},
+				{
+					"damage": 734.0,
+					"dps": 24.4666666666667,
+					"hp": 127,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress"
+					],
+					"monster": "Warded Threat",
+					"seed": 64305,
+					"win": true
+				},
+				{
+					"damage": 650.0,
+					"dps": 21.6666666666667,
+					"hp": 213,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block"
+					],
+					"monster": "Warded Threat",
+					"seed": 64306,
+					"win": true
+				},
+				{
+					"damage": 761.0,
+					"dps": 25.3666666666667,
+					"hp": 159,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"block"
+					],
+					"monster": "Fortified Enemy",
+					"seed": 64307,
+					"win": true
+				},
+				{
+					"damage": 735.0,
+					"dps": 24.5,
+					"hp": 166,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"absorb",
+						"block"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64308,
+					"win": true
+				},
+				{
+					"damage": 707.0,
+					"dps": 23.5666666666667,
+					"hp": 107,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"suppress"
+					],
+					"monster": "Warded Enemy",
+					"seed": 64309,
+					"win": true
+				},
+				{
+					"damage": 815.0,
+					"dps": 27.1666666666667,
+					"hp": 119,
+					"mechanics": [
+						"poison_resistance",
+						"armor",
+						"absorb",
+						"suppress"
+					],
+					"monster": "Fortified Threat",
+					"seed": 64310,
+					"win": true
+				}
+			],
+			"win_rate": 1.0
+		}
+	],
+	"run_count": 10
+}

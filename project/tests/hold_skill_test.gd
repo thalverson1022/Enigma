@@ -2,6 +2,8 @@ extends SceneTree
 ## Focused check for the Rogue Hold intrinsic skill: it consumes time and has
 ## no combat effect.
 
+const CombatPlaybackPresenterScript := preload("res://scripts/ui/combat_playback_presenter.gd")
+
 var _failed := false
 
 
@@ -54,6 +56,7 @@ func _initialize() -> void:
 	_require(result.cast_events[1].skill.id == "skill.stab", "Expected the second mechanic-counter cast to be Stab.")
 	_require(result.cast_events[1].cleanse_counter == 1, "Expected Stab to become the first Cleanse-counting action after Hold.")
 	_require(not result.cast_events[1].cleanse_triggered, "Expected Hold not to make the following Stab trigger a two-hit Cleanse.")
+	_check_hold_spawns_no_adventure_popup(hold)
 
 	print("")
 	if _failed:
@@ -81,6 +84,22 @@ func _monster() -> Monster:
 	monster.armor = 0
 	monster.poison_resistance = 0.0
 	return monster
+
+
+func _check_hold_spawns_no_adventure_popup(hold: Skill) -> void:
+	var presenter = CombatPlaybackPresenterScript.new()
+	var popup_layer := CombatPopupLayer.new()
+	popup_layer.size = Vector2(400, 200)
+	root.add_child(popup_layer)
+	presenter.set_popup_layer(popup_layer)
+	var hold_cast := CombatResolver.CastEvent.new()
+	hold_cast.skill = hold
+	hold_cast.cast_start_ms = 0
+	hold_cast.time_ms = 1000
+	presenter._spawn_cast_popups(hold_cast)
+	_require(popup_layer.get_child_count() == 0, "Expected Hold to spawn no Adventure floating text.")
+	popup_layer.queue_free()
+	presenter.queue_free()
 
 
 func _require(condition: bool, message: String) -> void:

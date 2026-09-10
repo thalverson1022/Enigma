@@ -3,12 +3,10 @@ extends PanelContainer
 ## earned inventory grid per the user's mockup.
 ##
 ## Equipment doll layout: hood (top), doublet (center, largest), dagger
-## (left), ring + necklace (stacked right). Dagger/ring/necklace are the
-## three real slots, filled only by rewards/shop inventory decisions;
-## hood/doublet are dummy UI slots for future content and always read Empty.
-## Slots render as gray boxes when empty and tier-colored when filled --
-## Basic=green, Master=blue, Cursed=purple, Legendary=orange. Hovering a slot
-## shows its name, or the item's name and stats.
+## (left), necklace above ring (stacked right). These are the five universal
+## equipment slots, filled by rewards/shop inventory decisions.
+## Slots render as gray boxes when empty and tier-treated when filled. Hovering
+## a slot shows its name, or the item's name and stats.
 ##
 ## Inventory contains up to three items bought from the shop or earned from
 ## rewards. Primary clicks move gear between inventory and equipment; right-
@@ -29,20 +27,15 @@ const INVENTORY_SLOT_SIZE := Vector2(88, 88)
 const ACTION_EQUIP_ID := 1
 const ACTION_SELL_ID := 2
 const ACTION_UNEQUIP_ID := 3
+const ACTION_DESTROY_ID := 4
 const GEAR_GHOST_DURATION_SEC := 0.24
 const GEAR_GHOST_ARC_HEIGHT := 34.0
 const GEAR_LANDING_PULSE_SEC := 0.22
 const GOLD_ICON := preload("res://assets/ui/icons/gold.png")
+const GearTooltipPanelScript := preload("res://scripts/ui/gear_tooltip_panel.gd")
 
 const EMPTY_SLOT_COLOR := UIColors.SLOT_EMPTY
 const SLOT_BORDER_COLOR := UIColors.SLOT_BORDER
-const TIER_COLORS := {
-	GearItem.Tier.BASIC: UIColors.TIER_BASIC,
-	GearItem.Tier.MASTER: UIColors.TIER_MASTER,
-	GearItem.Tier.CURSED: UIColors.TIER_CURSED,
-	GearItem.Tier.LEGENDARY: UIColors.TIER_LEGENDARY,
-}
-
 var _helm_slot: Panel
 var _armor_slot: Panel
 var _weapon_slot: Panel
@@ -54,12 +47,15 @@ var _gold_row: HBoxContainer
 var _gold_icon: TextureRect
 var _gold_label: Label
 var _sell_dialog: ConfirmationDialog
+var _destroy_dialog: ConfirmationDialog
 var _inventory_action_menu: PopupMenu
 var _equipped_action_menu: PopupMenu
 var _pending_inventory_action_item: GearItem = null
 var _pending_equipped_action_slot: int = -1
 var _pending_sell_inventory_item: GearItem = null
 var _pending_sell_equipped_slot: int = -1
+var _pending_destroy_inventory_item: GearItem = null
+var _pending_destroy_equipped_slot: int = -1
 
 
 func _ready() -> void:
@@ -129,7 +125,7 @@ func _ready() -> void:
 
 	var inventory := PanelContainer.new()
 	inventory.custom_minimum_size = Vector2(0, 120)
-	inventory.tooltip_text = "Inventory -- three slots for unequipped gear"
+	inventory.tooltip_text = "Inventory -- storage for unequipped gear"
 	var inventory_style := CardStyle.make_stylebox(8)
 	inventory_style.bg_color = UIColors.PANEL_DEEP
 	inventory.add_theme_stylebox_override("panel", inventory_style)
@@ -151,19 +147,20 @@ func _ready() -> void:
 	if BuildState.has_signal("stats_preview_changed"):
 		BuildState.stats_preview_changed.connect(_refresh)
 	_build_sell_dialog()
+	_build_destroy_dialog()
 	_build_inventory_action_menu()
 	_build_equipped_action_menu()
 	_refresh()
 
 
-## Paper doll arrangement: helm centered on top, then weapon | armor |
-## (trinket over charm), matching the mockup's positions.
+## Paper doll source-of-truth arrangement: helm centered on top, then
+## weapon | armor | (charm over trinket).
 func _build_doll() -> VBoxContainer:
 	var doll := VBoxContainer.new()
 	doll.alignment = BoxContainer.ALIGNMENT_END
 	doll.add_theme_constant_override("separation", 8)
 
-	_helm_slot = _make_slot(HELM_SLOT_SIZE)
+	_helm_slot = _make_slot(HELM_SLOT_SIZE, GearItem.SlotType.HELM)
 	_helm_slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	doll.add_child(_helm_slot)
 
@@ -171,31 +168,41 @@ func _build_doll() -> VBoxContainer:
 	middle_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	middle_row.add_theme_constant_override("separation", 10)
 
-	_weapon_slot = _make_slot(WEAPON_SLOT_SIZE)
+	_weapon_slot = _make_slot(WEAPON_SLOT_SIZE, GearItem.SlotType.WEAPON)
 	_weapon_slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_weapon_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	middle_row.add_child(_weapon_slot)
 
-	_armor_slot = _make_slot(ARMOR_SLOT_SIZE)
+	_armor_slot = _make_slot(ARMOR_SLOT_SIZE, GearItem.SlotType.ARMOR)
 	middle_row.add_child(_armor_slot)
 
 	var right_stack := VBoxContainer.new()
 	right_stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	right_stack.add_theme_constant_override("separation", 6)
-	_trinket_slot = _make_slot(SMALL_SLOT_SIZE)
-	right_stack.add_child(_trinket_slot)
-	_charm_slot = _make_slot(SMALL_SLOT_SIZE)
+	_charm_slot = _make_slot(SMALL_SLOT_SIZE, GearItem.SlotType.CHARM)
 	right_stack.add_child(_charm_slot)
+	_trinket_slot = _make_slot(SMALL_SLOT_SIZE, GearItem.SlotType.TRINKET)
+	right_stack.add_child(_trinket_slot)
 	middle_row.add_child(right_stack)
 
 	doll.add_child(middle_row)
 	return doll
 
 
-func _make_slot(slot_size: Vector2) -> Panel:
-	var slot := Panel.new()
+func _make_slot(slot_size: Vector2, gear_slot: int) -> Panel:
+	var slot: Panel = GearTooltipPanelScript.new()
 	slot.custom_minimum_size = slot_size
 	slot.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var slot_background := TextureRect.new()
+	slot_background.name = "SlotTypeBackground"
+	slot_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot_background.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	slot_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	slot_background.texture = GearIcons.slot_background_for(gear_slot)
+	slot_background.modulate = Color(1, 1, 1, 0.46)
+	slot_background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot.add_child(slot_background)
 
 	var icon := TextureRect.new()
 	icon.name = "Icon"
@@ -212,11 +219,11 @@ func _make_slot(slot_size: Vector2) -> Panel:
 
 func _refresh() -> void:
 	_gold_label.text = "%dg" % BuildState.gold
-	_update_slot(_helm_slot, "Hood", null)
-	_update_slot(_armor_slot, "Doublet", null)
+	_update_slot(_helm_slot, "Hood", BuildState.equipped_helm)
+	_update_slot(_armor_slot, "Doublet", BuildState.equipped_armor)
 	_update_slot(_weapon_slot, "Dagger", BuildState.equipped_weapon)
-	_update_slot(_trinket_slot, "Ring", BuildState.equipped_trinket)
 	_update_slot(_charm_slot, "Necklace", BuildState.equipped_charm)
+	_update_slot(_trinket_slot, "Ring", BuildState.equipped_trinket)
 	_refresh_inventory()
 
 
@@ -252,7 +259,8 @@ func _make_inventory_slot(gear: GearItem) -> Button:
 			return CardStyle.build_gear_compare_tooltip(
 				self,
 				_inventory_tooltip(gear),
-				BuildState.equipped_item_for_slot(gear.slot)
+				BuildState.equipped_item_for_slot(gear.slot),
+				gear
 			)
 		slot.pressed.connect(_on_inventory_slot_pressed.bind(gear, slot))
 		slot.gui_input.connect(_on_inventory_slot_gui_input.bind(gear))
@@ -273,6 +281,7 @@ func _build_inventory_action_menu() -> void:
 	_inventory_action_menu = PopupMenu.new()
 	_inventory_action_menu.add_item("Equip", ACTION_EQUIP_ID)
 	_inventory_action_menu.add_item("Sell", ACTION_SELL_ID)
+	_inventory_action_menu.add_item("Destroy", ACTION_DESTROY_ID)
 	_inventory_action_menu.id_pressed.connect(_on_inventory_action_selected)
 	add_child(_inventory_action_menu)
 
@@ -298,12 +307,15 @@ func _on_inventory_action_selected(action_id: int) -> void:
 		ACTION_SELL_ID:
 			if BuildState.shop_round_pending:
 				_confirm_sell_inventory_item(gear)
+		ACTION_DESTROY_ID:
+			_confirm_destroy_inventory_item(gear)
 
 
 func _build_equipped_action_menu() -> void:
 	_equipped_action_menu = PopupMenu.new()
 	_equipped_action_menu.add_item("Unequip", ACTION_UNEQUIP_ID)
 	_equipped_action_menu.add_item("Sell", ACTION_SELL_ID)
+	_equipped_action_menu.add_item("Destroy", ACTION_DESTROY_ID)
 	_equipped_action_menu.id_pressed.connect(_on_equipped_action_selected)
 	add_child(_equipped_action_menu)
 
@@ -331,6 +343,8 @@ func _on_equipped_action_selected(action_id: int) -> void:
 		ACTION_SELL_ID:
 			if BuildState.shop_round_pending:
 				_confirm_sell_equipped_item(gear_slot)
+		ACTION_DESTROY_ID:
+			_confirm_destroy_equipped_item(gear_slot)
 
 
 func _build_sell_dialog() -> void:
@@ -338,6 +352,13 @@ func _build_sell_dialog() -> void:
 	_sell_dialog.title = "Sell Gear"
 	_sell_dialog.confirmed.connect(_on_sell_confirmed)
 	add_child(_sell_dialog)
+
+
+func _build_destroy_dialog() -> void:
+	_destroy_dialog = ConfirmationDialog.new()
+	_destroy_dialog.title = "Destroy Gear"
+	_destroy_dialog.confirmed.connect(_on_destroy_confirmed)
+	add_child(_destroy_dialog)
 
 
 func _confirm_sell_inventory_item(gear: GearItem) -> void:
@@ -348,13 +369,32 @@ func _confirm_sell_inventory_item(gear: GearItem) -> void:
 
 
 func _confirm_sell_equipped_item(slot: GearItem.SlotType) -> void:
-	var gear: GearItem = BuildState.equipped_weapon if slot == GearItem.SlotType.WEAPON else BuildState.equipped_trinket if slot == GearItem.SlotType.TRINKET else BuildState.equipped_charm
+	var gear: GearItem = BuildState.equipped_item_for_slot(slot)
 	if gear == null:
 		return
 	_pending_sell_inventory_item = null
 	_pending_sell_equipped_slot = slot
 	_sell_dialog.dialog_text = "Sell equipped %s for %dg?" % [gear.display_name, BuildState.sell_value_for(gear)]
 	_sell_dialog.popup_centered()
+
+
+func _confirm_destroy_inventory_item(gear: GearItem) -> void:
+	if gear == null:
+		return
+	_pending_destroy_inventory_item = gear
+	_pending_destroy_equipped_slot = -1
+	_destroy_dialog.dialog_text = "Destroy %s? This cannot be undone." % gear.display_name
+	_destroy_dialog.popup_centered()
+
+
+func _confirm_destroy_equipped_item(slot: GearItem.SlotType) -> void:
+	var gear: GearItem = BuildState.equipped_item_for_slot(slot)
+	if gear == null:
+		return
+	_pending_destroy_inventory_item = null
+	_pending_destroy_equipped_slot = slot
+	_destroy_dialog.dialog_text = "Destroy equipped %s? This cannot be undone." % gear.display_name
+	_destroy_dialog.popup_centered()
 
 
 func _on_sell_confirmed() -> void:
@@ -383,24 +423,48 @@ func _on_sell_confirmed() -> void:
 		await animate_gold_from_rect(source_rect, sale_value)
 
 
+func _on_destroy_confirmed() -> void:
+	var destroyed := false
+	if _pending_destroy_inventory_item != null:
+		destroyed = BuildState.destroy_inventory_item(_pending_destroy_inventory_item)
+	elif _pending_destroy_equipped_slot != -1:
+		destroyed = BuildState.destroy_equipped_item(_pending_destroy_equipped_slot)
+	_pending_destroy_inventory_item = null
+	_pending_destroy_equipped_slot = -1
+	_destroy_dialog.hide()
+	if destroyed:
+		var audio_manager := get_node_or_null("/root/AudioManager")
+		if audio_manager != null and audio_manager.has_method("play_shop_change_sfx"):
+			audio_manager.play_shop_change_sfx()
+
+
 ## Equipped slots use a thicker accent-colored border (vs. the neutral
 ## SLOT_BORDER_COLOR on empty slots and inventory items) so "this is worn"
 ## reads as visually distinct from "this is in the bag," per the task's
 ## equipped-vs-inventory clarity requirement -- inventory slots keep the
 ## plain border via _style_box_button() below.
 func _update_slot(slot: Panel, slot_name: String, gear: GearItem) -> void:
-	var fill: Color = EMPTY_SLOT_COLOR if gear == null else TIER_COLORS[gear.tier]
-	var border := CardStyle.ACCENT_COLOR if gear != null else SLOT_BORDER_COLOR
-	var style := CardStyle.make_slot_stylebox(fill, border, 3 if gear != null else 2)
+	var style := CardStyle.make_gear_item_stylebox(gear, gear != null)
 	slot.add_theme_stylebox_override("panel", style)
 	(slot.get_node("Icon") as TextureRect).texture = GearIcons.icon_for(gear)
+	(slot.get_node("SlotTypeBackground") as TextureRect).modulate = Color(1, 1, 1, 0.28 if gear != null else 0.56)
 
 	if gear == null:
 		slot.tooltip_text = "%s: Empty" % slot_name
+		if slot.get_script() == GearTooltipPanelScript:
+			slot.set("tooltip_builder", Callable())
 		return
 	slot.tooltip_text = _equipped_tooltip(gear)
+	if slot.get_script() == GearTooltipPanelScript:
+		slot.set("tooltip_builder", func() -> Control:
+			return CardStyle.build_gear_tooltip(self, gear)
+		)
 	if slot == _weapon_slot:
 		_connect_equipped_slot_click(slot, GearItem.SlotType.WEAPON)
+	elif slot == _helm_slot:
+		_connect_equipped_slot_click(slot, GearItem.SlotType.HELM)
+	elif slot == _armor_slot:
+		_connect_equipped_slot_click(slot, GearItem.SlotType.ARMOR)
 	elif slot == _trinket_slot:
 		_connect_equipped_slot_click(slot, GearItem.SlotType.TRINKET)
 	elif slot == _charm_slot:
@@ -526,6 +590,10 @@ func _equipped_panel_for_slot(gear_slot: GearItem.SlotType) -> Panel:
 	match gear_slot:
 		GearItem.SlotType.WEAPON:
 			return _weapon_slot
+		GearItem.SlotType.HELM:
+			return _helm_slot
+		GearItem.SlotType.ARMOR:
+			return _armor_slot
 		GearItem.SlotType.TRINKET:
 			return _trinket_slot
 		GearItem.SlotType.CHARM:
@@ -627,9 +695,8 @@ func _quadratic_bezier(a: Vector2, b: Vector2, c: Vector2, t: float) -> Vector2:
 
 
 func _style_box_button(button: Button, gear: GearItem) -> void:
-	var fill: Color = EMPTY_SLOT_COLOR if gear == null else TIER_COLORS[gear.tier]
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		button.add_theme_stylebox_override(state, CardStyle.make_slot_stylebox(fill, SLOT_BORDER_COLOR, 2, state))
+		button.add_theme_stylebox_override(state, CardStyle.make_gear_item_stylebox(gear, false, state))
 
 
 func _inventory_tooltip(gear: GearItem) -> String:

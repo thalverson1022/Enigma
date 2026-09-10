@@ -1,19 +1,34 @@
-[gd_resource type="Resource" script_class="GearItem" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="GearItem" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/gear_item.gd" id="1_gear"]
 [ext_resource type="Script" path="res://scripts/resources/stat_modifier.gd" id="2_affix"]
 
 [sub_resource type="Resource" id="Resource_bandit_physical"]
 script = ExtResource("2_affix")
+stat_id = "percent_physical_damage"
 stat = 4
-operation = 1
-value = 1.2
+category = 0
+operation = 0
+value = 0.2
+display_label = "Percent Physical Damage"
 
 [sub_resource type="Resource" id="Resource_bandit_crit"]
 script = ExtResource("2_affix")
+stat_id = "crit_chance"
 stat = 1
+category = 0
 operation = 0
-value = 0.2
+value = 0.12
+display_label = "Crit Chance"
+
+[sub_resource type="Resource" id="Resource_bandit_gold"]
+script = ExtResource("2_affix")
+stat_id = "increased_gold"
+stat = 7
+category = 0
+operation = 0
+value = 0.3
+display_label = "Increased Gold"
 
 [resource]
 script = ExtResource("1_gear")
@@ -21,5 +36,8 @@ id = "gear.legendary.bandit_blade"
 display_name = "Bandit Blade"
 slot = 0
 tier = 3
-affixes = Array[StatModifier]([SubResource("Resource_bandit_physical"), SubResource("Resource_bandit_crit")])
+item_family = "Dagger"
+class_family = 1
+source_kind = 3
+affixes = Array[StatModifier]([SubResource("Resource_bandit_physical"), SubResource("Resource_bandit_crit"), SubResource("Resource_bandit_gold")])
 physical_damage_per_gold = 0.1

@@ -6,6 +6,6 @@
 script = ExtResource("1_monster")
 id = "monster.tavern.mouthy_drunk"
 display_name = "Mouthy Drunk"
-hp = 150
+hp = 145
 armor = 0
 poison_resistance = 0.0

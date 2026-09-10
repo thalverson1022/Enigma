@@ -55,7 +55,7 @@ func _check_generated_loss_retry_and_terminal_failure(build_state, rogue: ClassD
 	_require(not build_state.claimed_route_reward_ids.has(node.id), "Expected generated retry not to claim the route reward.")
 	_require(build_state.current_route_node.monster == monster, "Expected generated retry to preserve combat-ready monster instance.")
 	_require(build_state.current_route_node.duration_ms == duration, "Expected generated retry to preserve duration.")
-	_require(build_state.current_combat_rng_seed() == fight_seed, "Expected generated retry to preserve combat RNG seed.")
+	_require(build_state.current_combat_rng_seed() != fight_seed, "Expected generated retry to reroll combat RNG seed while preserving the encounter.")
 
 	print("generated contract second loss should fail the contract")
 	build_state.set_locked(true)
@@ -102,6 +102,7 @@ func _check_generated_win_claims_reward_and_returns_to_route(build_state, rogue:
 	_require(reward != null, "Expected generated node to have a materialized reward.")
 	var expected_gold: int = build_state.gold + build_state.modified_gold_reward(reward.gold_amount)
 	var expected_talent_points: int = build_state.earned_talent_points + reward.talent_points
+	build_state.shop_unlocked = true
 	_require(build_state.run_phase == BuildState.RunPhase.RESULT, "Expected generated win to enter result phase.")
 	_require(build_state.run_outcome == BuildState.RunOutcome.FIGHT_WIN, "Expected generated node win outcome before continue.")
 	_require(reward.gold_amount > 0, "Expected generated node reward to include gold.")
@@ -117,6 +118,9 @@ func _check_generated_win_claims_reward_and_returns_to_route(build_state, rogue:
 	_require(not build_state.claim_current_reward(), "Expected generated route reward duplicate claim to be rejected.")
 	_require(build_state.gold == expected_gold, "Expected rejected duplicate generated reward claim not to add gold.")
 	_require(build_state.skip_pending_reward_gear(), "Expected generated route pending gear choices to be skippable before continuing.")
+	_require(not build_state.should_open_shop_after_current_reward(), "Expected generated route node reward not to open a mid-contract shop.")
+	_require(not build_state.open_shop_round(), "Expected direct shop open to be rejected mid-contract.")
+	_require(not build_state.shop_round_pending, "Expected no shop round to become pending mid-contract.")
 	_require(build_state.continue_after_win(), "Expected generated node continue to return to route.")
 	_require(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE, "Expected generated win with exits to return to route phase.")
 	_require(build_state.run_outcome == BuildState.RunOutcome.NONE, "Expected generated route continue to clear outcome.")

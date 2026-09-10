@@ -47,7 +47,10 @@ func _initialize() -> void:
 	_check_dodge_effect_uses_shared_stage(view)
 	_check_interrupt_effect_uses_shared_stage(view)
 	_check_slow_effect_uses_shared_stage(view)
+	_check_slow_immunity_disables_practice_room_slow_visual(view)
 	_check_realtime_status_readout(view)
+	_check_crit_poison_proc_status_readout(view)
+	_check_shred_stack_chip_uses_applied_stack_count(view)
 	_check_cleanse_resets_visible_shred(view)
 	# A frame between checks that spawn/free popups: play() only
 	# queue_free()s the previous fight's popups, which stay in
@@ -55,9 +58,13 @@ func _initialize() -> void:
 	# available_skills_panel.gd's own _refresh() documents) -- without this,
 	# the next check's popup count would include stale ones from this fight.
 	await process_frame
+	_check_hold_cast_spawns_no_practice_room_popup(view)
+	await process_frame
 	_check_no_popup_for_zero_stack_ticks(view)
 	await process_frame
 	_check_absorbed_zero_damage_tick_still_presents(view)
+	await process_frame
+	_check_resisted_zero_damage_tick_still_presents(view)
 	await process_frame
 	_check_poison_stack_application_tints_enemy_without_popup(view)
 	await process_frame
@@ -94,8 +101,9 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	_require(view._combat_stage._enemy_name_label.text == "Practice Target", "Expected initial Practice Room stage enemy label to be Practice Target, not the default Enemy card.")
 	_require(not view._combat_stage.debug_grid_visible, "Expected Practice Room to hide the combat-stage debug grid outside placement tuning.")
 	_require(view._combat_stage.enemy_sprite_available(), "Expected initial Practice Room stage to show the imported Practice Target sprite.")
-	_require(view._combat_stage._enemy_sprite.size == Vector2(32, 32), "Expected Practice Target sprite rect to stay at one 32px training-dummy frame, not stretch to the actor box.")
-	_require(view._combat_stage._enemy_sprite.scale == Vector2(view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE, view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE), "Expected Practice Target sprite to use the smaller Practice dummy scale.")
+	_require(view._combat_stage._enemy_sprite.size.distance_to(Vector2(32, 32)) < 0.01, "Expected Practice Target sprite rect to stay at one 32px training-dummy frame, not stretch to the actor box; got %s." % view._combat_stage._enemy_sprite.size)
+	var normal_dummy_scale: float = view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE * view._combat_stage.enemy_combat_role_scale("normal")
+	_require(view._combat_stage._enemy_sprite.scale == Vector2(normal_dummy_scale, normal_dummy_scale), "Expected Practice Target sprite to use the normal-role Practice dummy scale.")
 	_require(not view._name_label.visible, "Expected Practice Room to hide the redundant upper-left target label.")
 	var dummy_anchor_y: float = view._combat_stage._sprite_anchor_point(view._combat_stage.enemy_actor_anchor, view._combat_stage._enemy_sprite, view._combat_stage.PRACTICE_DUMMY_ANCHOR_POINT).y
 	var shadow_center_y: float = view._combat_stage.enemy_actor_anchor.position.y + view._combat_stage._enemy_contact_shadow.position.y + view._combat_stage._enemy_contact_shadow.size.y * 0.5
@@ -105,7 +113,13 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	_require(damage_icon != null and damage_icon.texture != null, "Expected Practice Room damage readout to use the sword icon.")
 	_require(damage_icon.texture.resource_name == "PracticeDamageSwordIcon", "Expected Practice Room damage readout to use the copied sword icon.")
 	_require(view._info_label.text == "0", "Expected initial Practice Room armor readout to be visible before fighting.")
+	var armor_icon := view._info_label.get_parent().get_node_or_null("ArmorIcon") as TextureRect
+	_require(armor_icon != null and armor_icon.tooltip_text == "Armor: Reduces Physical Damage", "Expected initial Practice Room Armor tooltip to describe physical defense.")
+	_require(view._info_label.tooltip_text == "Armor: Reduces Physical Damage", "Expected initial Practice Room Armor value to share the armor tooltip.")
 	_require(view._resist_label.text == "0%", "Expected initial Practice Room resistance readout to be visible before fighting.")
+	var resist_icon := view._resist_label.get_parent().get_node_or_null("PoisonResistIcon") as TextureRect
+	_require(resist_icon != null and resist_icon.tooltip_text == "Resistance: Reduces elemental damage", "Expected initial Practice Room Resistance tooltip to describe elemental defense.")
+	_require(view._resist_label.tooltip_text == "Resistance: Reduces elemental damage", "Expected initial Practice Room Resistance value to share the resistance tooltip.")
 	_require(view._fight_timer_badge != null and view._fight_timer_badge.visible, "Expected Practice Room to show the Adventure-style fight timer badge.")
 	_require(view._fight_timer_badge.get_parent().name == "FightTimerCell", "Expected Practice Room fight timer to sit centered in the combat HUD lane.")
 	_require(view._fight_timer_badge.find_child("ClockIcon", true, false) != null, "Expected Practice Room fight timer to include the clock icon.")
@@ -129,7 +143,9 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	_require(_has_chip(view._mechanic_row, MECHANIC_DODGE_ICON, "0%"), "Expected Dodge icon to be visible at 0%.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_CRIT_NEGATION_ICON, "0%"), "Expected Crit Negate icon to be visible at 0%.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_BLOCK_ICON, "0"), "Expected Block icon to be visible at 0.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_BLOCK_ICON, "0") == "Block: Prevents 0 physical damage", "Expected Block tooltip to show prevented physical damage.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_ABSORB_ICON, "0"), "Expected Absorb icon to be visible at 0.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_ABSORB_ICON, "0") == "Absorb: Prevents 0 elemental damage", "Expected Absorb tooltip to show prevented elemental damage.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_CLEANSE_ICON, "0"), "Expected Cleanse icon to be visible at 0.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_SUPPRESS_ICON, "0%"), "Expected Suppress icon to be visible at 0%.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_SLOW_ICON, "0%"), "Expected Slow icon to be visible at 0%.")
@@ -138,7 +154,11 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	for child in view._status_row.get_children():
 		initial_chips.append(_status_chip_text(child))
 	_require(initial_chips == PackedStringArray(["x0", "x0", "x0", "0/0"]), "Expected initial Practice Room poison/Shred/Decay/Interrupt chips to be visible at zero.")
+	_require(_chip_tooltip(view._status_row, HUD_POISON_ICON, "x0") == "Poison: Deals 8.0 damage every 1.0s", "Expected initial Practice Room Poison tooltip to show base poison damage.")
+	_require(_chip_tooltip(view._status_row, HUD_SHRED_ICON, "x0") == "Shred: Each stack reduces armor by 10", "Expected initial Practice Room Shred tooltip to show base armor reduction.")
+	_require(_chip_tooltip(view._status_row, HUD_DECAY_ICON, "x0") == "Decay: Each stack reduces resistance by 20%", "Expected initial Practice Room Decay tooltip to show base Decay reduction.")
 	_require(_has_chip(view._status_row, MECHANIC_INTERRUPT_ICON, "0/0"), "Expected Interrupt stack chip to be visible at 0/0 when disabled.")
+	_require(_chip_tooltip(view._status_row, MECHANIC_INTERRUPT_ICON, "0/0") == "Interrupt: Casting 3 times prevents next 0 casts", "Expected disabled Practice Room Interrupt tooltip to explain the threshold with zero prevented casts.")
 
 	var preview_monster := Monster.new()
 	preview_monster.display_name = "Preview Dummy"
@@ -157,14 +177,23 @@ func _check_initial_practice_target_sprite(view: TrainingRoomCombatView) -> void
 	_require(view._info_label.text == "18", "Expected target preview edits to update Practice Room armor.")
 	_require(view._resist_label.text == "25%", "Expected target preview edits to update Practice Room resistance.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_DODGE_ICON, "35%"), "Expected Dodge preview value to update in the combat area.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_DODGE_ICON, "35%") == "Dodge: 35% chance for cast to miss", "Expected Dodge preview tooltip to show miss chance.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_CRIT_NEGATION_ICON, "45%"), "Expected Crit Negate preview value to update in the combat area.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_CRIT_NEGATION_ICON, "45%") == "Crit Negation: Reduces crits by 45%", "Expected Crit Negation preview tooltip to show reduction.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_BLOCK_ICON, "7"), "Expected Block preview value to update in the combat area.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_BLOCK_ICON, "7") == "Block: Prevents 7 physical damage", "Expected Block preview tooltip to show prevented damage.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_ABSORB_ICON, "5"), "Expected Absorb preview value to update in the combat area.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_ABSORB_ICON, "5") == "Absorb: Prevents 5 elemental damage", "Expected Absorb preview tooltip to show prevented damage.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_CLEANSE_ICON, "4"), "Expected Cleanse preview value to update in the combat area.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_CLEANSE_ICON, "4") == "Cleanse: Removes all debuffs after 4 casts", "Expected Cleanse preview tooltip to show cast threshold.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_SUPPRESS_ICON, "20%"), "Expected Suppress preview value to update in the combat area.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_SUPPRESS_ICON, "20%") == "Suppress: Damage over time ticks 20% slower", "Expected Suppress preview tooltip to show slower tick rate.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_SLOW_ICON, "15%"), "Expected Slow preview value to update in the combat area.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_SLOW_ICON, "15%") == "Slow: Reduces attack speed by 15%", "Expected Slow preview tooltip to show attack speed reduction.")
 	_require(_has_chip(view._mechanic_row, MECHANIC_STUN_ICON, "0.3s"), "Expected Stun preview value to update in the combat area.")
+	_require(_chip_tooltip(view._mechanic_row, MECHANIC_STUN_ICON, "0.3s") == "Stun: Hitting for 12% of total health in a single hit stuns for 0.3s", "Expected Stun preview tooltip to show trigger size and duration.")
 	_require(_has_chip(view._status_row, MECHANIC_INTERRUPT_ICON, "0/3"), "Expected enabled Interrupt to use the Adventure-style repeat counter.")
+	_require(_chip_tooltip(view._status_row, MECHANIC_INTERRUPT_ICON, "0/3") == "Interrupt: Casting 3 times prevents next 1 casts", "Expected enabled Practice Room Interrupt tooltip to explain threshold and prevented casts.")
 
 
 func _check_custom_named_practice_target_keeps_dummy_sprite(view: TrainingRoomCombatView) -> void:
@@ -175,6 +204,7 @@ func _check_custom_named_practice_target_keeps_dummy_sprite(view: TrainingRoomCo
 	player.crit_chance = 0.0
 	var monster := Monster.new()
 	monster.display_name = "Generated Test Monster"
+	monster.combat_role = "boss"
 	monster.hp = 100
 	var result := CombatResolver.resolve([stab], player, monster, 1500, 11)
 
@@ -182,7 +212,8 @@ func _check_custom_named_practice_target_keeps_dummy_sprite(view: TrainingRoomCo
 	_require(view._combat_stage._enemy_name_label.text == monster.display_name, "Expected Practice Room stage label to keep the generated monster name.")
 	_require(view._combat_stage.enemy_sprite_available(), "Expected custom-named Practice Room targets to keep using the training dummy sprite.")
 	_require(view._combat_stage._enemy_sprite.size == Vector2(32, 32), "Expected custom-named Practice Room target to render as one 32px dummy frame.")
-	_require(view._combat_stage._enemy_sprite.scale == Vector2(view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE, view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE), "Expected custom-named Practice Room target to keep the dummy scale.")
+	var boss_dummy_scale: float = view._combat_stage.PRACTICE_DUMMY_SPRITE_SCALE * view._combat_stage.enemy_combat_role_scale("boss")
+	_require(view._combat_stage._enemy_sprite.scale == Vector2(boss_dummy_scale, boss_dummy_scale), "Expected custom-named Practice Room targets to keep the dummy art while honoring the monster role scale.")
 
 
 ## Returns [CombatResolver.CombatResult, Monster] -- GDScript has no tuple
@@ -302,6 +333,23 @@ func _check_slow_effect_uses_shared_stage(view: TrainingRoomCombatView) -> void:
 	view.play(result, monster)
 	_require(view._combat_stage.slow_effect_count > 0, "Expected Practice Room playback to trigger the shared player frost aura.")
 	_require(is_equal_approx(view._combat_stage.last_slow_strength, monster.slow), "Expected Practice Room slow aura to use the monster slow strength.")
+
+
+func _check_slow_immunity_disables_practice_room_slow_visual(view: TrainingRoomCombatView) -> void:
+	print("-- Practice Room slow immunity disables the slow visual --")
+	var stab: Skill = load("res://data/skills/stab.tres")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	player.special_effects = {"immunities": {"slow": true}}
+	var monster := Monster.new()
+	monster.display_name = "Chilling Target"
+	monster.hp = 100000
+	monster.slow = 0.35
+	var result := CombatResolver.resolve([stab], player, monster, 3000, 3)
+	view.play(result, monster, [], 10, CombatResolver.effective_enemy_slow(player, monster))
+	_require(not view._combat_stage.slow_effect_active, "Expected slow immunity to avoid the Practice Room frost aura.")
+	_require(is_equal_approx(view._combat_stage.last_slow_strength, 0.0), "Expected slow immunity to clear the visual slow strength.")
 
 
 func _check_realtime_intro_gates_timeline(view: TrainingRoomCombatView) -> void:
@@ -438,6 +486,7 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 	var has_decay_chip := false
 	var has_poison_icon := false
 	var has_shred_icon := false
+	var shred_tooltip := ""
 	var has_decay_icon := false
 	var has_interrupt_chip := false
 	for child in view._status_row.get_children():
@@ -449,6 +498,7 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 		if icon != null and icon.texture == HUD_SHRED_ICON and text == "x%d" % view._shred_stacks:
 			has_shred_chip = true
 			has_shred_icon = true
+			shred_tooltip = child.tooltip_text
 		if icon != null and icon.texture == HUD_DECAY_ICON and text == "x%d" % view._decay_stacks:
 			has_decay_chip = true
 			has_decay_icon = true
@@ -460,8 +510,64 @@ func _check_realtime_status_readout(view: TrainingRoomCombatView) -> void:
 	_require(has_interrupt_chip, "Expected Interrupt chip to stay visible at 0/0 when the target has no Interrupt.")
 	_require(has_poison_icon, "Poison stack chip should use the selected skull icon.")
 	_require(has_shred_icon, "Shred chip should use the selected rogue icon.")
+	_require(shred_tooltip == "Shred: Each stack reduces armor by 10", "Shred chip should explain the active armor reduction value.")
 	_require(has_decay_icon, "Decay chip should use the selected mage icon.")
+	_require(_chip_tooltip(view._status_row, HUD_DECAY_ICON, "x%d" % view._decay_stacks) == "Decay: Each stack reduces resistance by 20%", "Decay chip should explain the active resistance reduction value.")
 	_require(_status_chip_font_size(view._status_row, HUD_POISON_ICON) == 24, "Expected Practice Room combat status values to use the larger number font.")
+
+
+func _check_crit_poison_proc_status_readout(view: TrainingRoomCombatView) -> void:
+	print("-- Crit poison proc updates Practice Room stack chip and log --")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 1.0
+	player.crit_multiplier = 2.0
+	player.elemental_proc_chance = 1.0
+	player.weapon_damage_min = 10
+	player.weapon_damage_max = 10
+	var monster := Monster.new()
+	monster.display_name = "Crit Poison View Dummy"
+	monster.hp = 100000
+	monster.armor = 0
+	monster.poison_resistance = 0.0
+	var skill := Skill.new()
+	skill.id = "skill.test_crit_poison_view"
+	skill.display_name = "Crit Poison View"
+	skill.base_execution_ms = 500
+	skill.min_execution_ms = 500
+	var damage := PhysicalDamageEffect.new()
+	damage.amount = 10.0
+	skill.effects = [damage]
+	var result := CombatResolver.resolve([skill], player, monster, 900, 17)
+	_require(result.cast_events.size() == 1, "Expected one cast before the first global poison tick.")
+	_require(result.cast_events[0].is_crit, "Expected forced crit in visual-path setup.")
+	_require(result.cast_events[0].poison_stacks_applied == 1, "Expected crit proc to apply one poison stack in visual-path setup.")
+	_require(CombatResultFormatter.format_practice(result, monster).contains("applies 1 poison stack"), "Expected Practice Room log to mention the crit-applied poison stack.")
+
+	view.play(result, monster)
+	_require(view._stacks == 1, "Expected Practice Room stack state to retain the crit-applied poison stack before the first tick.")
+	_require(_has_chip(view._status_row, HUD_POISON_ICON, "x1"), "Expected Practice Room poison chip to display x1 after crit poison proc.")
+	_require(view._combat_stage.poison_stack_tint_updates > 0, "Expected crit poison proc to tint the target like other poison applications.")
+
+
+func _check_shred_stack_chip_uses_applied_stack_count(view: TrainingRoomCombatView) -> void:
+	print("-- Practice Room Shred chip uses applied stack count, not one per armor event --")
+	var rending_slash: Skill = load("res://data/skills/rending_slash.tres")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	player.bonus_shred_stacks = 2
+	player.special_effects = {"double_applied_stacks": true}
+	var monster := Monster.new()
+	monster.display_name = "Stack Dummy"
+	monster.hp = 100000
+	monster.armor = 100
+	var result := CombatResolver.resolve([rending_slash], player, monster, rending_slash.base_execution_ms, 7)
+
+	view.play(result, monster)
+	_require(result.cast_events[0].shred_stacks_applied == 8, "Expected the known Rending Slash setup to apply eight Shred stacks.")
+	_require(view._shred_stacks == 8, "Practice Room visible Shred stacks should include bonus stacks and doubled stacks.")
+	_require(_has_chip(view._status_row, HUD_SHRED_ICON, "x8"), "Practice Room Shred chip should display x8.")
 
 
 func _check_cleanse_resets_visible_shred(view: TrainingRoomCombatView) -> void:
@@ -497,6 +603,26 @@ func _check_cleanse_resets_visible_shred(view: TrainingRoomCombatView) -> void:
 	_require(summary["active_armor_reduction_casts"] == 0, "Combat recap active Shred stacks should honor cleanse resets.")
 
 
+func _check_hold_cast_spawns_no_practice_room_popup(view: TrainingRoomCombatView) -> void:
+	print("-- Hold casts spawn no Practice Room floating text --")
+	var hold: Skill = load("res://data/skills/hold.tres")
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	var monster := Monster.new()
+	monster.display_name = "Hold Dummy"
+	monster.hp = 100000
+	var result := CombatResolver.resolve([hold], player, monster, 3000, 5)
+	_require(result.cast_events.size() == 3, "Test setup error: expected three Hold casts.")
+	view.play(result, monster)
+	var found_hold_popup := false
+	for child in view._popup_layer.get_children():
+		if child is Label and child.text.begins_with("Hold"):
+			found_hold_popup = true
+	print("found Hold popup (expect false): %s" % found_hold_popup)
+	_require(not found_hold_popup, "Expected Hold to spawn no Practice Room floating text.")
+
+
 func _status_chip_text(chip: Node) -> String:
 	if chip is Label:
 		return chip.text
@@ -525,6 +651,16 @@ func _has_chip(row: Container, icon_texture: Texture2D, text: String) -> bool:
 	return false
 
 
+func _chip_tooltip(row: Container, icon_texture: Texture2D, text: String) -> String:
+	for child in row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		if icon == null or icon.texture != icon_texture:
+			continue
+		if _status_chip_text(child) == text:
+			return child.tooltip_text
+	return ""
+
+
 func _mechanic_chip_ids(row: Container) -> PackedStringArray:
 	var ids := PackedStringArray()
 	for child in row.get_children():
@@ -539,11 +675,12 @@ func _mechanic_chip_ids(row: Container) -> PackedStringArray:
 func _expected_final_stacks(result: CombatResolver.CombatResult) -> int:
 	var events: Array = CombatPlayback._merge_events(result)
 	var stacks := 0
+	var poison_stack_cap := maxi(1, result.poison_stack_cap)
 	for event in events:
 		if event.is_tick:
 			stacks = event.tick.stacks_remaining
 		else:
-			stacks = mini(stacks + event.cast.poison_stacks_applied, CombatResolver.MAX_POISON_STACKS)
+			stacks = mini(stacks + event.cast.poison_stacks_applied, poison_stack_cap)
 			if event.cast.cleanse_triggered:
 				stacks = 0
 	return stacks
@@ -619,6 +756,32 @@ func _check_absorbed_zero_damage_tick_still_presents(view: TrainingRoomCombatVie
 	var inspector := CombatLogInspectorData.build(result, monster)
 	var poison_rows: Array = (inspector["timeline_rows"] as Array).filter(func(row): return String(row["kind"]) == CombatLogInspectorData.KIND_POISON)
 	_require(poison_rows.size() == 1, "Combat Log inspector should include a poison timeline row for fully absorbed ticks.")
+
+
+func _check_resisted_zero_damage_tick_still_presents(view: TrainingRoomCombatView) -> void:
+	print("-- Fully resisted poison tick still presents as a 0-damage hit --")
+	var poison_strike: Skill = load("res://data/skills/poison_strike.tres")
+	var rotation: Array[Skill] = [poison_strike]
+	var player := PlayerStats.new()
+	player.attack_speed = 0.0
+	player.crit_chance = 0.0
+	player.poison_damage_per_tick = 8.0
+	var monster := Monster.new()
+	monster.display_name = "Resisting Dummy"
+	monster.hp = 100000
+	monster.poison_resistance = 1.0
+	var result := CombatResolver.resolve(rotation, player, monster, 2500, 3)
+	_require(result.tick_events.any(func(tick): return tick.had_active_stack and tick.damage == 0.0 and tick.absorbed_amount == 0.0), "Test setup error: expected a fully resisted poison tick.")
+
+	view.play(result, monster)
+	var found_resisted_popup := false
+	for child in view._popup_layer.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child is Label and child.text == "Poison 0.0":
+			found_resisted_popup = true
+	print("found Poison 0.0 popup for fully resisted tick (expect true): %s" % found_resisted_popup)
+	_require(found_resisted_popup, "A fully resisted poison tick should still spawn a 0-damage popup.")
 
 
 func _check_popup_for_damaging_poison_ticks(view: TrainingRoomCombatView) -> void:
@@ -793,7 +956,8 @@ func _check_steal_crit_popup_shows_gold(view: TrainingRoomCombatView) -> void:
 	monster.display_name = "Coin Dummy"
 	monster.hp = 100000
 	var result := CombatResolver.resolve(rotation, player, monster, 1300, 1)
-	_require(result.gold_stolen == 6, "Test setup error: expected Steal to steal 6 gold.")
+	_require(result.gold_stolen == 3, "Test setup error: expected Steal to steal 3 gold.")
+	var expected_damage_text := "Steal %.1f!" % result.cast_events[0].physical_damage
 
 	var callback_state := {"gold": 0}
 	view.gold_stolen_callback = func(amount: int): callback_state["gold"] = int(callback_state["gold"]) + amount
@@ -807,11 +971,11 @@ func _check_steal_crit_popup_shows_gold(view: TrainingRoomCombatView) -> void:
 		for grandchild in child.get_children():
 			if grandchild is Label:
 				labels.append(grandchild)
-		if icon != null and icon.custom_minimum_size == view.GOLD_POPUP_ICON_SIZE and labels.size() >= 2 and labels[0].text == "Steal 38.0!" and labels[1].text == "6":
+		if icon != null and icon.custom_minimum_size == view.GOLD_POPUP_ICON_SIZE and labels.size() >= 2 and labels[0].text == expected_damage_text and labels[1].text == "3":
 			found_gold_hit_popup = true
 	print("found Steal gold-hit popup (expect true): %s" % found_gold_hit_popup)
 	_require(found_gold_hit_popup, "Expected Steal crit popup to include damage text, gold icon, and stolen gold value.")
-	_require(int(callback_state["gold"]) == 6, "Expected Steal playback to report stolen gold when the popup event plays.")
+	_require(int(callback_state["gold"]) == 3, "Expected Steal playback to report stolen gold when the popup event plays.")
 	view.gold_stolen_callback = Callable()
 
 

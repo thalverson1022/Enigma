@@ -59,8 +59,10 @@ func _check_p4m8_archetypes_load_with_expected_identities() -> void:
 
 	var spiteful := library.get_archetype("spiteful")
 	assert(spiteful != null)
-	assert(spiteful.mechanic_weights["cleanse_threshold"] == 80)
+	assert(spiteful.mechanic_weights["cleanse_threshold"] == 120)
 	assert((spiteful.mechanic_configs["cleanse_threshold"] as RuntimeMechanicConfig).required)
+	assert((spiteful.mechanic_configs["cleanse_threshold"] as RuntimeMechanicConfig).min_value == 6)
+	assert((spiteful.mechanic_configs["cleanse_threshold"] as RuntimeMechanicConfig).max_value == 9)
 
 	var riftbound := library.get_archetype("riftbound")
 	assert(riftbound != null)
@@ -70,6 +72,14 @@ func _check_p4m8_archetypes_load_with_expected_identities() -> void:
 	assert(riftbound.mechanic_weights.has("armor"))
 	assert(riftbound.mechanic_weights.has("absorb"))
 	assert(riftbound.mechanic_weights.has("slow"))
+
+	var normal_low_archetype_ids := {}
+	for archetype in library.available_for(2, "normal"):
+		normal_low_archetype_ids[archetype.id] = true
+	assert(normal_low_archetype_ids.has("arcane"))
+	assert(not normal_low_archetype_ids.has("relentless"))
+	assert(not normal_low_archetype_ids.has("riftbound"))
+	assert(not normal_low_archetype_ids.has("unstable"))
 
 
 func _check_validation_reports_hard_contract_errors() -> void:

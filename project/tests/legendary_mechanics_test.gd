@@ -248,9 +248,13 @@ func _initialize() -> void:
 	var mithril_result: CombatResolver.CombatResult = CombatResolver.resolve(
 		[stab_skill, heavy_skill], mithril_stats, flat_monster, 10000, 1
 	)
-	var stab_events: Array = mithril_result.cast_events.filter(func(e): return e.skill == stab_skill)
-	var heavy_events: Array = mithril_result.cast_events.filter(func(e): return e.skill == heavy_skill)
-	print("Mithril Karambit: %d Stab casts, %d Heavy Slash casts" % [stab_events.size(), heavy_events.size()])
+	var macro_events: Array = mithril_result.cast_events.filter(func(e): return e.cast_kind == "cast")
+	var proc_events: Array = mithril_result.cast_events.filter(func(e): return e.cast_kind == "proc")
+	var stab_events: Array = macro_events.filter(func(e): return e.skill == stab_skill)
+	var heavy_events: Array = macro_events.filter(func(e): return e.skill == heavy_skill)
+	print("Mithril Karambit: %d macro Stab casts, %d macro Heavy Slash casts, %d proc casts" % [
+		stab_events.size(), heavy_events.size(), proc_events.size()
+	])
 	_require("mithril_karambit has Stab casts", not stab_events.is_empty(), {
 		"seed": 1,
 		"rotation": _skill_names([stab_skill, heavy_skill]),
@@ -261,8 +265,12 @@ func _initialize() -> void:
 		"rotation": _skill_names([stab_skill, heavy_skill]),
 		"events": _cast_summaries(mithril_result.cast_events),
 	})
-	for i in mithril_result.cast_events.size():
-		var event: CombatResolver.CastEvent = mithril_result.cast_events[i]
+	_require("mithril_karambit emits separate proc casts", not proc_events.is_empty(), {
+		"seed": 1,
+		"events": _cast_summaries(mithril_result.cast_events),
+	})
+	for i in macro_events.size():
+		var event: CombatResolver.CastEvent = macro_events[i]
 		var expected_skill := stab_skill if i % 2 == 0 else heavy_skill
 		var expected_rotation_index := i % 2
 		_require_equal("mithril_karambit macro alternates skill at event %d" % i, event.skill, expected_skill, {
@@ -275,23 +283,43 @@ func _initialize() -> void:
 			"event": _cast_summary(event),
 		})
 	for event in stab_events:
-		_require("mithril_karambit Stab cast retriggers Stab", event.triggered_skill_names.has("Stab"), {
+		_require("mithril_karambit Stab macro retriggers Stab", event.triggered_skill_names.has("Stab"), {
 			"seed": 1,
 			"event": _cast_summary(event),
 		})
-		_require("mithril_karambit Stab cast does not trigger Heavy Slash", not event.triggered_skill_names.has("Heavy Slash"), {
+		_require("mithril_karambit Stab macro does not trigger Heavy Slash", not event.triggered_skill_names.has("Heavy Slash"), {
 			"seed": 1,
 			"event": _cast_summary(event),
 		})
 	for event in heavy_events:
-		_require("mithril_karambit Heavy Slash cast retriggers Heavy Slash", event.triggered_skill_names.has("Heavy Slash"), {
+		_require("mithril_karambit Heavy Slash macro retriggers Heavy Slash", event.triggered_skill_names.has("Heavy Slash"), {
 			"seed": 1,
 			"event": _cast_summary(event),
 		})
-		_require("mithril_karambit Heavy Slash cast does not trigger Stab", not event.triggered_skill_names.has("Stab"), {
+		_require("mithril_karambit Heavy Slash macro does not trigger Stab", not event.triggered_skill_names.has("Stab"), {
 			"seed": 1,
 			"event": _cast_summary(event),
 		})
+	for event in proc_events:
+		if event.trigger_source_skill_id == "skill.stab":
+			_require_equal("mithril_karambit Stab proc remains Stab", event.skill.id, "skill.stab", {
+				"seed": 1,
+				"event": _cast_summary(event),
+			})
+		elif event.trigger_source_skill_id == "skill.heavy_slash":
+			_require_equal("mithril_karambit Heavy Slash proc remains Heavy Slash", event.skill.id, "skill.heavy_slash", {
+				"seed": 1,
+				"event": _cast_summary(event),
+			})
+		else:
+			_require("mithril_karambit proc records source id", false, {
+				"seed": 1,
+				"event": _cast_summary(event),
+			})
+	_require("mithril_karambit guaranteed recursion reaches safety cap", mithril_result.cast_events.any(func(e): return e.retrigger_cap_reached), {
+		"seed": 1,
+		"events": _cast_summaries(mithril_result.cast_events),
+	})
 	print("Stab/Heavy macro order still alternates while each cast retriggers itself: OK")
 
 	print("")
@@ -362,6 +390,10 @@ func _cast_summary(event: CombatResolver.CastEvent) -> Dictionary:
 		"time_ms": event.time_ms,
 		"skill": "%s(%s)" % [event.skill.display_name, event.skill.id],
 		"rotation_index": event.rotation_index,
+		"cast_kind": event.cast_kind,
+		"trigger_source_skill_id": event.trigger_source_skill_id,
+		"retrigger_depth": event.retrigger_depth,
+		"retrigger_cap_reached": event.retrigger_cap_reached,
 		"physical_damage": event.physical_damage,
 		"min_cast_time_proc_applied": event.min_cast_time_proc_applied,
 		"triggered_skill_names": event.triggered_skill_names,

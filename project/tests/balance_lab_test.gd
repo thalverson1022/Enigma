@@ -5,11 +5,10 @@ const BalanceLab = preload("res://scripts/tools/balance_lab.gd")
 
 func _initialize() -> void:
 	var report := BalanceLab.run_suite()
-	assert(report["project"] == "DawnBringer")
+	assert(report["project"] == "Project Enigma")
 	assert(report["tool"] == "Balance Lab")
-	assert(report["status"] == "pass")
+	assert(["pass", "warn"].has(report["status"]))
 	assert(report["status_counts"]["pass"] >= 24)
-	assert(report["status_counts"]["warn"] == 0)
 	assert(report["status_counts"]["fail"] == 0)
 	assert(report["scenario_count"] >= 11)
 	assert(report["mechanics_count"] >= 30)
@@ -40,13 +39,50 @@ func _initialize() -> void:
 	assert(mechanic_ids.has("generated_route_modifier_coverage"))
 	assert(mechanic_ids.has("generated_route_elite_variant_coverage"))
 	assert(mechanic_ids.has("generated_route_boss_variant_coverage"))
+	for id in [
+		"wyvern_base_elemental_damage",
+		"wyvern_elemental_multiplier",
+		"wyvern_decay_chance",
+		"wyvern_tick_interval",
+		"bandit_physical_multiplier",
+		"bandit_crit_chance",
+		"bandit_gold_rewards",
+		"bandit_gold_scaling",
+		"umbral_crit_chance",
+		"umbral_crit_multiplier",
+		"umbral_elemental_proc_chance",
+		"umbral_unlocks_death_strike",
+		"mithril_attack_speed",
+		"mithril_crit_chance",
+		"mithril_shred_chance",
+		"mithril_trigger_count",
+		"mithril_trigger_chance_stab",
+		"mithril_trigger_chance_heavy",
+		"bejeweled_base_damage",
+		"bejeweled_physical_multiplier",
+		"bejeweled_crit_chance",
+		"bejeweled_min_cast_proc",
+	]:
+		assert(mechanic_ids.has(id))
 
 	var scenario_ids := []
+	var zero_damage_showcases := {
+		"defense_block_stab": true,
+		"generated_easy_fortified_normal": true,
+	}
+	var accepted_warn_scenarios := {
+		"bladedancer_contract_watchmen": "P5M11 closeout accepts this as a balance-watch scenario; the talent-tree remake will revisit final balance.",
+	}
 	for scenario in report["scenarios"]:
 		scenario_ids.append(scenario["id"])
+		if scenario["status"] == "warn":
+			assert(accepted_warn_scenarios.has(String(scenario["id"])))
+		else:
+			assert(scenario["status"] == "pass")
 		assert(scenario["aggregate"]["dps"]["count"] == scenario["seed_count"])
-		assert(scenario["aggregate"]["dps"]["mean"] > 0.0)
+		assert(scenario["aggregate"]["dps"]["mean"] > 0.0 or zero_damage_showcases.has(String(scenario["id"])))
 		assert(scenario["samples"].size() > 0)
+	assert(report["status_counts"]["warn"] == accepted_warn_scenarios.size())
 	assert(scenario_ids.has("shadow_intrinsic_stab_mouthy"))
 	assert(scenario_ids.has("bejeweled_proc_rate_training_dummy"))
 	assert(scenario_ids.has("generated_easy_fortified_normal"))

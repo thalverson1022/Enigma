@@ -6,6 +6,9 @@ extends SceneTree
 ## rendered click-through available in this environment.
 
 
+const FIGHT_ICON := preload("res://assets/ui/icons/fight.png")
+
+
 func _initialize() -> void:
 	var build_state = root.get_node("BuildState")
 	build_state.reset()
@@ -70,9 +73,16 @@ func _initialize() -> void:
 	var text: String = enemy_panel._info_label.text
 	print(text)
 	_require(enemy_panel._title_label.text == "Mouthy Drunk", "Expected Mouthy Drunk as the live panel title.")
+	_require(enemy_panel._attempts_badge.visible, "Expected the enemy panel attempt badge to show for a live target.")
+	_require(enemy_panel._attempts_badge.get_parent().name == "EnemyTitleRow", "Expected the attempt badge to live in the enemy panel title row.")
+	_require(enemy_panel._attempts_badge.get_index() > enemy_panel._title_label.get_index(), "Expected the attempt badge to sit at the upper right of the Enemy window title row.")
+	_require(enemy_panel._attempts_badge.find_child("EnemyAttemptsIcon", true, false) != null, "Expected the attempt badge to include the fight icon.")
+	_require((enemy_panel._attempts_badge.find_child("EnemyAttemptsIcon", true, false) as TextureRect).texture == FIGHT_ICON, "Expected the attempt badge to use the fight icon asset.")
+	_require(enemy_panel._attempts_label.text == "∞", "Expected the first Tavern opener to show unlimited attempts.")
+	_require(enemy_panel._attempts_badge.tooltip_text == "∞ Attempts Left", "Expected the first Tavern opener tooltip to show unlimited attempts.")
 	_require(not text.contains("Target:"), "Expected target name to live in the panel title, not the stat body.")
 	_require(not text.contains("Encounter:"), "Expected Tavern encounter count to be omitted from the enemy panel body.")
-	_require(text.contains("HP: 150"), "Expected Mouthy Drunk's HP.")
+	_require(text.contains("HP: 145"), "Expected Mouthy Drunk's HP.")
 	_require(not text.contains("Damage Goal:"), "Expected no Damage Goal line.")
 	_require(text.contains("Fight Window: 12s"), "Expected Mouthy Drunk's fight window.")
 	_require(text.contains("Armor: 0"), "Expected Mouthy Drunk's armor.")
@@ -105,6 +115,9 @@ func _initialize() -> void:
 	var vyra_text: String = enemy_panel._info_label.text
 	print(vyra_text)
 	_require(enemy_panel._title_label.text == "Vyra", "Expected Vyra as the live panel title.")
+	_require(enemy_panel._attempts_badge.visible, "Expected the enemy panel attempt badge to show for a contract target.")
+	_require(enemy_panel._attempts_label.text == "2/2", "Expected a fresh standard contract target to show two attempts.")
+	_require(enemy_panel._attempts_badge.tooltip_text == "2/2 Attempts Left", "Expected standard target attempt tooltip copy.")
 	_require(not vyra_text.contains("Target:"), "Expected target name to live in the panel title, not the stat body.")
 	_require(vyra_text.contains("HP: 600"), "Expected Vyra's HP.")
 	_require(not vyra_text.contains("Damage Goal:"), "Expected no Damage Goal line.")
@@ -117,6 +130,18 @@ func _initialize() -> void:
 	_require(not vyra_text.contains("Attempts:"), "Expected attempts to be omitted from Vyra stat body.")
 	_require(not vyra_text.contains("Reward:"), "Expected reward to be omitted from Vyra stat body.")
 	_require(not vyra_text.contains("Pressure:"), "Expected pressure to be omitted from Vyra stat body.")
+	var quick_cut: Skill = load("res://data/skills/quick_cut.tres")
+	var rotation: Array[Skill] = [quick_cut]
+	build_state.rotation = rotation
+	build_state.set_locked(true)
+	_require(build_state.start_fight(), "Expected Vyra to start from the standard attempt state.")
+	build_state.finish_fight(false)
+	await process_frame
+	_require(enemy_panel._attempts_label.text == "1/2", "Expected the enemy panel attempt badge to update after a standard loss.")
+	_require(enemy_panel._attempts_badge.tooltip_text == "1/2 Attempts Left", "Expected post-loss standard target attempt tooltip copy.")
+	build_state.retry_current_encounter()
+	await process_frame
+	_require(enemy_panel._attempts_label.text == "1/2", "Expected retry planning to keep showing the one remaining attempt.")
 	build_state.run_phase = BuildState.RunPhase.RUN_ENDED
 	build_state.run_state_changed.emit()
 	await process_frame

@@ -29,6 +29,55 @@ const SELECTION_CARD_BODY_FONT_SIZE := 15
 const SUBCLASS_ICON_SIZE := Vector2(36, 36)
 const UI_ICON_SIZE := Vector2(22, 22)
 const TALENT_POINT_ICON_PATH := "res://assets/ui/icons/talent_point.png"
+const StatCatalog := preload("res://scripts/systems/stat_catalog.gd")
+const WeaponDamageCatalog := preload("res://scripts/systems/weapon_damage_catalog.gd")
+const STAT_COLOR_BASIC := Color("F0E2C5")
+const STAT_COLOR_RARE := Color("8FCBFF")
+const STAT_COLOR_SPECIAL := Color("E7D967")
+const STAT_COLOR_DRAWBACK := Color("CFA6FF")
+const MAX_ROLL_EPSILON := 0.0001
+const TOOLTIP_RICH_FONT_SIZE := 18
+const TOOLTIP_RICH_MAX_ROLL_FONT_SIZE := TOOLTIP_RICH_FONT_SIZE + 2
+const TOOLTIP_RICH_MAX_WIDTH := 340.0
+const DISPLAY_STAT_ORDER := {
+	StatCatalog.BASE_DAMAGE: 10,
+	StatCatalog.PERCENT_PHYSICAL_DAMAGE: 20,
+	StatCatalog.INCREASED_ATTACK_SPEED: 30,
+	StatCatalog.CRIT_CHANCE: 40,
+	StatCatalog.CRIT_DAMAGE: 50,
+	StatCatalog.BASE_ELEMENTAL_DAMAGE: 60,
+	StatCatalog.PERCENT_ELEMENTAL_DAMAGE: 70,
+	StatCatalog.INCREASED_ALL_STACKS: 80,
+	StatCatalog.INCREASED_SHRED_STACKS: 80,
+	StatCatalog.INCREASED_DECAY_STACKS: 80,
+	StatCatalog.INCREASED_ELEMENTAL_STACKS: 80,
+	StatCatalog.BONUS_SHRED_STACKS: 80,
+	StatCatalog.INCREASED_GOLD: 90,
+	StatCatalog.SHOP_DISCOUNT: 100,
+	StatCatalog.INCREASED_MAGIC_FIND: 105,
+	StatCatalog.CHANCE_FOR_RETRIGGER: 110,
+	StatCatalog.CHANCE_TO_SHRED: 120,
+	StatCatalog.CHANCE_TO_DECAY: 130,
+	StatCatalog.CRIT_APPLIES_ELEMENT: 140,
+}
+const DISPLAY_SPECIAL_ORDER := {
+	StatCatalog.DISABLE_ENEMY_DODGE: 10,
+	StatCatalog.DISABLE_ENEMY_BLOCK: 20,
+	StatCatalog.DISABLE_ENEMY_ABSORB: 30,
+	StatCatalog.DISABLE_ENEMY_SUPPRESS: 40,
+	StatCatalog.DISABLE_ENEMY_CLEANSE: 50,
+	StatCatalog.IGNORE_ARMOR_NO_SHRED: 60,
+	StatCatalog.IGNORE_RESISTANCE_PHYSICAL_PENALTY: 70,
+	StatCatalog.DOUBLE_APPLIED_STACKS: 80,
+	StatCatalog.CONVERT_DAMAGE_TO_PHYSICAL: 90,
+	StatCatalog.CONVERT_DAMAGE_TO_MAGICAL: 100,
+	StatCatalog.ALL_STATS_INCREASED: 110,
+	StatCatalog.IMMUNE_TO_STUN: 120,
+	StatCatalog.IMMUNE_TO_SLOW: 130,
+	StatCatalog.IMMUNE_TO_INTERRUPT: 140,
+	StatCatalog.DECAY_APPLIES_SHRED: 150,
+	StatCatalog.POISON_STACK_CAP_40: 160,
+}
 
 static var _talent_point_icon: Texture2D = null
 
@@ -155,17 +204,188 @@ static func build_gear_box_content(button: Button, gear: GearItem) -> void:
 ## inventory/equipped-slot tooltips, so the same item can't show different
 ## information in different screens.
 static func gear_tooltip_lines(gear: GearItem) -> PackedStringArray:
-	if gear != null and gear.tier == GearItem.Tier.LEGENDARY:
-		return LegendaryCatalog.tooltip_lines(gear)
 	var lines: PackedStringArray = []
-	lines.append("%s - %s" % [GearGenerator.SLOT_TAGS[gear.slot], gear.display_name])
-	lines.append(GearGenerator.TIER_NAMES[gear.tier])
-	for affix in gear.affixes:
-		lines.append(StatModifierFormatter.format(affix))
+	if gear == null:
+		return lines
+	if is_unidentified_chaos(gear):
+		return unidentified_gear_tooltip_lines(gear)
+	if gear != null and gear.tier == GearItem.Tier.LEGENDARY:
+		return _legendary_tooltip_lines(gear)
+	lines.append_array(gear_header_lines(gear))
+	lines.append_array(_gear_affix_lines(gear))
 	for trigger in gear.triggered_skill_effects:
 		if trigger != null and trigger.skill != null:
 			lines.append("%d%% chance to trigger %s" % [roundi(trigger.chance * 100.0), trigger.skill.display_name])
 	return lines
+
+
+static func is_unidentified_chaos(gear: GearItem) -> bool:
+	return gear != null and gear.tier == GearItem.Tier.CHAOS and gear.is_unidentified
+
+
+static func unidentified_gear_tooltip_lines(gear: GearItem) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	if gear == null:
+		return lines
+	lines.append("Unidentified")
+	lines.append("%s %s / %s" % [
+		GearGenerator.tier_name(gear.tier),
+		GearGenerator.universal_slot_label(gear.slot),
+		GearGenerator.item_family_for(gear),
+	])
+	lines.append("Stats:")
+	lines.append("Unidentified")
+	return lines
+
+
+static func gear_header_lines(gear: GearItem) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	if gear == null:
+		return lines
+	lines.append(gear.display_name)
+	lines.append("%s %s / %s" % [
+		GearGenerator.tier_name(gear.tier),
+		GearGenerator.universal_slot_label(gear.slot),
+		GearGenerator.item_family_for(gear),
+	])
+	if gear.slot == GearItem.SlotType.WEAPON:
+		var damage_range := WeaponDamageCatalog.damage_range_for_weapon(gear)
+		lines.append("Weapon Damage: %d-%d" % [int(damage_range["min"]), int(damage_range["max"])])
+	return lines
+
+
+static func _legendary_tooltip_lines(gear: GearItem) -> PackedStringArray:
+	var lines := gear_header_lines(gear)
+	var visible_affixes: Array[StatModifier] = []
+	for affix: StatModifier in gear.affixes:
+		if affix.stat == StatModifier.StatType.POISON_TICK_INTERVAL:
+			continue
+		if StatModifierFormatter.format(affix) != "":
+			visible_affixes.append(affix)
+	visible_affixes.sort_custom(_sort_affixes_for_display)
+	if not visible_affixes.is_empty():
+		lines.append("Stats:")
+		lines.append_array(_formatted_affix_lines(visible_affixes))
+	var text := LegendaryCatalog.effect_text(gear)
+	if text != "":
+		lines.append("Legendary:")
+		lines.append(text)
+	return lines
+
+
+static func rarity_fill_color(tier: int) -> Color:
+	return GearGenerator.tier_color(tier)
+
+
+static func rarity_border_color(tier: int, equipped: bool = false, disabled: bool = false) -> Color:
+	if disabled:
+		return UIColors.TEXT_DISABLED
+	if equipped:
+		return ACCENT_COLOR
+	match tier:
+		GearItem.Tier.EPIC:
+			return UIColors.PANEL_EDGE_LIGHT
+		GearItem.Tier.CHAOS:
+			return UIColors.TEXT_NORMAL
+		GearItem.Tier.UNIQUE:
+			return UIColors.TEXT_GOLD
+		GearItem.Tier.LEGENDARY:
+			return UIColors.TIER_LEGENDARY.lightened(0.18)
+	return UIColors.SLOT_BORDER
+
+
+static func rarity_border_width(tier: int, equipped: bool = false) -> int:
+	if equipped:
+		return 4 if tier == GearItem.Tier.EPIC else 3
+	return 3 if tier == GearItem.Tier.EPIC else 2
+
+
+static func make_gear_item_stylebox(gear: GearItem, equipped: bool = false, state_name: String = "normal") -> StyleBoxFlat:
+	var tier := gear.tier if gear != null else GearItem.Tier.BASIC
+	var fill := UIColors.SLOT_EMPTY if gear == null else rarity_fill_color(tier)
+	var border := UIColors.SLOT_BORDER if gear == null else rarity_border_color(tier, equipped, state_name == "disabled")
+	var width := 2 if gear == null else rarity_border_width(tier, equipped)
+	var style := make_slot_stylebox(fill, border, width, state_name)
+	if gear != null and tier == GearItem.Tier.EPIC:
+		style.border_blend = false
+		style.shadow_color = Color(1.0, 0.94, 0.72, 0.34) if state_name != "disabled" else UIColors.PANEL_DROP_SHADOW
+		style.shadow_size = 6 if state_name != "disabled" else 1
+	elif gear != null and tier == GearItem.Tier.CHAOS and state_name != "disabled":
+		style.border_blend = false
+	return style
+
+
+static func _gear_affix_lines(gear: GearItem) -> PackedStringArray:
+	if gear == null:
+		return PackedStringArray()
+	if gear.tier == GearItem.Tier.CHAOS:
+		return _chaos_affix_lines(gear)
+	var positive_affixes: Array[StatModifier] = []
+	var drawback_affixes: Array[StatModifier] = []
+	var special_affixes: Array[StatModifier] = []
+	for affix: StatModifier in gear.affixes:
+		var formatted := StatModifierFormatter.format(affix)
+		if formatted == "":
+			continue
+		var stat_id := StatCatalog.canonical_id_for_modifier(affix)
+		if affix.is_drawback:
+			drawback_affixes.append(affix)
+		elif stat_id != "" and StatCatalog.is_special(stat_id):
+			special_affixes.append(affix)
+		else:
+			positive_affixes.append(affix)
+	positive_affixes.sort_custom(_sort_affixes_for_display)
+	drawback_affixes.sort_custom(_sort_affixes_for_display)
+	special_affixes.sort_custom(_sort_affixes_for_display)
+	var lines: PackedStringArray = []
+	if not positive_affixes.is_empty():
+		lines.append("Stats:")
+		lines.append_array(_formatted_affix_lines(positive_affixes))
+	if not drawback_affixes.is_empty():
+		lines.append("Drawbacks:")
+		lines.append_array(_formatted_affix_lines(drawback_affixes))
+	if not special_affixes.is_empty():
+		lines.append("Special:")
+		lines.append_array(_formatted_affix_lines(special_affixes))
+	return lines
+
+
+static func _chaos_affix_lines(gear: GearItem) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	var affix_lines := _formatted_affix_lines(gear.affixes)
+	if affix_lines.is_empty():
+		return lines
+	lines.append("Stats:")
+	lines.append_array(affix_lines)
+	return lines
+
+
+static func _formatted_affix_lines(affixes: Array) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	for affix: StatModifier in affixes:
+		var formatted := StatModifierFormatter.format(affix)
+		if formatted != "":
+			lines.append(formatted)
+	return lines
+
+
+static func _sort_affixes_for_display(a: StatModifier, b: StatModifier) -> bool:
+	var a_id := StatCatalog.canonical_id_for_modifier(a)
+	var b_id := StatCatalog.canonical_id_for_modifier(b)
+	var a_order := _display_order_for_stat_id(a_id)
+	var b_order := _display_order_for_stat_id(b_id)
+	if a_order == b_order:
+		return StatModifierFormatter.format(a) < StatModifierFormatter.format(b)
+	return a_order < b_order
+
+
+static func _display_order_for_stat_id(stat_id: String) -> int:
+	var canonical_id := StatCatalog.canonicalize_stat_id(stat_id)
+	if DISPLAY_STAT_ORDER.has(canonical_id):
+		return int(DISPLAY_STAT_ORDER[canonical_id])
+	if DISPLAY_SPECIAL_ORDER.has(canonical_id):
+		return 1000 + int(DISPLAY_SPECIAL_ORDER[canonical_id])
+	return 500
 
 
 ## Builds the backdrop -> CenterContainer -> bare PanelContainer inside
@@ -232,13 +452,17 @@ static func build_modal_panel(root: Control, dismissable: bool) -> PanelContaine
 ## calling screen/overlay's own `self`. Shared by combat_screen.gd's
 ## reward-choice tooltip and shop_overlay.gd's shop-offer tooltip so the two
 ## can't drift apart.
-static func build_gear_compare_tooltip(theme_owner: Control, item_text: String, equipped: GearItem) -> Control:
+static func build_gear_compare_tooltip(theme_owner: Control, item_text: String, equipped: GearItem, item: GearItem = null) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
-	row.add_child(_make_tooltip_box(theme_owner, "", item_text))
+	row.add_child(_make_tooltip_box(theme_owner, "", item_text, item))
 	var equipped_text := "\n".join(gear_tooltip_lines(equipped)) if equipped != null else "Nothing equipped."
-	row.add_child(_make_tooltip_box(theme_owner, "Equipped", equipped_text))
+	row.add_child(_make_tooltip_box(theme_owner, "Equipped", equipped_text, equipped))
 	return row
+
+
+static func build_gear_tooltip(theme_owner: Control, gear: GearItem) -> Control:
+	return _make_tooltip_box(theme_owner, "", "\n".join(gear_tooltip_lines(gear)), gear)
 
 
 ## One compact box of build_gear_compare_tooltip()'s pair, deliberately
@@ -246,14 +470,21 @@ static func build_gear_compare_tooltip(theme_owner: Control, item_text: String, 
 ## own TooltipPanel stylebox and TooltipLabel font color, default font and
 ## size, no extra padding. `header`, when non-empty, renders as an
 ## accent-colored first line ("Equipped").
-static func _make_tooltip_box(theme_owner: Control, header: String, body: String) -> Control:
+static func _make_tooltip_box(theme_owner: Control, header: String, body: String, gear: GearItem = null) -> Control:
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", theme_owner.get_theme_stylebox("panel", "TooltipPanel"))
 	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	panel.add_child(row)
+
+	if gear != null:
+		row.add_child(make_pixel_icon(GearIcons.icon_for(gear), Vector2(32, 32)))
+
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 0)
-	panel.add_child(vbox)
+	row.add_child(vbox)
 
 	if header != "":
 		var header_label := Label.new()
@@ -261,11 +492,173 @@ static func _make_tooltip_box(theme_owner: Control, header: String, body: String
 		header_label.add_theme_color_override("font_color", ACCENT_COLOR)
 		vbox.add_child(header_label)
 
-	var body_label := Label.new()
-	body_label.text = body
-	body_label.add_theme_color_override("font_color", theme_owner.get_theme_color("font_color", "TooltipLabel"))
-	vbox.add_child(body_label)
+	if gear == null:
+		var body_label := Label.new()
+		body_label.text = body
+		body_label.add_theme_color_override("font_color", theme_owner.get_theme_color("font_color", "TooltipLabel"))
+		vbox.add_child(body_label)
+	else:
+		_add_gear_tooltip_line_labels(vbox, theme_owner, gear)
+		_add_extra_tooltip_body_lines(vbox, body, gear, theme_owner.get_theme_color("font_color", "TooltipLabel"))
 	return panel
+
+
+static func _add_gear_tooltip_line_labels(vbox: VBoxContainer, theme_owner: Control, gear: GearItem) -> void:
+	var default_color := theme_owner.get_theme_color("font_color", "TooltipLabel")
+	if is_unidentified_chaos(gear):
+		for line in gear_tooltip_lines(gear):
+			_add_plain_tooltip_label(vbox, line, default_color)
+		return
+	for line in gear_header_lines(gear):
+		_add_plain_tooltip_label(vbox, line, default_color)
+	if gear.tier == GearItem.Tier.LEGENDARY:
+		var legendary_affixes: Array[StatModifier] = []
+		for affix: StatModifier in gear.affixes:
+			if affix.stat == StatModifier.StatType.POISON_TICK_INTERVAL:
+				continue
+			if StatModifierFormatter.format(affix) != "":
+				legendary_affixes.append(affix)
+		legendary_affixes.sort_custom(_sort_affixes_for_display)
+		_add_affix_group_labels(vbox, "Stats:", legendary_affixes, gear, default_color)
+		var legendary_text := LegendaryCatalog.effect_text(gear)
+		if legendary_text != "":
+			_add_plain_tooltip_label(vbox, "Legendary:", default_color)
+			_add_plain_tooltip_label(vbox, legendary_text, STAT_COLOR_SPECIAL)
+		return
+	if gear.tier == GearItem.Tier.CHAOS:
+		var chaos_affixes: Array[StatModifier] = []
+		for affix: StatModifier in gear.affixes:
+			if StatModifierFormatter.format(affix) != "":
+				chaos_affixes.append(affix)
+		_add_affix_group_labels(vbox, "Stats:", chaos_affixes, gear, default_color)
+		return
+	var positive_affixes: Array[StatModifier] = []
+	var drawback_affixes: Array[StatModifier] = []
+	var special_affixes: Array[StatModifier] = []
+	for affix: StatModifier in gear.affixes:
+		var formatted := StatModifierFormatter.format(affix)
+		if formatted == "":
+			continue
+		var stat_id := StatCatalog.canonical_id_for_modifier(affix)
+		if affix.is_drawback:
+			drawback_affixes.append(affix)
+		elif stat_id != "" and StatCatalog.is_special(stat_id):
+			special_affixes.append(affix)
+		else:
+			positive_affixes.append(affix)
+	positive_affixes.sort_custom(_sort_affixes_for_display)
+	drawback_affixes.sort_custom(_sort_affixes_for_display)
+	special_affixes.sort_custom(_sort_affixes_for_display)
+	_add_affix_group_labels(vbox, "Stats:", positive_affixes, gear, default_color)
+	_add_affix_group_labels(vbox, "Drawbacks:", drawback_affixes, gear, default_color)
+	_add_affix_group_labels(vbox, "Special:", special_affixes, gear, default_color)
+	for trigger in gear.triggered_skill_effects:
+		if trigger != null and trigger.skill != null:
+			_add_plain_tooltip_label(vbox, "%d%% chance to trigger %s" % [roundi(trigger.chance * 100.0), trigger.skill.display_name], default_color)
+
+
+static func _add_affix_group_labels(vbox: VBoxContainer, heading: String, affixes: Array, gear: GearItem, default_color: Color) -> void:
+	if affixes.is_empty():
+		return
+	_add_plain_tooltip_label(vbox, heading, default_color)
+	for affix: StatModifier in affixes:
+		var line := StatModifierFormatter.format(affix)
+		if line == "":
+			continue
+		_add_rich_tooltip_label(vbox, _bbcode_for_affix_line(gear, affix, line), line, default_color, _font_size_for_affix_line(gear, affix))
+
+
+static func _add_plain_tooltip_label(vbox: VBoxContainer, text: String, color: Color) -> void:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_color_override("font_color", color)
+	vbox.add_child(label)
+
+
+static func _add_rich_tooltip_label(vbox: VBoxContainer, bbcode: String, visible_text: String, color: Color, font_size: int = TOOLTIP_RICH_FONT_SIZE) -> void:
+	var label := RichTextLabel.new()
+	label.bbcode_enabled = true
+	label.fit_content = true
+	label.scroll_active = false
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.custom_minimum_size = Vector2(_rich_tooltip_line_width(visible_text, font_size), 0)
+	label.text = bbcode
+	label.add_theme_color_override("default_color", color)
+	vbox.add_child(label)
+
+
+static func _add_extra_tooltip_body_lines(vbox: VBoxContainer, body: String, gear: GearItem, color: Color) -> void:
+	var base_lines := gear_tooltip_lines(gear)
+	var body_lines := body.split("\n", false)
+	for i in range(base_lines.size(), body_lines.size()):
+		var line := String(body_lines[i])
+		if line != "":
+			_add_plain_tooltip_label(vbox, line, color)
+
+
+static func _rich_tooltip_line_width(visible_text: String, font_size: int = TOOLTIP_RICH_FONT_SIZE) -> float:
+	var measured := DATA_FONT.get_string_size(visible_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+	return minf(ceilf(measured) + 4.0, TOOLTIP_RICH_MAX_WIDTH)
+
+
+static func _bbcode_for_affix_line(gear: GearItem, affix: StatModifier, line: String) -> String:
+	var color := _stat_color_for_affix(affix)
+	var escaped := _escape_bbcode(line)
+	var colored := "[color=#%s]%s[/color]" % [color.to_html(false), escaped]
+	if is_max_value_roll(gear, affix):
+		return "[font_size=%d][b]%s[/b][/font_size]" % [TOOLTIP_RICH_MAX_ROLL_FONT_SIZE, colored]
+	return colored
+
+
+static func _font_size_for_affix_line(gear: GearItem, affix: StatModifier) -> int:
+	return TOOLTIP_RICH_MAX_ROLL_FONT_SIZE if is_max_value_roll(gear, affix) else TOOLTIP_RICH_FONT_SIZE
+
+
+static func _stat_color_for_affix(affix: StatModifier) -> Color:
+	if affix == null:
+		return UIColors.TEXT_NORMAL
+	if affix.is_drawback:
+		return STAT_COLOR_DRAWBACK
+	var stat_id := StatCatalog.canonical_id_for_modifier(affix)
+	if StatCatalog.is_special(stat_id):
+		return STAT_COLOR_SPECIAL
+	if affix.category == StatModifier.StatCategory.RARE:
+		return STAT_COLOR_RARE
+	return STAT_COLOR_BASIC
+
+
+static func is_max_value_roll(gear: GearItem, affix: StatModifier) -> bool:
+	if gear == null or affix == null or StatCatalog.is_binary(StatCatalog.canonical_id_for_modifier(affix)):
+		return false
+	var stat_id := StatCatalog.canonical_id_for_modifier(affix)
+	var category := _catalog_category_for_affix(affix)
+	var result := GearGenerator.max_rolled_value_for_stat_id(
+		stat_id,
+		gear.slot,
+		affix.is_drawback,
+		gear.tier,
+		gear.generation_value_scale,
+		gear.generation_contract_depth,
+		category
+	)
+	return bool(result.get("ok", false)) and is_equal_approx(float(result["value"]), affix.value)
+
+
+static func _catalog_category_for_affix(affix: StatModifier) -> String:
+	if affix == null:
+		return StatCatalog.CATEGORY_BASIC
+	match affix.category:
+		StatModifier.StatCategory.RARE:
+			return StatCatalog.CATEGORY_RARE
+		StatModifier.StatCategory.SPECIAL:
+			return StatCatalog.CATEGORY_SPECIAL
+	return StatCatalog.CATEGORY_BASIC
+
+
+static func _escape_bbcode(text: String) -> String:
+	return text.replace("[", "\\[").replace("]", "\\]")
 
 
 ## Tier-colored button stylebox for a shop/reward gear box, muted when
@@ -273,21 +666,8 @@ static func _make_tooltip_box(theme_owner: Control, header: String, body: String
 ## without opening the tooltip. Shared by combat_screen.gd's reward-choice
 ## boxes and shop_overlay.gd's shop-offer boxes.
 static func style_shop_item_box(button: Button, offer: GearItem) -> void:
-	var color := UIColors.TIER_BASIC
-	match offer.tier:
-		GearItem.Tier.MASTER:
-			color = UIColors.TIER_MASTER
-		GearItem.Tier.CURSED:
-			color = UIColors.TIER_CURSED
-		GearItem.Tier.LEGENDARY:
-			color = UIColors.TIER_LEGENDARY
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = color.darkened(0.55) if state == "disabled" else color
-		style.border_color = UIColors.TEXT_DISABLED if state == "disabled" else UIColors.SLOT_BORDER
-		style.set_border_width_all(2)
-		style.set_corner_radius_all(6)
-		button.add_theme_stylebox_override(state, style)
+		button.add_theme_stylebox_override(state, make_gear_item_stylebox(offer, false, state))
 
 
 static func make_pixel_icon(texture: Texture2D, icon_size: Vector2 = SUBCLASS_ICON_SIZE) -> TextureRect:

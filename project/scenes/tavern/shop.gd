@@ -1,5 +1,5 @@
 extends Control
-## P2:M5 Tavern shop: shows gold, the 3 equip slots (with unequip), a batch
+## P2:M5 Tavern shop: shows gold, the equip slots (with unequip), a batch
 ## of generated offers to buy, and a "Continue" button that hands control
 ## back to build_planner.gd to advance to the next real encounter (P2:M4's
 ## "Fight Again" re-fought a fixed dummy in place; P2:M5 has a real
@@ -61,6 +61,8 @@ func _refresh_slots() -> void:
 	for child in _slots_box.get_children():
 		child.queue_free()
 	_add_slot_row("Weapon", BuildState.equipped_weapon, GearItem.SlotType.WEAPON)
+	_add_slot_row("Helm", BuildState.equipped_helm, GearItem.SlotType.HELM)
+	_add_slot_row("Armor", BuildState.equipped_armor, GearItem.SlotType.ARMOR)
 	_add_slot_row("Trinket", BuildState.equipped_trinket, GearItem.SlotType.TRINKET)
 	_add_slot_row("Charm", BuildState.equipped_charm, GearItem.SlotType.CHARM)
 
@@ -91,7 +93,7 @@ func _refresh_offers() -> void:
 		var name_label := Label.new()
 		name_label.text = "%s (%d affixes)" % [offer.display_name, offer.affixes.size()]
 		row.add_child(name_label)
-		var price: int = GearGenerator.price_for_tier(offer.tier)
+		var price: int = BuildState.shop_purchase_price_for(offer)
 		var buy_button := Button.new()
 		buy_button.text = "Buy (%dg)" % price
 		buy_button.disabled = price > BuildState.gold

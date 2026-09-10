@@ -3,7 +3,8 @@ extends RefCounted
 
 
 static func execution_time_ms(skill: Skill, attack_speed: float) -> int:
-	var scaled_ms: float = float(skill.base_execution_ms) / (1.0 + attack_speed)
+	var speed_multiplier := maxf(0.05, 1.0 + attack_speed)
+	var scaled_ms: float = float(skill.base_execution_ms) / speed_multiplier
 	return int(ceil(max(float(skill.min_execution_ms), scaled_ms)))
 
 

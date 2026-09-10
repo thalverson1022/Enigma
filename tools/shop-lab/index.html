@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DawnBringer Shop Lab</title>
+    <title>Project Enigma Shop Lab</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <header class="app-header">
         <div>
-          <p class="eyebrow">DawnBringer Tooling</p>
+          <p class="eyebrow">Phase 5 Gear Simulation</p>
           <h1>Shop Lab</h1>
         </div>
         <div class="header-actions">
@@ -27,6 +27,31 @@
               <span id="seed-readout">Seed 1001</span>
             </div>
             <label class="field">
+              <span>Seed</span>
+              <span class="seed-control">
+                <input id="seed-input" type="text" value="1001" />
+                <label class="checkbox-field">
+                  <input id="random-seed" type="checkbox" />
+                  <span>Random</span>
+                </label>
+              </span>
+            </label>
+            <label class="field">
+              <span>Quick Preset</span>
+              <select id="simulation-preset">
+                <option value="custom">Custom</option>
+                <option value="earlyRun">Early Run</option>
+                <option value="midRun">Mid Run</option>
+                <option value="lateRun">Late Run</option>
+                <option value="highVariance">High Variance</option>
+              </select>
+            </label>
+            <div id="preset-readout" class="preset-readout" aria-live="polite"></div>
+            <label class="field">
+              <span>Contract Depth</span>
+              <input id="contract-depth" type="number" min="1" max="12" step="1" value="1" />
+            </label>
+            <label class="field">
               <span>Starting Gold</span>
               <input id="starting-gold" type="number" min="0" step="5" value="80" />
             </label>
@@ -35,17 +60,47 @@
               <input id="shop-size" type="number" min="1" max="12" step="1" value="4" />
             </label>
             <label class="field">
-              <span>Amazing Score</span>
-              <input id="amazing-threshold" type="number" min="1" max="200" step="1" value="58" />
+              <span>Value Scale</span>
+              <input id="value-scale" type="number" min="0.25" max="3" step="0.05" value="1" />
+            </label>
+            <div id="value-readout" class="value-readout" aria-live="polite"></div>
+            <label class="field">
+              <span>Batch Size</span>
+              <input id="batch-size" type="number" min="1" max="10000" step="100" value="1000" />
+            </label>
+            <label class="field">
+              <span>Reroll Base</span>
+              <input id="reroll-cost-base" type="number" min="0" max="100" step="1" value="5" />
+            </label>
+            <label class="field">
+              <span>Reroll Step</span>
+              <input id="reroll-cost-step" type="number" min="0" max="100" step="1" value="5" />
             </label>
           </section>
 
           <section class="panel-section">
             <div class="section-heading">
-              <h2>Item Type Odds</h2>
+              <h2>Rarity Odds</h2>
               <span id="tier-total">100 total</span>
             </div>
+            <label class="field">
+              <span>Mode</span>
+              <select id="rarity-mode">
+                <option value="curve">Curve Preset</option>
+                <option value="manual">Manual Weights</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Curve</span>
+              <select id="rarity-curve-preset">
+                <option value="early">Early</option>
+                <option value="mid">Mid</option>
+                <option value="late">Late</option>
+                <option value="highVariance">High Variance</option>
+              </select>
+            </label>
             <div id="tier-controls" class="slider-stack"></div>
+            <div id="curve-readout" class="curve-readout" aria-live="polite"></div>
           </section>
 
           <section class="panel-section">
@@ -58,7 +113,7 @@
 
           <section class="panel-section">
             <div class="section-heading">
-              <h2>Affix Odds</h2>
+              <h2>Fixed Boundaries</h2>
               <span id="affix-total">100 total</span>
             </div>
             <div id="affix-controls" class="slider-stack"></div>
@@ -95,7 +150,7 @@
               <strong id="next-reroll-cost">5g</strong>
             </div>
             <div class="metric">
-              <span>Amazing Seen</span>
+              <span>Risk/Unique Seen</span>
               <strong id="amazing-seen">0</strong>
             </div>
           </div>
@@ -107,7 +162,7 @@
           <section class="panel-section">
             <div class="section-heading">
               <h2>Session Readout</h2>
-              <span id="best-score">Best 0</span>
+              <span id="best-score">Notable 0</span>
             </div>
             <div id="best-item" class="best-item empty-note">No shop generated yet.</div>
           </section>
@@ -123,11 +178,11 @@
           <section class="panel-section">
             <div class="section-heading">
               <h2>Quick Sim</h2>
-              <span>1,000 shops</span>
+              <span>Batch shops</span>
             </div>
             <button id="simulate-button" type="button" class="secondary-action full-width">Run Simulation</button>
             <div id="simulation-results" class="simulation-results empty-note">
-              Run a simulation to estimate how often exciting shops appear.
+              Run a simulation to inspect Phase 5 rarity, slot, drawback, Special, and retrigger frequencies.
             </div>
           </section>
         </aside>

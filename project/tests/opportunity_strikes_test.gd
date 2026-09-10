@@ -61,54 +61,80 @@ func _initialize() -> void:
 
 	var quick_rotation: Array[Skill] = [quick_cut]
 	var quick_result: CombatResolver.CombatResult = CombatResolver.resolve(quick_rotation, stats, monster, 850)
-	_require_equal("opportunity_quick_cut cast count", quick_result.cast_events.size(), 1, {
+	_require_equal("opportunity_quick_cut cast count", quick_result.cast_events.size(), 2, {
 		"seed": "default",
 		"rotation": _skill_names(quick_rotation),
 		"monster": _monster_summary(monster),
 	})
-	_require_equal("opportunity_quick_cut source cast", quick_result.cast_events[0].skill.id, "skill.quick_cut", {
-		"event": _cast_summary(quick_result.cast_events[0]),
+	var quick_source := quick_result.cast_events[0]
+	var quick_proc := quick_result.cast_events[1]
+	_require_equal("opportunity_quick_cut source cast", quick_source.skill.id, "skill.quick_cut", {
+		"event": _cast_summary(quick_source),
 	})
-	_require("opportunity_quick_cut triggers Rending Slash", quick_result.cast_events[0].triggered_skill_names.has("Rending Slash"), {
-		"event": _cast_summary(quick_result.cast_events[0]),
+	_require_equal("opportunity_quick_cut proc cast", quick_proc.skill.id, "skill.rending_thrust", {
+		"event": _cast_summary(quick_proc),
 	})
-	_require_equal("opportunity_quick_cut applies armor reduction", quick_result.cast_events[0].armor_reduction_applied, 20, {
-		"event": _cast_summary(quick_result.cast_events[0]),
+	_require_equal("opportunity_quick_cut proc kind", quick_proc.cast_kind, "proc", {
+		"event": _cast_summary(quick_proc),
 	})
-	_require_approx("opportunity_quick_cut total physical damage", quick_result.cast_events[0].physical_damage, 26.0, 0.001, {
-		"event": _cast_summary(quick_result.cast_events[0]),
+	_require("opportunity_quick_cut triggers Rending Slash", quick_source.triggered_skill_names.has("Rending Slash"), {
+		"event": _cast_summary(quick_source),
 	})
-	_require_equal("opportunity_quick_cut contribution count", quick_result.cast_events[0].damage_contributions.size(), 2, {
-		"contributions": quick_result.cast_events[0].damage_contributions,
+	_require_equal("opportunity_quick_cut applies Shred stacks", quick_proc.shred_stacks_applied, 2, {
+		"event": _cast_summary(quick_proc),
 	})
-	_require_approx("opportunity_quick_cut base contribution damage", _contribution_damage(quick_result.cast_events[0], "Quick Cut"), 12.0, 0.001, {
-		"contributions": quick_result.cast_events[0].damage_contributions,
+	_require_equal("opportunity_quick_cut applies armor reduction", quick_proc.armor_reduction_applied, 20, {
+		"event": _cast_summary(quick_proc),
 	})
-	_require_approx("opportunity_quick_cut proc contribution damage", _contribution_damage(quick_result.cast_events[0], "Rending Slash"), 14.0, 0.001, {
-		"contributions": quick_result.cast_events[0].damage_contributions,
+	_require_approx("opportunity_quick_cut total physical damage", quick_result.total_damage, 2.0, 0.001, {
+		"events": _cast_summaries(quick_result.cast_events),
 	})
-	_require_equal("opportunity_quick_cut base contribution kind", _contribution_kind(quick_result.cast_events[0], "Quick Cut"), "cast", {
-		"contributions": quick_result.cast_events[0].damage_contributions,
+	_require_equal("opportunity_quick_cut source contribution count", quick_source.damage_contributions.size(), 1, {
+		"contributions": quick_source.damage_contributions,
 	})
-	_require_equal("opportunity_quick_cut proc contribution kind", _contribution_kind(quick_result.cast_events[0], "Rending Slash"), "proc", {
-		"contributions": quick_result.cast_events[0].damage_contributions,
+	_require_equal("opportunity_quick_cut proc contribution count", quick_proc.damage_contributions.size(), 1, {
+		"contributions": quick_proc.damage_contributions,
 	})
-	_require_equal("opportunity_quick_cut proc contribution armor", _contribution_armor(quick_result.cast_events[0], "Rending Slash"), 20, {
-		"contributions": quick_result.cast_events[0].damage_contributions,
+	_require_approx("opportunity_quick_cut base contribution damage", _contribution_damage(quick_source, "Quick Cut"), 1.0, 0.001, {
+		"contributions": quick_source.damage_contributions,
+	})
+	_require_approx("opportunity_quick_cut proc contribution damage", _contribution_damage(quick_proc, "Rending Slash"), 1.0, 0.001, {
+		"contributions": quick_proc.damage_contributions,
+	})
+	_require_equal("opportunity_quick_cut base contribution kind", _contribution_kind(quick_source, "Quick Cut"), "cast", {
+		"contributions": quick_source.damage_contributions,
+	})
+	_require_equal("opportunity_quick_cut proc contribution kind", _contribution_kind(quick_proc, "Rending Slash"), "proc", {
+		"contributions": quick_proc.damage_contributions,
+	})
+	_require_equal("opportunity_quick_cut proc contribution armor", _contribution_armor(quick_proc, "Rending Slash"), 20, {
+		"contributions": quick_proc.damage_contributions,
 	})
 
 	var inspector := CombatLogInspectorDataScript.build(quick_result, monster)
-	_require_approx("opportunity_quick_cut inspector base row", float(_damage_row(inspector["damage_rows"], "Quick Cut").get("damage", -1.0)), 12.0, 0.001, {
+	_require_approx("opportunity_quick_cut inspector base row", float(_damage_row(inspector["damage_rows"], "Quick Cut").get("damage", -1.0)), 1.0, 0.001, {
 		"damage_rows": inspector["damage_rows"],
 	})
-	_require_approx("opportunity_quick_cut inspector proc row", float(_damage_row(inspector["damage_rows"], "Rending Slash").get("damage", -1.0)), 14.0, 0.001, {
+	_require_approx("opportunity_quick_cut inspector proc row", float(_damage_row(inspector["damage_rows"], "Rending Slash").get("damage", -1.0)), 1.0, 0.001, {
 		"damage_rows": inspector["damage_rows"],
 	})
 	var log_text := CombatResultFormatter.format(quick_result, monster)
-	_require("opportunity_quick_cut log has source hit", log_text.contains("Quick Cut hits for 12.0"), {
+	_require("opportunity_quick_cut log has source hit", log_text.contains("Quick Cut hits for 1.0"), {
 		"log_text": log_text,
 	})
-	_require("opportunity_quick_cut log has proc line", log_text.contains("triggers Rending Slash for 14.0"), {
+	_require("opportunity_quick_cut source line is labeled Opportunity Strike", log_text.contains("Opportunity Strike Quick Cut"), {
+		"log_text": log_text,
+	})
+	_require("opportunity_quick_cut proc line is labeled Opportunity Strike", log_text.contains("Opportunity Strike Rending Slash"), {
+		"log_text": log_text,
+	})
+	_require("opportunity_quick_cut log no longer calls talent proc Legendary", not log_text.contains("LEGENDARY"), {
+		"log_text": log_text,
+	})
+	_require("opportunity_quick_cut log has proc line", log_text.contains("Rending Slash hits for 1.0"), {
+		"log_text": log_text,
+	})
+	_require("opportunity_quick_cut log has Shred line", log_text.contains("applies 2 Shred"), {
 		"log_text": log_text,
 	})
 
@@ -209,10 +235,18 @@ func _monster_summary(monster: Monster) -> Dictionary:
 	}
 
 
+func _cast_summaries(events: Array) -> Array:
+	var summaries: Array = []
+	for event in events:
+		summaries.append(_cast_summary(event))
+	return summaries
+
+
 func _cast_summary(event: CombatResolver.CastEvent) -> Dictionary:
 	return {
 		"time_ms": event.time_ms,
 		"skill": "%s(%s)" % [event.skill.display_name, event.skill.id],
+		"cast_kind": event.cast_kind,
 		"physical_damage": event.physical_damage,
 		"armor_reduction_applied": event.armor_reduction_applied,
 		"triggered_skill_names": event.triggered_skill_names,

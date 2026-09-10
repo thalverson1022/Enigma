@@ -13,6 +13,8 @@ func _initialize() -> void:
 	_check_slow_reduces_cast_count()
 	_check_stun_delays_after_large_direct_hits()
 	_check_interrupt_skips_only_repeated_direct_skill()
+	_check_retriggers_count_toward_interrupt()
+	_check_beguiling_strike_uses_base_decay_reduction()
 	print("Enemy defense mechanics check: OK")
 	quit()
 
@@ -50,6 +52,9 @@ func _check_dodge_negates_physical_attack_and_attached_poison() -> void:
 		assert(event.was_dodged)
 		assert(is_equal_approx(event.physical_damage, 0.0))
 		assert(event.poison_stacks_applied == 0)
+	var log_text := CombatResultFormatter.format(result, _monster({"dodge_chance": 1.0}))
+	assert(log_text.contains("Test Physical was DODGED"))
+	assert(not log_text.contains("connects, to no effect"))
 	assert(result.tick_events.any(func(tick): return tick.time_ms == 1000))
 	assert(result.tick_events.all(func(tick): return is_equal_approx(tick.damage, 0.0)))
 
@@ -143,6 +148,48 @@ func _check_interrupt_skips_only_repeated_direct_skill() -> void:
 	var alternating := CombatResolver.resolve([stab, poison], _player(), monster, 3000, 1)
 	assert(alternating.cast_events.size() == 6)
 	assert(alternating.cast_events.all(func(event): return not event.was_interrupted))
+
+
+func _check_retriggers_count_toward_interrupt() -> void:
+	var stab := _physical_skill(10.0, 500)
+	stab.id = "test.retrigger.stab"
+	stab.display_name = "Retrigger Stab"
+	var player := _player()
+	player.retrigger_chance = 1.0
+	var monster := _monster({"interrupt_skip_count": 1})
+	var result := CombatResolver.resolve([stab], player, monster, 1000, 1)
+	assert(result.cast_events.size() == 4)
+	assert(not result.cast_events[0].was_interrupted)
+	assert(result.cast_events[0].cast_kind == "cast")
+	assert(result.cast_events[0].interrupt_repeat_count == 1)
+	assert(not result.cast_events[1].was_interrupted)
+	assert(result.cast_events[1].cast_kind == "proc")
+	assert(result.cast_events[1].trigger_label == "RETRIGGER")
+	assert(result.cast_events[1].interrupt_repeat_count == 2)
+	assert(result.cast_events[2].cast_kind == "proc")
+	assert(result.cast_events[2].trigger_label == "RETRIGGER")
+	assert(result.cast_events[2].interrupt_triggered)
+	assert(result.cast_events[2].interrupt_repeat_count == 3)
+	assert(result.cast_events[2].interrupt_repeat_count_after == 0)
+	assert(result.cast_events[2].interrupt_skip_count_applied == 1)
+	assert(is_equal_approx(result.cast_events[2].physical_damage, 0.0))
+	assert(result.cast_events[2].damage_contributions.is_empty())
+	assert(result.cast_events[3].cast_kind == "cast")
+	assert(result.cast_events[3].interrupt_skipped)
+	assert(is_equal_approx(result.total_damage, 20.0))
+	var log_text := CombatResultFormatter.format(result, monster)
+	assert(log_text.contains("RETRIGGER"))
+	assert(not log_text.contains("LEGENDARY"))
+
+
+func _check_beguiling_strike_uses_base_decay_reduction() -> void:
+	var beguiling_strike: Skill = load("res://data/skills/beguiling_strike.tres")
+	var found_decay := false
+	for effect in beguiling_strike.effects:
+		if effect is PoisonResistanceReductionEffect:
+			found_decay = true
+			assert(is_equal_approx(effect.reduction_fraction, CombatResolver.BASE_DECAY_REDUCTION_FRACTION))
+	assert(found_decay)
 
 
 func _physical_skill(amount: float, execution_ms: int) -> Skill:

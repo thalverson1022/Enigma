@@ -14,15 +14,18 @@ const ROGUE_CLASS_PATH := "res://data/classes/rogue.tres"
 const ASSASSIN_TREE_PATH := "res://data/subclass_trees/assassin.tres"
 const BLADEDANCER_TREE_PATH := "res://data/subclass_trees/bladedancer.tres"
 const BANDIT_BLADE_PATH := "res://data/gear/bandit_blade.tres"
+const SCREEN_TRANSITION_DURATION_SEC := 0.16
 
 var _current_screen: Node = null
 var _settings_menu_layer: Control = null
+var _screen_transition_generation := 0
+var _transition_input_blocker: Control = null
 
 
 func _ready() -> void:
 	BuildState.reset()
 	AudioManager.play_menu_intro_audio()
-	_show_title()
+	_show_title(false)
 	_add_settings_menu_layer()
 
 
@@ -35,6 +38,8 @@ func _add_settings_menu_layer() -> void:
 func _raise_settings_menu_layer() -> void:
 	if _settings_menu_layer != null and _settings_menu_layer.get_parent() == self:
 		move_child(_settings_menu_layer, get_child_count() - 1)
+	if _transition_input_blocker != null and _transition_input_blocker.get_parent() == self:
+		move_child(_transition_input_blocker, get_child_count() - 1)
 
 
 func _clear_current() -> void:
@@ -43,17 +48,14 @@ func _clear_current() -> void:
 		_current_screen = null
 
 
-func _show_title() -> void:
+func _show_title(animate: bool = true) -> void:
 	AudioManager.play_menu_intro_audio()
-	_clear_current()
 	var screen = TITLE_SCENE.instantiate()
 	screen.adventure_pressed.connect(func(): _on_new_game_pressed(screen.selected_seed()))
 	screen.continue_pressed.connect(_on_continue_pressed)
 	screen.training_room_pressed.connect(_show_training_room)
 	screen.contract_test_pressed.connect(func(): _on_contract_test_pressed(screen.selected_seed()))
-	add_child(screen)
-	_current_screen = screen
-	_raise_settings_menu_layer()
+	_present_screen(screen, animate)
 
 
 ## Practice Room is a separate practice mode (P2:R10) -- it deliberately
@@ -61,12 +63,9 @@ func _show_title() -> void:
 ## so entering or leaving it can never affect a real Adventure run.
 func _show_training_room() -> void:
 	AudioManager.fade_out_all_menu_audio()
-	_clear_current()
 	var screen = TRAINING_ROOM_SCENE.instantiate()
 	screen.back_pressed.connect(_show_title)
-	add_child(screen)
-	_current_screen = screen
-	_raise_settings_menu_layer()
+	_present_screen(screen)
 
 
 func _on_new_game_pressed(seed: int = BuildState.DEFAULT_ADVENTURE_SEED) -> void:
@@ -112,24 +111,18 @@ func _on_contract_test_pressed(seed: int = BuildState.DEFAULT_ADVENTURE_SEED) ->
 
 func _show_class_select() -> void:
 	AudioManager.play_menu_intro_audio()
-	_clear_current()
 	var screen = CLASS_SELECT_SCENE.instantiate()
 	screen.advanced.connect(_show_subclass_select)
 	screen.back_pressed.connect(_show_title)
-	add_child(screen)
-	_current_screen = screen
-	_raise_settings_menu_layer()
+	_present_screen(screen)
 
 
 func _show_subclass_select() -> void:
 	AudioManager.play_menu_intro_audio()
-	_clear_current()
 	var screen = SUBCLASS_SELECT_SCENE.instantiate()
 	screen.advanced.connect(_on_subclass_select_advanced)
 	screen.back_pressed.connect(_show_class_select)
-	add_child(screen)
-	_current_screen = screen
-	_raise_settings_menu_layer()
+	_present_screen(screen)
 
 
 ## Autosave point: class + subclass are the first meaningful build choices
@@ -141,13 +134,10 @@ func _on_subclass_select_advanced() -> void:
 
 
 func _show_combat_screen() -> void:
-	_clear_current()
 	var screen = COMBAT_SCREEN_SCENE.instantiate()
 	screen.main_menu_pressed.connect(_on_main_menu_pressed)
 	screen.adventure_restart_pressed.connect(_on_adventure_restart_pressed)
 	screen.save_and_quit_pressed.connect(_on_save_and_quit_pressed)
-	add_child(screen)
-	_current_screen = screen
 	if BuildState.needs_tavern_map_choice() and BuildState.current_encounter_index == 0 and BuildState.active_contract == null:
 		AudioManager.play_menu_intro_audio()
 	elif _should_use_contract_audio_scene():
@@ -160,7 +150,67 @@ func _show_combat_screen() -> void:
 		AudioManager.play_tavern_map_rain()
 	else:
 		AudioManager.fade_out_all_menu_audio()
+	_present_screen(screen)
+
+
+func _present_screen(screen: Control, animate: bool = true) -> void:
+	_screen_transition_generation += 1
+	var generation := _screen_transition_generation
+	var previous_screen := _current_screen as Control
+	_current_screen = screen
+	_add_screen_below_chrome(screen)
 	_raise_settings_menu_layer()
+	if previous_screen == null or not animate or DisplayServer.get_name() == "headless":
+		if previous_screen != null:
+			previous_screen.queue_free()
+		screen.modulate.a = 1.0
+		screen.position = Vector2.ZERO
+		_set_transition_input_blocked(false)
+		return
+	_set_transition_input_blocked(true)
+	screen.visible = true
+	screen.modulate.a = 0.0
+	screen.position = Vector2.ZERO
+	previous_screen.mouse_filter = Control.MOUSE_FILTER_STOP
+	screen.mouse_filter = Control.MOUSE_FILTER_STOP
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(previous_screen, "modulate:a", 0.0, SCREEN_TRANSITION_DURATION_SEC)
+	tween.tween_property(screen, "modulate:a", 1.0, SCREEN_TRANSITION_DURATION_SEC)
+	await tween.finished
+	if generation != _screen_transition_generation:
+		if is_instance_valid(previous_screen):
+			previous_screen.queue_free()
+		return
+	if is_instance_valid(previous_screen):
+		previous_screen.queue_free()
+	screen.modulate.a = 1.0
+	screen.position = Vector2.ZERO
+	_set_transition_input_blocked(false)
+
+
+func _add_screen_below_chrome(screen: Control) -> void:
+	add_child(screen)
+	if _settings_menu_layer != null and _settings_menu_layer.get_parent() == self:
+		move_child(screen, max(0, _settings_menu_layer.get_index()))
+
+
+func _set_transition_input_blocked(blocked: bool) -> void:
+	if blocked:
+		if _transition_input_blocker == null:
+			_transition_input_blocker = Control.new()
+			_transition_input_blocker.name = "TransitionInputBlocker"
+			_transition_input_blocker.set_anchors_preset(Control.PRESET_FULL_RECT)
+			_transition_input_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+		if _transition_input_blocker.get_parent() == null:
+			add_child(_transition_input_blocker)
+		_transition_input_blocker.visible = true
+		_raise_settings_menu_layer()
+		return
+	if _transition_input_blocker != null:
+		_transition_input_blocker.visible = false
 
 
 func _current_contract_audio_biome() -> String:

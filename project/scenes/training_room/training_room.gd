@@ -15,13 +15,12 @@ extends Control
 ##
 ## P2:R10:T4 scope, reworked into a compact paper-doll gear editor after
 ## Practice Room overflow feedback: the right panel shows equipment slots only,
-## and clicking a slot opens its focused Rarity/stat popup. Each slot's Rarity
-## dropdown (Basic/Master/Cursed, plus Legendary for the weapon slot) fixes a
-## real GearGenerator-shaped affix slot count; each affix then gets a
-## stat-choice dropdown that auto-fills the real tier value while staying
-## editable. Choosing Legendary swaps the weapon's affix rows for a
+## and clicking a slot opens its focused Rarity/stat popup. Each slot's
+## non-Legendary Rarity dropdown follows the active generated Phase 5 tiers;
+## each affix then gets a stat-choice dropdown that auto-fills a real tier
+## value while staying editable. Choosing Legendary swaps the weapon's rows for a
 ## Legendary-name dropdown instead (TrainingRoomState.equip_legendary()/
-## use_custom_weapon()); trinket/charm have no Legendary items today, so
+## use_custom_weapon()); non-weapon slots have no Legendary items today, so
 ## they're always the rarity-driven editor.
 ##
 ## P2:R10:T5 scope: fight-setup controls -- a target stats card
@@ -75,10 +74,25 @@ const CHARACTER_STATS_PANEL_SCENE := preload("res://scenes/combat/character_stat
 const COMBAT_LOG_INSPECTOR_SCRIPT := preload("res://scenes/combat/combat_log_inspector.gd")
 
 const RARITY_NAMES := {
+	GearItem.Tier.CRUDE: "Crude",
 	GearItem.Tier.BASIC: "Basic",
 	GearItem.Tier.MASTER: "Master",
+	GearItem.Tier.EPIC: "Epic",
 	GearItem.Tier.CURSED: "Cursed",
+	GearItem.Tier.CHAOS: "Chaos",
+	GearItem.Tier.UNIQUE: "Unique",
 }
+
+# P5M2 practice customization started on Basic/Master/Cursed; P5M9 brings the
+# editor up to the active generated Phase 5 rarity set now shown in Adventure.
+const PRACTICE_CUSTOM_TIERS := [
+	GearItem.Tier.BASIC,
+	GearItem.Tier.MASTER,
+	GearItem.Tier.EPIC,
+	GearItem.Tier.CURSED,
+	GearItem.Tier.CHAOS,
+	GearItem.Tier.UNIQUE,
+]
 
 ## Sentinel OptionButton item id for the "None" rarity choice (empties the
 ## slot entirely) -- distinct from any real GearItem.Tier enum value (0-3).
@@ -91,6 +105,8 @@ const NONE_RARITY_ID := 100
 
 var _state: TrainingRoomState
 var _weapon_slot_button: Button
+var _helm_slot_button: Button
+var _armor_slot_button: Button
 var _trinket_slot_button: Button
 var _charm_slot_button: Button
 var _gear_slot_buttons: Dictionary = {}
@@ -105,6 +121,7 @@ var _editing_gear_is_weapon := false
 var _target_panel: TrainingTargetPanel
 var _duration_spin: SpinBox
 var _seed_spin: SpinBox
+var _random_seed_toggle: CheckBox
 var _gold_spin: SpinBox
 var _combat_view: TrainingRoomCombatView
 var _skill_build_panel
@@ -114,6 +131,8 @@ var _log_overlay: Control
 var _log_inspector
 var _result_log: RichTextLabel
 var _talent_overlay: Control
+var _talent_overlay_content: VBoxContainer
+var _talent_overlay_scroll: ScrollContainer
 var _talent_panel
 
 
@@ -330,6 +349,7 @@ func _build_talent_overlay() -> void:
 	panel.add_theme_stylebox_override("panel", style)
 
 	var content := VBoxContainer.new()
+	_talent_overlay_content = content
 	content.custom_minimum_size = Vector2(900, 700)
 	content.add_theme_constant_override("separation", 10)
 	panel.add_child(content)
@@ -350,7 +370,10 @@ func _build_talent_overlay() -> void:
 	content.add_child(header)
 
 	var scroll := ScrollContainer.new()
+	_talent_overlay_scroll = scroll
+	scroll.name = "TalentTreeScroll"
 	scroll.custom_minimum_size = Vector2(860, 590)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(scroll)
@@ -361,6 +384,24 @@ func _build_talent_overlay() -> void:
 	_talent_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_talent_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_talent_panel)
+	if get_viewport() != null:
+		get_viewport().size_changed.connect(_resize_talent_overlay_to_viewport)
+	_resize_talent_overlay_to_viewport()
+
+
+func _resize_talent_overlay_to_viewport() -> void:
+	if _talent_overlay_content == null or _talent_overlay_scroll == null:
+		return
+	var available := get_viewport_rect().size - Vector2(96, 96)
+	var content_size := Vector2(
+		minf(900.0, maxf(560.0, available.x)),
+		minf(700.0, maxf(360.0, available.y))
+	)
+	_talent_overlay_content.custom_minimum_size = content_size
+	_talent_overlay_scroll.custom_minimum_size = Vector2(
+		minf(860.0, maxf(520.0, content_size.x - 40.0)),
+		minf(590.0, maxf(180.0, content_size.y - 80.0))
+	)
 
 
 func _build_gear_paper_doll(parent: Container) -> void:
@@ -391,48 +432,47 @@ func _build_gear_paper_doll(parent: Container) -> void:
 	doll.add_theme_constant_override("separation", 6)
 	content.add_child(doll)
 
-	var helm_slot := _make_gear_slot_button(PAPER_DOLL_HELM_SLOT_SIZE)
-	helm_slot.name = "HelmSlot"
-	helm_slot.disabled = true
-	helm_slot.tooltip_text = "Helm: Future slot"
-	helm_slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_style_gear_slot_button(helm_slot, null, true)
-	doll.add_child(helm_slot)
+	_helm_slot_button = _make_gear_slot_button(PAPER_DOLL_HELM_SLOT_SIZE, GearItem.SlotType.HELM)
+	_helm_slot_button.name = "HelmSlot"
+	_helm_slot_button.pressed.connect(_show_gear_slot_editor.bind("Helm", _state.practice_helm, false))
+	doll.add_child(_helm_slot_button)
 
 	var middle_row := HBoxContainer.new()
 	middle_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	middle_row.add_theme_constant_override("separation", 8)
 	doll.add_child(middle_row)
 
-	_weapon_slot_button = _make_gear_slot_button(PAPER_DOLL_WEAPON_SLOT_SIZE)
+	_weapon_slot_button = _make_gear_slot_button(PAPER_DOLL_WEAPON_SLOT_SIZE, GearItem.SlotType.WEAPON)
 	_weapon_slot_button.name = "WeaponSlot"
 	_weapon_slot_button.pressed.connect(_show_gear_slot_editor.bind("Weapon", _state.practice_weapon, true))
 	middle_row.add_child(_weapon_slot_button)
 
-	var armor_slot := _make_gear_slot_button(PAPER_DOLL_ARMOR_SLOT_SIZE)
-	armor_slot.name = "ArmorSlot"
-	armor_slot.disabled = true
-	armor_slot.tooltip_text = "Armor: Future slot"
-	_style_gear_slot_button(armor_slot, null, true)
-	middle_row.add_child(armor_slot)
+	_armor_slot_button = _make_gear_slot_button(PAPER_DOLL_ARMOR_SLOT_SIZE, GearItem.SlotType.ARMOR)
+	_armor_slot_button.name = "ArmorSlot"
+	_armor_slot_button.pressed.connect(_show_gear_slot_editor.bind("Armor", _state.practice_armor, false))
+	middle_row.add_child(_armor_slot_button)
 
+	# P5M8 equipment layout source of truth matches the live Gear panel:
+	# Charm/Necklace should sit above Trinket/Ring on the right stack.
 	var right_stack := VBoxContainer.new()
 	right_stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	right_stack.add_theme_constant_override("separation", 6)
 	middle_row.add_child(right_stack)
 
-	_trinket_slot_button = _make_gear_slot_button(PAPER_DOLL_SMALL_SLOT_SIZE)
-	_trinket_slot_button.name = "TrinketSlot"
-	_trinket_slot_button.pressed.connect(_show_gear_slot_editor.bind("Trinket", _state.practice_trinket, false))
-	right_stack.add_child(_trinket_slot_button)
-
-	_charm_slot_button = _make_gear_slot_button(PAPER_DOLL_SMALL_SLOT_SIZE)
+	_charm_slot_button = _make_gear_slot_button(PAPER_DOLL_SMALL_SLOT_SIZE, GearItem.SlotType.CHARM)
 	_charm_slot_button.name = "CharmSlot"
 	_charm_slot_button.pressed.connect(_show_gear_slot_editor.bind("Charm", _state.practice_charm, false))
 	right_stack.add_child(_charm_slot_button)
 
+	_trinket_slot_button = _make_gear_slot_button(PAPER_DOLL_SMALL_SLOT_SIZE, GearItem.SlotType.TRINKET)
+	_trinket_slot_button.name = "TrinketSlot"
+	_trinket_slot_button.pressed.connect(_show_gear_slot_editor.bind("Trinket", _state.practice_trinket, false))
+	right_stack.add_child(_trinket_slot_button)
+
 	_gear_slot_buttons = {
 		_state.practice_weapon: _weapon_slot_button,
+		_state.practice_helm: _helm_slot_button,
+		_state.practice_armor: _armor_slot_button,
 		_state.practice_trinket: _trinket_slot_button,
 		_state.practice_charm: _charm_slot_button,
 	}
@@ -496,13 +536,23 @@ func _top_icon_button_style(fill: Color, border: Color) -> StyleBoxFlat:
 	return style
 
 
-func _make_gear_slot_button(slot_size: Vector2) -> Button:
-	var slot := Button.new()
+func _make_gear_slot_button(slot_size: Vector2, gear_slot: int) -> Button:
+	var slot := GearCompareButton.new()
 	slot.text = ""
 	slot.custom_minimum_size = slot_size
 	slot.focus_mode = Control.FOCUS_NONE
 	slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
+	var slot_background := TextureRect.new()
+	slot_background.name = "SlotTypeBackground"
+	slot_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot_background.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	slot_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	slot_background.texture = GearIcons.slot_background_for(gear_slot)
+	slot_background.modulate = Color(1, 1, 1, 0.46)
+	slot_background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot.add_child(slot_background)
 
 	var icon := TextureRect.new()
 	icon.name = "Icon"
@@ -578,7 +628,9 @@ func _show_gear_slot_editor(slot_name: String, item: GearItem, is_weapon: bool) 
 func _populate_rarity_option(is_weapon: bool) -> void:
 	_gear_rarity_option.clear()
 	_gear_rarity_option.add_item("None", NONE_RARITY_ID)
-	for tier in [GearItem.Tier.BASIC, GearItem.Tier.MASTER, GearItem.Tier.CURSED]:
+	if is_weapon:
+		_gear_rarity_option.add_item(RARITY_NAMES[GearItem.Tier.CRUDE], GearItem.Tier.CRUDE)
+	for tier in PRACTICE_CUSTOM_TIERS:
 		_gear_rarity_option.add_item(RARITY_NAMES[tier], tier)
 	if is_weapon:
 		_gear_rarity_option.add_item("Legendary", GearItem.Tier.LEGENDARY)
@@ -618,8 +670,10 @@ func _refresh_gear_editor() -> void:
 
 func _refresh_paper_doll_slots() -> void:
 	_update_paper_doll_slot(_weapon_slot_button, "Weapon", _state.equipped_weapon)
-	_update_paper_doll_slot(_trinket_slot_button, "Trinket", _state.equipped_trinket)
+	_update_paper_doll_slot(_helm_slot_button, "Helm", _state.equipped_helm)
+	_update_paper_doll_slot(_armor_slot_button, "Armor", _state.equipped_armor)
 	_update_paper_doll_slot(_charm_slot_button, "Charm", _state.equipped_charm)
+	_update_paper_doll_slot(_trinket_slot_button, "Trinket", _state.equipped_trinket)
 
 
 func _update_paper_doll_slot(slot: Button, slot_name: String, gear: GearItem) -> void:
@@ -627,27 +681,21 @@ func _update_paper_doll_slot(slot: Button, slot_name: String, gear: GearItem) ->
 		return
 	_style_gear_slot_button(slot, gear)
 	(slot.get_node("Icon") as TextureRect).texture = GearIcons.icon_for(gear)
+	(slot.get_node("SlotTypeBackground") as TextureRect).modulate = Color(1, 1, 1, 0.28 if gear != null else 0.56)
 	slot.tooltip_text = "%s: Empty" % slot_name if gear == null else _gear_tooltip(gear)
+	var compare_slot := slot as GearCompareButton
+	if compare_slot == null:
+		return
+	if gear == null:
+		compare_slot.tooltip_builder = Callable()
+	else:
+		compare_slot.tooltip_builder = func() -> Control:
+			return CardStyle.build_gear_tooltip(self, gear)
 
 
-func _style_gear_slot_button(slot: Button, gear: GearItem, future_slot: bool = false) -> void:
-	var fill := UIColors.SLOT_EMPTY
-	if future_slot:
-		fill = UIColors.SLOT_EMPTY.darkened(0.25)
-	elif gear != null:
-		match gear.tier:
-			GearItem.Tier.BASIC:
-				fill = UIColors.TIER_BASIC
-			GearItem.Tier.MASTER:
-				fill = UIColors.TIER_MASTER
-			GearItem.Tier.CURSED:
-				fill = UIColors.TIER_CURSED
-			GearItem.Tier.LEGENDARY:
-				fill = UIColors.TIER_LEGENDARY
+func _style_gear_slot_button(slot: Button, gear: GearItem) -> void:
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var state_fill := fill.darkened(0.35) if state == "disabled" else fill
-		var border := CardStyle.ACCENT_COLOR if gear != null else UIColors.SLOT_BORDER
-		slot.add_theme_stylebox_override(state, CardStyle.make_slot_stylebox(state_fill, border, 3 if gear != null else 2, state))
+		slot.add_theme_stylebox_override(state, CardStyle.make_gear_item_stylebox(gear, gear != null, state))
 
 
 func _refresh_popup_slot(item: GearItem, showing_legendary: bool) -> void:
@@ -695,26 +743,25 @@ func _gear_tooltip(gear: GearItem) -> String:
 
 func _build_affix_row(item: GearItem, index: int) -> HBoxContainer:
 	var modifier: StatModifier = item.affixes[index]
-	var pool: Array[StatModifier.StatType] = (
-		GearGenerator.DOWNSIDE_POOL if item.tier == GearItem.Tier.CURSED and index == item.affixes.size() - 1
-		else GearGenerator.AFFIX_POOL
-	)
+	var pool := _stat_ids_for_affix_slot(item, index)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 
 	var stat_option := OptionButton.new()
-	for stat_type in pool:
-		stat_option.add_item(StatModifierFormatter.STAT_NAMES[stat_type], stat_type)
-	stat_option.select(stat_option.get_item_index(modifier.stat))
+	for stat_id in pool:
+		stat_option.add_item(StatCatalog.label_for(stat_id))
+		stat_option.set_item_metadata(stat_option.item_count - 1, stat_id)
+	stat_option.select(_stat_option_index(stat_option, StatCatalog.canonical_id_for_modifier(modifier)))
 	stat_option.item_selected.connect(_on_affix_stat_selected.bind(item, index, stat_option))
 	row.add_child(stat_option)
 
 	var value_spin := SpinBox.new()
 	value_spin.min_value = -1000.0
 	value_spin.max_value = 1000.0
-	value_spin.step = 0.01
-	value_spin.value = modifier.value
+	value_spin.step = _editor_step_for_modifier(modifier)
+	value_spin.rounded = _editor_uses_integer_steps(modifier)
+	value_spin.value = _editor_value_for_modifier(modifier)
 	value_spin.value_changed.connect(_on_affix_value_changed.bind(modifier))
 	row.add_child(value_spin)
 
@@ -722,15 +769,91 @@ func _build_affix_row(item: GearItem, index: int) -> HBoxContainer:
 
 
 func _on_affix_stat_selected(index: int, item: GearItem, affix_index: int, stat_option: OptionButton) -> void:
-	_state.set_affix_stat(item, affix_index, stat_option.get_item_id(index))
+	var metadata: Variant = stat_option.get_item_metadata(index)
+	_state.set_affix_stat(item, affix_index, metadata if metadata != null else stat_option.get_item_id(index))
 
 
 ## Still freely editable after the stat pick auto-fills a real tier value,
 ## per the confirmed design -- this preserves the raw editor's original
 ## magnitude-testing power on top of the new rarity-first defaults.
 func _on_affix_value_changed(new_value: float, modifier: StatModifier) -> void:
-	modifier.value = new_value
+	modifier.value = _modifier_value_from_editor(modifier, new_value)
 	_state.notify_gear_edited()
+
+
+func _editor_value_for_modifier(modifier: StatModifier) -> float:
+	var kind := _value_kind_for_modifier(modifier)
+	match kind:
+		StatCatalog.VALUE_PERCENT, StatCatalog.VALUE_CHANCE:
+			return round(modifier.value * 100.0)
+		StatCatalog.VALUE_FLAT, StatCatalog.VALUE_STACKS:
+			return round(modifier.value)
+	return modifier.value
+
+
+func _modifier_value_from_editor(modifier: StatModifier, editor_value: float) -> float:
+	var kind := _value_kind_for_modifier(modifier)
+	match kind:
+		StatCatalog.VALUE_PERCENT, StatCatalog.VALUE_CHANCE:
+			return round(editor_value) / 100.0
+		StatCatalog.VALUE_FLAT, StatCatalog.VALUE_STACKS:
+			return round(editor_value)
+	return editor_value
+
+
+func _editor_step_for_modifier(modifier: StatModifier) -> float:
+	return 1.0 if _editor_uses_integer_steps(modifier) else 0.1
+
+
+func _editor_uses_integer_steps(modifier: StatModifier) -> bool:
+	var kind := _value_kind_for_modifier(modifier)
+	return (
+		kind == StatCatalog.VALUE_PERCENT
+		or kind == StatCatalog.VALUE_CHANCE
+		or kind == StatCatalog.VALUE_FLAT
+		or kind == StatCatalog.VALUE_STACKS
+	)
+
+
+func _value_kind_for_modifier(modifier: StatModifier) -> String:
+	if modifier == null:
+		return ""
+	return StatCatalog.value_kind_for(StatCatalog.canonical_id_for_modifier(modifier))
+
+
+func _stat_ids_for_affix_slot(item: GearItem, index: int) -> Array[String]:
+	if item == null or index < 0 or index >= item.affixes.size():
+		return []
+	if item.tier == GearItem.Tier.CHAOS:
+		return _chaos_stat_ids_for_slot(item.slot)
+	var modifier: StatModifier = item.affixes[index]
+	if modifier.category == StatModifier.StatCategory.DRAWBACK:
+		return StatCatalog.drawback_stat_ids_for_slot(item.slot)
+	var category := StatCatalog.CATEGORY_BASIC
+	if modifier.category == StatModifier.StatCategory.RARE:
+		category = StatCatalog.CATEGORY_RARE
+	elif modifier.category == StatModifier.StatCategory.SPECIAL:
+		category = StatCatalog.CATEGORY_SPECIAL
+	return StatCatalog.stat_ids_for_slot(item.slot, category)
+
+
+func _chaos_stat_ids_for_slot(slot: GearItem.SlotType) -> Array[String]:
+	var ids: Array[String] = []
+	for category in [StatCatalog.CATEGORY_BASIC, StatCatalog.CATEGORY_RARE]:
+		for stat_id in StatCatalog.stat_ids_for_slot(slot, category):
+			if not ids.has(stat_id):
+				ids.append(stat_id)
+	for stat_id in StatCatalog.drawback_stat_ids_for_slot(slot):
+		if not ids.has(stat_id):
+			ids.append(stat_id)
+	return ids
+
+
+func _stat_option_index(option: OptionButton, stat_id: String) -> int:
+	for i in option.item_count:
+		if String(option.get_item_metadata(i)) == stat_id:
+			return i
+	return 0
 
 
 func _build_fight_setup_panel(parent: Container) -> void:
@@ -797,6 +920,14 @@ func _build_fight_setup_controls(parent: VBoxContainer) -> void:
 	_seed_spin.value_changed.connect(_on_fight_seed_changed)
 	timing_row.add_child(_seed_spin)
 
+	_random_seed_toggle = CheckBox.new()
+	_random_seed_toggle.name = "RandomFightSeedToggle"
+	_random_seed_toggle.text = "Random"
+	_random_seed_toggle.tooltip_text = "Use a fresh random seed for each practice fight and generated target roll"
+	_random_seed_toggle.button_pressed = _state.random_fight_seed_enabled
+	_random_seed_toggle.toggled.connect(_on_random_fight_seed_toggled)
+	timing_row.add_child(_random_seed_toggle)
+
 	var gold_row := _build_labeled_row(parent, "Practice Gold")
 	_gold_spin = SpinBox.new()
 	_gold_spin.name = "PracticeGoldSpin"
@@ -840,8 +971,9 @@ func _on_target_preset_selected(preset_id: String) -> void:
 	_state.apply_target_preset(preset_id)
 
 
-func _on_generated_roll_requested(difficulty_id: int, monster_kind: String, archetype_a_id: String, archetype_b_id: String) -> void:
-	_state.roll_generated_target(difficulty_id, -1, monster_kind, archetype_a_id, archetype_b_id)
+func _on_generated_roll_requested(contract_level: int, difficulty_id: int, monster_kind: String, archetype_a_id: String, archetype_b_id: String) -> void:
+	var seed := -1 if _state.random_fight_seed_enabled else _state.fight_seed
+	_state.roll_generated_target(difficulty_id, seed, monster_kind, archetype_a_id, archetype_b_id, contract_level)
 
 
 ## Pushes the target's current defenses into the card -- called
@@ -860,7 +992,12 @@ func _refresh_fight_setup_controls() -> void:
 	if _seed_spin != null:
 		_seed_spin.set_block_signals(true)
 		_seed_spin.value = _state.fight_seed
+		_seed_spin.editable = not _state.random_fight_seed_enabled
 		_seed_spin.set_block_signals(false)
+	if _random_seed_toggle != null:
+		_random_seed_toggle.set_block_signals(true)
+		_random_seed_toggle.button_pressed = _state.random_fight_seed_enabled
+		_random_seed_toggle.set_block_signals(false)
 	if _gold_spin != null:
 		_gold_spin.set_block_signals(true)
 		_gold_spin.value = _state.gold
@@ -883,6 +1020,10 @@ func _on_duration_changed(seconds: float) -> void:
 
 func _on_fight_seed_changed(value: float) -> void:
 	_state.set_fight_seed(int(value))
+
+
+func _on_random_fight_seed_toggled(enabled: bool) -> void:
+	_state.set_random_fight_seed_enabled(enabled)
 
 
 func _on_practice_gold_changed(value: float) -> void:
@@ -915,7 +1056,29 @@ func _on_fight_button_pressed() -> void:
 ## animation (or its headless instant-skip) finishes, via _combat_view's
 ## `finished` signal -> _on_combat_view_finished().
 func _on_state_fight_finished() -> void:
-	_combat_view.play(_state.last_result, _state.selected_target, _state.equipped_gear())
+	var stats := BuildResolver.resolve_stats(
+		_state.selected_class,
+		_state.selected_trees,
+		_state.selected_talents,
+		_state.equipped_gear(),
+		_state.gold
+	)
+	_combat_view.play(
+		_state.last_result,
+		_state.selected_target,
+		_state.equipped_gear(),
+		stats.shred_value,
+		CombatResolver.effective_enemy_slow(stats, _state.selected_target),
+		_base_poison_damage_for_stats(stats),
+		stats.decay_value
+	)
+
+
+func _base_poison_damage_for_stats(stats: PlayerStats) -> float:
+	var base_damage := stats.base_poison_damage + stats.bonus_base_elemental_damage
+	if stats.base_poison_damage > 0.0 or stats.bonus_base_elemental_damage != 0.0:
+		base_damage = maxf(PlayerStats.MIN_DAMAGE_BASE, base_damage)
+	return base_damage
 
 
 ## Fills the (button-gated, see _build_log_overlay()) Combat Log and enables

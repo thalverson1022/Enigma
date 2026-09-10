@@ -40,7 +40,9 @@ func _initialize() -> void:
 	var secondary_archetype_option: OptionButton = training_room.find_child("SecondaryArchetypeOption", true, false)
 	var generated_difficulty_option: OptionButton = training_room.find_child("GeneratedDifficultyOption", true, false)
 	var generated_type_option: OptionButton = training_room.find_child("GeneratedTypeOption", true, false)
+	var generated_contract_level_spin: SpinBox = training_room.find_child("GeneratedContractLevelSpin", true, false)
 	var fight_seed_spin: SpinBox = training_room.find_child("FightSeedSpin", true, false)
+	var random_fight_seed_toggle: CheckBox = training_room.find_child("RandomFightSeedToggle", true, false)
 	var practice_gold_spin: SpinBox = training_room.find_child("PracticeGoldSpin", true, false)
 	var roll_generated_button: Button = training_room.find_child("RollGeneratedMonsterButton", true, false)
 	assert(character_stats_panel != null)
@@ -49,15 +51,22 @@ func _initialize() -> void:
 	assert(secondary_archetype_option != null)
 	assert(generated_difficulty_option != null)
 	assert(generated_type_option != null)
+	assert(generated_contract_level_spin != null)
 	assert(fight_seed_spin != null)
+	assert(random_fight_seed_toggle != null)
 	assert(practice_gold_spin != null)
 	assert(roll_generated_button != null)
 	assert(training_room.find_child("GeneratedMonsterInfo", true, false) == null)
 	assert(_all_label_texts(training_room).has("Seed"))
+	assert(_all_label_texts(training_room).has("Contract Level"))
+	assert(random_fight_seed_toggle.text == "Random")
+	assert(not training_room._state.random_fight_seed_enabled)
+	assert(fight_seed_spin.editable)
 	assert(primary_archetype_option.get_item_text(0) == "None")
 	assert(secondary_archetype_option.get_item_text(0) == "None")
 	assert(_option_texts(generated_type_option) == PackedStringArray(["normal", "captain", "elite", "boss"]))
 	assert(_target_control_labels(target_panel) == PackedStringArray([
+		"Contract Level",
 		"Difficulty",
 		"Type",
 		"Main",
@@ -111,6 +120,8 @@ func _initialize() -> void:
 	assert(training_room._state.duration_ms == 20000)
 	assert(training_room._state.fight_seed == 1)
 	assert(int(fight_seed_spin.value) == 1)
+	assert(int(generated_contract_level_spin.value) == 1)
+	assert(training_room._state.generated_contract_level == 1)
 	assert(training_room._state.gold == 0)
 	_select_option_by_id(generated_difficulty_option, 1)
 	_select_option_by_metadata(generated_type_option, "normal")
@@ -137,20 +148,39 @@ func _initialize() -> void:
 	_select_option_by_id(generated_difficulty_option, 2)
 	_select_option_by_metadata(generated_type_option, "normal")
 	_select_option_by_metadata(primary_archetype_option, "fortified")
+	fight_seed_spin.value = 777
+	fight_seed_spin.value_changed.emit(777.0)
 	roll_generated_button.pressed.emit()
 	await process_frame
 	assert(training_room._state.generated_monster_draft != null)
 	assert(training_room._state.generated_monster_difficulty_id == 2)
+	assert(training_room._state.generated_monster_draft.source_seed == 777)
 	var random_draft: GeneratedMonsterDraft = training_room._state.generated_monster_draft
 	var random_seed := random_draft.source_seed
 
 	roll_generated_button.pressed.emit()
 	await process_frame
 	assert(training_room._state.generated_monster_draft != null)
+	assert(training_room._state.generated_monster_draft.source_seed == random_seed)
+
+	random_fight_seed_toggle.button_pressed = true
+	random_fight_seed_toggle.toggled.emit(true)
+	await process_frame
+	assert(training_room._state.random_fight_seed_enabled)
+	assert(not fight_seed_spin.editable)
+	roll_generated_button.pressed.emit()
+	await process_frame
 	assert(training_room._state.generated_monster_draft.source_seed != random_seed)
+	random_fight_seed_toggle.button_pressed = false
+	random_fight_seed_toggle.toggled.emit(false)
+	await process_frame
+	assert(not training_room._state.random_fight_seed_enabled)
+	assert(fight_seed_spin.editable)
 
 	_select_option_by_id(generated_difficulty_option, 3)
 	_select_option_by_metadata(generated_type_option, "captain")
+	generated_contract_level_spin.value = 12
+	generated_contract_level_spin.value_changed.emit(12.0)
 	_select_option_by_metadata(primary_archetype_option, "fortified")
 	_select_option_by_metadata(secondary_archetype_option, "warded")
 	roll_generated_button.pressed.emit()
@@ -158,6 +188,9 @@ func _initialize() -> void:
 	var draft: GeneratedMonsterDraft = training_room._state.generated_monster_draft
 	assert(not draft.has_errors())
 	assert(draft.source_input.monster_kind == "captain")
+	assert(training_room._state.generated_contract_level == 12)
+	assert(int(draft.source_input.overrides["contract_hp_scaling"]["contract_number"]) == 12)
+	assert(float(draft.source_input.overrides["contract_hp_scaling"]["multiplier"]) > 1.0)
 	assert(draft.archetype_ids == PackedStringArray(["fortified", "warded"]))
 	var hard_draft := draft
 
@@ -295,6 +328,18 @@ func _initialize() -> void:
 	assert(training_room._state.fight_seed == 12345)
 	assert(int(fight_seed_spin.value) == 12345)
 	assert(training_room._combat_view._fight_timer_label.text == "35s")
+	random_fight_seed_toggle.button_pressed = true
+	random_fight_seed_toggle.toggled.emit(true)
+	await process_frame
+	var seed_before_random_fight: int = training_room._state.fight_seed
+	training_room._state.set_primary_tree(training_room._state.selected_class.trees[1])
+	var quick_cut: Skill = load("res://data/skills/quick_cut.tres")
+	var practice_rotation: Array[Skill] = [quick_cut]
+	training_room._state.set_rotation(practice_rotation)
+	training_room._state.set_locked(true)
+	training_room._state.run_fight()
+	await process_frame
+	assert(training_room._state.fight_seed != seed_before_random_fight)
 
 	# -- Generated target seeds stay internal to Practice Room --
 	build_state.set_adventure_seed(999)
@@ -328,14 +373,14 @@ func _initialize() -> void:
 	print("resolved bonus_physical_damage at 200 practice gold (expect 20.0): %.2f" % resolved.bonus_physical_damage)
 	assert(is_equal_approx(resolved.bonus_physical_damage, 20.0))
 
-	training_room._state.add_practice_combat_gold(6)
+	training_room._state.add_practice_combat_gold(3)
 	await process_frame
-	print("practice stolen-gold preview=%d, practice gold spin=%d (expect 6, 206)" % [
+	print("practice stolen-gold preview=%d, practice gold spin=%d (expect 3, 203)" % [
 		training_room._state.combat_stolen_gold, int(practice_gold_spin.value)
 	])
-	assert(training_room._state.combat_stolen_gold == 6)
-	assert(training_room._state.gold == 206)
-	assert(int(practice_gold_spin.value) == 206)
+	assert(training_room._state.combat_stolen_gold == 3)
+	assert(training_room._state.gold == 203)
+	assert(int(practice_gold_spin.value) == 203)
 
 	print("")
 	print("Practice Room fight setup check: OK")
@@ -418,6 +463,7 @@ func _target_control_labels(target_panel: TrainingTargetPanel) -> PackedStringAr
 	for label in target_panel.find_children("*", "Label", true, false):
 		var text := (label as Label).text
 		if [
+			"Contract Level",
 			"Difficulty",
 			"Type",
 			"Main",

@@ -8,12 +8,17 @@ RPG where players take a hero through dangerous contracts, read enemy defenses,
 choose routes based on build matchups, earn rewards, improve synergies, and
 push toward harder fights.
 
-The current game is already playable as a Phase 4 build. It supports the core
+The current game is playable on the Phase 5 gear-redesign baseline. It supports the core
 Adventure path from title menu into Rogue class/subclass setup, Tavern
 progression, generated contract offers, generated route-map choices, generated
 combat, reward claiming, between-contract shops, repeated generated contracts,
 failure/retry/restart states, contract victory, and all-bosses victory handling.
-Phase 4 closed by promoting DawnBringer's finished code to GitHub `main`.
+Phase 4 closed by promoting DawnBringer's finished code to GitHub `main`; P5M1
+through P5M11 have since added the five-slot gear model, procedural rarity
+rules, weapon scaling, reward/shop integration, readable item UI, Rogue
+generated gear sprites, fixed retained Rogue Legendary packages, Practice Room
+validation, Balance Lab validation, and current external-playtest readiness
+tuning.
 
 Project Enigma should treat that Phase 4 state as the starting point for the
 next major design pass, not as a finished commercial game. The systems now exist
@@ -41,8 +46,12 @@ with these pillars:
 
 ## Current State
 
-Phase 4 is complete. The game now has a working generated-contract Adventure
-loop and a Windows playtest build candidate.
+Phase 4 is complete, and Phase 5 is complete through P5M12. The game now has a
+working generated-contract Adventure loop,
+five-slot generated gear, live reward and shop gear choices, Practice Room gear
+testing, readable Rogue gear art for Dagger, Hood, Doublet, Ring, and Necklace,
+fixed retained Rogue Legendary Weapon daggers, and current P5M11 balance and
+readability tuning ready for the next external playtest round.
 
 Current player-facing flow:
 
@@ -89,12 +98,17 @@ Phase 4 delivered these major systems:
 Balance is intentionally provisional. Current numbers should not be treated as
 final tuning targets.
 
-Gear is the main next design priority. The current item model predates the full
-generated-contract pressure system, so it does not yet provide enough readable
-answers to the problems generated enemies can present.
+Phase 5 gear redesign is closed. The current item model now has a readable
+five-slot UI, generated rewards, between-contract shop integration, Rogue
+generated gear sprites, Practice Room editing for current rarities, retained
+Rogue Legendary fixed stat packages, and playtest-tuned combat stats. P5M11
+closed broad Practice Room, Balance Lab, and Adventure validation for the next
+external playtest round; P5M12 completed final Phase 5 regression closeout,
+including GitHub push preparation and itch.io-ready web packaging.
 
-Skill trees are functional but not final. A later overhaul is expected, so early
-Phase 5 should avoid treating current build balance as a settled design target.
+Skill trees are functional but not final. Assassin, Bladedancer, Shadow, and
+Thief have received targeted playtest updates around poison, shred, decay,
+retrigger, and Steal gold, but a broader overhaul is still expected later.
 
 Generated route rewards and between-contract shops are working playtest
 scaffolding, not final economy design. Non-combat route nodes, route-local
@@ -102,26 +116,69 @@ resources, consumables, shop nodes inside routes, mystic upgrades, crafting,
 transmutation, boss bargains, scout/reveal nodes, and hidden events remain
 deferred.
 
-The current build candidate is Windows. Optional Web/itch export was not
-produced during Phase 4 closeout.
+The current build candidate remains Windows-first, and P5M12 now additionally
+owns an itch.io-ready Godot Web package for browser playtest hosting.
 
 ## Next Phase Direction
 
-Project Enigma should begin with the Phase 5 gear redesign. The first design
-question is not "how do we add more content?" but "how should gear let players
-respond to generated matchup pressure?"
+Project Enigma should continue from the completed Phase 5 gear baseline. P5M12
+hands off a build considered strong enough for the next external playtest round;
+the later talent-tree remake is expected to reopen balance questions.
 
-Recommended early focus:
+Recommended next focus:
 
-- Define the purpose of each gear slot.
-- Create affix and item-tier vocabulary that maps cleanly to generated enemy
-  defenses and route-preview language.
-- Separate general-purpose power from matchup-specific answers.
-- Decide how often gear should solve a route problem versus merely improve the
-  odds.
-- Revisit reward tables and shop offers after gear has a clearer vocabulary.
-- Keep deterministic generation and save/load behavior intact.
-- Use Practice Room and Balance Lab as the first validation loop.
+- Upload `release/itchio/project-enigma-phase5-itch.zip` to itch.io using
+  `docs/Itch_IO_Release_Checklist.md`.
+- Run external playtests from the closed Phase 5 baseline.
+- Preserve the locked Charm-over-Trinket layout, generated Rogue icon mapping,
+  retained Legendary icon overrides, and shared item-card language.
+- Keep generated gear, reward choices, shop offers, save/load, Practice Room,
+  and comparison behavior deterministic.
+- Use `docs/P5_Phase_5_Closeout_Handoff.md` as the practical handoff for the
+  next design pass.
+
+## Current Playtest Baseline
+
+- Crude Dagger is the starting weapon; unequipped weapon damage is 1 unarmed
+  damage.
+- Lucky Coin is now a fixed Basic Trinket/Ring with +5% Crit Chance.
+- Chaos gear can roll duplicate stat IDs across its four outcomes, including
+  four copies of the same stat.
+- Non-Chaos item tooltips display stats in a fixed readable order; Chaos keeps
+  its actual roll order. Tooltip stat lines are category-colored, and max rolls
+  render bold and two font sizes larger in Adventure and Practice Room.
+- Practice Room supports Crude Dagger, all active generated rarities, Legendary
+  weapon selection, None clearing, Chaos duplicate-stat editing, max-value
+  defaults, whole-percent/chance value entry, integer flat-damage and stack
+  value entry, and current economy stat display.
+- Increased Gold, Shop Discount, and Magic Find are active economy stats.
+  Increased Gold affects stash gains and Overkill Gold after summing gear and
+  multiplying talent bonuses; Shop Discount affects purchase prices only; Magic
+  Find multiplies generated-item rarity upgrade checks.
+- Tavern dagger purchases move the Crude Dagger into inventory, Crude Dagger
+  sell value is 5g, and Mouthy Drunk HP is 145.
+- Generated contract HP scaling now ramps sharply through contract 30 so path
+  enemies feel weightier and late contracts become much harder.
+- Overkill Gold grants 10g per full 100 overkill damage on combat wins, capped
+  at 50g before Increased Gold modifiers.
+- Bonus Stacks is a single stat for poison, shred, and decay stack increases.
+- Shred is universal: each stack reduces armor by the player's shred value,
+  starting at 10.
+- Decay is universal: each stack multiplies current resistance by
+  `(1 - decay_value)`, with base decay value 20%.
+- `Chance for Crits to Apply Poison` applies normal poison stacks on crits;
+  those stacks tick on the global poison timer.
+- Character sheet and skill tooltips now reflect current damage, crit,
+  proc-chance, poison, stack, and rounded range display rules.
+- Retained Rogue Legendaries now use fixed Phase 5 stat packages while
+  preserving bespoke effects, authored icons, 21-27 Legendary weapon damage,
+  save/load compatibility, Practice Room selection, and Balance Lab coverage.
+- P5M11 closeout accepts one Balance Lab watch item:
+  `bladedancer_contract_watchmen` has a 100% win rate against Cloaked Watchmen,
+  above the old 95% upper threshold. This is deferred to the later talent-tree
+  remake/future balance pass.
+- `docs/P5M11_Practice_Room_Balance_And_Readability_Tracker.md` is the
+  completed tracker for current P5M11 validation and closeout evidence.
 
 ## Key References
 

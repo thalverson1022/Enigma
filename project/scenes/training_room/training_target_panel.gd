@@ -14,7 +14,7 @@ signal armor_changed(value: int)
 signal poison_resist_changed(value: float)
 signal defense_changed(field: String, value: Variant)
 signal preset_selected(preset_id: String)
-signal generated_roll_requested(difficulty_id: int, monster_kind: String, archetype_a_id: String, archetype_b_id: String)
+signal generated_roll_requested(contract_level: int, difficulty_id: int, monster_kind: String, archetype_a_id: String, archetype_b_id: String)
 
 const CARD_TITLE_FONT_SIZE := 20
 const PANEL_MIN_HEIGHT := 300
@@ -47,6 +47,7 @@ var _poison_resist_spin: SpinBox
 var _defense_spins: Dictionary = {}
 var _primary_archetype_option: OptionButton
 var _secondary_archetype_option: OptionButton
+var _generator_contract_level_spin: SpinBox
 var _generator_difficulty_option: OptionButton
 var _generator_type_option: OptionButton
 var _refreshing_defenses := false
@@ -70,6 +71,17 @@ func _ready() -> void:
 	generator_title.text = "Generated Target"
 	generator_title.theme_type_variation = &"PanelHeader"
 	content.add_child(generator_title)
+
+	var contract_level_row := _build_labeled_row(content, "Contract Level")
+	_generator_contract_level_spin = SpinBox.new()
+	_generator_contract_level_spin.name = "GeneratedContractLevelSpin"
+	_generator_contract_level_spin.min_value = 1
+	_generator_contract_level_spin.max_value = 30
+	_generator_contract_level_spin.step = 1
+	_generator_contract_level_spin.rounded = true
+	_generator_contract_level_spin.value = 1
+	_generator_contract_level_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	contract_level_row.add_child(_generator_contract_level_spin)
 
 	var generator_row := HBoxContainer.new()
 	generator_row.add_theme_constant_override("separation", 8)
@@ -216,11 +228,18 @@ func _on_roll_generated_pressed() -> void:
 	if archetype_a_id == "" and archetype_b_id == "":
 		return
 	generated_roll_requested.emit(
+		_selected_generated_contract_level(),
 		_selected_generated_difficulty_id(),
 		_selected_generated_monster_kind(),
 		archetype_a_id,
 		archetype_b_id
 	)
+
+
+func _selected_generated_contract_level() -> int:
+	if _generator_contract_level_spin == null:
+		return 1
+	return clampi(roundi(_generator_contract_level_spin.value), 1, 30)
 
 
 func _selected_generated_difficulty_id() -> int:

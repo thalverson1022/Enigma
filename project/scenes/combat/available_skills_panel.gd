@@ -10,7 +10,7 @@ extends PanelContainer
 ## (CardStyle.ACCENT_COLOR) to match the fallback glyph shown on that skill's
 ## slot in skill_build_panel.gd. Hover shows a tooltip with the skill's flavor
 ## speed label and effects (the exact cast-time number is intentionally not
-## shown, see SPEED_LABEL_BY_SKILL_ID below).
+## shown, see SkillTooltipFormatter.SPEED_LABEL_BY_SKILL_ID).
 ##
 ## P2:R7 playtest-feedback pass (2026-07-18, revises T4): T4 originally also
 ## rendered the skill's effect summary as an always-visible caption Label
@@ -26,30 +26,7 @@ const SKILL_ICON_SIZE := Vector2(28, 28)
 const BUTTON_MIN_SIZE := Vector2(112, 46)
 const BUTTON_CONTENT_PADDING := Vector2(12, 7)
 const BUTTON_CORNER_RADIUS := 6
-
-## Flavor speed labels shown in the skill tooltip instead of the exact
-## base_execution_ms/min_execution_ms numbers (P2:R7 playtest-feedback,
-## 2026-07-19) -- exact cast-time figures are meant to be discovered from the
-## combat log's real timestamps, not read off the tooltip. Fixed content, not
-## derived from a formula, so it would ideally live as a field on the Skill
-## resource per docs/Conventions.md's data-driven-content preference -- kept
-## as a lookup table here instead because this task's working agreement
-## scopes items 1-3 away from project/scripts/resources/ (schema changes),
-## which a new Skill.speed_label export would have touched. Keyed by
-## skill.id (data/skills/*.tres's own id, e.g. "skill.stab") rather than
-## display_name so a future rename doesn't silently break the mapping.
-const SPEED_LABEL_BY_SKILL_ID := {
-	"skill.stab": "Speed: Normal",
-	"skill.heavy_slash": "Speed: Slow",
-	"skill.hold": "Speed: Brief",
-	"skill.quick_cut": "Speed: Fast",
-	"skill.rending_thrust": "Speed: Normal", # display_name "Rending Slash"
-	"skill.venom_jab": "Speed: Fast",
-	"skill.poison_strike": "Speed: Normal",
-	"skill.steal": "Speed: Normal",
-	"skill.toxic_flurry": "Speed: Normal", # display_name "Beguiling Strike"
-	"skill.killers_mark": "Speed: Normal", # display_name "Death Strike"
-}
+const SkillTooltipFormatterScript := preload("res://scripts/ui/skill_tooltip_formatter.gd")
 
 ## P2:R10: see talent_panel.gd's `state` comment -- same pattern, same
 ## default, same untyped declaration reason.
@@ -167,18 +144,15 @@ func _build_button(skill: Skill, at_cap: bool = false) -> Button:
 	return button
 
 
-## Shows a flavor speed label (SPEED_LABEL_BY_SKILL_ID above) instead of the
+## Shows a flavor speed label (SkillTooltipFormatter.SPEED_LABEL_BY_SKILL_ID)
+## instead of the
 ## exact base_execution_ms/min_execution_ms numbers (P2:R7 playtest-feedback,
 ## 2026-07-19) -- working out real cast timing is meant to be part of the
 ## game's discovery loop, gleaned from the combat log's real timestamps, not
 ## read straight off the tooltip. Falls back to a generic label for any
 ## skill without an authored mapping entry (e.g. the placeholder skills).
 func _tooltip_for(skill: Skill) -> String:
-	var lines: PackedStringArray = []
-	var speed_text: String = SPEED_LABEL_BY_SKILL_ID.get(skill.id, "Speed: Normal")
-	lines.append(speed_text)
-	lines.append(_skill_effect_summary(skill))
-	return "\n".join(lines)
+	return SkillTooltipFormatterScript.tooltip_for(skill, state)
 
 
 ## Short, comma-joined effect summary derived straight from the skill's own
@@ -187,32 +161,7 @@ func _tooltip_for(skill: Skill) -> String:
 ## playtest-feedback pass, see this file's header comment). Never hardcodes
 ## numbers -- every value is read off `effect`.
 func _skill_effect_summary(skill: Skill) -> String:
-	if skill.id == "skill.hold":
-		return "Holds for 1.0s"
-	var parts: PackedStringArray = []
-	var has_poison_effect := false
-	for effect in skill.effects:
-		if effect is PhysicalDamageEffect:
-			parts.append("%.0f physical dmg" % effect.amount)
-		elif effect is PoisonDamageEffect:
-			has_poison_effect = true
-			parts.append("+%d poison stack%s" % [effect.stacks_applied, "" if effect.stacks_applied == 1 else "s"])
-		elif effect is ArmorReductionEffect:
-			parts.append("-%d armor" % effect.amount)
-		elif effect is PoisonResistanceReductionEffect:
-			parts.append("-%d%% resist" % roundi(effect.reduction_fraction * 100.0))
-		elif effect is StackScalingPhysicalDamageEffect:
-			parts.append("+%.0f dmg/poison stack" % effect.damage_per_stack)
-		elif effect is StealGoldOnCritEffect:
-			parts.append("crits steal %dg" % effect.amount)
-	if skill.poison_stacks_applied > 0 and not has_poison_effect:
-		parts.append("+%d poison stack%s" % [
-			skill.poison_stacks_applied,
-			"" if skill.poison_stacks_applied == 1 else "s",
-		])
-	if parts.is_empty():
-		return "No effect"
-	return ", ".join(parts)
+	return SkillTooltipFormatterScript.effect_summary(skill, state)
 
 
 func _on_skill_pressed(skill: Skill) -> void:

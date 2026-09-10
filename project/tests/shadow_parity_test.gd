@@ -30,7 +30,7 @@ func _initialize() -> void:
 	assert(rogue.trees.has(shadow))
 	assert(shadow.talents.size() == 5)
 	assert(shadow.skill_augments.size() == 2)
-	assert(shadow.intrinsic_text == "Stab & Heavy Slash apply +1 poison stack")
+	assert(shadow.intrinsic_text == "Stab & Heavy Slash apply +1 Poison Stack")
 
 	build_state.set_class(rogue)
 	build_state.select_tree(shadow)
@@ -91,6 +91,7 @@ func _initialize() -> void:
 
 	build_state.earned_talent_points = 7
 	var exposed: Talent = load("res://data/talents/shadow/exposed_weakness.tres")
+	var lingering: Talent = load("res://data/talents/shadow/lingering_venom.tres")
 	var black_lotus: Talent = load("res://data/talents/shadow/black_lotus.tres")
 	var nightblade: Talent = load("res://data/talents/shadow/nightblade_rhythm.tres")
 	var umbral: Talent = load("res://data/talents/shadow/umbral_pressure.tres")
@@ -105,9 +106,24 @@ func _initialize() -> void:
 
 	var stats := BuildResolver.resolve_stats(rogue, build_state.selected_trees, build_state.selected_talents)
 	assert(is_equal_approx(stats.poison_damage_per_tick, 8.0))
-	assert(is_equal_approx(stats.crit_chance, 0.20))
-	assert(is_equal_approx(stats.physical_damage_multiplier, 1.1))
-	assert(stats.bonus_poison_stacks == 2)
+	assert(is_equal_approx(stats.crit_chance, 0.15))
+	assert(is_equal_approx(stats.physical_damage_multiplier, 1.0))
+	assert(stats.bonus_poison_stacks == 0)
+	assert(is_equal_approx(stats.decay_value, 0.4))
+	assert(stats.poison_stack_cap == 40)
+	assert(bool(stats.special_effects.get("decay_applies_shred", false)))
+	assert(umbral.display_name == "Umbral Presence")
+	assert(StatModifierFormatter.format(exposed.stat_modifiers[0]) == "+20% Bonus Resist Decay")
+	assert(StatModifierFormatter.format(nightblade.stat_modifiers[0]) == "Applying Decay also applies Shred")
+	assert(StatModifierFormatter.format(umbral.stat_modifiers[0]) == "Poison Stack Cap Increased to 40")
+
+	var lingering_stats := BuildResolver.resolve_stats(rogue, [shadow], [lingering])
+	assert(is_equal_approx(lingering_stats.poison_damage_per_tick, 13.0))
+	assert(is_equal_approx(lingering_stats.elemental_proc_chance, 0.2))
+	stats.crit_chance = 1.0
+	stats.weapon_damage_min = 16
+	stats.weapon_damage_max = 20
+	stats.weapon_damage_uses_fallback = false
 
 	var rotation: Array[Skill] = [
 		_find_skill(unlocked, "skill.stab"),
@@ -121,10 +137,28 @@ func _initialize() -> void:
 	monster.armor = 0
 	monster.poison_resistance = 0.65
 	var result := CombatResolver.resolve(resolved_rotation, stats, monster, 6000, 1)
-	assert(result.cast_events[0].poison_stacks_applied == 3)
-	assert(result.cast_events[1].poison_resistance_reduction_applied > 0.0)
+	assert(result.poison_stack_cap == 40)
+	assert(result.cast_events[0].poison_stacks_applied == 1)
+	assert(result.cast_events[1].decay_stacks_applied == 1)
+	assert(is_equal_approx(result.cast_events[1].poison_resistance_reduction_applied, 0.4))
+	assert(result.cast_events[1].shred_stacks_applied == 1)
+	assert(result.cast_events[1].armor_reduction_applied == 10)
 	assert(result.cast_events[2].skill.display_name == "Death Strike")
 	assert(result.cast_events[2].physical_damage > 20.0)
+
+	var doubled_decay_stats := BuildResolver.resolve_stats(rogue, [shadow], [exposed, black_lotus, nightblade])
+	doubled_decay_stats.bonus_decay_stacks = 2
+	doubled_decay_stats.bonus_shred_stacks = 4
+	doubled_decay_stats.special_effects["double_applied_stacks"] = true
+	var decay_result := CombatResolver.resolve([_decay_skill()], doubled_decay_stats, monster, 2000, 9)
+	assert(decay_result.cast_events[0].decay_stacks_applied == 6)
+	assert(decay_result.cast_events[0].shred_stacks_applied == 6)
+	assert(is_equal_approx(decay_result.cast_events[0].poison_resistance_reduction_applied, 1.0 - pow(0.6, 6)))
+
+	var base_cap_result := CombatResolver.resolve([_poison_skill(50)], PlayerStats.new(), monster, 1200, 11)
+	var shadow_cap_result := CombatResolver.resolve([_poison_skill(50)], stats, monster, 1200, 11)
+	assert(base_cap_result.tick_events[0].stacks_remaining == 19)
+	assert(shadow_cap_result.tick_events[0].stacks_remaining == 39)
 
 	build_state.reset()
 	build_state.set_class(rogue)
@@ -171,3 +205,29 @@ func _initialize() -> void:
 	print("")
 	print("P2:R5:T2 Shadow parity check: OK")
 	quit()
+
+
+func _decay_skill() -> Skill:
+	var skill := Skill.new()
+	skill.id = "skill.test.shadow_decay"
+	skill.display_name = "Shadow Decay"
+	skill.base_execution_ms = 500
+	skill.min_execution_ms = 100
+	var damage := PhysicalDamageEffect.new()
+	damage.amount = 1.0
+	var decay := PoisonResistanceReductionEffect.new()
+	decay.reduction_fraction = CombatResolver.BASE_DECAY_REDUCTION_FRACTION
+	skill.effects = [damage, decay]
+	return skill
+
+
+func _poison_skill(stacks: int) -> Skill:
+	var skill := Skill.new()
+	skill.id = "skill.test.shadow_poison"
+	skill.display_name = "Shadow Poison"
+	skill.base_execution_ms = 500
+	skill.min_execution_ms = 100
+	var poison := PoisonDamageEffect.new()
+	poison.stacks_applied = stacks
+	skill.effects = [poison]
+	return skill

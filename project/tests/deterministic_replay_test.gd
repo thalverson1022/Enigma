@@ -85,9 +85,13 @@ func _check_proc_replay() -> void:
 func _combat_signature(result: CombatResolver.CombatResult) -> String:
 	var parts: PackedStringArray = []
 	for event in result.cast_events:
-		parts.append("cast|%d|%s|%.4f|%s|%d|%d|%.4f|%s" % [
+		parts.append("cast|%d|%s|%s|%s|%d|%d|%.4f|%s|%d|%d|%.4f|%s" % [
 			event.time_ms,
 			event.skill.id,
+			event.cast_kind,
+			event.trigger_source_skill_id,
+			event.retrigger_depth,
+			event.weapon_damage_roll,
 			event.physical_damage,
 			event.is_crit,
 			event.poison_stacks_applied,

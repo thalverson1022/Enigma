@@ -1,8 +1,8 @@
 {
-  "project": "DawnBringer",
+  "project": "Project Enigma",
   "tool": "Monster Lab",
   "schema": "monster_lab_archetype_catalog.v1",
-  "library_name": "DawnBringer Archetypes v1",
+  "library_name": "Project Enigma Archetypes v1",
   "exported_at": "2026-08-10T16:36:10.108Z",
   "archetypes": [
     {
@@ -294,16 +294,16 @@
           "enabled": true,
           "required": true,
           "weight": 100,
-          "min": 10,
-          "max": 15,
+          "min": 6,
+          "max": 9,
           "scaling": "standard"
         },
         "crit_negation": {
           "enabled": true,
           "required": false,
           "weight": 50,
-          "min": 50,
-          "max": 60,
+          "min": 20,
+          "max": 35,
           "scaling": "standard"
         },
         "block": {
@@ -405,7 +405,7 @@
       "route_weight": 80,
       "base_hp_bias": 0.91,
       "mechanicWeights": {
-        "cleanse_threshold": 50,
+        "cleanse_threshold": 75,
         "suppress": 50
       },
       "mechanicConfigs": {
@@ -460,9 +460,9 @@
         "cleanse_threshold": {
           "enabled": true,
           "required": false,
-          "weight": 50,
-          "min": 4,
-          "max": 6,
+          "weight": 75,
+          "min": 6,
+          "max": 8,
           "scaling": "standard"
         },
         "suppress": {
@@ -523,7 +523,7 @@
         "magical",
         "physical"
       ],
-      "unlock_difficulty": 3,
+      "unlock_difficulty": 2,
       "allowed_kinds": [
         "elite",
         "boss"
@@ -533,7 +533,7 @@
       "mechanicWeights": {
         "armor": 50,
         "poison_resistance": 50,
-        "cleanse_threshold": 10,
+        "cleanse_threshold": 15,
         "slow": 20
       },
       "mechanicConfigs": {
@@ -588,9 +588,9 @@
         "cleanse_threshold": {
           "enabled": true,
           "required": false,
-          "weight": 10,
-          "min": 4,
-          "max": 6,
+          "weight": 15,
+          "min": 6,
+          "max": 8,
           "scaling": "standard"
         },
         "suppress": {
@@ -667,7 +667,7 @@
         "block": 10,
         "poison_resistance": 10,
         "absorb": 10,
-        "cleanse_threshold": 10,
+        "cleanse_threshold": 15,
         "suppress": 10,
         "slow": 10,
         "stun_duration_ms": 10,
@@ -725,9 +725,9 @@
         "cleanse_threshold": {
           "enabled": true,
           "required": false,
-          "weight": 10,
-          "min": 4,
-          "max": 6,
+          "weight": 15,
+          "min": 6,
+          "max": 8,
           "scaling": "standard"
         },
         "suppress": {
@@ -796,7 +796,7 @@
       "route_weight": 80,
       "base_hp_bias": 0.9,
       "mechanicWeights": {
-        "cleanse_threshold": 50,
+        "cleanse_threshold": 75,
         "slow": 50,
         "stun_duration_ms": 30,
         "interrupt_skip_count": 20
@@ -853,9 +853,9 @@
         "cleanse_threshold": {
           "enabled": true,
           "required": false,
-          "weight": 50,
-          "min": 4,
-          "max": 6,
+          "weight": 75,
+          "min": 6,
+          "max": 8,
           "scaling": "standard"
         },
         "suppress": {
@@ -916,7 +916,7 @@
         "annoying",
         "control"
       ],
-      "unlock_difficulty": 3,
+      "unlock_difficulty": 2,
       "allowed_kinds": [
         "normal",
         "elite",
@@ -1558,7 +1558,7 @@
       "route_weight": 80,
       "base_hp_bias": 0.96,
       "mechanicWeights": {
-        "cleanse_threshold": 80,
+        "cleanse_threshold": 120,
         "suppress": 65,
         "poison_resistance": 20,
         "slow": 15
@@ -1615,9 +1615,9 @@
         "cleanse_threshold": {
           "enabled": true,
           "required": true,
-          "weight": 80,
-          "min": 4,
-          "max": 7,
+          "weight": 120,
+          "min": 6,
+          "max": 9,
           "scaling": "standard"
         },
         "suppress": {

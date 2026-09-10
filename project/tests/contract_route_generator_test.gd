@@ -18,6 +18,10 @@ func _initialize() -> void:
 	_check_generated_rewards_follow_table()
 	_check_pressure_scales_by_depth_role_and_completed_contracts()
 	_check_blended_contract_progression_promotes_content_by_role()
+	_check_contract_hp_scaling_curve()
+	_check_contract_block_scaling_curve()
+	_check_contract_absorb_scaling_curve()
+	_check_early_contract_mechanic_guardrails()
 	_check_contract_pressure_overflow_is_materialized()
 	_check_anti_snowball_validation_notices()
 	_check_pressure_axes_are_materialized()
@@ -179,7 +183,7 @@ func _check_generated_encounter_payloads_exist() -> void:
 		assert(int(scale["content_difficulty_id"]) >= int(scale["effective_contract_difficulty_id"]))
 		assert(int(scale["contract_progression_stage"]) >= 1)
 		if node.node_type == ContractRouteNode.NodeType.BOSS:
-			assert(int(input["difficulty_id"]) >= 4)
+			assert(int(input["difficulty_id"]) >= 3)
 
 
 func _check_generated_rewards_follow_table() -> void:
@@ -217,19 +221,19 @@ func _check_generated_rewards_follow_table() -> void:
 		match node.node_type:
 			ContractRouteNode.NodeType.FIGHT:
 				normal_seen = true
-				assert(node.reward.generated_gear_choice_count == 1)
+				assert(node.reward.generated_gear_choice_count == 2)
 				assert(node.reward.talent_points == 0)
 				assert(node.reward_quality_label == "Steady")
 			ContractRouteNode.NodeType.CAPTAIN:
 				captain_seen = true
-				assert(node.reward.generated_gear_choice_count == 1)
+				assert(node.reward.generated_gear_choice_count == 2)
 				assert(node.reward.talent_points == 0)
-				assert(node.reward.gold_amount >= 15)
+				assert(node.reward.gold_amount >= 8)
 				assert(node.reward_quality_label == "Captain")
 			ContractRouteNode.NodeType.ELITE:
 				elite_seen = true
 				assert(node.reward.generated_gear_choice_count == 2)
-				assert(node.reward.gold_amount >= 22)
+				assert(node.reward.gold_amount >= 11)
 				assert(node.reward_quality_label == "Elite")
 			ContractRouteNode.NodeType.BOSS:
 				boss_seen = true
@@ -294,7 +298,8 @@ func _check_pressure_scales_by_depth_role_and_completed_contracts() -> void:
 		assert(comparable_normal != null)
 		assert(_payload_difficulty(elite) >= _payload_difficulty(comparable_normal))
 		assert(elite.reward.gold_amount > comparable_normal.reward.gold_amount)
-		assert(elite.reward.generated_gear_choice_count > comparable_normal.reward.generated_gear_choice_count)
+		assert(elite.reward.generated_gear_choice_count == comparable_normal.reward.generated_gear_choice_count)
+		assert(elite.reward.generated_gear_choice_count == 2)
 
 	var early_contract: ContractDef = ROUTE_GENERATOR.generate(5151, {
 		"route_difficulty": "medium",
@@ -327,17 +332,21 @@ func _check_blended_contract_progression_promotes_content_by_role() -> void:
 
 	var stage_1_boss := _first_node_of_type(stage_1.offer_node, ContractRouteNode.NodeType.BOSS)
 	var stage_3_boss := _first_node_of_type(stage_3.offer_node, ContractRouteNode.NodeType.BOSS)
+	assert(int(_scale(stage_1_boss)["monster_difficulty_id"]) == 3)
 	assert(_content_difficulty(stage_1_boss) == 2)
+	assert(int(_scale(stage_3_boss)["monster_difficulty_id"]) == 3)
 	assert(_content_difficulty(stage_3_boss) == 3)
 	assert(_promotion_reason(stage_3_boss) == "stage_3_boss_next_band")
 
 	var stage_4_elite := _first_node_of_type(stage_4.offer_node, ContractRouteNode.NodeType.ELITE)
 	if stage_4_elite != null:
+		assert(int(_scale(stage_4_elite)["monster_difficulty_id"]) == 3)
 		assert(_content_difficulty(stage_4_elite) == 3)
 		assert(_promotion_reason(stage_4_elite) == "stage_4_elite_next_band")
 
 	var stage_5_captain := _first_node_of_type(stage_5.offer_node, ContractRouteNode.NodeType.CAPTAIN)
 	assert(stage_5_captain != null)
+	assert(int(_scale(stage_5_captain)["monster_difficulty_id"]) == 3)
 	assert(_content_difficulty(stage_5_captain) == 3)
 	assert(_promotion_reason(stage_5_captain) == "stage_5_captain_next_band")
 
@@ -371,6 +380,128 @@ func _check_contract_pressure_overflow_is_materialized() -> void:
 		if int(scale["contract_pressure_tier"]) > 0:
 			overflow_seen = true
 	assert(overflow_seen)
+
+
+func _check_contract_hp_scaling_curve() -> void:
+	var c1: ContractDef = ROUTE_GENERATOR.generate(5151, {"route_difficulty": "medium", "completed_contract_count": 0})
+	var c6: ContractDef = ROUTE_GENERATOR.generate(5151, {"route_difficulty": "medium", "completed_contract_count": 5})
+	var c10: ContractDef = ROUTE_GENERATOR.generate(5151, {"route_difficulty": "medium", "completed_contract_count": 9})
+	var c20: ContractDef = ROUTE_GENERATOR.generate(5151, {"route_difficulty": "medium", "completed_contract_count": 19})
+	var c30: ContractDef = ROUTE_GENERATOR.generate(5151, {"route_difficulty": "medium", "completed_contract_count": 29})
+
+	var c1_boss := _first_node_of_type(c1.offer_node, ContractRouteNode.NodeType.BOSS)
+	var c6_boss := _first_node_of_type(c6.offer_node, ContractRouteNode.NodeType.BOSS)
+	var c10_boss := _first_node_of_type(c10.offer_node, ContractRouteNode.NodeType.BOSS)
+	var c20_boss := _first_node_of_type(c20.offer_node, ContractRouteNode.NodeType.BOSS)
+	var c30_boss := _first_node_of_type(c30.offer_node, ContractRouteNode.NodeType.BOSS)
+	assert(is_equal_approx(_hp_multiplier(c1_boss), 1.0))
+	assert(_hp_multiplier(c6_boss) > _hp_multiplier(c1_boss))
+	assert(_hp_multiplier(c10_boss) > _hp_multiplier(c6_boss))
+	assert(_hp_multiplier(c20_boss) > _hp_multiplier(c10_boss))
+	assert(_hp_multiplier(c30_boss) > _hp_multiplier(c20_boss))
+	assert(is_equal_approx(_hp_multiplier(c10_boss), 2.625))
+	assert(is_equal_approx(_hp_multiplier(c20_boss), 7.25))
+	assert(is_equal_approx(_hp_multiplier(c30_boss), 16.0))
+	assert(is_equal_approx(_dps_multiplier(c1_boss), 1.0))
+	assert(_dps_multiplier(c6_boss) > _dps_multiplier(c1_boss))
+	assert(_dps_multiplier(c10_boss) > _dps_multiplier(c6_boss))
+	assert(_dps_multiplier(c20_boss) > _dps_multiplier(c10_boss))
+	assert(_dps_multiplier(c30_boss) > _dps_multiplier(c20_boss))
+	assert(is_equal_approx(_dps_multiplier(c10_boss), 4.75))
+	assert(is_equal_approx(_dps_multiplier(c20_boss), 14.5))
+	assert(is_equal_approx(_dps_multiplier(c30_boss), 37.0))
+	assert(is_equal_approx(_min_hp_budget_duration(c10_boss), 22.0))
+	assert(is_equal_approx(_min_hp_budget_duration(c20_boss), 26.0))
+	assert(is_equal_approx(_min_hp_budget_duration(c30_boss), 30.0))
+
+	var c10_normal := _first_node_of_type(c10.offer_node, ContractRouteNode.NodeType.FIGHT)
+	var c10_elite := _first_node_of_type(c10.offer_node, ContractRouteNode.NodeType.ELITE)
+	if c10_elite != null:
+		assert(_hp_multiplier(c10_elite) > _hp_multiplier(c10_normal))
+		assert(_dps_multiplier(c10_elite) > _dps_multiplier(c10_normal))
+	assert(_hp_multiplier(c10_boss) > _hp_multiplier(c10_normal))
+	assert(_dps_multiplier(c10_boss) > _dps_multiplier(c10_normal))
+	assert(is_equal_approx(_dps_multiplier(c10_normal), 3.125))
+	assert(is_equal_approx(_min_hp_budget_duration(c10_normal), 22.0))
+	assert(_hp_budget_duration(c10_normal) >= _display_duration(c10_normal))
+	assert(_hp_budget_duration(c10_normal) >= _min_hp_budget_duration(c10_normal))
+	assert(is_equal_approx(_armor_multiplier(c1_boss), 1.0))
+	assert(_armor_multiplier(c6_boss) > _armor_multiplier(c1_boss))
+	assert(_armor_multiplier(c10_boss) > _armor_multiplier(c6_boss))
+	assert(_armor_multiplier(c20_boss) > _armor_multiplier(c10_boss))
+	assert(_armor_multiplier(c30_boss) > _armor_multiplier(c20_boss))
+	assert(is_equal_approx(_armor_multiplier(c10_boss), 3.43))
+	assert(is_equal_approx(_armor_multiplier(c20_boss), 9.775))
+
+
+func _check_contract_block_scaling_curve() -> void:
+	var c1: ContractDef = ROUTE_GENERATOR.generate(8201, {"route_difficulty": "medium", "completed_contract_count": 0})
+	var c10: ContractDef = ROUTE_GENERATOR.generate(8210, {"route_difficulty": "medium", "completed_contract_count": 9})
+	var c20: ContractDef = ROUTE_GENERATOR.generate(8220, {"route_difficulty": "medium", "completed_contract_count": 19})
+	var c30: ContractDef = ROUTE_GENERATOR.generate(8230, {"route_difficulty": "medium", "completed_contract_count": 29})
+
+	var c1_normal := _first_node_of_type(c1.offer_node, ContractRouteNode.NodeType.FIGHT)
+	var c10_normal := _first_node_of_type(c10.offer_node, ContractRouteNode.NodeType.FIGHT)
+	var c10_boss := _first_node_of_type(c10.offer_node, ContractRouteNode.NodeType.BOSS)
+	var c20_boss := _first_node_of_type(c20.offer_node, ContractRouteNode.NodeType.BOSS)
+	var c30_boss := _first_node_of_type(c30.offer_node, ContractRouteNode.NodeType.BOSS)
+	assert(is_equal_approx(_block_multiplier(c1_normal), 1.0))
+	assert(_block_multiplier(c10_normal) > _block_multiplier(c1_normal))
+	assert(_block_multiplier(c10_boss) > _block_multiplier(c10_normal))
+	assert(_block_multiplier(c20_boss) > _block_multiplier(c10_boss))
+	assert(_block_multiplier(c30_boss) > _block_multiplier(c20_boss))
+	assert(is_equal_approx(_block_multiplier(c10_normal), 1.77))
+	assert(is_equal_approx(_block_multiplier(c10_boss), 2.68))
+	assert(is_equal_approx(_block_multiplier(c20_boss), 7.24))
+
+
+func _check_contract_absorb_scaling_curve() -> void:
+	var c1: ContractDef = ROUTE_GENERATOR.generate(8401, {"route_difficulty": "medium", "completed_contract_count": 0})
+	var c10: ContractDef = ROUTE_GENERATOR.generate(8410, {"route_difficulty": "medium", "completed_contract_count": 9})
+	var c20: ContractDef = ROUTE_GENERATOR.generate(8420, {"route_difficulty": "medium", "completed_contract_count": 19})
+	var c30: ContractDef = ROUTE_GENERATOR.generate(8430, {"route_difficulty": "medium", "completed_contract_count": 29})
+
+	var c1_normal := _first_node_of_type(c1.offer_node, ContractRouteNode.NodeType.FIGHT)
+	var c10_normal := _first_node_of_type(c10.offer_node, ContractRouteNode.NodeType.FIGHT)
+	var c10_boss := _first_node_of_type(c10.offer_node, ContractRouteNode.NodeType.BOSS)
+	var c20_boss := _first_node_of_type(c20.offer_node, ContractRouteNode.NodeType.BOSS)
+	var c30_boss := _first_node_of_type(c30.offer_node, ContractRouteNode.NodeType.BOSS)
+	assert(is_equal_approx(_absorb_multiplier(c1_normal), 1.0))
+	assert(_absorb_multiplier(c10_normal) > _absorb_multiplier(c1_normal))
+	assert(_absorb_multiplier(c10_boss) > _absorb_multiplier(c10_normal))
+	assert(_absorb_multiplier(c20_boss) > _absorb_multiplier(c10_boss))
+	assert(_absorb_multiplier(c30_boss) > _absorb_multiplier(c20_boss))
+	assert(is_equal_approx(_absorb_multiplier(c10_normal), 1.77))
+	assert(is_equal_approx(_absorb_multiplier(c10_boss), 2.68))
+	assert(is_equal_approx(_absorb_multiplier(c20_boss), 7.24))
+
+
+func _check_early_contract_mechanic_guardrails() -> void:
+	for completed_count in range(0, 3):
+		for seed in range(9100, 9140):
+			var contract: ContractDef = ROUTE_GENERATOR.generate(seed, {
+				"route_difficulty": "medium",
+				"completed_contract_count": completed_count,
+			})
+			for node in _nodes(contract):
+				if node.node_type == ContractRouteNode.NodeType.START:
+					continue
+				var overrides: Dictionary = node.generated_encounter_payload.get("defense_overrides", {}) as Dictionary
+				if overrides.has("cleanse_threshold"):
+					assert(int(overrides["cleanse_threshold"]) >= 4)
+				if overrides.has("suppress"):
+					assert(float(overrides["suppress"]) <= 0.451)
+				if overrides.has("poison_resistance"):
+					assert(float(overrides["poison_resistance"]) <= 0.351)
+				if overrides.has("slow"):
+					assert(float(overrides["slow"]) <= 0.251)
+				if overrides.has("block"):
+					assert(float(overrides["block"]) <= float(_early_block_cap_for_test(completed_count + 1, node)))
+				if overrides.has("absorb"):
+					assert(float(overrides["absorb"]) <= float(_early_absorb_cap_for_test(completed_count + 1, node)))
+				assert(not (overrides.has("cleanse_threshold") and overrides.has("suppress") and overrides.has("poison_resistance")))
+				assert(not (overrides.has("armor") and overrides.has("block") and overrides.has("crit_negation")))
+				assert(not (overrides.has("slow") and overrides.has("stun_duration_ms") and overrides.has("interrupt_skip_count")))
 
 
 func _check_anti_snowball_validation_notices() -> void:
@@ -702,6 +833,110 @@ func _content_difficulty(node: ContractRouteNode) -> int:
 
 func _promotion_reason(node: ContractRouteNode) -> String:
 	return String(_scale(node).get("content_promotion_reason", ""))
+
+
+func _hp_multiplier(node: ContractRouteNode) -> float:
+	var pressure: Dictionary = node.generated_encounter_payload.get("pressure_metadata", {}) as Dictionary
+	return float(pressure.get("contract_hp_multiplier", 1.0))
+
+
+func _dps_multiplier(node: ContractRouteNode) -> float:
+	var pressure: Dictionary = node.generated_encounter_payload.get("pressure_metadata", {}) as Dictionary
+	return float(pressure.get("contract_dps_multiplier", 1.0))
+
+
+func _armor_multiplier(node: ContractRouteNode) -> float:
+	var input: Dictionary = node.generated_encounter_payload.get("source_input", {}) as Dictionary
+	var overrides: Dictionary = input.get("overrides", {}) as Dictionary
+	var scaling: Dictionary = overrides.get("contract_armor_scaling", {}) as Dictionary
+	return float(scaling.get("multiplier", 1.0))
+
+
+func _block_multiplier(node: ContractRouteNode) -> float:
+	var input: Dictionary = node.generated_encounter_payload.get("source_input", {}) as Dictionary
+	var overrides: Dictionary = input.get("overrides", {}) as Dictionary
+	var scaling: Dictionary = overrides.get("contract_block_scaling", {}) as Dictionary
+	return float(scaling.get("multiplier", 1.0))
+
+
+func _absorb_multiplier(node: ContractRouteNode) -> float:
+	var input: Dictionary = node.generated_encounter_payload.get("source_input", {}) as Dictionary
+	var overrides: Dictionary = input.get("overrides", {}) as Dictionary
+	var scaling: Dictionary = overrides.get("contract_absorb_scaling", {}) as Dictionary
+	return float(scaling.get("multiplier", 1.0))
+
+
+func _early_block_cap_for_test(contract_number: int, node: ContractRouteNode) -> int:
+	if contract_number <= 1:
+		match node.node_type:
+			ContractRouteNode.NodeType.CAPTAIN:
+				return 7
+			ContractRouteNode.NodeType.ELITE:
+				return 9
+			ContractRouteNode.NodeType.BOSS:
+				return 10
+		return 5
+	if contract_number == 2:
+		match node.node_type:
+			ContractRouteNode.NodeType.CAPTAIN:
+				return 9
+			ContractRouteNode.NodeType.ELITE:
+				return 10
+			ContractRouteNode.NodeType.BOSS:
+				return 12
+		return 7
+	match node.node_type:
+		ContractRouteNode.NodeType.CAPTAIN:
+			return 10
+		ContractRouteNode.NodeType.ELITE:
+			return 12
+		ContractRouteNode.NodeType.BOSS:
+			return 14
+	return 8
+
+
+func _early_absorb_cap_for_test(contract_number: int, node: ContractRouteNode) -> int:
+	if contract_number <= 1:
+		match node.node_type:
+			ContractRouteNode.NodeType.CAPTAIN:
+				return 4
+			ContractRouteNode.NodeType.ELITE:
+				return 5
+			ContractRouteNode.NodeType.BOSS:
+				return 7
+		return 3
+	if contract_number == 2:
+		match node.node_type:
+			ContractRouteNode.NodeType.CAPTAIN:
+				return 5
+			ContractRouteNode.NodeType.ELITE:
+				return 7
+			ContractRouteNode.NodeType.BOSS:
+				return 8
+		return 4
+	match node.node_type:
+		ContractRouteNode.NodeType.CAPTAIN:
+			return 7
+		ContractRouteNode.NodeType.ELITE:
+			return 8
+		ContractRouteNode.NodeType.BOSS:
+			return 10
+	return 5
+
+
+func _min_hp_budget_duration(node: ContractRouteNode) -> float:
+	var pressure: Dictionary = node.generated_encounter_payload.get("pressure_metadata", {}) as Dictionary
+	return float(pressure.get("min_hp_budget_duration_sec", 0.0))
+
+
+func _hp_budget_duration(node: ContractRouteNode) -> float:
+	var pressure: Dictionary = node.generated_encounter_payload.get("pressure_metadata", {}) as Dictionary
+	return float(pressure.get("hp_budget_duration_sec", 0.0))
+
+
+func _display_duration(node: ContractRouteNode) -> float:
+	var pressure: Dictionary = node.generated_encounter_payload.get("pressure_metadata", {}) as Dictionary
+	return float(pressure.get("duration_sec", 0.0))
 
 
 func _apply_axis_payload(

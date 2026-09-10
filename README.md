@@ -1,21 +1,40 @@
-# Project DawnBringer
+# Project Enigma
 
-Project DawnBringer is the standalone Phase 4 continuation of the Rogue adventure loop that began in Project Bane and was polished through Project CrystalMaiden.
+Project Enigma is the Phase 5 continuation of the generated-contract Rogue
+adventure loop that began in earlier project branches. The current baseline is a
+playable fantasy roguelite deck-and-build RPG prototype focused on readable
+buildcraft, generated contracts, deterministic rewards, and gear-driven matchup
+decisions.
 
-Phase 4 focuses on procedurally generated contracts, contract routes, and enemy encounter variety. The immediate implementation spine is:
-
-- define a richer enemy defense vocabulary;
-- expose and validate enemy generation through Monster Lab;
-- generate routeable contract maps with meaningful matchup decisions;
-- use Balance Lab as the gate for combat and reward pacing changes.
+Phase 5 replaces the old gear assumptions with a five-slot Rogue gear system:
+Dagger, Hood, Doublet, Ring, and Necklace. It adds deterministic item
+generation, new rarity rules, Cursed and Chaos drawbacks, Unique Specials,
+fixed retained Rogue Legendary daggers, reward/shop integration, readable item
+cards, Practice Room validation, and Balance Lab coverage.
 
 ## Repository Setup
 
-- Active branch: `phase-4-dawnbringer`
+- Active branch: `phase-5-gear-redesign`
 - Godot project: `project/project.godot`
 - Godot version: `4.7`
-- Standalone remote: `https://github.com/thalverson1022/DawnBringer.git`
-- Historical upstream: `https://github.com/thalverson1022/Bane.git`
-- Imported baseline tag: `dawnbringer-start`
+- Standalone remote: `https://github.com/thalverson1022/Enigma.git`
+- Current closeout milestone: P5M12 Phase 5 Regression, Smoke, And Closeout
 
-CrystalMaiden remains the hosted playtest baseline. DawnBringer is the working project for larger Phase 4 systems changes.
+## P5M12 Closeout
+
+Run the final regression and itch.io export package scripts from the repository
+root:
+
+```powershell
+tools/p5m12/run_regression.ps1
+tools/p5m12/export_itchio.ps1
+```
+
+The itch.io-ready web package is written to:
+
+```text
+release/itchio/project-enigma-phase5-itch.zip
+```
+
+Use `docs/Itch_IO_Release_Checklist.md` when uploading the web package to
+itch.io.

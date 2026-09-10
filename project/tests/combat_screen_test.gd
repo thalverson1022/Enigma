@@ -213,12 +213,13 @@ func _initialize() -> void:
 	assert(enemy_panel_node.size_flags_vertical != Control.SIZE_EXPAND_FILL)
 	assert(gear_panel.size_flags_vertical == Control.SIZE_EXPAND_FILL)
 
-	# -- Gear: Adventure gear starts empty. Rewards and shop purchases are
-	# now the only player-facing way to acquire equipment. --
-	print("equipped gear on entry (expect 0): %d" % build_state.equipped_gear().size())
-	assert(build_state.equipped_gear().size() == 0)
-	print("weapon slot tooltip (expect Dagger: Empty): %s" % gear_panel._weapon_slot.tooltip_text)
-	assert(gear_panel._weapon_slot.tooltip_text == "Dagger: Empty")
+	# -- Gear: Adventure starts with a crude dagger equipped, but inventory
+	# still starts empty. --
+	print("equipped gear on entry (expect 1): %d" % build_state.equipped_gear().size())
+	assert(build_state.equipped_gear().size() == 1)
+	assert(build_state.equipped_weapon != null and build_state.equipped_weapon.id == "gear.crude_dagger")
+	print("weapon slot tooltip (expect Crude Dagger): %s" % gear_panel._weapon_slot.tooltip_text)
+	assert(gear_panel._weapon_slot.tooltip_text.contains("Crude Dagger"))
 	print("hood slot tooltip (expect Hood: Empty): %s" % gear_panel._helm_slot.tooltip_text)
 	assert(gear_panel._helm_slot.tooltip_text == "Hood: Empty")
 	assert(gear_panel._armor_slot.tooltip_text == "Doublet: Empty")
@@ -262,8 +263,8 @@ func _initialize() -> void:
 	assert(secondary_role_found)
 	assert(bladedancer_section_found)
 	assert(bladedancer_intrinsic_found)
-	print("assassin intrinsic (expect None): %s" % talent_panel._intrinsic_description(rogue.trees[0]))
-	assert(talent_panel._intrinsic_description(rogue.trees[0]) == "None")
+	print("assassin intrinsic (expect x20%% Poison Damage): %s" % talent_panel._intrinsic_description(rogue.trees[0]))
+	assert(talent_panel._intrinsic_description(rogue.trees[0]) == "x20% Poison Damage")
 
 	# -- Points badge: star icon + "spent/earned" budget readout now lives in
 	# Active Talents, not the full Talent Trees overlay footer.
@@ -285,6 +286,7 @@ func _initialize() -> void:
 	assert(node_buttons["talent.quick_hands"].get_parent() == node_buttons["talent.piercing_blades"].get_parent())
 	print("sunder disabled before prereqs (expect true): %s" % node_buttons["talent.sunder"].disabled)
 	assert(node_buttons["talent.sunder"].disabled)
+	assert(node_buttons["talent.sunder"].tooltip_text.contains("+20 Bonus Armor Shred"))
 	assert(node_buttons["talent.opportunity_strikes"].tooltip_text.contains("Quick Cut"))
 	assert(node_buttons["talent.opportunity_strikes"].tooltip_text.contains("20% chance to trigger Rending Slash"))
 
@@ -300,7 +302,7 @@ func _initialize() -> void:
 		if node.has_meta("talent_id") and node.get_meta("talent_id") == "talent.piercing_blades":
 			print("Piercing Blades tooltip: %s" % node.tooltip_text)
 			assert(node.tooltip_text.contains("Cost: 1"))
-			assert(node.tooltip_text.contains("Physical Damage"))
+			assert(node.tooltip_text.contains("+20 Bonus Armor Shred"))
 
 	# 3 base skills (Hold, Stab, Heavy Slash) + Quick Cut (granted by the Bladedancer
 	# tree itself). Rending Slash arrives after the first earned talent point.
@@ -370,10 +372,17 @@ func _initialize() -> void:
 	print("")
 	print("-- Character stats panel text --")
 	print(stats_text)
-	assert(stats_text.contains("Physical Damage: 0%"))
-	assert(stats_text.contains("Crit Multiplier: 200%"))
-	assert(stats_text.contains("Bonus Poison Stacks: +0"))
-	assert(stats_text.contains("Poison Damage: 8.0/tick"))
+	assert(stats_text.contains("Weapon Damage: 16-20"))
+	assert(stats_text.contains("Physical Damage Increase: +0%"))
+	assert(stats_text.contains("Crit Damage: 2.0x"))
+	assert(stats_text.find("Retrigger Chance: 0%") < stats_text.find("Shred Chance: 0%"))
+	assert(stats_text.find("Shred Chance: 0%") < stats_text.find("Decay Chance: 0%"))
+	assert(stats_text.find("Decay Chance: 0%") < stats_text.find("Poison Proc Chance: 0%"))
+	assert(stats_text.contains("Bonus Stacks: +0"))
+	assert(stats_text.find("Bonus Stacks: +0") < stats_text.find("Base Poison Damage: 8.0"))
+	assert(stats_text.find("Base Poison Damage: 8.0") < stats_text.find("Poison Damage Increase: +0%"))
+	assert(not stats_text.contains("Elemental Damage Increase:"))
+	assert(not stats_text.contains("Elemental Proc Chance:"))
 	var damaging_rotation: Array[Skill] = []
 	for skill in unlocked:
 		if skill.id == "skill.heavy_slash":
@@ -390,7 +399,7 @@ func _initialize() -> void:
 	assert(not enemy_panel._info_label.text.contains("Encounter:"))
 	assert(not enemy_panel._info_label.text.contains("Target:"))
 	assert(not enemy_panel._info_label.text.contains("Damage Goal:"))
-	assert(enemy_panel._info_label.text.contains("HP: 150"))
+	assert(enemy_panel._info_label.text.contains("HP: 145"))
 	assert(enemy_panel._info_label.text.contains("Fight Window: 12s"))
 	assert(enemy_panel._info_label.text.contains("Armor: 0"))
 	assert(enemy_panel._info_label.text.contains("Resistance: 0%"))
@@ -690,6 +699,12 @@ func _initialize() -> void:
 			available_skills_panel._on_skill_pressed(skill)
 	assert(build_state.rotation.size() == unlocked.size())
 	assert(build_state.rotation.any(func(skill: Skill) -> bool: return skill.display_name == "Rending Slash"))
+	var found_rending_tooltip := false
+	for node in available_skills_panel.find_children("*", "Button", true, false):
+		if node.tooltip_text.contains("Applies 2 Stacks of Shred"):
+			found_rending_tooltip = true
+			break
+	assert(found_rending_tooltip, "Expected Rending Slash tooltip to distinguish a Stack of Shred from Bonus Armor Shred.")
 	talent_panel._on_node_pressed(piercing_blades)
 	await process_frame
 	assert(not build_state.selected_talents.has(piercing_blades))
@@ -703,9 +718,9 @@ func _initialize() -> void:
 			available_skills_panel._on_skill_pressed(skill)
 	assert(build_state.rotation.size() == unlocked.size())
 	stats_text = character_stats_panel._stats_label.text
-	# No leading "+" -- Physical Damage is multiplicative (x1.08), not
-	# additive (P2:R7 playtest-feedback fix, 2026-07-19).
-	assert(stats_text.contains("Physical Damage: 8%"))
+	assert(stats_text.contains("Shred Chance: 0%"))
+	assert(not stats_text.contains("Shred: 30"))
+	assert(combat_screen._shred_status_tooltip() == "Shred: Each stack reduces armor by 30")
 
 	# Relock and resolve a second, different encounter from the same active
 	# dashboard. This is the core P2:R2 reconnection contract.
@@ -756,16 +771,17 @@ func _initialize() -> void:
 	assert(not combat_screen._view_log_button.visible)
 	assert(build_state.shop_offers.size() == 6)
 	for offer in build_state.shop_offers:
-		assert(offer.tier == GearItem.Tier.BASIC)
+		assert(BuildState.SHOP_ROLL_TIERS.has(offer.tier))
 	assert(combat_screen._shop_overlay._shop_offers_box.columns == 2)
 	assert(combat_screen._shop_overlay._shop_offers_box.get_child_count() == 6)
 
 	var first_offer: GearItem = build_state.shop_offers[0]
 	var first_offer_id := first_offer.id
 	print("first shop offer: %s" % combat_screen._shop_overlay._shop_offer_text(first_offer))
-	assert(GearGenerator.price_for_tier(first_offer.tier) == 18)
-	assert(combat_screen._shop_overlay._shop_offer_text(first_offer).contains("Price: 18g"))
-	assert(combat_screen._shop_overlay._shop_offer_text(first_offer).begins_with("%s - " % GearGenerator.SLOT_TAGS[first_offer.slot]))
+	var expected_first_offer_price: int = build_state.shop_purchase_price_for(first_offer)
+	assert(combat_screen._shop_overlay._shop_offer_text(first_offer).contains("Price: %dg" % expected_first_offer_price))
+	assert(combat_screen._shop_overlay._shop_offer_text(first_offer).begins_with(first_offer.display_name))
+	assert(combat_screen._shop_overlay._shop_offer_text(first_offer).contains("%s %s / %s" % [GearGenerator.tier_name(first_offer.tier), GearGenerator.universal_slot_label(first_offer.slot), GearGenerator.item_family_for(first_offer)]))
 	assert(build_state.shop_reroll_cost == 5)
 	assert(combat_screen._shop_overlay._shop_reroll_button.text == "Reroll 5g")
 	assert(not combat_screen._shop_overlay._shop_reroll_button.disabled)
@@ -800,7 +816,8 @@ func _initialize() -> void:
 	var first_offer_button: Button = combat_screen._shop_overlay._shop_offers_box.get_child(0)
 	assert(first_offer_button.custom_minimum_size == Vector2(88, 88))
 	assert(first_offer_button.tooltip_text.contains(bought_offer.display_name))
-	assert(first_offer_button.tooltip_text.begins_with("%s - " % GearGenerator.SLOT_TAGS[bought_offer.slot]))
+	assert(first_offer_button.tooltip_text.begins_with(bought_offer.display_name))
+	assert(first_offer_button.tooltip_text.contains("%s %s / %s" % [GearGenerator.tier_name(bought_offer.tier), GearGenerator.universal_slot_label(bought_offer.slot), GearGenerator.item_family_for(bought_offer)]))
 	assert(first_offer_button.find_child("PriceLabel", true, false).text == "18g")
 	assert(first_offer_button.find_child("PriceLabel", true, false).get_theme_font_size("font_size") == 16)
 	var shop_change_before_buy: int = audio_manager.shop_change_sfx_play_count
@@ -957,7 +974,8 @@ func _initialize() -> void:
 	await process_frame
 	assert(build_state.equipped_trinket == lucky_coin)
 	assert(not build_state.has_inventory_item(lucky_coin))
-	assert(gear_panel._trinket_slot.tooltip_text.begins_with("Trinket - Lucky Coin"))
+	assert(gear_panel._trinket_slot.tooltip_text.begins_with("Lucky Coin"))
+	assert(gear_panel._trinket_slot.tooltip_text.contains("Basic Trinket / Ring"))
 	print("build unlocked after earned gear equip (expect false): %s" % build_state.build_locked)
 	assert(not build_state.build_locked)
 	assert(enemy_panel._fight_button.disabled)
@@ -1119,6 +1137,9 @@ func _initialize() -> void:
 	assert(build_state.needs_secondary_subclass_choice())
 	combat_screen._show_talent_overlay()
 	await process_frame
+	var talent_scroll: ScrollContainer = combat_screen._talent_overlay.find_child("TalentTreeScroll", true, false)
+	assert(talent_scroll != null)
+	assert(talent_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED)
 	var talent_close_button: Button = null
 	for node in combat_screen._talent_overlay.find_children("*", "Button", true, false):
 		if node.text == "Close":
@@ -1184,11 +1205,9 @@ func _initialize() -> void:
 	var contract_reward_button: Button = combat_screen._reward_choice_overlay.options_container().get_child(0)
 	contract_reward_button.pressed.emit()
 	await process_frame
-	assert(combat_screen._shop_overlay.visible)
+	assert(not combat_screen._shop_overlay.visible)
 	assert(combat_screen._fight_button_row.z_index == combat_screen.COMBAT_BUTTON_ROW_DEFAULT_Z_INDEX)
-	assert(build_state.shop_round_pending)
-	combat_screen._on_shop_continue_pressed()
-	await process_frame
+	assert(not build_state.shop_round_pending)
 	assert(not combat_screen._shop_overlay.visible)
 	assert(build_state.run_phase == BuildState.RunPhase.CONTRACT_ROUTE)
 

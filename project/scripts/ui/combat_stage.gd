@@ -270,6 +270,16 @@ const PEASANT_ANCHOR_POINT := Vector2(16, 16)
 const ROGUE_SPRITE_SCALE := 4.0
 const PEASANT_SPRITE_SCALE := 5.0
 const PRACTICE_DUMMY_SPRITE_SCALE := 4.15
+const ENEMY_COMBAT_ROLE_NORMAL := "normal"
+const ENEMY_COMBAT_ROLE_CAPTAIN := "captain"
+const ENEMY_COMBAT_ROLE_ELITE := "elite"
+const ENEMY_COMBAT_ROLE_BOSS := "boss"
+const ENEMY_COMBAT_ROLE_SCALE := {
+	ENEMY_COMBAT_ROLE_NORMAL: 0.9,
+	ENEMY_COMBAT_ROLE_CAPTAIN: 1.05,
+	ENEMY_COMBAT_ROLE_ELITE: 1.12,
+	ENEMY_COMBAT_ROLE_BOSS: 1.35,
+}
 const PRACTICE_DUMMY_ANCHOR_POINT := Vector2(16, 32)
 const PRACTICE_DUMMY_STAGE_GRID := Vector2(0.62, 1.0)
 const PRACTICE_DUMMY_STAGE_OFFSET := Vector2(38.0, 0.0)
@@ -1022,6 +1032,7 @@ var _player_current_visible_bounds := ROGUE_VISIBLE_BOUNDS
 var _player_current_anchor_point := ROGUE_ANCHOR_POINT
 var _player_visual_key := PLAYER_VISUAL_KEY
 var _enemy_visual_key := ""
+var _enemy_combat_role := ENEMY_COMBAT_ROLE_NORMAL
 var _player_base_position := Vector2.ZERO
 var _enemy_base_position := Vector2.ZERO
 var _player_tween: Tween
@@ -1138,7 +1149,7 @@ func _notification(what: int) -> void:
 		_layout_stage()
 
 
-func configure(player_name: String, enemy_name: String, enemy_visual_name: String = "") -> void:
+func configure(player_name: String, enemy_name: String, enemy_visual_name: String = "", enemy_combat_role: String = ENEMY_COMBAT_ROLE_NORMAL) -> void:
 	_kill_actor_tweens()
 	_clear_status_visuals()
 	_player_exited_right = false
@@ -1153,6 +1164,7 @@ func configure(player_name: String, enemy_name: String, enemy_visual_name: Strin
 	_apply_actor_name_visibility()
 	_player_visual_key = PLAYER_VISUAL_KEY
 	_enemy_visual_key = enemy_visual_key_for(enemy_visual_name if enemy_visual_name != "" else enemy_name)
+	_enemy_combat_role = normalized_enemy_combat_role(enemy_combat_role)
 	_set_player_animation("idle", true)
 	_apply_enemy_visual("idle")
 	_layout_stage()
@@ -1816,6 +1828,15 @@ static func enemy_visual_key_for(enemy_name: String) -> String:
 	return ""
 
 
+static func normalized_enemy_combat_role(role: String) -> String:
+	var normalized_role := role.strip_edges().to_lower()
+	return normalized_role if ENEMY_COMBAT_ROLE_SCALE.has(normalized_role) else ENEMY_COMBAT_ROLE_NORMAL
+
+
+static func enemy_combat_role_scale(role: String) -> float:
+	return float(ENEMY_COMBAT_ROLE_SCALE.get(normalized_enemy_combat_role(role), ENEMY_COMBAT_ROLE_SCALE[ENEMY_COMBAT_ROLE_NORMAL]))
+
+
 func _enemy_animation_paths_for(visual_key: String) -> Dictionary:
 	return ENEMY_ANIMATION_PATHS.get(visual_key, {})
 
@@ -2151,9 +2172,10 @@ func _is_static_enemy_visual_key(visual_key: String) -> bool:
 
 
 func _enemy_sprite_scale() -> float:
+	var role_scale := enemy_combat_role_scale(_enemy_combat_role)
 	if _is_static_enemy_visual():
-		return STATIC_ENEMY_SPRITE_SCALE
-	return PRACTICE_DUMMY_SPRITE_SCALE if _is_practice_dummy_target() else PEASANT_SPRITE_SCALE
+		return STATIC_ENEMY_SPRITE_SCALE * role_scale
+	return (PRACTICE_DUMMY_SPRITE_SCALE if _is_practice_dummy_target() else PEASANT_SPRITE_SCALE) * role_scale
 
 
 func _enemy_anchor_point() -> Vector2:

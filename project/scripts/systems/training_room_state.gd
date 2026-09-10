@@ -21,6 +21,7 @@ signal stats_preview_changed
 
 const DEFAULT_DURATION_MS := 20000
 const DEFAULT_FIGHT_SEED := 1
+const DEFAULT_CONTRACT_LEVEL := 1
 const DEFAULT_TARGET_ARMOR := 0
 const DEFAULT_TARGET_POISON_RESIST := 0.0
 const PRACTICE_TALENT_POINT_BUDGET := 10
@@ -28,6 +29,7 @@ const GENERATED_MONSTER_KIND := "normal"
 const GENERATED_MONSTER_TEMPO := "standard"
 const GENERATED_MONSTER_SEED_CONTEXT := "training_room_generated_monster"
 const GENERATED_MONSTER_SEED_MAX := 2147483647
+const StatCatalog := preload("res://scripts/systems/stat_catalog.gd")
 const TARGET_DEFENSE_FIELDS := [
 	"armor",
 	"poison_resistance",
@@ -93,17 +95,21 @@ var build_locked: bool = false
 var gold: int = 0
 var combat_stolen_gold: int = 0
 var equipped_weapon: GearItem = null
+var equipped_helm: GearItem = null
+var equipped_armor: GearItem = null
 var equipped_trinket: GearItem = null
 var equipped_charm: GearItem = null
 
 ## P2:R10:T4 -- freeform, hand-editable practice gear, one per slot.
-## Practice Room starts with no gear equipped; choosing Basic/Master/Cursed
+## Practice Room starts with no gear equipped; choosing a non-Legendary rarity
 ## equips the corresponding practice item, and choosing None unequips it.
 ## `equip_legendary()` points the weapon slot at a fixed catalog item instead
 ## (read-only in the UI), and `use_custom_weapon()` points it back to the
 ## editable practice weapon. Trinket/charm have no Legendary items today, so
 ## they are only controlled by the rarity dropdown.
 var practice_weapon: GearItem
+var practice_helm: GearItem
+var practice_armor: GearItem
 var practice_trinket: GearItem
 var practice_charm: GearItem
 
@@ -114,8 +120,10 @@ var practice_charm: GearItem
 var selected_target: Monster
 var duration_ms: int = DEFAULT_DURATION_MS
 var fight_seed: int = DEFAULT_FIGHT_SEED
+var random_fight_seed_enabled := false
 var generated_monster_draft: GeneratedMonsterDraft = null
 var generated_monster_difficulty_id: int = 1
+var generated_contract_level: int = DEFAULT_CONTRACT_LEVEL
 
 ## P2:R10:T6 -- the most recent practice fight's raw result, for the reused
 ## CombatResultFormatter/CombatRecap presentation to render. Never written
@@ -129,8 +137,10 @@ var _generated_roll_index: int = 0
 func _init() -> void:
 	build_changed.connect(_clear_lock_on_change)
 	practice_weapon = _make_practice_item(GearItem.SlotType.WEAPON, "Custom Weapon")
-	practice_trinket = _make_practice_item(GearItem.SlotType.TRINKET, "Custom Trinket")
-	practice_charm = _make_practice_item(GearItem.SlotType.CHARM, "Custom Charm")
+	practice_helm = _make_practice_item(GearItem.SlotType.HELM, "Custom Hood")
+	practice_armor = _make_practice_item(GearItem.SlotType.ARMOR, "Custom Doublet")
+	practice_trinket = _make_practice_item(GearItem.SlotType.TRINKET, "Custom Ring")
+	practice_charm = _make_practice_item(GearItem.SlotType.CHARM, "Custom Necklace")
 	# Not a seeded roster entry -- a plain in-memory Monster this state owns
 	# and mutates directly for Practice Room defense checks, never a .tres.
 	selected_target = Monster.new()
@@ -141,7 +151,7 @@ func _init() -> void:
 	_reset_target_defenses()
 	# Practice items begin as empty shells so entering Practice Room has no
 	# equipped gear. The rarity-first invariant still applies once a player
-	# picks Basic/Master/Cursed: that choice equips the item and fills the
+	# picks a non-Legendary rarity: that choice equips the item and fills the
 	# real GearGenerator-shaped affix count.
 
 
@@ -150,6 +160,9 @@ func _make_practice_item(slot: GearItem.SlotType, display_name: String) -> GearI
 	item.id = "gear.training_room.practice_%s" % GearItem.SlotType.keys()[slot].to_lower()
 	item.display_name = display_name
 	item.slot = slot
+	item.item_family = GearGenerator.rogue_item_family_for_slot(slot)
+	item.class_family = GearItem.ClassFamily.ROGUE
+	item.source_kind = GearItem.SourceKind.COMPATIBILITY
 	return item
 
 
@@ -285,34 +298,43 @@ func clear_slot(item: GearItem) -> void:
 
 ## Rarity-first gear editor (replaces the earlier freeform add/remove-any-
 ## affix editor): picking a rarity for a practice item's slot fixes its real
-## GearGenerator affix-slot count (Basic=1, Master=2, Cursed=2 positive + 1
-## curse=3) rather than letting the player add/remove arbitrary numbers of
-## affixes. `item` must be one of practice_weapon/practice_trinket/
-## practice_charm -- never a Legendary (those are handled entirely by
+## GearGenerator affix-slot shape rather than letting the player add/remove
+## arbitrary numbers of affixes. `item` must be one of the practice paper-doll
+## items -- never a Legendary (those are handled entirely by
 ## equip_legendary()/use_custom_weapon(), never passed here).
 func set_slot_rarity(item: GearItem, tier: GearItem.Tier) -> void:
 	_equip_practice_item(item)
 	item.tier = tier
-	var target_count := _affix_slot_count(tier)
+	if tier == GearItem.Tier.CRUDE:
+		item.affixes.clear()
+		build_changed.emit()
+		return
+	var slots := _affix_slots_for_tier(tier)
+	var target_count := slots.size()
 	while item.affixes.size() > target_count:
 		item.affixes.remove_at(item.affixes.size() - 1)
 	while item.affixes.size() < target_count:
 		var slot_index := item.affixes.size()
-		var pool := _pool_for_slot(tier, slot_index, target_count)
+		var slot_spec: Dictionary = slots[slot_index]
+		var pool := _pool_for_slot(item.slot, String(slot_spec.get("category", StatCatalog.CATEGORY_BASIC)), bool(slot_spec.get("is_drawback", false)))
 		var used: Array = []
 		for existing in item.affixes:
-			used.append(existing.stat)
-		var stat: StatModifier.StatType = _first_unused_stat(pool, used)
+			used.append(StatCatalog.canonical_id_for_modifier(existing))
+		var stat_id := _first_unused_stat_id(pool, used)
 		var modifier := StatModifier.new()
-		modifier.stat = stat
+		_apply_stat_to_modifier(modifier, stat_id, item.slot, tier, slot_index, slots)
 		item.affixes.append(modifier)
 	# Re-stamp every slot's operation/value to the current tier's real table
 	# (a slot kept across a rarity change may otherwise carry a stale
 	# magnitude from the tier it was created under).
 	for i in item.affixes.size():
 		var modifier: StatModifier = item.affixes[i]
-		modifier.operation = GearGenerator.OPERATION[modifier.stat]
-		modifier.value = _tier_value(modifier.stat, tier, i, target_count)
+		var stat_id := StatCatalog.canonical_id_for_modifier(modifier)
+		var slot_spec: Dictionary = slots[i]
+		var pool := _pool_for_slot(item.slot, String(slot_spec.get("category", StatCatalog.CATEGORY_BASIC)), bool(slot_spec.get("is_drawback", false)))
+		if not pool.has(stat_id):
+			stat_id = _first_unused_stat_id(pool, _used_stat_ids_except(item, i))
+		_apply_stat_to_modifier(modifier, stat_id, item.slot, tier, i, slots)
 	build_changed.emit()
 
 
@@ -320,6 +342,10 @@ func _equip_practice_item(item: GearItem) -> void:
 	match item.slot:
 		GearItem.SlotType.WEAPON:
 			equipped_weapon = item
+		GearItem.SlotType.HELM:
+			equipped_helm = item
+		GearItem.SlotType.ARMOR:
+			equipped_armor = item
 		GearItem.SlotType.TRINKET:
 			equipped_trinket = item
 		GearItem.SlotType.CHARM:
@@ -331,6 +357,12 @@ func _unequip_practice_item(item: GearItem) -> void:
 		GearItem.SlotType.WEAPON:
 			if equipped_weapon == item:
 				equipped_weapon = null
+		GearItem.SlotType.HELM:
+			if equipped_helm == item:
+				equipped_helm = null
+		GearItem.SlotType.ARMOR:
+			if equipped_armor == item:
+				equipped_armor = null
 		GearItem.SlotType.TRINKET:
 			if equipped_trinket == item:
 				equipped_trinket = null
@@ -344,13 +376,15 @@ func _unequip_practice_item(item: GearItem) -> void:
 ## field -- per the confirmed design, the value stays editable afterward,
 ## this just seeds a sensible real default instead of leaving it at
 ## whatever the previous stat's magnitude happened to be.
-func set_affix_stat(item: GearItem, index: int, stat: StatModifier.StatType) -> void:
+func set_affix_stat(item: GearItem, index: int, stat: Variant) -> void:
 	if index < 0 or index >= item.affixes.size():
 		return
+	var slots := _affix_slots_for_tier(item.tier)
+	if index >= slots.size():
+		return
 	var modifier: StatModifier = item.affixes[index]
-	modifier.stat = stat
-	modifier.operation = GearGenerator.OPERATION[stat]
-	modifier.value = _tier_value(stat, item.tier, index, item.affixes.size())
+	var stat_id := _canonical_stat_id_from_selection(stat)
+	_apply_stat_to_modifier(modifier, stat_id, item.slot, item.tier, index, slots)
 	build_changed.emit()
 
 
@@ -364,48 +398,166 @@ func notify_gear_edited() -> void:
 
 
 func _affix_slot_count(tier: GearItem.Tier) -> int:
+	return _affix_slots_for_tier(tier).size()
+
+
+func _affix_slots_for_tier(tier: GearItem.Tier) -> Array[Dictionary]:
 	match tier:
 		GearItem.Tier.BASIC:
-			return 1
+			return [_roll_spec(StatCatalog.CATEGORY_BASIC)]
 		GearItem.Tier.MASTER:
-			return 2
+			return [_roll_spec(StatCatalog.CATEGORY_BASIC), _roll_spec(StatCatalog.CATEGORY_BASIC)]
+		GearItem.Tier.EPIC:
+			return [
+				_roll_spec(StatCatalog.CATEGORY_BASIC),
+				_roll_spec(StatCatalog.CATEGORY_BASIC),
+				_roll_spec(StatCatalog.CATEGORY_RARE),
+			]
 		GearItem.Tier.CURSED:
-			return 3
-	return 0
+			return [
+				_roll_spec(StatCatalog.CATEGORY_BASIC),
+				_roll_spec(StatCatalog.CATEGORY_BASIC),
+				_roll_spec(StatCatalog.CATEGORY_RARE),
+				_roll_spec(StatCatalog.CATEGORY_BASIC, true),
+			]
+		GearItem.Tier.CHAOS:
+			return [
+				_roll_spec(StatCatalog.CATEGORY_BASIC),
+				_roll_spec(StatCatalog.CATEGORY_RARE),
+				_roll_spec(StatCatalog.CATEGORY_BASIC, true),
+				_roll_spec(StatCatalog.CATEGORY_BASIC),
+			]
+		GearItem.Tier.UNIQUE:
+			return [
+				_roll_spec(StatCatalog.CATEGORY_BASIC),
+				_roll_spec(StatCatalog.CATEGORY_BASIC),
+				_roll_spec(StatCatalog.CATEGORY_BASIC),
+				_roll_spec(StatCatalog.CATEGORY_RARE),
+				_roll_spec(StatCatalog.CATEGORY_SPECIAL),
+			]
+	return []
 
 
-## The last slot of a Cursed item is always its downside -- everything else
-## (Basic/Master's only slots, Cursed's first two) draws from the normal
-## positive-affix pool.
-func _pool_for_slot(tier: GearItem.Tier, slot_index: int, total_count: int) -> Array[StatModifier.StatType]:
-	if tier == GearItem.Tier.CURSED and slot_index == total_count - 1:
-		return GearGenerator.DOWNSIDE_POOL
-	return GearGenerator.AFFIX_POOL
+func _roll_spec(category: String, is_drawback: bool = false) -> Dictionary:
+	return {"category": category, "is_drawback": is_drawback}
 
 
-## Cursed's two positive slots aren't symmetric in GearGenerator's own table:
-## slot 0 gets the amplified value, slot 1 gets the plain Master value (the
-## "1 amplified + 1 more" shape from Content_Library_Reference.md).
-func _tier_value(stat: StatModifier.StatType, tier: GearItem.Tier, slot_index: int, total_count: int) -> float:
+func _pool_for_slot(slot: GearItem.SlotType, category: String, is_drawback: bool) -> Array[String]:
+	if is_drawback:
+		return StatCatalog.drawback_stat_ids_for_slot(slot)
+	return StatCatalog.stat_ids_for_slot(slot, category)
+
+
+func _stat_category_for_slot(slots: Array[Dictionary], slot_index: int) -> StatModifier.StatCategory:
+	var slot_spec: Dictionary = slots[slot_index]
+	if bool(slot_spec.get("is_drawback", false)):
+		return StatModifier.StatCategory.DRAWBACK
+	match String(slot_spec.get("category", StatCatalog.CATEGORY_BASIC)):
+		StatCatalog.CATEGORY_RARE:
+			return StatModifier.StatCategory.RARE
+		StatCatalog.CATEGORY_SPECIAL:
+			return StatModifier.StatCategory.SPECIAL
+	return StatModifier.StatCategory.BASIC
+
+
+func _tier_value(stat_id: String, slot: GearItem.SlotType, tier: GearItem.Tier, slot_index: int, slots: Array[Dictionary]) -> float:
+	var stat_category := _stat_category_for_slot(slots, slot_index)
+	if stat_category == StatModifier.StatCategory.SPECIAL:
+		return GearGenerator.PLACEHOLDER_BINARY_VALUE
+	var category := String(slots[slot_index].get("category", StatCatalog.CATEGORY_BASIC))
+	var max_roll := GearGenerator.max_rolled_value_for_stat_id(
+		stat_id, slot, stat_category == StatModifier.StatCategory.DRAWBACK, tier, 1.0, 0, category
+	)
+	if not bool(max_roll.get("ok", false)):
+		return 0.0
+	return float(max_roll["value"])
+
+
+func _rarity_value_multiplier(tier: GearItem.Tier, is_drawback: bool) -> float:
 	match tier:
-		GearItem.Tier.BASIC:
-			return GearGenerator.BASIC_VALUE[stat]
 		GearItem.Tier.MASTER:
-			return GearGenerator.MASTER_VALUE[stat]
+			return 1.75
+		GearItem.Tier.EPIC:
+			return 2.0
 		GearItem.Tier.CURSED:
-			if slot_index == total_count - 1:
-				return GearGenerator.CURSED_DOWNSIDE_VALUE[stat]
-			elif slot_index == 0:
-				return GearGenerator.CURSED_AMPLIFIED_VALUE[stat]
-			return GearGenerator.MASTER_VALUE[stat]
-	return 0.0
+			return -2.5 if is_drawback else 2.5
+		GearItem.Tier.CHAOS:
+			return -3.0 if is_drawback else 3.0
+		GearItem.Tier.UNIQUE:
+			return 2.0
+	return 1.0
 
 
-func _first_unused_stat(pool: Array[StatModifier.StatType], used: Array) -> StatModifier.StatType:
+func _round_value_for_stat_id(stat_id: String, value: float) -> float:
+	var kind := StatCatalog.value_kind_for(stat_id)
+	match kind:
+		StatCatalog.VALUE_PERCENT, StatCatalog.VALUE_CHANCE:
+			return round(value * 100.0) / 100.0
+		StatCatalog.VALUE_FLAT, StatCatalog.VALUE_STACKS:
+			var rounded: float = round(value)
+			if value > 0.0 and kind == StatCatalog.VALUE_STACKS:
+				rounded = maxf(1.0, rounded)
+			return rounded
+	return value
+
+
+func _first_unused_stat_id(pool: Array[String], used: Array) -> String:
 	for stat in pool:
 		if not used.has(stat):
 			return stat
 	return pool[0]
+
+
+func _used_stat_ids_except(item: GearItem, ignored_index: int) -> Array:
+	var used: Array = []
+	for i in item.affixes.size():
+		if i == ignored_index:
+			continue
+		used.append(StatCatalog.canonical_id_for_modifier(item.affixes[i]))
+	return used
+
+
+func _canonical_stat_id_from_selection(stat: Variant) -> String:
+	if typeof(stat) == TYPE_STRING or typeof(stat) == TYPE_STRING_NAME:
+		return StatCatalog.canonicalize_stat_id(String(stat))
+	return StatCatalog.legacy_stat_id(int(stat))
+
+
+func _apply_stat_to_modifier(modifier: StatModifier, stat_id: String, slot: GearItem.SlotType, tier: GearItem.Tier, slot_index: int, slots: Array[Dictionary]) -> void:
+	modifier.stat_id = StatCatalog.canonicalize_stat_id(stat_id)
+	modifier.stat = _legacy_stat_for_stat_id(modifier.stat_id)
+	modifier.category = _stat_category_for_slot(slots, slot_index)
+	modifier.is_drawback = modifier.category == StatModifier.StatCategory.DRAWBACK
+	modifier.operation = StatModifier.OperationType.ADD
+	modifier.value = _tier_value(modifier.stat_id, slot, tier, slot_index, slots)
+	modifier.display_label = StatCatalog.label_for(modifier.stat_id)
+
+
+func _legacy_stat_for_stat_id(stat_id: String) -> StatModifier.StatType:
+	match StatCatalog.canonicalize_stat_id(stat_id):
+		StatCatalog.BASE_DAMAGE:
+			return StatModifier.StatType.PHYSICAL_DAMAGE
+		StatCatalog.PERCENT_PHYSICAL_DAMAGE:
+			return StatModifier.StatType.PHYSICAL_DAMAGE
+		StatCatalog.INCREASED_ATTACK_SPEED:
+			return StatModifier.StatType.ATTACK_SPEED
+		StatCatalog.CRIT_CHANCE:
+			return StatModifier.StatType.CRIT_CHANCE
+		StatCatalog.CRIT_DAMAGE:
+			return StatModifier.StatType.CRIT_MULTIPLIER
+		StatCatalog.BASE_ELEMENTAL_DAMAGE:
+			return StatModifier.StatType.POISON_DAMAGE
+		StatCatalog.PERCENT_ELEMENTAL_DAMAGE:
+			return StatModifier.StatType.POISON_DAMAGE
+		StatCatalog.INCREASED_ALL_STACKS:
+			return StatModifier.StatType.ARMOR_REDUCTION
+		StatCatalog.INCREASED_GOLD:
+			return StatModifier.StatType.GOLD_REWARDS
+		StatCatalog.SHOP_DISCOUNT:
+			return StatModifier.StatType.GOLD_REWARDS
+		StatCatalog.INCREASED_MAGIC_FIND:
+			return StatModifier.StatType.GOLD_REWARDS
+	return StatModifier.StatType.ATTACK_SPEED
 
 
 func set_target_armor(value: int) -> void:
@@ -512,12 +664,14 @@ func roll_generated_target(
 	seed: int = -1,
 	monster_kind: String = GENERATED_MONSTER_KIND,
 	archetype_a_id: String = "",
-	archetype_b_id: String = ""
+	archetype_b_id: String = "",
+	contract_level: int = DEFAULT_CONTRACT_LEVEL
 ) -> GeneratedMonsterDraft:
 	generated_monster_difficulty_id = difficulty_id
+	generated_contract_level = clampi(contract_level, 1, 30)
 	var library := RuntimeArchetypeLibraryLoader.load_default()
-	var roll_seed := seed if seed >= 0 else _next_generated_monster_seed(difficulty_id, monster_kind, archetype_a_id, archetype_b_id)
-	var input := _generated_monster_input(difficulty_id, roll_seed, library, monster_kind, archetype_a_id, archetype_b_id)
+	var roll_seed := seed if seed >= 0 else _next_generated_monster_seed(difficulty_id, monster_kind, archetype_a_id, archetype_b_id, generated_contract_level)
+	var input := _generated_monster_input(difficulty_id, roll_seed, library, monster_kind, archetype_a_id, archetype_b_id, generated_contract_level)
 	var draft := RuntimeMonsterGenerator.generate(input, library)
 	generated_monster_draft = draft
 	if not draft.has_errors():
@@ -528,12 +682,12 @@ func roll_generated_target(
 	return draft
 
 
-func _next_generated_monster_seed(difficulty_id: int, monster_kind: String = GENERATED_MONSTER_KIND, archetype_a_id: String = "", archetype_b_id: String = "") -> int:
+func _next_generated_monster_seed(difficulty_id: int, monster_kind: String = GENERATED_MONSTER_KIND, archetype_a_id: String = "", archetype_b_id: String = "", contract_level: int = DEFAULT_CONTRACT_LEVEL) -> int:
 	_generated_roll_index += 1
 	var seed := RunRng.seed_for_context(
 		DEFAULT_FIGHT_SEED,
 		GENERATED_MONSTER_SEED_CONTEXT,
-		[difficulty_id, monster_kind, archetype_a_id, archetype_b_id, _generated_roll_index, Time.get_ticks_msec()]
+		[difficulty_id, monster_kind, archetype_a_id, archetype_b_id, contract_level, _generated_roll_index, Time.get_ticks_msec()]
 	)
 	return (seed % GENERATED_MONSTER_SEED_MAX) + 1
 
@@ -544,7 +698,8 @@ func _generated_monster_input(
 	library: RuntimeArchetypeLibrary,
 	monster_kind: String = GENERATED_MONSTER_KIND,
 	archetype_a_id: String = "",
-	archetype_b_id: String = ""
+	archetype_b_id: String = "",
+	contract_level: int = DEFAULT_CONTRACT_LEVEL
 ) -> RuntimeGenerationInput:
 	var available := library.available_for(difficulty_id, monster_kind)
 	if available.is_empty():
@@ -553,6 +708,7 @@ func _generated_monster_input(
 			"difficulty": difficulty_id,
 			"kind": monster_kind,
 			"tempoProfile": GENERATED_MONSTER_TEMPO,
+			"overrides": _contract_scaling_overrides(contract_level, monster_kind),
 		})
 
 	var rng := RunRng.rng_for_context(seed, GENERATED_MONSTER_SEED_CONTEXT, [difficulty_id, "archetypes"])
@@ -579,7 +735,158 @@ func _generated_monster_input(
 		"difficulty": difficulty_id,
 		"kind": monster_kind,
 		"tempoProfile": GENERATED_MONSTER_TEMPO,
+		"overrides": _contract_scaling_overrides(contract_level, monster_kind),
 	})
+
+
+func _contract_scaling_overrides(contract_level: int, monster_kind: String) -> Dictionary:
+	var level := clampi(contract_level, 1, 30)
+	var completed_count := level - 1
+	return {
+		"contract_hp_scaling": _contract_scaling_entry("contract_hp_curve_v2", level, completed_count, _contract_hp_multiplier_for_number(level), _contract_hp_role_scale(monster_kind)),
+		"contract_dps_scaling": _contract_dps_scaling_entry(level, completed_count, _contract_dps_multiplier_for_number(level), _contract_dps_role_scale(monster_kind)),
+		"contract_armor_scaling": _contract_scaling_entry("contract_armor_curve_v1", level, completed_count, _contract_armor_multiplier_for_number(level), _contract_armor_role_scale(monster_kind)),
+		"contract_block_scaling": _contract_scaling_entry("contract_block_curve_v1", level, completed_count, _contract_block_multiplier_for_number(level), _contract_block_absorb_role_scale(monster_kind)),
+		"contract_absorb_scaling": _contract_scaling_entry("contract_absorb_curve_v1", level, completed_count, _contract_block_multiplier_for_number(level), _contract_block_absorb_role_scale(monster_kind)),
+	}
+
+
+func _contract_scaling_entry(id: String, contract_level: int, completed_count: int, contract_multiplier: float, role_scale: float) -> Dictionary:
+	return {
+		"id": id,
+		"contract_number": contract_level,
+		"completed_contract_count": completed_count,
+		"contract_multiplier": contract_multiplier,
+		"role_scale": role_scale,
+		"multiplier": 1.0 + (contract_multiplier - 1.0) * role_scale,
+	}
+
+
+func _contract_dps_scaling_entry(contract_level: int, completed_count: int, contract_multiplier: float, role_scale: float) -> Dictionary:
+	var entry := _contract_scaling_entry("contract_dps_curve_v1", contract_level, completed_count, contract_multiplier, role_scale)
+	entry["min_hp_budget_duration_sec"] = _minimum_hp_budget_duration_for_number(contract_level)
+	return entry
+
+
+func _contract_hp_multiplier_for_number(contract_level: int) -> float:
+	return _interpolated_contract_multiplier(contract_level, [
+		{"contract": 1, "multiplier": 1.0},
+		{"contract": 5, "multiplier": 1.4},
+		{"contract": 10, "multiplier": 2.3},
+		{"contract": 15, "multiplier": 3.8},
+		{"contract": 20, "multiplier": 6.0},
+		{"contract": 25, "multiplier": 9.0},
+		{"contract": 30, "multiplier": 13.0},
+	])
+
+
+func _contract_dps_multiplier_for_number(contract_level: int) -> float:
+	return _interpolated_contract_multiplier(contract_level, [
+		{"contract": 1, "multiplier": 1.0},
+		{"contract": 5, "multiplier": 1.8},
+		{"contract": 10, "multiplier": 3.5},
+		{"contract": 15, "multiplier": 6.0},
+		{"contract": 20, "multiplier": 10.0},
+		{"contract": 25, "multiplier": 16.0},
+		{"contract": 30, "multiplier": 25.0},
+	])
+
+
+func _contract_armor_multiplier_for_number(contract_level: int) -> float:
+	return _interpolated_contract_multiplier(contract_level, [
+		{"contract": 1, "multiplier": 1.0},
+		{"contract": 5, "multiplier": 1.6},
+		{"contract": 10, "multiplier": 2.8},
+		{"contract": 15, "multiplier": 4.8},
+		{"contract": 20, "multiplier": 7.5},
+		{"contract": 25, "multiplier": 11.0},
+		{"contract": 30, "multiplier": 16.0},
+	])
+
+
+func _contract_block_multiplier_for_number(contract_level: int) -> float:
+	return _interpolated_contract_multiplier(contract_level, [
+		{"contract": 1, "multiplier": 1.0},
+		{"contract": 5, "multiplier": 1.4},
+		{"contract": 10, "multiplier": 2.4},
+		{"contract": 15, "multiplier": 4.0},
+		{"contract": 20, "multiplier": 6.2},
+		{"contract": 25, "multiplier": 9.0},
+		{"contract": 30, "multiplier": 13.0},
+	])
+
+
+func _interpolated_contract_multiplier(contract_level: int, anchors: Array) -> float:
+	var clamped_level := clampi(contract_level, 1, 30)
+	for index in range(anchors.size() - 1):
+		var start: Dictionary = anchors[index]
+		var finish: Dictionary = anchors[index + 1]
+		var start_contract := int(start["contract"])
+		var finish_contract := int(finish["contract"])
+		if clamped_level > finish_contract:
+			continue
+		var span := float(finish_contract - start_contract)
+		var progress := clampf(float(clamped_level - start_contract) / maxf(1.0, span), 0.0, 1.0)
+		return lerpf(float(start["multiplier"]), float(finish["multiplier"]), progress)
+	return float(anchors[anchors.size() - 1]["multiplier"])
+
+
+func _minimum_hp_budget_duration_for_number(contract_level: int) -> float:
+	if contract_level <= 3:
+		return 18.0
+	if contract_level <= 10:
+		return 22.0
+	if contract_level <= 20:
+		return 26.0
+	return 30.0
+
+
+func _contract_hp_role_scale(monster_kind: String) -> float:
+	match monster_kind:
+		"captain":
+			return 1.1
+		"elite", "boss":
+			return 1.25
+	return 1.0
+
+
+func _contract_dps_role_scale(monster_kind: String) -> float:
+	match monster_kind:
+		"normal":
+			return 0.85
+		"captain":
+			return 1.0
+		"elite":
+			return 1.2
+		"boss":
+			return 1.5
+	return 1.0
+
+
+func _contract_armor_role_scale(monster_kind: String) -> float:
+	match monster_kind:
+		"normal":
+			return 0.75
+		"captain":
+			return 1.0
+		"elite":
+			return 1.2
+		"boss":
+			return 1.35
+	return 1.0
+
+
+func _contract_block_absorb_role_scale(monster_kind: String) -> float:
+	match monster_kind:
+		"normal":
+			return 0.55
+		"captain":
+			return 0.75
+		"elite":
+			return 1.0
+		"boss":
+			return 1.2
+	return 1.0
 
 
 func set_duration_ms(ms: int) -> void:
@@ -588,8 +895,34 @@ func set_duration_ms(ms: int) -> void:
 
 
 func set_fight_seed(value: int) -> void:
-	fight_seed = value
+	fight_seed = clampi(value, 0, GENERATED_MONSTER_SEED_MAX)
 	fight_setup_changed.emit()
+
+
+func set_random_fight_seed_enabled(enabled: bool) -> void:
+	if random_fight_seed_enabled == enabled:
+		return
+	random_fight_seed_enabled = enabled
+	fight_setup_changed.emit()
+
+
+func set_generated_contract_level(level: int) -> void:
+	var normalized := clampi(level, 1, 30)
+	if generated_contract_level == normalized:
+		return
+	generated_contract_level = normalized
+	fight_setup_changed.emit()
+
+
+func randomize_fight_seed(context: String = "fight") -> int:
+	_generated_roll_index += 1
+	fight_seed = (RunRng.seed_for_context(
+		DEFAULT_FIGHT_SEED,
+		"%s.%s" % [GENERATED_MONSTER_SEED_CONTEXT, context],
+		[generated_contract_level, _generated_roll_index, Time.get_ticks_msec()]
+	) % GENERATED_MONSTER_SEED_MAX) + 1
+	fight_setup_changed.emit()
+	return fight_seed
 
 
 ## Practice gold rides on `build_changed`, not `fight_setup_changed` --
@@ -621,16 +954,18 @@ func run_fight() -> void:
 	if not can_run_fight():
 		return
 	combat_stolen_gold = 0
+	if random_fight_seed_enabled:
+		randomize_fight_seed("fight")
 	stats_preview_changed.emit()
 	var stats := BuildResolver.resolve_stats(selected_class, selected_trees, selected_talents, equipped_gear(), gold)
 	last_result = CombatResolver.resolve(rotation, stats, selected_target, duration_ms, fight_seed)
 	fight_finished.emit()
 
 
-## Weapon -> trinket -> charm order, matching `BuildState.equipped_gear()`.
+## Universal Phase 5 paper-doll order, matching `BuildState.equipped_gear()`.
 func equipped_gear() -> Array[GearItem]:
 	var gear: Array[GearItem] = []
-	for item in [equipped_weapon, equipped_trinket, equipped_charm]:
+	for item in [equipped_weapon, equipped_helm, equipped_armor, equipped_trinket, equipped_charm]:
 		if item != null:
 			gear.append(item)
 	return gear

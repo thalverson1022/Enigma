@@ -71,6 +71,10 @@ func _initialize() -> void:
 	_require(points_header is HBoxContainer, "Expected Active Talents points badge to live in a header row beside the title.")
 	_require(points_header.get_child_count() == 2 and points_header.get_child(1) == active_talents_panel._points_badge, "Expected Active Talents points badge to be right-aligned in the top header row.")
 	_require(active_talents_panel._points_label.get_parent().find_child("Icon", true, false) != null, "Expected Active Talents points readout to include the talent-point star icon.")
+	var active_talents_scroll: ScrollContainer = active_talents_panel.find_child("ActiveTalentsScroll", true, false)
+	_require(active_talents_scroll != null, "Expected Active Talents summary content to live inside a scroll area so the Talent Trees button stays reachable late-game.")
+	_require(active_talents_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "Expected Active Talents summary to scroll vertically only.")
+	_require(active_talents_panel._open_button.get_parent() != active_talents_scroll, "Expected the Talent Trees button to remain pinned outside the scrolling summary.")
 	_require(_active_talents_text(active_talents_panel).contains("Bladedancer"), "Expected active talent summary to show the selected tree name.")
 	_require(active_talents_panel.find_child("Icon", true, false) != null, "Expected active talent summary to show the selected tree icon.")
 	_require(_active_talents_text(active_talents_panel).contains("Intrinsic: Unlocks Quick Cut"), "Expected active talent summary to show the selected tree intrinsic.")
@@ -120,8 +124,8 @@ func _initialize() -> void:
 	var heavy_slash: Skill = rogue.base_skills[2]
 	_require(heavy_slash.display_name == "Heavy Slash", "Expected rogue.base_skills[2] to be Heavy Slash.")
 	var summary: String = available_skills_panel._skill_effect_summary(stab)
-	print("Stab effect summary (expect '18 physical dmg'): %s" % summary)
-	_require(summary == "18 physical dmg", "Expected Stab's summary text to match its PhysicalDamageEffect.amount, got: %s" % summary)
+	print("Stab effect summary (expect dynamic damage range): %s" % summary)
+	_require(summary == "16-20 physical dmg", "Expected Stab's summary text to use resolved weapon damage, got: %s" % summary)
 	var hold_button: Button = available_skills_panel._skills_box.get_child(0)
 	_require(hold_button is Button, "Expected each available-skills child to be a bare Button (no always-visible caption wrapper).")
 	_require(hold_button.tooltip_text.contains("Holds for 1.0s"), "Expected the first available skill button to be Hold, got tooltip: %s" % hold_button.tooltip_text)
@@ -129,7 +133,6 @@ func _initialize() -> void:
 	_require(stab_button.tooltip_text.contains(summary), "Expected Stab's tooltip to contain its effect summary, got: %s" % stab_button.tooltip_text)
 	var hold_summary: String = available_skills_panel._skill_effect_summary(hold)
 	_require(hold_summary == "Holds for 1.0s", "Expected Hold's summary text to explain the no-action wait, got: %s" % hold_summary)
-
 	# -- 4. Rotation order + explicit remove control --
 	_require(skill_build_panel._slot_count_label.text == "Slots: 0/10", "Expected empty Skill Build to advertise current macro capacity, got: %s" % skill_build_panel._slot_count_label.text)
 	var disabled_lock_style: StyleBoxFlat = skill_build_panel._lock_button.get_theme_stylebox("disabled")
@@ -264,9 +267,8 @@ func _initialize() -> void:
 	skill_build_panel._on_slot_pressed(0)
 	_require(build_state.rotation.size() == rotation_before - 1, "Expected removing a rotation slot to shrink the rotation.")
 
-	# -- 5. Stat delta from base: Piercing Blades applies a x1.08 physical
-	# damage multiplier, so the resolved-vs-base delta should show up as an
-	# explicit note on the Physical Damage line. --
+	# -- 5. Stat delta from base: Piercing Blades now improves the universal
+	# Shred value instead of physical damage. --
 	var piercing_blades: Talent = bladedancer.talents[1]
 	_require(piercing_blades.display_name == "Piercing Blades", "Expected bladedancer.talents[1] to be Piercing Blades.")
 	build_state.add_talent_points(1)
@@ -275,25 +277,18 @@ func _initialize() -> void:
 	await process_frame
 	var stats_text: String = character_stats_panel._stats_label.text
 	print("")
-	print("-- Character stats panel raw text (expect a from-gear/talents delta note as a BBCode hint tooltip) --")
+	print("-- Character stats panel raw text (expect requested compact stat list) --")
 	print(stats_text)
-	# Physical Damage is a multiplicative modifier (x1.08), not an additive
-	# bonus, so no leading "+" -- P2:R7 playtest-feedback fix, 2026-07-19.
-	_require(stats_text.contains("Physical Damage: 8%"), "Expected the resolved Physical Damage line, got: %s" % stats_text)
-	# P2:R7 playtest feedback (2026-07-18) moved the delta note out of
-	# always-visible inline text and into a hover tooltip (a BBCode
-	# [hint=...] tag wrapping the whole stat line) since it "is not relevant
-	# to gameplay" as constant on-screen text. The raw bbcode source still
-	# carries the delta text (inside the hint attribute), but the rendered/
-	# visible text must not.
-	_require(stats_text.contains("[hint=8% from gear/talents]Physical Damage: 8%[/hint]"), "Expected the Physical Damage delta to be wrapped as a BBCode hint tooltip, got: %s" % stats_text)
+	_require(stats_text.contains("Shred Chance: 0%"), "Expected compact stats to keep Shred Chance visible, got: %s" % stats_text)
+	_require(not stats_text.contains("Shred: 30"), "Expected compact stats to hide raw Shred value, got: %s" % stats_text)
+	_require(not stats_text.contains("from gear/talents"), "Expected character stats to avoid source-bucket explanation text, got: %s" % stats_text)
 	var visible_stats_text: String = character_stats_panel._stats_label.get_parsed_text()
 	print("visible (parsed) stats text: %s" % visible_stats_text)
-	_require(not visible_stats_text.contains("from gear/talents"), "Expected the delta note to no longer render as always-visible text, got: %s" % visible_stats_text)
-	_require(visible_stats_text.contains("Physical Damage: 8%"), "Expected the Physical Damage value itself to remain visible, got: %s" % visible_stats_text)
+	_require(not visible_stats_text.contains("from gear/talents"), "Expected the delta note to stay hidden from visible text, got: %s" % visible_stats_text)
+	_require(not visible_stats_text.contains("Shred: 30"), "Expected compact stats to hide the raw Shred value, got: %s" % visible_stats_text)
 	var delta: String = character_stats_panel._stat_delta_text(8.0, "%")
 	print("stat delta helper output: %s" % delta)
-	_require(delta == " (+8% from gear/talents)", "Expected _stat_delta_text() to format a positive delta, got: %s" % delta)
+	_require(delta == " (+8%)", "Expected _stat_delta_text() to format a positive delta, got: %s" % delta)
 	_require(character_stats_panel._stat_delta_text(0.0, "%") == "", "Expected a ~zero delta to produce no note.")
 
 	# -- 6. Equipped vs inventory gear clarity --
@@ -341,7 +336,7 @@ func _initialize() -> void:
 
 	# Inventory item boxes carry the same icon as shop item boxes, shared via
 	# CardStyle.build_gear_box_content() (P2:R7 gear-art pass). Lucky Coin is
-	# a Basic trinket with its own named icon. The caption text this used to
+	# a fixed Basic Charm with its own named icon. The caption text this used to
 	# carry alongside the icon was dropped as redundant once the icon art +
 	# tier-colored background conveyed slot/tier on their own.
 	var inventory_icon: TextureRect = inventory_slot.get_node("Icon")
@@ -359,7 +354,7 @@ func _initialize() -> void:
 	_require(inventory_compare_tooltip is HBoxContainer, "Expected the inventory comparison tooltip to be a compact HBox.")
 	_require(inventory_compare_tooltip.get_child_count() == 2, "Expected inventory comparison tooltip to show item and Equipped boxes.")
 	var equipped_tooltip_box: Control = inventory_compare_tooltip.get_child(1)
-	var equipped_tooltip_body: String = equipped_tooltip_box.get_child(0).get_child(1).text
+	var equipped_tooltip_body: String = _labels_text(equipped_tooltip_box)
 	_require(equipped_tooltip_body.contains(dagger.display_name), "Expected the inventory weapon tooltip to compare against the currently equipped dagger, got: %s" % equipped_tooltip_body)
 	inventory_compare_tooltip.free()
 
@@ -369,10 +364,12 @@ func _initialize() -> void:
 	gear_panel._on_inventory_slot_gui_input(right_click_event, lucky_coin)
 	await process_frame
 	_require(gear_panel._pending_inventory_action_item == lucky_coin, "Expected right-click to target the clicked inventory item.")
-	_require(gear_panel._inventory_action_menu.get_item_count() == 2, "Expected inventory action menu to contain Equip and Sell.")
+	_require(gear_panel._inventory_action_menu.get_item_count() == 3, "Expected inventory action menu to contain Equip, Sell, and Destroy.")
 	_require(gear_panel._inventory_action_menu.get_item_text(0) == "Equip", "Expected first inventory action to be Equip.")
 	_require(gear_panel._inventory_action_menu.get_item_text(1) == "Sell", "Expected second inventory action to be Sell.")
+	_require(gear_panel._inventory_action_menu.get_item_text(2) == "Destroy", "Expected third inventory action to be Destroy.")
 	_require(gear_panel._inventory_action_menu.is_item_disabled(gear_panel._inventory_action_menu.get_item_index(gear_panel.ACTION_SELL_ID)), "Expected Sell to be disabled outside shop.")
+	_require(not gear_panel._inventory_action_menu.is_item_disabled(gear_panel._inventory_action_menu.get_item_index(gear_panel.ACTION_DESTROY_ID)), "Expected Destroy to be available outside shop.")
 	_require(gear_panel._gold_label.text.ends_with("g"), "Expected the Gear-panel gold stash readout to keep the 'g' suffix, got: %s" % gear_panel._gold_label.text)
 	_require(not gear_panel._gold_label.text.contains("Gold:"), "Expected the Gear-panel gold stash readout to use icon + value instead of repeating 'Gold:', got: %s" % gear_panel._gold_label.text)
 	_require(gear_panel._gold_badge != null and gear_panel._gold_badge is PanelContainer, "Expected the Gear-panel gold stash readout to sit inside a framed badge.")
@@ -383,6 +380,16 @@ func _initialize() -> void:
 	_require(gear_panel._gold_icon != null and gear_panel._gold_icon.is_inside_tree(), "Expected reward/sale gold motion to target the visible gold icon, not the stretched gold row.")
 	var equipment_doll := gear_panel._helm_slot.get_parent() as VBoxContainer
 	_require(equipment_doll != null and equipment_doll.alignment == BoxContainer.ALIGNMENT_END, "Expected the equipment doll to sit near the inventory instead of leaving a large blank gap below it.")
+	var equipment_middle_row := equipment_doll.get_child(1) as HBoxContainer
+	_require(equipment_middle_row != null and equipment_middle_row.get_child_count() == 3, "Expected the equipment doll middle row to contain weapon, armor, and right stack.")
+	var equipment_right_stack := equipment_middle_row.get_child(2) as VBoxContainer
+	_require(equipment_right_stack != null and equipment_right_stack.get_child_count() == 2, "Expected the equipment doll right stack to contain exactly Charm and Trinket.")
+	_require(equipment_right_stack.get_child(0) == gear_panel._charm_slot, "Expected Charm/Necklace to be the upper right equipment slot.")
+	_require(equipment_right_stack.get_child(1) == gear_panel._trinket_slot, "Expected Trinket/Ring to be the lower right equipment slot.")
+	_require(gear_panel._equipped_panel_for_slot(GearItem.SlotType.HELM) == gear_panel._helm_slot, "Expected Helm slot routing to target the live Helm panel.")
+	_require(gear_panel._equipped_panel_for_slot(GearItem.SlotType.ARMOR) == gear_panel._armor_slot, "Expected Armor slot routing to target the live Armor panel.")
+	_require(gear_panel._equipped_panel_for_slot(GearItem.SlotType.CHARM) == gear_panel._charm_slot, "Expected Charm slot routing to target the live Charm panel.")
+	_require(gear_panel._equipped_panel_for_slot(GearItem.SlotType.TRINKET) == gear_panel._trinket_slot, "Expected Trinket slot routing to target the live Trinket panel.")
 	gear_panel._inventory_action_menu.hide()
 	gear_panel._pending_inventory_action_item = null
 	gear_panel._show_inventory_action_menu(null)
@@ -401,11 +408,13 @@ func _initialize() -> void:
 	gear_panel._on_equipped_slot_gui_input(right_click_event, GearItem.SlotType.WEAPON)
 	await process_frame
 	_require(gear_panel._pending_equipped_action_slot == GearItem.SlotType.WEAPON, "Expected right-click to target the equipped weapon slot.")
-	_require(gear_panel._equipped_action_menu.get_item_count() == 2, "Expected equipped action menu to contain Unequip and Sell.")
+	_require(gear_panel._equipped_action_menu.get_item_count() == 3, "Expected equipped action menu to contain Unequip, Sell, and Destroy.")
 	_require(gear_panel._equipped_action_menu.get_item_text(0) == "Unequip", "Expected first equipped action to be Unequip.")
 	_require(gear_panel._equipped_action_menu.get_item_text(1) == "Sell", "Expected second equipped action to be Sell.")
+	_require(gear_panel._equipped_action_menu.get_item_text(2) == "Destroy", "Expected third equipped action to be Destroy.")
 	_require(not gear_panel._equipped_action_menu.is_item_disabled(gear_panel._equipped_action_menu.get_item_index(gear_panel.ACTION_UNEQUIP_ID)), "Expected Unequip to be enabled when inventory has room.")
 	_require(gear_panel._equipped_action_menu.is_item_disabled(gear_panel._equipped_action_menu.get_item_index(gear_panel.ACTION_SELL_ID)), "Expected equipped Sell to be disabled outside shop.")
+	_require(not gear_panel._equipped_action_menu.is_item_disabled(gear_panel._equipped_action_menu.get_item_index(gear_panel.ACTION_DESTROY_ID)), "Expected equipped Destroy to be available outside shop.")
 	gear_panel._equipped_action_menu.hide()
 	gear_panel._pending_equipped_action_slot = -1
 
@@ -465,7 +474,7 @@ func _initialize() -> void:
 	await process_frame
 	var assassin_summary := _active_talents_text(active_talents_panel)
 	_require(assassin_summary.contains("Assassin"), "Expected active talent summary to show Assassin.")
-	_require(assassin_summary.contains("Intrinsic: None"), "Expected active talent summary to show Assassin's intrinsic.")
+	_require(assassin_summary.contains("Intrinsic: x20% Poison Damage"), "Expected active talent summary to show Assassin's intrinsic.")
 	_require(assassin_summary.contains("Assassin Talents"), "Expected active talent summary to show the Assassin talents section.")
 	_require(assassin_summary.contains("No Assassin talents selected."), "Expected active talent summary to show Assassin's empty talent state.")
 
@@ -487,6 +496,15 @@ func _active_talents_text(active_talents_panel) -> String:
 	return "\n".join(parts)
 
 
+func _labels_text(root_node: Node) -> String:
+	var parts: PackedStringArray = []
+	for label in root_node.find_children("*", "Label", true, false):
+		parts.append((label as Label).text)
+	for label in root_node.find_children("*", "RichTextLabel", true, false):
+		parts.append((label as RichTextLabel).get_parsed_text())
+	return "\n".join(parts)
+
+
 func _talent_panel_text(talent_panel) -> String:
 	var parts: PackedStringArray = []
 	for label in talent_panel.find_children("*", "Label", true, false):
@@ -500,3 +518,4 @@ func _talent_node_buttons(talent_panel) -> Dictionary:
 		if node.has_meta("talent_id"):
 			buttons[node.get_meta("talent_id")] = node
 	return buttons
+

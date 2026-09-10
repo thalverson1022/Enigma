@@ -51,6 +51,11 @@ func _initialize() -> void:
 ## outputs can be compared against independently computed values (not by
 ## re-calling the code under test).
 func _check_post_fight_helpers_against_known_fight() -> void:
+	var build_state = root.get_node("BuildState")
+	build_state.reset()
+	var rogue: ClassDef = load("res://data/classes/rogue.tres")
+	build_state.set_class(rogue)
+
 	var poison_strike: Skill = load("res://data/skills/poison_strike.tres")
 	var rending_slash: Skill = load("res://data/skills/rending_slash.tres")
 	var beguiling_strike: Skill = load("res://data/skills/beguiling_strike.tres")
@@ -81,9 +86,9 @@ func _check_post_fight_helpers_against_known_fight() -> void:
 	for event in result.cast_events:
 		expected_armor_reduction += event.armor_reduction_applied
 		if event.armor_reduction_applied > 0:
-			expected_shred_stacks += 1
+			expected_shred_stacks += event.shred_stacks_applied
 		if event.poison_resistance_reduction_applied > 0.0:
-			expected_decay_stacks += 1
+			expected_decay_stacks += event.decay_stacks_applied
 			expected_resist *= 1.0 - event.poison_resistance_reduction_applied
 	var expected_peak_stacks := 0
 	for tick in result.tick_events:
@@ -128,20 +133,29 @@ func _check_post_fight_helpers_against_known_fight() -> void:
 
 	combat_screen._show_enemy_hud_post_fight(result, monster)
 	var has_poison_icon := false
+	var poison_tooltip := ""
 	var has_shred_icon := false
+	var shred_tooltip := ""
 	var has_decay_icon := false
+	var decay_tooltip := ""
 	for child in combat_screen._hud_status_row.get_children():
 		var icon := child.get_node_or_null("Icon") as TextureRect
 		var text := _status_chip_text(child)
 		if icon != null and icon.texture == HUD_POISON_ICON and text == "x%d" % peak_stacks:
 			has_poison_icon = true
+			poison_tooltip = child.tooltip_text
 		if icon != null and icon.texture == HUD_SHRED_ICON and text == "x%d" % expected_shred_stacks:
 			has_shred_icon = true
+			shred_tooltip = child.tooltip_text
 		if icon != null and icon.texture == HUD_DECAY_ICON and text == "x%d" % expected_decay_stacks:
 			has_decay_icon = true
+			decay_tooltip = child.tooltip_text
 	_require(has_poison_icon, "Expected the post-fight poison stack chip to use the selected skull icon.")
+	_require(poison_tooltip == "Poison: Deals 8.0 damage every 1.0s", "Expected Poison chip tooltip to show the character sheet base tick damage, got: %s" % poison_tooltip)
 	_require(has_shred_icon, "Expected the post-fight Shred chip to use the selected rogue icon and count applications.")
+	_require(shred_tooltip == "Shred: Each stack reduces armor by 10", "Expected Shred chip tooltip to explain armor reduction value, got: %s" % shred_tooltip)
 	_require(has_decay_icon, "Expected the post-fight Decay chip to use the selected mage icon and count applications.")
+	_require(decay_tooltip == "Decay: Each stack reduces resistance by 20%", "Expected Decay chip tooltip to show the base Decay reduction, got: %s" % decay_tooltip)
 	_require(combat_screen._hud_info_label.text == "%d" % final_armor, "Expected post-fight armor value to show current armor after Shred.")
 	_require(combat_screen._hud_resist_label.text == "%.0f%%" % (final_resist * 100.0), "Expected post-fight resistance value to show current resistance after Decay.")
 
@@ -234,6 +248,19 @@ func _check_enemy_effect_indicator_helpers() -> void:
 	for indicator in indicators:
 		var id := String(indicator["id"])
 		_require(indicator["icon"] == expected_icons[id], "Expected %s to use its assigned mechanic icon." % id)
+	var expected_tooltips := {
+		"dodge_chance": "Dodge: 12% chance for cast to miss",
+		"crit_negation": "Crit Negation: Reduces crits by 50%",
+		"block": "Block: Prevents 3 physical damage",
+		"absorb": "Absorb: Prevents 5 elemental damage",
+		"cleanse_threshold": "Cleanse: Removes all debuffs after 4 casts",
+		"suppress": "Suppress: Damage over time ticks 35% slower",
+		"slow": "Slow: Reduces attack speed by 20%",
+		"stun_duration_ms": "Stun: Hitting for 12% of total health in a single hit stuns for 0.3s",
+	}
+	for indicator in indicators:
+		var id := String(indicator["id"])
+		_require(indicator["tooltip"] == expected_tooltips[id], "Expected %s tooltip to use the new plain-language wording." % id)
 
 	combat_screen._set_enemy_hud_display(monster.display_name, float(monster.hp), monster.hp, monster.armor, monster.poison_resistance)
 	combat_screen._refresh_enemy_effect_chips(monster)
@@ -323,15 +350,23 @@ func _check_live_pre_fight_and_win() -> void:
 		combat_screen._hud_info_label.text == "%d" % monster.armor,
 		"Expected the shield-labeled pre-fight armor value to show base armor."
 	)
-	_require(combat_screen._hud_info_label.get_parent().get_node_or_null("ArmorIcon") != null, "Expected the armor readout to include the selected shield icon.")
+	var armor_icon := combat_screen._hud_info_label.get_parent().get_node_or_null("ArmorIcon") as TextureRect
+	_require(armor_icon != null, "Expected the armor readout to include the selected shield icon.")
+	_require(armor_icon != null and armor_icon.tooltip_text == "Armor: Reduces Physical Damage", "Expected Armor tooltip to describe the physical defense role.")
+	_require(combat_screen._hud_info_label.tooltip_text == "Armor: Reduces Physical Damage", "Expected Armor value label to share the armor tooltip.")
 	_require(combat_screen._hud_resist_label.text == "%.0f%%" % (monster.poison_resistance * 100.0), "Expected the resistance value.")
 	var resist_icon := combat_screen._hud_resist_label.get_parent().get_node_or_null("PoisonResistIcon") as TextureRect
 	_require(resist_icon != null and resist_icon.texture == HUD_RESISTANCE_ICON, "Expected the resistance readout to include the selected resistance icon.")
+	_require(resist_icon != null and resist_icon.tooltip_text == "Resistance: Reduces elemental damage", "Expected Resistance tooltip to describe elemental defense.")
+	_require(combat_screen._hud_resist_label.tooltip_text == "Resistance: Reduces elemental damage", "Expected Resistance value label to share the resistance tooltip.")
 	_require(_has_status_chip(combat_screen._hud_status_row, HUD_POISON_ICON, "x0"), "Expected Poison stack chip to stay visible at x0 pre-fight.")
+	_require(_status_chip_tooltip(combat_screen._hud_status_row, HUD_POISON_ICON, "x0") == "Poison: Deals 8.0 damage every 1.0s", "Expected pre-fight Poison tooltip to show base poison damage.")
 	_require(_has_status_chip(combat_screen._hud_status_row, HUD_SHRED_ICON, "x0"), "Expected Shred stack chip to stay visible at x0 pre-fight.")
 	_require(_has_status_chip(combat_screen._hud_status_row, HUD_DECAY_ICON, "x0"), "Expected Decay stack chip to stay visible at x0 pre-fight.")
+	_require(_status_chip_tooltip(combat_screen._hud_status_row, HUD_DECAY_ICON, "x0") == "Decay: Each stack reduces resistance by 20%", "Expected pre-fight Decay tooltip to show the base Decay reduction.")
 	if monster.interrupt_skip_count > 0:
 		_require(_has_status_chip(combat_screen._hud_status_row, MECHANIC_INTERRUPT_ICON, "0/3"), "Expected Interrupt counter chip to stay visible at 0/3 pre-fight.")
+		_require(_status_chip_tooltip(combat_screen._hud_status_row, MECHANIC_INTERRUPT_ICON, "0/3") == "Interrupt: Casting 3 times prevents next %d casts" % monster.interrupt_skip_count, "Expected Interrupt tooltip to explain the repeat threshold and prevented casts.")
 	else:
 		_require(not _has_status_chip_with_icon(combat_screen._hud_status_row, MECHANIC_INTERRUPT_ICON), "Expected monsters without Interrupt to omit the interrupt counter chip.")
 	_require(combat_screen._hud_status_row is FlowContainer, "Expected debuff stack chips to wrap instead of overflowing the combat HUD.")
@@ -865,7 +900,8 @@ func _check_live_pre_fight_and_win() -> void:
 	combat_screen._combat_stage.configure("Rogue", "Green Slime")
 	_require(combat_screen._combat_stage.enemy_sprite_available(), "Expected a configured Swamp enemy to show its static sprite.")
 	_require(combat_screen._combat_stage._enemy_sprite.size == Vector2(1254, 1254), "Expected static Swamp sprites to use the full PNG dimensions.")
-	_require(combat_screen._combat_stage._enemy_sprite.scale == Vector2(0.145, 0.145), "Expected static Swamp sprites to use the static sprite scale.")
+	var expected_normal_static_scale: float = combat_screen._combat_stage.STATIC_ENEMY_SPRITE_SCALE * combat_screen._combat_stage.enemy_combat_role_scale("normal")
+	_require(combat_screen._combat_stage._enemy_sprite.scale == Vector2(expected_normal_static_scale, expected_normal_static_scale), "Expected static Swamp sprites to use the normal-role static sprite scale.")
 	_require(combat_screen._combat_stage._enemy_sprite.flip_h, "Expected right-facing static Swamp sprites like Green Slime to flip toward the player.")
 	combat_screen._combat_stage.configure("Rogue", "Bog Rat")
 	_require(not combat_screen._combat_stage._enemy_sprite.flip_h, "Expected already-left-facing static Swamp sprites like Bog Rat to keep their authored facing.")
@@ -1074,6 +1110,14 @@ func _has_status_chip(row: Container, icon_texture: Texture2D, text: String) -> 
 		if icon != null and icon.texture == icon_texture and _status_chip_text(child) == text:
 			return true
 	return false
+
+
+func _status_chip_tooltip(row: Container, icon_texture: Texture2D, text: String) -> String:
+	for child in row.get_children():
+		var icon := child.get_node_or_null("Icon") as TextureRect
+		if icon != null and icon.texture == icon_texture and _status_chip_text(child) == text:
+			return child.tooltip_text
+	return ""
 
 
 func _has_status_chip_with_icon(row: Container, icon_texture: Texture2D) -> bool:

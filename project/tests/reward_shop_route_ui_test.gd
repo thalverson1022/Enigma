@@ -67,7 +67,8 @@ func _initialize() -> void:
 	var unaffordable_icon: TextureRect = unaffordable_button.get_node("Icon")
 	_require(unaffordable_icon.texture == GearIcons.MASTER_WEAPON_ICON, "Expected the unaffordable offer box to show the generic Master Weapon icon.")
 	var unaffordable_tooltip: String = unaffordable_button.tooltip_text
-	_require(unaffordable_tooltip.contains("Weapon - "), "Expected the slot tag in the tooltip, got: %s" % unaffordable_tooltip)
+	_require(unaffordable_tooltip.contains("Master Weapon / Dagger"), "Expected the tier/slot/family line in the tooltip, got: %s" % unaffordable_tooltip)
+	_require(unaffordable_tooltip.contains("Weapon Damage:"), "Expected the weapon damage line in the tooltip, got: %s" % unaffordable_tooltip)
 	_require(unaffordable_tooltip.contains("Master"), "Expected the tier name in the tooltip, got: %s" % unaffordable_tooltip)
 	_require(unaffordable_tooltip.contains("Price: 32g"), "Expected the price in the tooltip, got: %s" % unaffordable_tooltip)
 	_require(unaffordable_tooltip.contains("Not enough gold."), "Expected an explicit afford-state hint, got: %s" % unaffordable_tooltip)
@@ -92,12 +93,11 @@ func _initialize() -> void:
 	var item_box: Control = tooltip_control.get_child(0)
 	var equipped_box: Control = tooltip_control.get_child(1)
 	_require(item_box is PanelContainer and equipped_box is PanelContainer, "Expected both tooltip boxes to be tooltip-styled panels.")
-	var item_box_text: String = item_box.get_child(0).get_child(0).text
-	_require(item_box_text == affordable_tooltip, "Expected the first box to carry the item's regular tooltip text verbatim, got: %s" % item_box_text)
-	var equipped_header: String = equipped_box.get_child(0).get_child(0).text
-	_require(equipped_header == "Equipped", "Expected the second box to be headed 'Equipped', got: %s" % equipped_header)
-	var equipped_body: String = equipped_box.get_child(0).get_child(1).text
-	_require(equipped_body == "Nothing equipped.", "Expected 'Nothing equipped.' for the empty trinket slot, got: %s" % equipped_body)
+	var item_box_text: String = _labels_text(item_box)
+	_require(item_box_text.contains(affordable_tooltip), "Expected the first box to carry the item's regular tooltip text, got: %s" % item_box_text)
+	var equipped_body: String = _labels_text(equipped_box)
+	_require(equipped_body.begins_with("Equipped"), "Expected the second box to be headed 'Equipped', got: %s" % equipped_body)
+	_require(equipped_body.contains("Nothing equipped."), "Expected 'Nothing equipped.' for the empty trinket slot, got: %s" % equipped_body)
 	tooltip_control.free()
 
 	var equipped_weapon := GearItem.new()
@@ -130,11 +130,12 @@ func _initialize() -> void:
 	var candidate_tooltip: Control = candidate_row._make_custom_tooltip("")
 	_require(candidate_tooltip.get_child_count() == 2, "Expected two tooltip boxes for the candidate weapon offer.")
 	var candidate_equipped_box: Control = candidate_tooltip.get_child(1)
-	_require(candidate_equipped_box.get_child(0).get_child(0).text == "Equipped", "Expected the 'Equipped' header on the second box.")
-	var candidate_equipped_body: String = candidate_equipped_box.get_child(0).get_child(1).text
+	var candidate_equipped_body: String = _labels_text(candidate_equipped_box)
 	print(candidate_equipped_body)
-	_require(candidate_equipped_body.contains("Weapon - Test Equipped Dagger"), "Expected the equipped weapon's slot/name in the Equipped box, got: %s" % candidate_equipped_body)
-	_require(candidate_equipped_body.contains("Basic"), "Expected the equipped weapon's tier in the Equipped box, got: %s" % candidate_equipped_body)
+	_require(candidate_equipped_body.begins_with("Equipped"), "Expected the 'Equipped' header on the second box.")
+	_require(candidate_equipped_body.contains("Test Equipped Dagger"), "Expected the equipped weapon's name in the Equipped box, got: %s" % candidate_equipped_body)
+	_require(candidate_equipped_body.contains("Basic Weapon / Dagger"), "Expected the equipped weapon's tier/slot/family in the Equipped box, got: %s" % candidate_equipped_body)
+	_require(candidate_equipped_body.contains("Weapon Damage:"), "Expected the equipped weapon's damage range in the Equipped box, got: %s" % candidate_equipped_body)
 	_require(candidate_equipped_body.contains("Attack Speed"), "Expected the equipped weapon's affix line in the Equipped box, got: %s" % candidate_equipped_body)
 	_require(not candidate_equipped_body.contains("vs. equipped"), "Expected no stat-diff text in the Equipped box, got: %s" % candidate_equipped_body)
 	candidate_tooltip.free()
@@ -153,6 +154,10 @@ func _initialize() -> void:
 	build_state.gold = 20
 	combat_screen._shop_overlay.refresh()
 	await process_frame
+
+	await _check_phase5_shop_offer_rarity_rendering(combat_screen, build_state)
+	_check_phase5_reward_visual_helpers(combat_screen)
+	await _check_mixed_rarity_reward_choice_rendering(combat_screen, build_state)
 
 	# -- Route tradeoff text: differs between two real Gilded Serpent branch
 	# pairs, derived from real Monster/EncounterReward data. --
@@ -216,7 +221,9 @@ func _initialize() -> void:
 	var wyvern: GearItem = load("res://data/gear/wyvern_kriss.tres")
 	var reward_text: String = combat_screen._reward_choice_text(wyvern)
 	print(reward_text)
-	_require(reward_text.begins_with("Weapon - Wyvern Kriss"), "Expected the slot tag and item name, got: %s" % reward_text)
+	_require(reward_text.begins_with("Wyvern Kriss"), "Expected the item name to start the reward text, got: %s" % reward_text)
+	_require(reward_text.contains("Legendary Weapon / Dagger"), "Expected the tier/slot/family line, got: %s" % reward_text)
+	_require(reward_text.contains("Weapon Damage: 21-27"), "Expected the Legendary weapon damage range, got: %s" % reward_text)
 	_require(reward_text.contains("Poison"), "Expected an affix line, got: %s" % reward_text)
 	_require(reward_text.contains("Poison ticks twice as fast"), "Expected Wyvern Kriss Legendary flavor text, got: %s" % reward_text)
 	_require(not reward_text.contains("Poison Tick Interval"), "Expected Wyvern's tick-rate mechanic to be flavor text, not a raw interval affix, got: %s" % reward_text)
@@ -257,8 +264,135 @@ func _reward_row_icon_count(combat_screen) -> int:
 	return count
 
 
+func _check_phase5_reward_visual_helpers(combat_screen) -> void:
+	for tier in GearItem.rarity_order():
+		var map_icon: Texture2D = combat_screen._map_overlay._gear_drop_icon_for_tier(tier)
+		var contract_icon: Texture2D = combat_screen._contract_overlay._gear_drop_icon_for_tier(tier)
+		_require(map_icon != null, "Expected map overlay gear-drop icon for %s." % GearGenerator.tier_name(tier))
+		_require(contract_icon != null, "Expected contract overlay gear-drop icon for %s." % GearGenerator.tier_name(tier))
+		_require(map_icon.resource_name != "", "Expected map overlay icon resource name for %s." % GearGenerator.tier_name(tier))
+		_require(contract_icon.resource_name != "", "Expected contract overlay icon resource name for %s." % GearGenerator.tier_name(tier))
+		_require(combat_screen._map_overlay._tier_color_for_map_reward(tier) == GearGenerator.tier_color(tier), "Expected map overlay tier color for %s." % GearGenerator.tier_name(tier))
+		_require(combat_screen._contract_overlay._tier_color_for_contract_reward(tier) == GearGenerator.tier_color(tier), "Expected contract overlay tier color for %s." % GearGenerator.tier_name(tier))
+
+
+func _check_phase5_shop_offer_rarity_rendering(combat_screen, build_state) -> void:
+	print("Phase 5 shop offer rarity compatibility checks")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 557
+	var offers: Array[GearItem] = []
+	for tier in [
+		GearItem.Tier.BASIC,
+		GearItem.Tier.MASTER,
+		GearItem.Tier.EPIC,
+		GearItem.Tier.CURSED,
+		GearItem.Tier.CHAOS,
+		GearItem.Tier.UNIQUE,
+	]:
+		var offer := GearGenerator.generate(tier, GearItem.SlotType.WEAPON, rng, "test.shop.phase5.%d" % tier)
+		_require(offer != null, "Expected generated shop offer for %s." % GearGenerator.tier_name(tier))
+		offers.append(offer)
+
+	build_state.gold = 999
+	build_state.shop_round_pending = true
+	build_state.shop_offers = offers
+	combat_screen._shop_overlay.refresh()
+	await combat_screen.get_tree().process_frame
+	_require(combat_screen._shop_overlay._shop_offers_box.get_child_count() == offers.size(), "Expected one shop box for each Phase 5 shop rarity.")
+	for i in offers.size():
+		var offer: GearItem = offers[i]
+		var button: Button = combat_screen._shop_overlay._shop_offers_box.get_child(i)
+		_require(not button.disabled, "Expected high-gold Phase 5 shop offer to be affordable: %s." % GearGenerator.tier_name(offer.tier))
+		_require(button.tooltip_text.contains(GearGenerator.tier_name(offer.tier)), "Expected shop tooltip tier for %s, got: %s" % [GearGenerator.tier_name(offer.tier), button.tooltip_text])
+		_require(button.tooltip_text.contains("Price: %dg" % GearGenerator.price_for_tier(offer.tier)), "Expected shop tooltip price for %s." % GearGenerator.tier_name(offer.tier))
+		_require(button.find_child("PriceBadge", true, false) != null, "Expected price badge for %s shop offer." % GearGenerator.tier_name(offer.tier))
+		_require(button.find_child("PriceLabel", true, false).text == "%dg" % GearGenerator.price_for_tier(offer.tier), "Expected visible price for %s shop offer." % GearGenerator.tier_name(offer.tier))
+		var icon: TextureRect = button.get_node("Icon")
+		_require(icon.texture != null, "Expected gear icon for %s shop offer." % GearGenerator.tier_name(offer.tier))
+		var style := button.get_theme_stylebox("normal") as StyleBoxFlat
+		_require(style != null and style.bg_color == GearGenerator.tier_color(offer.tier).darkened(0.08), "Expected shop box color for %s." % GearGenerator.tier_name(offer.tier))
+		if offer.tier == GearItem.Tier.EPIC:
+			_require(style.border_color == UIColors.PANEL_EDGE_LIGHT, "Expected Epic shop offer to use a distinct bright border.")
+			_require(style.border_width_top > 1, "Expected Epic shop offer to keep a stronger border treatment.")
+
+
+func _check_mixed_rarity_reward_choice_rendering(combat_screen, build_state) -> void:
+	print("mixed-rarity reward choice compatibility checks")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 991
+	var basic_choice := GearGenerator.generate(GearItem.Tier.BASIC, GearItem.SlotType.WEAPON, rng, "test.reward.basic")
+	var unique_choice := GearGenerator.generate(GearItem.Tier.UNIQUE, GearItem.SlotType.WEAPON, rng, "test.reward.unique")
+	_require(basic_choice != null and unique_choice != null, "Expected mixed generated reward choices.")
+	unique_choice.reward_base_tier = GearItem.Tier.BASIC
+	unique_choice.reward_tier_steps = _tier_steps([GearItem.Tier.BASIC, GearItem.Tier.MASTER, GearItem.Tier.EPIC, GearItem.Tier.UNIQUE])
+	unique_choice.reward_magic_find_upgraded = true
+	var mixed_choices: Array[GearItem] = [basic_choice, unique_choice]
+	build_state.pending_reward_choices = mixed_choices
+	build_state.inventory.clear()
+	build_state.equipped_weapon = GearGenerator.generate(GearItem.Tier.MASTER, GearItem.SlotType.WEAPON, rng, "test.reward.equipped")
+	combat_screen._show_reward_choice_overlay()
+	await combat_screen.get_tree().process_frame
+
+	var options: HBoxContainer = combat_screen._reward_choice_overlay.options_container()
+	_require(options.get_child_count() == 2, "Expected mixed-rarity reward pair to render two buttons.")
+	for i in options.get_child_count():
+		var choice: GearItem = build_state.pending_reward_choices[i]
+		var button: Button = options.get_child(i)
+		_require(button is GearCompareButton, "Expected reward choice to use comparison tooltip button.")
+		_require(button.custom_minimum_size == Vector2(112, 112), "Expected stable reward choice box size.")
+		_require(button.tooltip_text.contains(GearGenerator.tier_name(choice.tier)), "Expected reward tooltip tier for %s." % GearGenerator.tier_name(choice.tier))
+		_require(button.tooltip_text.contains("Click to choose."), "Expected reward choice hint.")
+		var icon: TextureRect = button.get_node("Icon")
+		_require(icon.texture != null, "Expected reward choice icon for %s." % GearGenerator.tier_name(choice.tier))
+		var style := button.get_theme_stylebox("normal") as StyleBoxFlat
+		_require(style != null and style.bg_color == GearGenerator.tier_color(choice.tier).darkened(0.08), "Expected reward choice box color for %s." % GearGenerator.tier_name(choice.tier))
+		_require(not combat_screen._reward_choice_reveal_active, "Expected headless reward choice rendering to finish the reveal immediately.")
+		var tooltip: Control = button._make_custom_tooltip("")
+		_require(tooltip is HBoxContainer and tooltip.get_child_count() == 2, "Expected reward choice compare tooltip for %s." % GearGenerator.tier_name(choice.tier))
+		var equipped_box: Control = tooltip.get_child(1)
+		var equipped_body: String = _labels_text(equipped_box)
+		_require(equipped_body.contains("Master"), "Expected reward comparison tooltip to include currently equipped item.")
+		tooltip.free()
+
+	combat_screen._reward_choice_overlay.visible = false
+	build_state.pending_reward_choices.clear()
+	build_state.equipped_weapon = null
+
+	var placeholder: Button = combat_screen._make_reward_choice_placeholder()
+	combat_screen.add_child(placeholder)
+	combat_screen._reveal_reward_choice_button(placeholder, unique_choice)
+	var base_style := placeholder.get_theme_stylebox("normal") as StyleBoxFlat
+	_require(base_style != null and base_style.bg_color == GearGenerator.tier_color(GearItem.Tier.BASIC).darkened(0.08), "Expected animated reward reveal to start at the stored base tier.")
+	combat_screen._apply_reward_choice_visual_tier(placeholder, unique_choice, GearItem.Tier.MASTER)
+	var master_style := placeholder.get_theme_stylebox("normal") as StyleBoxFlat
+	_require(master_style != null and master_style.bg_color == GearGenerator.tier_color(GearItem.Tier.MASTER).darkened(0.08), "Expected animated reward reveal to step through intermediate tiers.")
+	placeholder.queue_free()
+
+
 func _require(condition: bool, message: String) -> void:
 	if condition:
 		return
 	push_error(message)
 	quit(1)
+
+
+func _labels_text(root_node: Node) -> String:
+	var parts: PackedStringArray = []
+	_collect_label_text(root_node, parts)
+	return "\n".join(parts)
+
+
+func _tier_steps(values: Array) -> Array[int]:
+	var result: Array[int] = []
+	for value in values:
+		result.append(int(value))
+	return result
+
+
+func _collect_label_text(root_node: Node, parts: PackedStringArray) -> void:
+	if root_node is RichTextLabel:
+		parts.append((root_node as RichTextLabel).get_parsed_text())
+	elif root_node is Label:
+		parts.append((root_node as Label).text)
+	for child in root_node.get_children():
+		_collect_label_text(child, parts)

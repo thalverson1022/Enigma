@@ -31,6 +31,8 @@ static func format(result: CombatResolver.CombatResult, monster: Monster) -> Str
 	])
 	if result.gold_stolen > 0:
 		lines.append("  Gold stolen: %dg." % result.gold_stolen)
+	if result.is_win and result.overkill_damage > 0.0:
+		lines.append("  Overkill: %.1f damage." % result.overkill_damage)
 	if result.is_win:
 		lines.append("  Result: VICTORY! %s is defeated (needed %d damage)." % [monster.display_name, monster.hp])
 	else:
@@ -94,10 +96,9 @@ static func _timeline(result: CombatResolver.CombatResult) -> PackedStringArray:
 	return lines
 
 
-## `>>> ` prefixes any line where a Legendary effect actually fired
-## (Bejeweled Push Dagger's minimum-cast-time proc, or a triggered skill
-## like Mithril Karambit's) -- user-requested, so these are easy to spot
-## while scanning the log instead of reading identically to an ordinary hit.
+## `>>> ` prefixes any line where a proc-like effect actually fired, so
+## retriggers, Opportunity Strikes, and Legendary minimum-cast procs are easy
+## to spot while scanning the log instead of reading like ordinary hits.
 static func _cast_line(event: CombatResolver.CastEvent) -> String:
 	if event.was_interrupted:
 		var interrupt_note := "skipped" if event.interrupt_skipped else "interrupted"
@@ -109,9 +110,19 @@ static func _cast_line(event: CombatResolver.CastEvent) -> String:
 				"" if event.interrupt_skip_count_applied == 1 else "s",
 			]
 		return "[%.1fs] INTERRUPT %s %s%s" % [event.time_ms / 1000.0, skill_name, interrupt_note, skip_note]
+	var event_type := _event_type_label(event)
+	var marker := ">>> " if _is_proc_like_event(event) else ""
+	if event.was_dodged:
+		return "%s[%.1fs] %s %s was DODGED" % [
+			marker,
+			event.time_ms / 1000.0,
+			event_type,
+			event.skill.display_name,
+		]
 	var clauses: PackedStringArray = []
-	var source_damage := _contribution_damage(event, "cast")
-	var source_crit := _contribution_crit(event, "cast")
+	var source_kind := "proc" if event.cast_kind == "proc" else "cast"
+	var source_damage := _contribution_damage(event, source_kind)
+	var source_crit := _contribution_crit(event, source_kind)
 	if source_damage <= 0.0 and event.damage_contributions.is_empty():
 		source_damage = event.physical_damage
 		source_crit = event.is_crit
@@ -123,17 +134,19 @@ static func _cast_line(event: CombatResolver.CastEvent) -> String:
 		clauses.append("applies %d poison stack%s" % [
 			event.poison_stacks_applied, "" if event.poison_stacks_applied == 1 else "s"
 		])
-	if event.armor_reduction_applied > 0:
-		clauses.append("shreds %d armor" % event.armor_reduction_applied)
-	if event.poison_resistance_reduction_applied > 0.0:
-		clauses.append("reduces resistance by %d%%" % roundi(event.poison_resistance_reduction_applied * 100.0))
+	if event.shred_stacks_applied > 0:
+		clauses.append("applies %d Shred" % event.shred_stacks_applied)
+	if event.decay_stacks_applied > 0:
+		clauses.append("applies %d Decay" % event.decay_stacks_applied)
 	if event.gold_stolen > 0:
 		clauses.append("steals %dg" % event.gold_stolen)
 	if event.min_cast_time_proc_applied:
 		clauses.append("procs at minimum cast speed")
 	if event.stun_duration_ms > 0:
 		clauses.append("triggers stun for %s" % _format_stun_duration(event.stun_duration_ms))
-	var trigger_clauses := _triggered_contribution_clauses(event)
+	var trigger_clauses: PackedStringArray = []
+	if event.cast_kind != "proc":
+		trigger_clauses = _triggered_contribution_clauses(event)
 	if not trigger_clauses.is_empty():
 		clauses.append_array(trigger_clauses)
 	elif not event.triggered_skill_names.is_empty():
@@ -141,10 +154,25 @@ static func _cast_line(event: CombatResolver.CastEvent) -> String:
 	if clauses.is_empty():
 		clauses.append("connects, to no effect")
 	var ending := "!" if event.is_crit else ""
-	var is_legendary_proc := event.min_cast_time_proc_applied or not event.triggered_skill_names.is_empty()
-	var event_type := "LEGENDARY" if is_legendary_proc else "CAST"
-	var marker := ">>> " if is_legendary_proc else ""
-	return "%s[%.1fs] %-9s %s %s%s" % [marker, event.time_ms / 1000.0, event_type, event.skill.display_name, _join_clauses(clauses), ending]
+	return "%s[%.1fs] %s %s %s%s" % [marker, event.time_ms / 1000.0, event_type, event.skill.display_name, _join_clauses(clauses), ending]
+
+
+static func _event_type_label(event: CombatResolver.CastEvent) -> String:
+	if event.cast_kind == "proc":
+		return event.trigger_label if event.trigger_label.strip_edges() != "" else "PROC"
+	if not event.trigger_labels.is_empty():
+		return event.trigger_labels[0]
+	if event.min_cast_time_proc_applied:
+		return "LEGENDARY"
+	return "CAST"
+
+
+static func _is_proc_like_event(event: CombatResolver.CastEvent) -> bool:
+	return (
+		event.min_cast_time_proc_applied
+		or event.cast_kind == "proc"
+		or not event.triggered_skill_names.is_empty()
+	)
 
 
 static func _contribution_damage(event: CombatResolver.CastEvent, kind: String) -> float:

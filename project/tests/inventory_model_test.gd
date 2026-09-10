@@ -81,6 +81,26 @@ func _initialize() -> void:
 	assert(build_state.remove_inventory_item(dagger))
 	assert(not build_state.has_inventory_item(dagger))
 
+	print("shop dagger replacement keeps Crude Dagger and sells it for 5g")
+	build_state.reset()
+	build_state.set_class(rogue)
+	var crude_dagger: GearItem = build_state.equipped_weapon
+	assert(crude_dagger != null and crude_dagger.id == "gear.crude_dagger")
+	var bought_dagger := GearGenerator.generate(GearItem.Tier.BASIC, GearItem.SlotType.WEAPON, rng, "gear.test.bought_dagger")
+	build_state.gold = GearGenerator.price_for_tier(bought_dagger.tier)
+	build_state.shop_round_pending = true
+	build_state.shop_offers.clear()
+	build_state.shop_offers.append(bought_dagger)
+	assert(build_state.buy_shop_offer(bought_dagger))
+	assert(build_state.has_inventory_item(bought_dagger))
+	assert(build_state.equip_from_inventory(bought_dagger))
+	assert(build_state.equipped_weapon == bought_dagger)
+	assert(build_state.has_inventory_item(crude_dagger))
+	assert(build_state.sell_value_for(crude_dagger) == 5)
+	var gold_before_crude_sale: int = build_state.gold
+	assert(build_state.sell_inventory_item(crude_dagger))
+	assert(build_state.gold == gold_before_crude_sale + 5)
+
 	print("inventory capacity blocks extra shop storage")
 	var capacity_items: Array[GearItem] = []
 	while build_state.inventory.size() < build_state.INVENTORY_CAPACITY:
@@ -125,16 +145,16 @@ func _initialize() -> void:
 	assert(build_state.claim_current_reward())
 	assert(build_state.gold == 18)
 
-	print("multiple Gold Rewards modifiers compound and clamp")
+	print("multiple Gold Rewards modifiers stack additively and clamp")
 	build_state.reset()
 	var gold_weapon := _make_gold_reward_item("gear.test_gold_knife", "Gilded Knife", GearItem.SlotType.WEAPON, 0.25)
 	var gold_charm := _make_gold_reward_item("gear.test_gold_charm_equipped", "Receipt Charm", GearItem.SlotType.CHARM, 0.5)
 	assert(build_state.grant_gear(gold_weapon, true))
 	assert(build_state.grant_gear(gold_charm, true))
-	assert(build_state.modified_gold_reward(100) == 187)
+	assert(build_state.modified_gold_reward(100) == 175)
 	var cursed_ledger := _make_gold_reward_item("gear.test_cursed_ledger", "Cursed Ledger", GearItem.SlotType.TRINKET, -2.0)
 	assert(build_state.grant_gear(cursed_ledger, true))
-	assert(build_state.modified_gold_reward(100) == 0)
+	assert(build_state.modified_gold_reward(100) == 100)
 
 	print("full inventory blocks fixed gear reward claim without mutating reward state")
 	build_state.reset()

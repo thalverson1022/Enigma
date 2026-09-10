@@ -98,9 +98,10 @@ func _damage_contribution(event: CombatResolver.CastEvent, name: String) -> Dict
 
 
 func _initialize() -> void:
-	# -- Armor reduction persists across casts (skill effect, not stat modifier) --
-	# armor=100 -> mitigation 0.625; after -20 reduction, armor=80 -> mitigation 0.6667.
-	var skill := _make_armor_reduction_skill(100.0, 20)
+	# -- Shred persists across casts (skill effect, not stat modifier) --
+	# armor=100 -> mitigation 0.625 -> 63 final; after 2 Shred stacks (-20 armor),
+	# armor=80 -> mitigation 0.6667 -> 67 final.
+	var skill := _make_armor_reduction_skill(100.0, 2)
 	var stats := _make_stats()
 	var monster := _make_monster(1000000, 100)
 	var rotation: Array[Skill] = [skill]
@@ -113,13 +114,13 @@ func _initialize() -> void:
 	})
 	var first: float = result.cast_events[0].physical_damage
 	var second: float = result.cast_events[1].physical_damage
-	print("cast1 damage=%.4f (expect ~62.5)" % first)
-	print("cast2 damage=%.4f (expect ~66.6667, > cast1)" % second)
-	_require_approx("armor_reduction_persists first cast damage", first, 62.5, 0.01, {
+	print("cast1 damage=%.4f (expect 63)" % first)
+	print("cast2 damage=%.4f (expect 67, > cast1)" % second)
+	_require_approx("armor_reduction_persists first cast damage", first, 63.0, 0.01, {
 		"armor_before": 100,
 		"reduction": 20,
 	})
-	_require_approx("armor_reduction_persists second cast damage", second, 66.6667, 0.01, {
+	_require_approx("armor_reduction_persists second cast damage", second, 67.0, 0.01, {
 		"armor_before": 100,
 		"reduction": 20,
 	})
@@ -187,54 +188,75 @@ func _initialize() -> void:
 
 	# -- triggered skills resolve immediately without consuming cast time --
 	var trigger_base := _make_physical_skill(1.0)
+	trigger_base.id = "skill.trigger_base"
 	trigger_base.display_name = "Trigger Base"
 	var trigger_skill := _make_physical_skill(10.0)
+	trigger_skill.id = "skill.triggered_stab"
 	trigger_skill.display_name = "Triggered Stab"
+	var trigger := _make_trigger(trigger_skill, 1.0)
+	trigger.source_skill_ids = PackedStringArray([trigger_base.id])
 	var trigger_stats := _make_stats()
-	trigger_stats.triggered_skill_effects = [_make_trigger(trigger_skill, 1.0)]
+	trigger_stats.triggered_skill_effects = [trigger]
 	var trigger_rotation: Array[Skill] = [trigger_base]
 	var trigger_result: CombatResolver.CombatResult = CombatResolver.resolve(trigger_rotation, trigger_stats, flat_monster, 1000)
 	print("triggered skills=%s" % str(trigger_result.cast_events[0].triggered_skill_names))
-	_require_equal("triggered_skill_immediate cast count", trigger_result.cast_events.size(), 1, {
+	_require_equal("triggered_skill_immediate cast count", trigger_result.cast_events.size(), 2, {
 		"rotation": _skill_names(trigger_rotation),
 		"duration_ms": 1000,
 	})
 	_require("triggered_skill_immediate proc name", trigger_result.cast_events[0].triggered_skill_names.has("Triggered Stab"), {
 		"triggered_skill_names": trigger_result.cast_events[0].triggered_skill_names,
 	})
-	_require_approx("triggered_skill_immediate total damage", trigger_result.cast_events[0].physical_damage, 11.0, 0.001, {
-		"event": _cast_summary(trigger_result.cast_events[0]),
+	_require_equal("triggered_skill_immediate proc event kind", trigger_result.cast_events[1].cast_kind, "proc", {
+		"event": _cast_summary(trigger_result.cast_events[1]),
 	})
-	_require_equal("triggered_skill_immediate contribution count", trigger_result.cast_events[0].damage_contributions.size(), 2, {
+	_require_approx("triggered_skill_immediate total damage", trigger_result.total_damage, 11.0, 0.001, {
+		"events": _cast_summaries(trigger_result.cast_events),
+	})
+	_require_equal("triggered_skill_immediate base contribution count", trigger_result.cast_events[0].damage_contributions.size(), 1, {
 		"contributions": trigger_result.cast_events[0].damage_contributions,
+	})
+	_require_equal("triggered_skill_immediate proc contribution count", trigger_result.cast_events[1].damage_contributions.size(), 1, {
+		"contributions": trigger_result.cast_events[1].damage_contributions,
 	})
 	_require_equal("triggered_skill_immediate base contribution kind", _damage_contribution(trigger_result.cast_events[0], "Trigger Base").get("kind", ""), "cast", {
 		"contributions": trigger_result.cast_events[0].damage_contributions,
 	})
-	_require_equal("triggered_skill_immediate proc contribution kind", _damage_contribution(trigger_result.cast_events[0], "Triggered Stab").get("kind", ""), "proc", {
-		"contributions": trigger_result.cast_events[0].damage_contributions,
+	_require_equal("triggered_skill_immediate proc contribution kind", _damage_contribution(trigger_result.cast_events[1], "Triggered Stab").get("kind", ""), "proc", {
+		"contributions": trigger_result.cast_events[1].damage_contributions,
 	})
 	_require_approx("triggered_skill_immediate base contribution damage", float(_damage_contribution(trigger_result.cast_events[0], "Trigger Base").get("damage", -1.0)), 1.0, 0.001, {
 		"contributions": trigger_result.cast_events[0].damage_contributions,
 	})
-	_require_approx("triggered_skill_immediate proc contribution damage", float(_damage_contribution(trigger_result.cast_events[0], "Triggered Stab").get("damage", -1.0)), 10.0, 0.001, {
-		"contributions": trigger_result.cast_events[0].damage_contributions,
+	_require_approx("triggered_skill_immediate proc contribution damage", float(_damage_contribution(trigger_result.cast_events[1], "Triggered Stab").get("damage", -1.0)), 10.0, 0.001, {
+		"contributions": trigger_result.cast_events[1].damage_contributions,
 	})
 
-	# -- poison resistance reduction persists for later poison ticks --
+	# -- Decay persists as multiplicative resistance reduction for later poison ticks --
 	var resist_stats := _make_stats()
 	resist_stats.poison_damage_per_tick = 10.0
 	var resist_monster := _make_monster(1000000, 0, 0.5)
-	var resist_rotation: Array[Skill] = [_make_poison_resistance_skill(0.5), _make_poison_skill(2)]
+	var resist_rotation: Array[Skill] = [_make_poison_resistance_skill(0.2), _make_poison_skill(2)]
 	var resist_result: CombatResolver.CombatResult = CombatResolver.resolve(resist_rotation, resist_stats, resist_monster, 3000)
-	print("poison resistance reduction tick damage=%.2f (expect 7.5)" % resist_result.tick_events[1].damage)
-	_require_approx("poison_resistance_reduction applied", resist_result.cast_events[0].poison_resistance_reduction_applied, 0.5, 0.001, {
+	print("poison resistance reduction tick damage=%.2f (expect 6)" % resist_result.tick_events[1].damage)
+	_require_equal("decay stacks applied", resist_result.cast_events[0].decay_stacks_applied, 1, {
 		"monster": _monster_summary(resist_monster),
 		"rotation": _skill_names(resist_rotation),
 	})
-	_require_approx("poison_resistance_reduction later tick damage", resist_result.tick_events[1].damage, 7.5, 0.001, {
+	_require_approx("poison_resistance_reduction applied", resist_result.cast_events[0].poison_resistance_reduction_applied, 0.2, 0.001, {
+		"monster": _monster_summary(resist_monster),
+		"rotation": _skill_names(resist_rotation),
+	})
+	_require_approx("poison_resistance_reduction later tick damage", resist_result.tick_events[1].damage, 6.0, 0.001, {
 		"monster": _monster_summary(resist_monster),
 		"ticks": _tick_summaries(resist_result.tick_events),
+	})
+
+	var chance_decay_stats := _make_stats()
+	chance_decay_stats.decay_chance = 1.0
+	var chance_decay_result := CombatResolver.resolve([_make_physical_skill(1.0)], chance_decay_stats, resist_monster, 1000, 3)
+	_require_equal("chance_to_decay applies one Decay stack", chance_decay_result.cast_events[0].decay_stacks_applied, 1, {
+		"event": _cast_summary(chance_decay_result.cast_events[0]),
 	})
 
 	# -- stack-scaling physical damage reads active poison stacks at cast time --
@@ -294,10 +316,18 @@ func _monster_summary(monster: Monster) -> Dictionary:
 	}
 
 
+func _cast_summaries(events: Array) -> Array:
+	var summaries: Array = []
+	for event in events:
+		summaries.append(_cast_summary(event))
+	return summaries
+
+
 func _cast_summary(event: CombatResolver.CastEvent) -> Dictionary:
 	return {
 		"time_ms": event.time_ms,
 		"skill": event.skill.display_name,
+		"cast_kind": event.cast_kind,
 		"physical_damage": event.physical_damage,
 		"poison_stacks_applied": event.poison_stacks_applied,
 		"armor_reduction_applied": event.armor_reduction_applied,

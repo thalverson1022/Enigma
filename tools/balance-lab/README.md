@@ -1,5 +1,10 @@
 # Balance Lab
 
+Phase 5 quarantine note (2026-09-03): this README still contains historical
+DawnBringer paths, commands, and report baselines. The active Godot Balance Lab
+report metadata now uses Project Enigma; full Phase 5 Balance Lab validation
+remains P5M11 scope.
+
 Balance Lab is a local browser tool for running and reading DawnBringer balance reports.
 
 Start the local bridge server from the repository root:

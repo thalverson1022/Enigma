@@ -47,11 +47,16 @@ const STRUCTURE_LINE_LIGHT := Color("4A3B2F")
 const MAP_NODE_CURRENT := Color("3E5B3B")
 const MAP_NODE_INACTIVE := PANEL_DISABLED
 
-## Gear tier colors (GearItem.Tier). These intentionally preserve the original
-## rarity language rather than following the current exploratory UI palette.
+## Gear tier colors (GearItem.Tier). These intentionally preserve the rarity
+## language from docs/New_Gear_Overview.md rather than following the current
+## exploratory UI palette.
+const TIER_CRUDE := Color("8A8A7A")
 const TIER_BASIC := Color("72B953")
 const TIER_MASTER := Color("4E8AC5")
+const TIER_EPIC := Color("F5F1DD")
 const TIER_CURSED := Color("9D73D8")
+const TIER_CHAOS := Color("2A292F")
+const TIER_UNIQUE := Color("D6C547")
 const TIER_LEGENDARY := Color("E3914C")
 
 ## Empty gear slot fill/border -- neutral, not tier-colored.

@@ -5,9 +5,12 @@
 
 [sub_resource type="Resource" id="Resource_lucky_coin_crit"]
 script = ExtResource("2_affix")
+stat_id = "crit_chance"
 stat = 1
+category = 0
 operation = 0
 value = 0.05
+is_drawback = false
 
 [resource]
 script = ExtResource("1_gear")
@@ -15,4 +18,7 @@ id = "gear.lucky_coin"
 display_name = "Lucky Coin"
 slot = 1
 tier = 0
+item_family = "Ring"
+class_family = 1
+source_kind = 2
 affixes = Array[StatModifier]([SubResource("Resource_lucky_coin_crit")])

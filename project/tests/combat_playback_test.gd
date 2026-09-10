@@ -323,9 +323,20 @@ func _check_m1_t4_combat_stage_animation_mapping() -> void:
 	_require(is_equal_approx(stage._player_animation_frame_sec, 0.15), "Expected Rogue idle animation to use the slower 150ms frame cadence.")
 	_require(stage.PEASANT_ANCHOR_POINT == Vector2(16, 16), "Expected enemy sprite pivot to sit at the center of its 32x32 frame.")
 	_require(stage.ENEMY_STAGE_GRID == Vector2(1, 1), "Expected enemy sprite to target grid point (1, 1).")
+	_require(is_equal_approx(CombatStageScript.enemy_combat_role_scale("normal"), 0.9), "Expected normal enemies to use the requested 0.9 visual scale.")
+	_require(is_equal_approx(CombatStageScript.enemy_combat_role_scale("captain"), 1.05), "Expected captain enemies to use the requested 1.05 visual scale.")
+	_require(is_equal_approx(CombatStageScript.enemy_combat_role_scale("elite"), 1.12), "Expected elite enemies to use the requested 1.12 visual scale.")
+	_require(is_equal_approx(CombatStageScript.enemy_combat_role_scale("boss"), 1.35), "Expected boss enemies to use the requested 1.35 visual scale.")
+	_require(is_equal_approx(stage._enemy_sprite.scale.x, stage.PEASANT_SPRITE_SCALE * 0.9), "Expected default enemies to render at the normal-role sprite scale.")
 	var enemy_target_point: Vector2 = stage._stage_point_for_grid(stage.ENEMY_STAGE_GRID) + stage.ACTOR_GROUP_STAGE_OFFSET_PX
 	var enemy_sprite_anchor: Vector2 = stage._sprite_anchor_point(stage.enemy_actor_anchor, stage._enemy_sprite, stage.PEASANT_ANCHOR_POINT)
 	_require(enemy_sprite_anchor.distance_to(enemy_target_point) < 0.01, "Expected the enemy sprite anchor to land on its right-shifted grid target.")
+	stage.configure("Rogue", "Mouthy Drunk", "", "captain")
+	_require(is_equal_approx(stage._enemy_sprite.scale.x, stage.PEASANT_SPRITE_SCALE * 1.05), "Expected captain enemies to scale up without changing sprite art.")
+	stage.configure("Rogue", "Mouthy Drunk", "", "elite")
+	_require(is_equal_approx(stage._enemy_sprite.scale.x, stage.PEASANT_SPRITE_SCALE * 1.12), "Expected elite enemies to scale above captains.")
+	stage.configure("Rogue", "Mouthy Drunk", "", "boss")
+	_require(is_equal_approx(stage._enemy_sprite.scale.x, stage.PEASANT_SPRITE_SCALE * 1.35), "Expected boss enemies to get the largest visual scale.")
 	var player_x_before_intro: float = stage.player_actor_anchor.position.x
 	var enemy_x_before_intro: float = stage.enemy_actor_anchor.position.x
 	var animated_intro_duration := stage.play_fight_intro(true)
@@ -806,8 +817,8 @@ func _check_live_playback_steal_gold() -> void:
 	var enemy_sprite_x_before_steal: float = _enemy_sprite_global_top_left(combat_screen._combat_stage).x
 
 	combat_screen._process(combat_screen._playback_presenter._intro_remaining_sec + 1.4)
-	_require(build_state.gold == 5, "Expected animated Adventure Steal gold to enter the player's stash when the Steal event plays.")
-	_require(build_state.combat_stolen_gold == 5, "Expected animated Steal gold to feed the in-fight Big Score display.")
+	_require(build_state.gold == 3, "Expected animated Adventure Steal gold to enter the player's stash when the Steal event plays.")
+	_require(build_state.combat_stolen_gold == 3, "Expected animated Steal gold to feed the in-fight Big Score display.")
 	_require(build_changed_during_steal[0] == 0, "Expected live Steal gold payout not to emit build_changed during playback.")
 	_require(stats_preview_during_steal[0] > 0, "Expected live Steal gold payout to refresh stats/gold preview without a full build refresh.")
 	_require(combat_screen._combat_stage.last_contact_feedback_was_crit, "Expected the live Steal hit to travel through the crit contact-feedback path.")
@@ -825,7 +836,7 @@ func _check_live_playback_steal_gold() -> void:
 
 	combat_screen._skip_playback()
 	var gold_after_skip: int = build_state.gold
-	_require(gold_after_skip >= 5, "Expected Skip to pay out any remaining animated Steal events.")
+	_require(gold_after_skip >= 3, "Expected Skip to pay out any remaining animated Steal events.")
 	await create_timer(combat_screen.PLAYBACK_OUTCOME_REVEAL_DELAY_SEC + 0.05).timeout
 	_require(build_state.gold == gold_after_skip, "Expected clearing the Big Score display not to remove stolen stash gold.")
 	_require(build_state.combat_stolen_gold == 0, "Expected the Big Score visual counter to reset when playback ends.")

@@ -9,7 +9,7 @@
 script = ExtResource("2_modifier")
 stat = 3
 operation = 1
-value = 1.2
+value = 2.0
 
 [sub_resource type="Resource" id="Resource_perfect_toxin_group"]
 script = ExtResource("3_group")

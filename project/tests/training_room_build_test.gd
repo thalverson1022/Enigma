@@ -66,6 +66,9 @@ func _initialize() -> void:
 	assert(skill_build_panel._lock_button.disabled)
 	training_room._talent_overlay.visible = true
 	await process_frame
+	var talent_scroll: ScrollContainer = training_room._talent_overlay.find_child("TalentTreeScroll", true, false)
+	assert(talent_scroll != null)
+	assert(talent_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED)
 	assert(training_room._talent_overlay.find_child("TreeDropdowns", true, false) == null)
 	assert(talent_panel.find_child("PrimaryTalentColumn", true, false) != null)
 	assert(talent_panel.find_child("SecondaryTalentColumn", true, false) != null)
@@ -128,7 +131,7 @@ func _initialize() -> void:
 	# expected number, since the resolved poison-stack value here also
 	# depends on whichever trees/talents are active from the steps above.
 	assert(character_stats_panel._stats_label.text != stats_text_before_equip)
-	assert(character_stats_panel._stats_label.text.contains("Bonus Poison Stacks"))
+	assert(character_stats_panel._stats_label.text.contains("Bonus Stacks"))
 
 	# -- Isolation: the real BuildState must be completely untouched by any
 	# of the above -- same class/trees/talents/rotation/weapon/gold/seed as

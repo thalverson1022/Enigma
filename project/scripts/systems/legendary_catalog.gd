@@ -6,6 +6,8 @@ extends RefCounted
 ## Legendary-equip control (`P2:R10:T3`) need "all 5 Legendaries" -- this
 ## exists so that list is authored once, not duplicated in two places.
 
+const WeaponDamageCatalog := preload("res://scripts/systems/weapon_damage_catalog.gd")
+
 static func all_paths() -> Array[String]:
 	return [
 		"res://data/gear/wyvern_kriss.tres",
@@ -28,7 +30,7 @@ static func effect_text(item: GearItem) -> String:
 		return ""
 	match item.id:
 		"gear.legendary.mithril_karambit":
-			return "Stab/Heavy Slash have a 20% chance to retrigger"
+			return "Stab/Heavy Slash have a 50% chance to retrigger"
 		"gear.legendary.bandit_blade":
 			return "+1 physical damage per 10 gold in stash"
 		"gear.legendary.wyvern_kriss":
@@ -44,12 +46,24 @@ static func tooltip_lines(item: GearItem) -> PackedStringArray:
 	var lines: PackedStringArray = []
 	if item == null:
 		return lines
-	lines.append("%s - %s" % [GearGenerator.SLOT_TAGS[item.slot], item.display_name])
+	lines.append(item.display_name)
+	lines.append("%s %s / %s" % [
+		GearGenerator.tier_name(item.tier),
+		GearGenerator.universal_slot_label(item.slot),
+		GearGenerator.item_family_for(item),
+	])
+	var damage_range := WeaponDamageCatalog.damage_range_for_weapon(item)
+	lines.append("Weapon Damage: %d-%d" % [int(damage_range["min"]), int(damage_range["max"])])
+	var stat_lines: PackedStringArray = []
 	for affix in item.affixes:
 		if affix.stat == StatModifier.StatType.POISON_TICK_INTERVAL:
 			continue
-		lines.append(StatModifierFormatter.format(affix))
+		stat_lines.append(StatModifierFormatter.format(affix))
+	if not stat_lines.is_empty():
+		lines.append("Stats:")
+		lines.append_array(stat_lines)
 	var text := effect_text(item)
 	if text != "":
+		lines.append("Legendary:")
 		lines.append(text)
 	return lines

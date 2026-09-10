@@ -11,7 +11,7 @@ amount = 14.0
 
 [sub_resource type="Resource" id="Resource_rending_slash_armor"]
 script = ExtResource("3_effect")
-amount = 20
+amount = 2
 
 [resource]
 script = ExtResource("1_skill")

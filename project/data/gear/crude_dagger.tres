@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GearItem" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/gear_item.gd" id="1_gear"]
+
+[resource]
+script = ExtResource("1_gear")
+id = "gear.crude_dagger"
+display_name = "Crude Dagger"
+slot = 0
+tier = 4
+item_family = "Dagger"
+class_family = 1
+source_kind = 2

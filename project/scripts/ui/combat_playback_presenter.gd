@@ -125,7 +125,7 @@ func set_speed(speed: float) -> void:
 ## timeline event can fire. Does not touch dashboard chrome, pre-fight HUD
 ## text, or _playback_active -- see this class's header for why those stay
 ## with the caller.
-func start(result: CombatResolver.CombatResult, monster: Monster, wyvern_effect_active: bool, bandit_blade_effect_active: bool, play_intro_animation: bool, play_contract_traversal: bool = false) -> void:
+func start(result: CombatResolver.CombatResult, monster: Monster, wyvern_effect_active: bool, bandit_blade_effect_active: bool, play_intro_animation: bool, play_contract_traversal: bool = false, effective_slow: float = -1.0) -> void:
 	_result = result
 	_monster = monster
 	_hp = float(monster.hp)
@@ -137,19 +137,20 @@ func start(result: CombatResolver.CombatResult, monster: Monster, wyvern_effect_
 	_decay_stacks = 0
 	_interrupt_repeat_count = 0
 	_interrupt_skill_lock_counts.clear()
+	var slow := monster.slow if effective_slow < 0.0 else effective_slow
 	if _popup_layer != null:
 		_popup_layer.reset_for_new_fight()
 		_popup_layer.wyvern_tick_font_active = wyvern_effect_active
 	if _combat_stage != null:
 		_combat_stage.reset_state()
 		_combat_stage.set_bandit_blade_effect_active(bandit_blade_effect_active)
-		_combat_stage.set_slow_effect_active(monster.slow > 0.0, monster.slow, play_intro_animation)
+		_combat_stage.set_slow_effect_active(slow > 0.0, slow, play_intro_animation)
 	if _skill_build_panel != null and _skill_build_panel.has_method("clear_combat_highlight"):
 		_skill_build_panel.clear_combat_highlight()
 	if _skill_build_panel != null and _skill_build_panel.has_method("clear_interrupt_locks"):
 		_skill_build_panel.clear_interrupt_locks()
 	if _skill_build_panel != null and _skill_build_panel.has_method("set_slow_effect_active"):
-		_skill_build_panel.set_slow_effect_active(monster.slow > 0.0)
+		_skill_build_panel.set_slow_effect_active(slow > 0.0)
 	if _skill_build_panel != null and _skill_build_panel.has_method("clear_stun_effect"):
 		_skill_build_panel.clear_stun_effect()
 	if _skill_build_panel != null and _skill_build_panel.has_method("set_combat_interaction_locked"):
@@ -233,7 +234,7 @@ func _on_event(event: CombatPlayback.PlaybackEvent) -> void:
 		_stacks = event.tick.stacks_remaining
 		if _combat_stage != null:
 			_combat_stage.set_poison_stacks(_stacks, not skipping)
-		if event.tick.damage > 0.0 or event.tick.absorbed_amount > 0.0:
+		if event.tick.had_active_stack:
 			if _combat_stage != null:
 				_combat_stage.play_poison_tick_pulse(not skipping)
 			_hp = maxf(_hp - event.tick.damage, 0.0)
@@ -251,19 +252,20 @@ func _on_event(event: CombatPlayback.PlaybackEvent) -> void:
 		if _combat_stage != null:
 			popup_delay = _combat_stage.play_cast_impact(cast, not skipping)
 		if (cast.physical_damage > 0.0 or cast.blocked_amount > 0.0) and not skipping:
-			AudioManager.play_attack_sfx_for_cast(cast, _playback.speed, false)
+			var audio_manager := get_node_or_null("/root/AudioManager")
+			if audio_manager != null and audio_manager.has_method("play_attack_sfx_for_cast"):
+				audio_manager.play_attack_sfx_for_cast(cast, _playback.speed, false)
 		if not cast.triggered_skill_names.is_empty() and _skill_build_panel != null and _skill_build_panel.has_method("highlight_rotation_index"):
 			_skill_build_panel.highlight_rotation_index(cast.rotation_index, true)
 		if cast.physical_damage > 0.0:
 			_hp = maxf(_hp - cast.physical_damage, 0.0)
 		_armor -= cast.armor_reduction_applied
 		_armor_reduced += cast.armor_reduction_applied
-		if cast.armor_reduction_applied > 0:
-			_shred_stacks += 1
+		_shred_stacks += cast.shred_stacks_applied
 		if cast.poison_resistance_reduction_applied > 0.0:
 			_resist *= 1.0 - clampf(cast.poison_resistance_reduction_applied, 0.0, 1.0)
-			_decay_stacks += 1
-		_stacks = mini(_stacks + cast.poison_stacks_applied, CombatResolver.MAX_POISON_STACKS)
+			_decay_stacks += cast.decay_stacks_applied
+		_stacks = mini(_stacks + cast.poison_stacks_applied, _poison_stack_cap())
 		if cast.poison_stacks_applied > 0:
 			if _combat_stage != null:
 				_combat_stage.set_poison_stacks(_stacks, not skipping)
@@ -347,6 +349,8 @@ func _spawn_cast_popups(cast: CombatResolver.CastEvent) -> void:
 		var interrupt_text := "skipped" if cast.interrupt_skipped else "interrupted"
 		_popup_layer.spawn("%s %s" % [skill_name, interrupt_text], CombatPopupLayer.Kind.NORMAL)
 		return
+	if _is_hold_cast(cast):
+		return
 	# Damage number appended in the same "-N" style poison ticks already use.
 	# The number is the event's full physical_damage, which already includes
 	# any triggered-skill damage folded into the same cast by the resolver;
@@ -368,6 +372,10 @@ func _spawn_cast_popups(cast: CombatResolver.CastEvent) -> void:
 		_popup_layer.spawn("%s%s" % [skill_name, damage_suffix], CombatPopupLayer.Kind.NORMAL)
 	for triggered_name in cast.triggered_skill_names:
 		_popup_layer.spawn(String(triggered_name), CombatPopupLayer.Kind.PROC)
+
+
+func _is_hold_cast(cast: CombatResolver.CastEvent) -> bool:
+	return cast != null and cast.skill != null and cast.skill.id == "skill.hold"
 
 
 ## Updates the HP text immediately and tweens the bar to the new value --
@@ -442,3 +450,9 @@ func _on_finished() -> void:
 	_intro_remaining_sec = 0.0
 	_intro_duration_sec = 0.0
 	_intro_scales_with_playback_speed = true
+
+
+func _poison_stack_cap() -> int:
+	if _result == null:
+		return CombatResolver.MAX_POISON_STACKS
+	return maxi(1, _result.poison_stack_cap)

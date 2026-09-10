@@ -33,6 +33,7 @@ const UNLOCK_ICON := preload("res://assets/ui/icons/build_unlock.png")
 const LOCK_BUTTON_SIZE := Vector2(50, 50)
 const LOCK_BUTTON_ICON_SIZE := Vector2(32, 32)
 const LOCK_BUTTON_CORNER_RADIUS := 25
+const SkillTooltipFormatterScript := preload("res://scripts/ui/skill_tooltip_formatter.gd")
 
 ## P2:R10: see talent_panel.gd's `state` comment -- same pattern, same
 ## default, same untyped declaration reason.
@@ -249,8 +250,9 @@ func _refresh() -> void:
 		slot.add_theme_font_size_override("font_size", SLOT_FONT_SIZE)
 		slot.add_theme_color_override("font_color", CardStyle.ACCENT_COLOR)
 		slot.disabled = state.build_locked
-		slot.tooltip_text = "%s -- cast position %d of %d (%s)" % [
+		slot.tooltip_text = "%s\n%s\ncast position %d of %d (%s)" % [
 			skill.display_name,
+			SkillTooltipFormatterScript.effect_summary(skill, state),
 			i + 1,
 			state.rotation.size(),
 			"unlock to edit" if state.build_locked else "click the slot or the x to remove",

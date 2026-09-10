@@ -8,12 +8,19 @@ extends PanelContainer
 ## title/class_select/subclass_select.
 
 const CARD_TITLE_FONT_SIZE := 20
+const CONTRACT_ICON := preload("res://assets/ui/icons/contract.png")
+const CONTRACT_BADGE_ICON_SIZE := Vector2(20, 20)
+const CONTRACT_BADGE_FONT_SIZE := 26
+const CONTRACT_BADGE_SIZE := Vector2(64, 26)
 
 ## P2:R10: see talent_panel.gd's `state` comment -- same pattern, same
 ## default, same untyped declaration reason.
 var state = BuildState
 
 var _stats_label: RichTextLabel
+var _title_label: Label
+var _contract_badge: PanelContainer
+var _contract_label: Label
 
 
 func _ready() -> void:
@@ -23,12 +30,21 @@ func _ready() -> void:
 	content.add_theme_constant_override("separation", 8)
 	add_child(content)
 
-	var title := Label.new()
-	title.text = "Character Stats"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title.theme_type_variation = &"PanelHeader"
-	title.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
-	content.add_child(title)
+	var title_row := HBoxContainer.new()
+	title_row.name = "CharacterStatsTitleRow"
+	title_row.add_theme_constant_override("separation", 8)
+	content.add_child(title_row)
+
+	_title_label = Label.new()
+	_title_label.text = "Character Stats"
+	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_title_label.theme_type_variation = &"PanelHeader"
+	_title_label.add_theme_font_size_override("font_size", CARD_TITLE_FONT_SIZE)
+	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title_label.clip_text = true
+	title_row.add_child(_title_label)
+
+	title_row.add_child(_build_contract_badge())
 
 	# RichTextLabel (not Label) so the poison-damage lines can carry the
 	# semantic poison-text color (P2:R7:T2) without a second label node.
@@ -41,32 +57,34 @@ func _ready() -> void:
 	state.build_changed.connect(_refresh)
 	if state.has_signal("stats_preview_changed"):
 		state.stats_preview_changed.connect(_refresh)
+	if state.has_signal("run_state_changed"):
+		state.run_state_changed.connect(_refresh)
 	_refresh()
 
 
 func _refresh() -> void:
-	if state.selected_class == null:
+	_refresh_contract_badge()
+	if state == null or state.selected_class == null:
 		_stats_label.text = ""
 		return
 	var stats := BuildResolver.resolve_stats(
 		state.selected_class, state.selected_trees, state.selected_talents, state.equipped_gear(), state.gold
 	)
-	# Class-only baseline (no trees/talents/gear) -- the reference point for
-	# the "from gear/talents" delta notes below. Cheap: BuildResolver.
-	# resolve_stats() is a pure function over data already loaded, so calling
-	# it a second time with empty arrays is presentation-only, not new game
-	# math (per docs/Conventions.md's UI architecture principle).
 	var base_stats := BuildResolver.resolve_stats(state.selected_class, [], [], [])
-	# Physical group first, then a blank line, then the poison group.
-	# Physical Damage reads as bonus above baseline (x1.08 -> "8%", not
-	# "108%" and not "+8%" -- it's a multiplicative modifier, not an additive
-	# bonus, so no leading "+" (2026-07-19 fix); Crit Multiplier as a
-	# percentage (2.0x -> "200%").
 	var lines: PackedStringArray = []
 	lines.append(_stat_line(
-		"Physical Damage", "%d%%" % roundi((stats.physical_damage_multiplier - 1.0) * 100.0),
-		(stats.physical_damage_multiplier - base_stats.physical_damage_multiplier) * 100.0, "%",
+		"Weapon Damage", _weapon_damage_text(stats),
+		0.0, "",
 		false, null, false
+	))
+	lines.append(_stat_line(
+		"Bonus Physical Damage", "%+.0f" % stats.bonus_physical_damage,
+		stats.bonus_physical_damage - base_stats.bonus_physical_damage, ""
+	))
+	lines.append(_stat_line(
+		"Physical Damage Increase", "%+.0f%%" % ((stats.physical_damage_multiplier - 1.0) * 100.0),
+		(stats.physical_damage_multiplier - base_stats.physical_damage_multiplier) * 100.0, "%",
+		false, null
 	))
 	lines.append(_stat_line(
 		"Attack Speed", "%.0f%%" % (stats.attack_speed * 100.0),
@@ -80,63 +98,133 @@ func _refresh() -> void:
 		"Crit Chance", crit_chance_text,
 		(stats.crit_chance - base_stats.crit_chance) * 100.0, "%"
 	))
-	var crit_multiplier_text := "%.0f%%" % (stats.crit_multiplier * 100.0)
+	var crit_multiplier_text := "%.1fx" % stats.crit_multiplier
 	if stats.crit_multiplier_per_current_gold > 0.0:
-		var gold_crit_multiplier_bonus := stats.current_gold * stats.crit_multiplier_per_current_gold * 100.0
-		crit_multiplier_text += " %s" % _gold_bonus_text("+%.0f%%" % gold_crit_multiplier_bonus)
+		var gold_crit_multiplier_bonus := stats.current_gold * stats.crit_multiplier_per_current_gold
+		crit_multiplier_text += " %s" % _gold_bonus_text("+%.1fx" % gold_crit_multiplier_bonus)
 	lines.append(_stat_line(
-		"Crit Multiplier", crit_multiplier_text,
-		(stats.crit_multiplier - base_stats.crit_multiplier) * 100.0, "%"
+		"Crit Damage", crit_multiplier_text,
+		stats.crit_multiplier - base_stats.crit_multiplier, "x"
 	))
 	lines.append(_stat_line(
-		"Bonus Armor Shred", "-%d armor" % stats.bonus_armor_reduction,
-		stats.bonus_armor_reduction - base_stats.bonus_armor_reduction, ""
-	))
-	# Bonus Physical Damage (P2:R9:T2, Bandit Blade's gold-scaling) and
-	# Min-Cast Proc Chance (P2:R9:T3, Bejeweled Push Dagger) were added to
-	# PlayerStats in P2:R9 but never surfaced here until this panel was
-	# reused for P2:R10 Practice Room's practice-gold control, which needs
-	# to show its effect live.
-	lines.append(_stat_line(
-		"Bonus Physical Damage", "%+.0f" % stats.bonus_physical_damage,
-		stats.bonus_physical_damage - base_stats.bonus_physical_damage, ""
+		"Retrigger Chance", "%.0f%%" % (stats.retrigger_chance * 100.0),
+		(stats.retrigger_chance - base_stats.retrigger_chance) * 100.0, "%"
 	))
 	lines.append(_stat_line(
-		"Min-Cast Proc Chance", "%.0f%%" % (stats.min_cast_time_proc_chance * 100.0),
-		(stats.min_cast_time_proc_chance - base_stats.min_cast_time_proc_chance) * 100.0, "%"
-	))
-	lines.append("")
-	# Poison lines are wrapped whole (not partial-line), so any test
-	# checking `.text.contains("Poison Damage: X/tick")` still finds that
-	# exact contiguous substring inside the bbcode tags.
-	lines.append(_stat_line(
-		"Poison Damage", "%.1f/tick" % stats.poison_damage_per_tick,
-		stats.poison_damage_per_tick - base_stats.poison_damage_per_tick, "", true, UIColors.TEXT_POISON
+		"Shred Chance", "%.0f%%" % (stats.shred_chance * 100.0),
+		(stats.shred_chance - base_stats.shred_chance) * 100.0, "%"
 	))
 	lines.append(_stat_line(
-		"Bonus Poison Stacks", "%+d" % stats.bonus_poison_stacks,
-		stats.bonus_poison_stacks - base_stats.bonus_poison_stacks, "", false, UIColors.TEXT_POISON
+		"Decay Chance", "%.0f%%" % (stats.decay_chance * 100.0),
+		(stats.decay_chance - base_stats.decay_chance) * 100.0, "%"
+	))
+	lines.append(_stat_line(
+		"Poison Proc Chance", "%.0f%%" % (stats.elemental_proc_chance * 100.0),
+		(stats.elemental_proc_chance - base_stats.elemental_proc_chance) * 100.0, "%"
+	))
+	lines.append(_stat_line(
+		"Bonus Stacks", "%+d" % stats.bonus_poison_stacks,
+		stats.bonus_poison_stacks - base_stats.bonus_poison_stacks, ""
+	))
+	lines.append(_stat_line(
+		"Increased Gold", "%+.0f%%" % ((stats.gold_reward_multiplier - 1.0) * 100.0),
+		(stats.gold_reward_multiplier - base_stats.gold_reward_multiplier) * 100.0, "%"
+	))
+	lines.append(_stat_line(
+		"Shop Discount", "%+.0f%%" % (stats.shop_discount * 100.0),
+		(stats.shop_discount - base_stats.shop_discount) * 100.0, "%"
+	))
+	lines.append(_stat_line(
+		"Magic Find", "%+.0f%%" % (stats.magic_find * 100.0),
+		(stats.magic_find - base_stats.magic_find) * 100.0, "%"
+	))
+	lines.append(_stat_line(
+		"Base Poison Damage", _base_poison_damage_text(stats),
+		(stats.base_poison_damage + stats.bonus_base_elemental_damage) - (base_stats.base_poison_damage + base_stats.bonus_base_elemental_damage),
+		"", true, UIColors.TEXT_POISON
+	))
+	lines.append(_stat_line(
+		"Poison Damage Increase", "%+.0f%%" % ((stats.elemental_damage_multiplier - 1.0) * 100.0),
+		(stats.elemental_damage_multiplier - base_stats.elemental_damage_multiplier) * 100.0, "%",
+		false, UIColors.TEXT_POISON
 	))
 	_stats_label.text = "\n".join(lines)
 
 
-## Renders one "Label: value" stat line, optionally color-wrapped (poison
-## lines), and -- when the resolved value differs from the class-only
-## baseline -- wraps the whole line in a BBCode [hint=...] tag so the
-## "from gear/talents" delta note shows as a hover tooltip instead of always
-## -visible inline text (P2:R7 playtest-feedback pass, 2026-07-18, revises
-## T4: the delta note "is not relevant to gameplay" as constant on-screen
-## text per that feedback). _stat_delta_text() itself is unchanged and still
-## computes the same delta string; only where it's placed changed.
-func _stat_line(label: String, value_text: String, delta: float, suffix: String, one_decimal: bool = false, color: Variant = null, show_plus_sign: bool = true) -> String:
+func _build_contract_badge() -> PanelContainer:
+	var badge := PanelContainer.new()
+	badge.name = "ContractNumberBadge"
+	badge.mouse_filter = Control.MOUSE_FILTER_STOP
+	badge.custom_minimum_size = CONTRACT_BADGE_SIZE
+	var badge_style := CardStyle.make_stylebox(8)
+	badge_style.bg_color = UIColors.BADGE_BACKDROP
+	badge_style.border_color = UIColors.PANEL_BORDER
+	badge_style.content_margin_left = 6
+	badge_style.content_margin_right = 7
+	badge_style.content_margin_top = 0
+	badge_style.content_margin_bottom = 1
+	badge.add_theme_stylebox_override("panel", badge_style)
+	_contract_badge = badge
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 4)
+	badge.add_child(row)
+
+	var icon := CardStyle.make_pixel_icon(CONTRACT_ICON, CONTRACT_BADGE_ICON_SIZE)
+	icon.name = "ContractNumberIcon"
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+
+	_contract_label = Label.new()
+	_contract_label.name = "ContractNumberLabel"
+	_contract_label.text = "0"
+	_contract_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_contract_label.add_theme_font_size_override("font_size", CONTRACT_BADGE_FONT_SIZE)
+	_contract_label.add_theme_color_override("font_color", UIColors.TEXT_NORMAL)
+	_contract_label.add_theme_color_override("font_outline_color", UIColors.TEXT_OUTLINE_STRONG)
+	_contract_label.add_theme_constant_override("outline_size", 3)
+	row.add_child(_contract_label)
+	return badge
+
+
+func _refresh_contract_badge() -> void:
+	if _contract_badge == null or _contract_label == null:
+		return
+	var contract_count := _current_contract_count()
+	_contract_label.text = str(contract_count)
+	_contract_badge.tooltip_text = "Contract Number: %d" % contract_count
+
+
+func _current_contract_count() -> int:
+	if state == null:
+		return 0
+	var value = state.get("completed_contract_count")
+	if value == null:
+		return 0
+	return maxi(0, int(value))
+
+
+func _weapon_damage_text(stats: PlayerStats) -> String:
+	var range_text := "%d" % stats.weapon_damage_min if stats.weapon_damage_min == stats.weapon_damage_max else "%d-%d" % [stats.weapon_damage_min, stats.weapon_damage_max]
+	if stats.weapon_damage_uses_fallback and stats.weapon_damage_fallback_reason == "missing_weapon":
+		return "%s (unarmed)" % range_text
+	return range_text
+
+
+func _base_poison_damage_text(stats: PlayerStats) -> String:
+	var base_damage := stats.base_poison_damage + stats.bonus_base_elemental_damage
+	if stats.base_poison_damage > 0.0 or stats.bonus_base_elemental_damage != 0.0:
+		base_damage = maxf(PlayerStats.MIN_DAMAGE_BASE, base_damage)
+	return "%.1f" % base_damage
+
+
+## Renders one "Label: value" stat line, optionally color-wrapped.
+func _stat_line(label: String, value_text: String, _delta: float, _suffix: String, _one_decimal: bool = false, color: Variant = null, _show_plus_sign: bool = true) -> String:
 	var text := "%s: %s" % [label, value_text]
 	if color != null:
 		text = "[color=#%s]%s[/color]" % [color.to_html(false), text]
-	var delta_text := _stat_delta_text(delta, suffix, one_decimal, show_plus_sign)
-	if delta_text == "":
-		return text
-	var hint := delta_text.strip_edges().trim_prefix("(").trim_suffix(")")
-	return "[hint=%s]%s[/hint]" % [hint, text]
+	return text
 
 
 func _gold_bonus_text(text: String) -> String:
@@ -149,17 +237,10 @@ func _state_combat_stolen_gold() -> int:
 	return int(state.get("combat_stolen_gold"))
 
 
-## " (+N from gear/talents)" delta description for a stat, without duplicating
-## any combat math -- `delta` is always computed by the caller from two
-## already-resolved PlayerStats (BuildResolver.resolve_stats() with vs.
-## without trees/talents/gear), never re-derived here. Empty string when
-## there's nothing to explain (delta is ~0, i.e. class base already accounts
-## for it). Consumed by _stat_line() as the content of a hover-tooltip hint,
-## not as always-visible text (see _stat_line()'s comment).
 func _stat_delta_text(delta: float, suffix: String, one_decimal: bool = false, show_plus_sign: bool = true) -> String:
 	if absf(delta) < 0.05:
 		return ""
 	var sign := "+" if (delta > 0 and show_plus_sign) else ""
 	if one_decimal:
-		return " (%s%.1f%s from gear/talents)" % [sign, delta, suffix]
-	return " (%s%d%s from gear/talents)" % [sign, roundi(delta), suffix]
+		return " (%s%.1f%s)" % [sign, delta, suffix]
+	return " (%s%d%s)" % [sign, roundi(delta), suffix]

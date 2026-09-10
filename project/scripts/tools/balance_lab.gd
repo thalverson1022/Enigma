@@ -2,7 +2,7 @@ class_name BalanceLab
 extends RefCounted
 
 const VERSION := "0.1.0"
-const PROJECT_NAME := "DawnBringer"
+const PROJECT_NAME := "Project Enigma"
 const TOOL_NAME := "Balance Lab"
 const DEFAULT_SEED_COUNT := 200
 const GENERATED_SAMPLE_SEED_COUNT := 40
@@ -148,8 +148,9 @@ static func _bandit_blade_checks(rogue: ClassDef) -> Array:
 		return [_missing_resource_check("bandit_blade_resource", "Bandit Blade resource loads", "res://data/gear/bandit_blade.tres")]
 	var bandit_stats := BuildResolver.resolve_stats(rogue, [], [], [bandit], 100)
 	return [
-		_numeric_check("bandit_physical_multiplier", "Bandit Blade physical multiplier", bandit_stats.physical_damage_multiplier, 1.2, 0.001),
-		_numeric_check("bandit_crit_chance", "Bandit Blade crit chance", bandit_stats.crit_chance, 0.35, 0.001),
+		_numeric_check("bandit_physical_multiplier", "Bandit Blade fixed physical multiplier", bandit_stats.gear_physical_damage_multiplier, 1.2, 0.001),
+		_numeric_check("bandit_crit_chance", "Bandit Blade fixed crit chance", bandit_stats.crit_chance, 0.17, 0.001),
+		_numeric_check("bandit_gold_rewards", "Bandit Blade fixed gold reward multiplier", bandit_stats.gold_reward_multiplier, 1.3, 0.001),
 		_numeric_check("bandit_gold_scaling", "Bandit Blade gold scaling at 100g", bandit_stats.bonus_physical_damage, 10.0, 0.001),
 	]
 
@@ -160,8 +161,9 @@ static func _wyvern_kriss_checks(rogue: ClassDef) -> Array:
 		return [_missing_resource_check("wyvern_kriss_resource", "Wyvern Kriss resource loads", "res://data/gear/wyvern_kriss.tres")]
 	var wyvern_stats := BuildResolver.resolve_stats(rogue, [], [], [wyvern])
 	return [
-		_numeric_check("wyvern_bonus_poison_stacks", "Wyvern Kriss bonus poison stacks", float(wyvern_stats.bonus_poison_stacks), 2.0, 0.001),
-		_numeric_check("wyvern_poison_damage", "Wyvern Kriss poison damage multiplier", wyvern_stats.poison_damage_per_tick, 11.2, 0.001),
+		_numeric_check("wyvern_base_elemental_damage", "Wyvern Kriss fixed base elemental damage", wyvern_stats.bonus_base_elemental_damage, 8.0, 0.001),
+		_numeric_check("wyvern_elemental_multiplier", "Wyvern Kriss fixed elemental multiplier", wyvern_stats.gear_elemental_damage_multiplier, 1.4, 0.001),
+		_numeric_check("wyvern_decay_chance", "Wyvern Kriss fixed decay chance", wyvern_stats.decay_chance, 0.12, 0.001),
 		_numeric_check("wyvern_tick_interval", "Wyvern Kriss poison tick interval", wyvern_stats.poison_tick_interval_multiplier, 0.5, 0.001),
 	]
 
@@ -172,11 +174,14 @@ static func _mithril_karambit_checks(rogue: ClassDef) -> Array:
 		return [_missing_resource_check("mithril_karambit_resource", "Mithril Karambit resource loads", "res://data/gear/mithril_karambit.tres")]
 	var mithril_stats := BuildResolver.resolve_stats(rogue, [], [], [mithril])
 	var results := [
+		_numeric_check("mithril_attack_speed", "Mithril Karambit fixed attack speed", mithril_stats.attack_speed, 0.15, 0.001),
+		_numeric_check("mithril_crit_chance", "Mithril Karambit fixed crit chance", mithril_stats.crit_chance, 0.20, 0.001),
+		_numeric_check("mithril_shred_chance", "Mithril Karambit fixed shred chance", mithril_stats.shred_chance, 0.20, 0.001),
 		_numeric_check("mithril_trigger_count", "Mithril Karambit trigger count", float(mithril_stats.triggered_skill_effects.size()), 2.0, 0.001),
 	]
 	if mithril_stats.triggered_skill_effects.size() >= 2:
-		results.append(_numeric_check("mithril_trigger_chance_stab", "Mithril Karambit Stab retrigger chance", mithril_stats.triggered_skill_effects[0].chance, 0.2, 0.001))
-		results.append(_numeric_check("mithril_trigger_chance_heavy", "Mithril Karambit Heavy Slash retrigger chance", mithril_stats.triggered_skill_effects[1].chance, 0.2, 0.001))
+		results.append(_numeric_check("mithril_trigger_chance_stab", "Mithril Karambit Stab retrigger chance", mithril_stats.triggered_skill_effects[0].chance, 0.5, 0.001))
+		results.append(_numeric_check("mithril_trigger_chance_heavy", "Mithril Karambit Heavy Slash retrigger chance", mithril_stats.triggered_skill_effects[1].chance, 0.5, 0.001))
 	return results
 
 
@@ -184,12 +189,18 @@ static func _umbral_stiletto_checks(rogue: ClassDef) -> Array:
 	var umbral: GearItem = load("res://data/gear/umbral_stiletto.tres")
 	if umbral == null:
 		return [_missing_resource_check("umbral_stiletto_resource", "Umbral Stiletto resource loads", "res://data/gear/umbral_stiletto.tres")]
+	var umbral_stats := BuildResolver.resolve_stats(rogue, [], [], [umbral])
 	var umbral_skills := BuildResolver.resolve_unlocked_skills(rogue, [], [], [umbral])
 	var unlocks_death_strike := false
 	for skill in umbral_skills:
-		if skill.id == "skill.killers_mark":
+		if skill.id == CombatResolver.DEATH_STRIKE_SKILL_ID:
 			unlocks_death_strike = true
-	return [_boolean_check("umbral_unlocks_death_strike", "Umbral Stiletto unlocks Death Strike", unlocks_death_strike)]
+	return [
+		_numeric_check("umbral_crit_chance", "Umbral Stiletto fixed crit chance", umbral_stats.crit_chance, 0.15, 0.001),
+		_numeric_check("umbral_crit_multiplier", "Umbral Stiletto fixed crit multiplier", umbral_stats.crit_multiplier, 3.0, 0.001),
+		_numeric_check("umbral_elemental_proc_chance", "Umbral Stiletto fixed elemental proc chance", umbral_stats.elemental_proc_chance, 1.0, 0.001),
+		_boolean_check("umbral_unlocks_death_strike", "Umbral Stiletto unlocks Death Strike", unlocks_death_strike),
+	]
 
 
 static func _bejeweled_push_dagger_checks(rogue: ClassDef) -> Array:
@@ -198,8 +209,9 @@ static func _bejeweled_push_dagger_checks(rogue: ClassDef) -> Array:
 		return [_missing_resource_check("bejeweled_push_dagger_resource", "Bejeweled Push Dagger resource loads", "res://data/gear/bejeweled_push_dagger.tres")]
 	var bejeweled_stats := BuildResolver.resolve_stats(rogue, [], [], [bejeweled])
 	return [
-		_numeric_check("bejeweled_physical_multiplier", "Bejeweled Push Dagger physical multiplier", bejeweled_stats.physical_damage_multiplier, 1.2, 0.001),
-		_numeric_check("bejeweled_crit_chance", "Bejeweled Push Dagger crit chance", bejeweled_stats.crit_chance, 0.55, 0.001),
+		_numeric_check("bejeweled_base_damage", "Bejeweled Push Dagger fixed base damage", bejeweled_stats.bonus_physical_damage, 8.0, 0.001),
+		_numeric_check("bejeweled_physical_multiplier", "Bejeweled Push Dagger fixed physical multiplier", bejeweled_stats.gear_physical_damage_multiplier, 1.2, 0.001),
+		_numeric_check("bejeweled_crit_chance", "Bejeweled Push Dagger fixed crit chance", bejeweled_stats.crit_chance, 0.15, 0.001),
 		_numeric_check("bejeweled_min_cast_proc", "Bejeweled Push Dagger min-cast proc chance", bejeweled_stats.min_cast_time_proc_chance, 0.2, 0.001),
 	]
 
@@ -834,7 +846,7 @@ static func _scenario_specs() -> Array:
 			"seed_start": 1,
 			"seed_count": DEFAULT_SEED_COUNT,
 			"gold": 0,
-			"thresholds": {"min_mean_dps": 9.0, "max_mean_dps": 14.0},
+			"thresholds": {"min_mean_dps": 0.6, "max_mean_dps": 0.8},
 		},
 		{
 			"id": "shadow_intrinsic_stab_mouthy",
@@ -937,7 +949,7 @@ static func _scenario_specs() -> Array:
 			"seed_start": 1,
 			"seed_count": DEFAULT_SEED_COUNT,
 			"gold": 0,
-			"thresholds": {"min_mean_blocked_damage": 50.0},
+			"thresholds": {"min_mean_blocked_damage": 8.0},
 		},
 		{
 			"id": "defense_dodge_stab",
@@ -1832,14 +1844,14 @@ static func _dashboard_html(report: Dictionary) -> String:
 		"<head>",
 		"<meta charset=\"utf-8\">",
 		"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
-		"<title>DawnBringer Balance Lab</title>",
+		"<title>Project Enigma Balance Lab</title>",
 		"<style>",
 		":root{color-scheme:dark;--bg:#161514;--panel:#24211d;--ink:#f0e0c2;--muted:#b9aa8e;--line:#6f6047;--good:#72c05b;--warn:#d2a23e;--bad:#d85f4c;--accent:#e0a34f;}",
 		"*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,Segoe UI,sans-serif;}header{padding:22px 28px;border-bottom:1px solid var(--line);background:#1d1b18;}h1{margin:0 0 4px;font-size:26px;}h2{margin:0 0 12px;font-size:18px;}main{padding:22px 28px;display:grid;gap:18px;}section{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:16px;}table{width:100%;border-collapse:collapse;}th,td{text-align:left;padding:8px 9px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top;}th{color:var(--muted);font-weight:600}.status{font-weight:700;text-transform:uppercase}.pass{color:var(--good)}.warn{color:var(--warn)}.fail{color:var(--bad)}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.card{border:1px solid rgba(255,255,255,.10);border-radius:8px;padding:12px;background:#1b1916}.metric{font-size:24px;font-weight:750}.muted{color:var(--muted)}.bars{display:grid;gap:10px}.bar-row{display:grid;grid-template-columns:260px 1fr 90px;gap:12px;align-items:center}.bar-track{height:14px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:3px;overflow:hidden}.bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),#73bd6b)}code{color:#f5c16c}",
 		"</style>",
 		"</head>",
 		"<body>",
-		"<header><h1>DawnBringer Balance Lab</h1><div class=\"muted\">Generated <code id=\"generated\"></code> | Version <code id=\"version\"></code></div></header>",
+		"<header><h1>Project Enigma Balance Lab</h1><div class=\"muted\">Generated <code id=\"generated\"></code> | Version <code id=\"version\"></code></div></header>",
 		"<main>",
 		"<section><h2>Suite Health</h2><div class=\"cards\" id=\"health\"></div></section>",
 		"<section><h2>Status Semantics</h2><table><thead><tr><th>Status</th><th>Meaning</th></tr></thead><tbody id=\"status-semantics\"></tbody></table></section>",

@@ -22,6 +22,7 @@ var _points_badge: PanelContainer
 var _points_row: HBoxContainer
 var _points_icon: TextureRect
 var _points_label: Label
+var _talents_scroll: ScrollContainer
 var _talents_box: VBoxContainer
 var _open_button: Button
 var _button_blink_tween: Tween
@@ -74,14 +75,19 @@ func _ready() -> void:
 	_points_label.add_theme_font_size_override("font_size", POINTS_FONT_SIZE)
 	_points_row.add_child(_points_label)
 
+	_talents_scroll = ScrollContainer.new()
+	_talents_scroll.name = "ActiveTalentsScroll"
+	_talents_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_talents_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_talents_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(_talents_scroll)
+
 	_talents_box = VBoxContainer.new()
+	_talents_box.name = "ActiveTalentsList"
+	_talents_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_talents_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_talents_box.add_theme_constant_override("separation", 6)
-	content.add_child(_talents_box)
-
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(spacer)
+	_talents_scroll.add_child(_talents_box)
 
 	_open_button = Button.new()
 	_open_button.custom_minimum_size = OPEN_BUTTON_SIZE

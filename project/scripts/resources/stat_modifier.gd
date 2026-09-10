@@ -20,6 +20,18 @@ enum OperationType {
 	MULTIPLY,
 }
 
+enum StatCategory {
+	BASIC,
+	RARE,
+	SPECIAL,
+	DRAWBACK,
+	COMPATIBILITY,
+}
+
+@export var stat_id: String = ""
 @export var stat: StatType = StatType.ATTACK_SPEED
+@export var category: StatCategory = StatCategory.COMPATIBILITY
 @export var operation: OperationType = OperationType.ADD
 @export var value: float = 0.0
+@export var is_drawback: bool = false
+@export var display_label: String = ""

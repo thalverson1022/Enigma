@@ -60,6 +60,7 @@ func to_monster() -> Monster:
 	var monster := Monster.new()
 	monster.id = id
 	monster.display_name = display_name
+	monster.combat_role = monster_kind
 	monster.hp = hp
 	for field in MONSTER_DEFENSE_FIELDS:
 		if defense_overrides.has(field):

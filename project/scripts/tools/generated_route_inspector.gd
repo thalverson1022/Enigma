@@ -1,7 +1,7 @@
 class_name GeneratedRouteInspector
 extends RefCounted
 
-const VERSION := "p4m5.t8.v1"
+const VERSION := "p5m2.t8.v1"
 const ROUTE_GENERATOR := preload("res://scripts/systems/contract_route_generator/contract_route_generator.gd")
 
 
@@ -166,7 +166,10 @@ static func _reward_summary(node: ContractRouteNode) -> Dictionary:
 		"talent_points": node.reward.talent_points,
 		"generated_gear_choice_count": node.reward.generated_gear_choice_count,
 		"generated_gear_tier": node.reward.generated_gear_tier,
+		"generated_gear_tier_label": GearGenerator.tier_name(node.reward.generated_gear_tier),
 		"generated_gear_slots": node.reward.generated_gear_slots.duplicate(),
+		"generated_gear_slot_labels": _gear_slot_labels(node.reward.generated_gear_slots),
+		"generated_gear_item_families": _gear_item_families(node.reward.generated_gear_slots),
 		"quality_label": node.reward_quality_label,
 		"summary": node.reward_summary,
 	}
@@ -338,4 +341,18 @@ static func _string_array(values: Variant) -> Array:
 	var result := []
 	for value in values:
 		result.append(String(value))
+	return result
+
+
+static func _gear_slot_labels(slots: Array) -> Array:
+	var result := []
+	for slot in slots:
+		result.append(GearGenerator.universal_slot_label(int(slot)))
+	return result
+
+
+static func _gear_item_families(slots: Array) -> Array:
+	var result := []
+	for slot in slots:
+		result.append(GearGenerator.rogue_item_family_for_slot(int(slot)))
 	return result

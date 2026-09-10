@@ -8,7 +8,7 @@
 script = ExtResource("2_modifier")
 stat = 3
 operation = 0
-value = 4.0
+value = 5.0
 
 [resource]
 script = ExtResource("1_talent")

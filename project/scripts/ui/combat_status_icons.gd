@@ -15,7 +15,7 @@ static func add_icon_label(parent: Container, icon: Texture2D, text: String, col
 	var row := HBoxContainer.new()
 	if node_name != "":
 		row.name = node_name
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.mouse_filter = Control.MOUSE_FILTER_STOP
 	row.add_theme_constant_override("separation", 4)
 	parent.add_child(row)
 

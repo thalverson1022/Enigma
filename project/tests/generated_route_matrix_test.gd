@@ -657,7 +657,10 @@ func _reward_summary(node: ContractRouteNode) -> Dictionary:
 		"talent_points": node.reward.talent_points,
 		"generated_gear_choice_count": node.reward.generated_gear_choice_count,
 		"generated_gear_tier": node.reward.generated_gear_tier,
+		"generated_gear_tier_label": GearGenerator.tier_name(node.reward.generated_gear_tier),
 		"generated_gear_slots": node.reward.generated_gear_slots.duplicate(),
+		"generated_gear_slot_labels": _gear_slot_labels(node.reward.generated_gear_slots),
+		"generated_gear_item_families": _gear_item_families(node.reward.generated_gear_slots),
 		"quality_label": node.reward_quality_label,
 		"summary": node.reward_summary,
 	}
@@ -682,6 +685,20 @@ func _int_strings(values: Array) -> PackedStringArray:
 	for value in values:
 		out.append(str(int(value)))
 	return out
+
+
+func _gear_slot_labels(slots: Array) -> Array:
+	var result := []
+	for slot in slots:
+		result.append(GearGenerator.universal_slot_label(int(slot)))
+	return result
+
+
+func _gear_item_families(slots: Array) -> Array:
+	var result := []
+	for slot in slots:
+		result.append(GearGenerator.rogue_item_family_for_slot(int(slot)))
+	return result
 
 
 func _catalog_ids(catalog: Array) -> Array:

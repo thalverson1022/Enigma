@@ -118,8 +118,12 @@ var _damage_dealt := 0.0
 ## combat_screen.gd's _on_playback_event() does, so the player can watch
 ## these mechanics change live instead of only seeing the final numbers.
 var _monster: Monster = null
+var _current_result: CombatResolver.CombatResult = null
 var _armor := 0
 var _armor_reduced := 0
+var _shred_value := 10
+var _decay_value := 0.2
+var _poison_base_damage := 8.0
 var _shred_stacks := 0
 var _decay_stacks := 0
 var _resist := 0.0
@@ -249,11 +253,13 @@ func _ready() -> void:
 	armor_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
 	armor_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	armor_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	armor_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	armor_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	armor_icon.tooltip_text = "Armor: Reduces Physical Damage"
 	values_row.add_child(armor_icon)
 
 	_info_label = Label.new()
 	_info_label.name = "InfoLabel"
+	_info_label.tooltip_text = armor_icon.tooltip_text
 	_info_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	values_row.add_child(_info_label)
 
@@ -263,11 +269,13 @@ func _ready() -> void:
 	poison_resist_icon.custom_minimum_size = COMBAT_STATUS_ICON_SIZE
 	poison_resist_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	poison_resist_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	poison_resist_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	poison_resist_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	poison_resist_icon.tooltip_text = "Resistance: Reduces elemental damage"
 	values_row.add_child(poison_resist_icon)
 
 	_resist_label = Label.new()
 	_resist_label.name = "ResistText"
+	_resist_label.tooltip_text = poison_resist_icon.tooltip_text
 	_resist_label.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	values_row.add_child(_resist_label)
 
@@ -457,8 +465,13 @@ func _format_fight_timer_ms(time_ms: int, show_decimal: bool) -> String:
 ## never re-resolves combat, only re-plays its recorded timeline. Emits
 ## `finished` when the animation (or, in headless/instant mode, the
 ## immediate skip) completes.
-func play(result: CombatResolver.CombatResult, monster: Monster, equipped_gear: Array[GearItem] = []) -> void:
+func play(result: CombatResolver.CombatResult, monster: Monster, equipped_gear: Array[GearItem] = [], shred_value: int = 10, effective_slow: float = -1.0, poison_base_damage: float = 8.0, decay_value: float = 0.2) -> void:
 	_monster = monster
+	_current_result = result
+	_shred_value = shred_value
+	_poison_base_damage = poison_base_damage
+	_decay_value = decay_value
+	var slow := monster.slow if effective_slow < 0.0 else effective_slow
 	_damage_dealt = 0.0
 	_popup_generation += 1
 	_playback_skipping = false
@@ -474,16 +487,16 @@ func play(result: CombatResolver.CombatResult, monster: Monster, equipped_gear: 
 	_interrupt_skill_lock_counts.clear()
 	_wyvern_kriss_effect_active = _gear_has_id(equipped_gear, "gear.legendary.wyvern_kriss")
 	_update_status_readout()
-	_combat_stage.configure("Rogue", monster.display_name, PRACTICE_TARGET_VISUAL_NAME)
+	_combat_stage.configure("Rogue", monster.display_name, PRACTICE_TARGET_VISUAL_NAME, monster.combat_role)
 	_combat_stage.set_bandit_blade_effect_active(_gear_has_id(equipped_gear, _combat_stage.BANDIT_BLADE_ID))
 	_combat_stage.reset_state()
-	_combat_stage.set_slow_effect_active(monster.slow > 0.0, monster.slow, not _instant_playback)
+	_combat_stage.set_slow_effect_active(slow > 0.0, slow, not _instant_playback)
 	if skill_build_panel != null and skill_build_panel.has_method("clear_combat_highlight"):
 		skill_build_panel.clear_combat_highlight()
 	if skill_build_panel != null and skill_build_panel.has_method("clear_interrupt_locks"):
 		skill_build_panel.clear_interrupt_locks()
 	if skill_build_panel != null and skill_build_panel.has_method("set_slow_effect_active"):
-		skill_build_panel.set_slow_effect_active(monster.slow > 0.0)
+		skill_build_panel.set_slow_effect_active(slow > 0.0)
 	if skill_build_panel != null and skill_build_panel.has_method("clear_stun_effect"):
 		skill_build_panel.clear_stun_effect()
 	if skill_build_panel != null and skill_build_panel.has_method("set_combat_interaction_locked"):
@@ -553,7 +566,7 @@ func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
 		# independent of stacks, per CombatResolver.resolve()) but has no
 		# absorbed amount either. Fully absorbed ticks are still real hits and
 		# should animate/log as 0 damage.
-		if event.damage > 0.0 or event.tick.absorbed_amount > 0.0:
+		if event.tick.had_active_stack:
 			_combat_stage.play_poison_tick_pulse(not _instant_playback)
 			_spawn_popup(event)
 		return
@@ -568,12 +581,11 @@ func _on_playback_event(event: CombatPlayback.PlaybackEvent) -> void:
 	if not cast.triggered_skill_names.is_empty() and skill_build_panel != null and skill_build_panel.has_method("highlight_rotation_index"):
 		skill_build_panel.highlight_rotation_index(cast.rotation_index, true)
 	_armor_reduced += cast.armor_reduction_applied
-	if cast.armor_reduction_applied > 0:
-		_shred_stacks += 1
+	_shred_stacks += cast.shred_stacks_applied
 	if cast.poison_resistance_reduction_applied > 0.0:
 		_resist *= 1.0 - clampf(cast.poison_resistance_reduction_applied, 0.0, 1.0)
-		_decay_stacks += 1
-	_stacks = mini(_stacks + cast.poison_stacks_applied, CombatResolver.MAX_POISON_STACKS)
+		_decay_stacks += cast.decay_stacks_applied
+	_stacks = mini(_stacks + cast.poison_stacks_applied, _poison_stack_cap())
 	if cast.poison_stacks_applied > 0:
 		_combat_stage.set_poison_stacks(_stacks, not _instant_playback)
 	if cast.cleanse_triggered:
@@ -646,6 +658,7 @@ func _on_playback_finished() -> void:
 	if _combat_stage != null and _combat_stage.has_method("restore_practice_idle_pose"):
 		_combat_stage.restore_practice_idle_pose()
 	_playback = null
+	_current_result = null
 	_playback_intro_remaining_sec = 0.0
 	_playback_intro_duration_sec = 0.0
 	_refresh_fight_timer_badge()
@@ -676,7 +689,7 @@ func _update_status_readout() -> void:
 		_status_row.remove_child(child)
 		child.queue_free()
 	_add_status_chip("x%d" % _stacks, UIColors.TEXT_POISON, HUD_POISON_ICON)
-	_add_status_chip("x%d" % _shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON)
+	_add_status_chip("x%d" % _shred_stacks, UIColors.TEXT_WARNING, HUD_SHRED_ICON, _shred_status_tooltip())
 	_add_status_chip("x%d" % _decay_stacks, UIColors.TEXT_MAGIC, HUD_DECAY_ICON)
 	_add_status_chip(_interrupt_status_text(), UIColors.TEXT_MAGIC, MECHANIC_INTERRUPT_ICON)
 	if _pending_cleanse_status_flash:
@@ -691,20 +704,20 @@ func _refresh_mechanic_row() -> void:
 		_mechanic_row.remove_child(child)
 		child.queue_free()
 	var monster := _monster if _monster != null else Monster.new()
-	_add_mechanic_chip("block", MECHANIC_BLOCK_ICON, "%.0f" % monster.block, UIColors.TEXT_WARNING, "Block")
-	_add_mechanic_chip("dodge_chance", MECHANIC_DODGE_ICON, "%.0f%%" % (monster.dodge_chance * 100.0), UIColors.TEXT_WARNING, "Dodge")
-	_add_mechanic_chip("crit_negation", MECHANIC_CRIT_NEGATION_ICON, "%.0f%%" % (monster.crit_negation * 100.0), UIColors.TEXT_WARNING, "Crit Negate")
-	_add_mechanic_chip("absorb", MECHANIC_ABSORB_ICON, "%.0f" % monster.absorb, UIColors.TEXT_MAGIC, "Absorb")
-	_add_mechanic_chip("suppress", MECHANIC_SUPPRESS_ICON, "%.0f%%" % (monster.suppress * 100.0), UIColors.TEXT_MAGIC, "Suppress")
-	_add_mechanic_chip("slow", MECHANIC_SLOW_ICON, "%.0f%%" % (monster.slow * 100.0), UIColors.TEXT_MAGIC, "Slow")
-	_add_mechanic_chip("cleanse_threshold", MECHANIC_CLEANSE_ICON, "%d" % monster.cleanse_threshold, UIColors.TEXT_POISON, "Cleanse")
-	_add_mechanic_chip("stun_duration_ms", MECHANIC_STUN_ICON, _format_stun_duration(monster.stun_duration_ms), UIColors.TEXT_MAGIC, "Stun")
+	_add_mechanic_chip("block", MECHANIC_BLOCK_ICON, "%.0f" % monster.block, UIColors.TEXT_WARNING, _enemy_mechanic_tooltip("block", monster))
+	_add_mechanic_chip("dodge_chance", MECHANIC_DODGE_ICON, "%.0f%%" % (monster.dodge_chance * 100.0), UIColors.TEXT_WARNING, _enemy_mechanic_tooltip("dodge_chance", monster))
+	_add_mechanic_chip("crit_negation", MECHANIC_CRIT_NEGATION_ICON, "%.0f%%" % (monster.crit_negation * 100.0), UIColors.TEXT_WARNING, _enemy_mechanic_tooltip("crit_negation", monster))
+	_add_mechanic_chip("absorb", MECHANIC_ABSORB_ICON, "%.0f" % monster.absorb, UIColors.TEXT_MAGIC, _enemy_mechanic_tooltip("absorb", monster))
+	_add_mechanic_chip("suppress", MECHANIC_SUPPRESS_ICON, "%.0f%%" % (monster.suppress * 100.0), UIColors.TEXT_MAGIC, _enemy_mechanic_tooltip("suppress", monster))
+	_add_mechanic_chip("slow", MECHANIC_SLOW_ICON, "%.0f%%" % (monster.slow * 100.0), UIColors.TEXT_MAGIC, _enemy_mechanic_tooltip("slow", monster))
+	_add_mechanic_chip("cleanse_threshold", MECHANIC_CLEANSE_ICON, "%d" % monster.cleanse_threshold, UIColors.TEXT_POISON, _enemy_mechanic_tooltip("cleanse_threshold", monster))
+	_add_mechanic_chip("stun_duration_ms", MECHANIC_STUN_ICON, _format_stun_duration(monster.stun_duration_ms), UIColors.TEXT_MAGIC, _enemy_mechanic_tooltip("stun_duration_ms", monster))
 
 
-func _add_mechanic_chip(effect_id: String, icon: Texture2D, text: String, color: Color, label: String) -> void:
+func _add_mechanic_chip(effect_id: String, icon: Texture2D, text: String, color: Color, tooltip: String) -> void:
 	var chip: HBoxContainer = COMBAT_STATUS_ICONS.add_icon_label(_mechanic_row, icon, text, color, "MechanicChip")
 	chip.set_meta("effect_id", effect_id)
-	chip.tooltip_text = "%s: %s" % [label, text]
+	chip.tooltip_text = tooltip
 
 
 func _interrupt_status_text() -> String:
@@ -713,9 +726,13 @@ func _interrupt_status_text() -> String:
 	return "%d/%d" % [_interrupt_repeat_count, CombatResolver.INTERRUPT_REPEAT_THRESHOLD]
 
 
-func _add_status_chip(text: String, color: Color, icon: Texture2D = null) -> void:
+func _add_status_chip(text: String, color: Color, icon: Texture2D = null, tooltip: String = "") -> void:
+	if tooltip == "":
+		tooltip = _status_chip_tooltip(icon)
 	if icon != null:
-		COMBAT_STATUS_ICONS.add_icon_label(_status_row, icon, text, color, "StatusChip")
+		var icon_chip: HBoxContainer = COMBAT_STATUS_ICONS.add_icon_label(_status_row, icon, text, color, "StatusChip")
+		if tooltip != "":
+			icon_chip.tooltip_text = tooltip
 		return
 	var chip := Label.new()
 	chip.name = "StatusChip"
@@ -723,6 +740,54 @@ func _add_status_chip(text: String, color: Color, icon: Texture2D = null) -> voi
 	chip.add_theme_color_override("font_color", color)
 	chip.add_theme_font_size_override("font_size", COMBAT_STATUS_FONT_SIZE)
 	_status_row.add_child(chip)
+
+
+func _shred_status_tooltip() -> String:
+	return "Shred: Each stack reduces armor by %d" % _shred_value
+
+
+func _status_chip_tooltip(icon: Texture2D) -> String:
+	if icon == HUD_POISON_ICON:
+		return "Poison: Deals %.1f damage every 1.0s" % _poison_base_damage
+	if icon == HUD_SHRED_ICON:
+		return _shred_status_tooltip()
+	if icon == HUD_DECAY_ICON:
+		return "Decay: Each stack reduces resistance by %.0f%%" % (_decay_value * 100.0)
+	if icon == MECHANIC_INTERRUPT_ICON:
+		return _interrupt_status_tooltip(_monster)
+	return ""
+
+
+func _interrupt_status_tooltip(monster: Monster) -> String:
+	var prevented := monster.interrupt_skip_count if monster != null else 0
+	return "Interrupt: Casting %d times prevents next %d casts" % [CombatResolver.INTERRUPT_REPEAT_THRESHOLD, prevented]
+
+
+func _poison_stack_cap() -> int:
+	if _current_result == null:
+		return CombatResolver.MAX_POISON_STACKS
+	return maxi(1, _current_result.poison_stack_cap)
+
+
+func _enemy_mechanic_tooltip(effect_id: String, monster: Monster) -> String:
+	match effect_id:
+		"block":
+			return "Block: Prevents %.0f physical damage" % monster.block
+		"dodge_chance":
+			return "Dodge: %.0f%% chance for cast to miss" % (monster.dodge_chance * 100.0)
+		"crit_negation":
+			return "Crit Negation: Reduces crits by %.0f%%" % (monster.crit_negation * 100.0)
+		"absorb":
+			return "Absorb: Prevents %.0f elemental damage" % monster.absorb
+		"suppress":
+			return "Suppress: Damage over time ticks %.0f%% slower" % (monster.suppress * 100.0)
+		"slow":
+			return "Slow: Reduces attack speed by %.0f%%" % (monster.slow * 100.0)
+		"cleanse_threshold":
+			return "Cleanse: Removes all debuffs after %d casts" % monster.cleanse_threshold
+		"stun_duration_ms":
+			return "Stun: Hitting for %.0f%% of total health in a single hit stuns for %s" % [CombatResolver.STUN_TRIGGER_HIT_PERCENT * 100.0, _format_stun_duration(monster.stun_duration_ms)]
+	return ""
 
 
 func _flash_status_chips() -> void:
@@ -820,6 +885,8 @@ func _spawn_popup(event: CombatPlayback.PlaybackEvent) -> void:
 		_spawn_text_popup(_popup_text(event), UIColors.TEXT_POISON, _poison_tick_font_size(), false, POPUP_TICK_RISE_SEC, true)
 		return
 	var cast := event.cast
+	if _is_hold_cast(cast):
+		return
 	var color := UIColors.TEXT_NORMAL
 	var font_size := POPUP_FONT_SIZE
 	var punch := false
@@ -838,6 +905,10 @@ func _spawn_popup(event: CombatPlayback.PlaybackEvent) -> void:
 		_spawn_text_popup(_popup_text(event), color, font_size, punch)
 	for triggered_name in cast.triggered_skill_names:
 		_spawn_text_popup(String(triggered_name), UIColors.TEXT_MAGIC, POPUP_PROC_FONT_SIZE, false)
+
+
+func _is_hold_cast(cast: CombatResolver.CastEvent) -> bool:
+	return cast != null and cast.skill != null and cast.skill.id == "skill.hold"
 
 
 func _spawn_gold_hit_popup(cast: CombatResolver.CastEvent, color: Color, font_size: int, punch: bool) -> void:
